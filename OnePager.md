@@ -706,6 +706,34 @@ than deleted so the plan doesn't get re-proposed.
 
 ### UI & rendering polish
 
+- [ ] **Draw the Curious Astronaut full-figure mascot properly** — the
+      **helmet mark is done and usable** (favicon, app tile, dock) and nothing
+      is blocked on this. What is *not* done is the whole-body character: three
+      passes produced a figure Patrick called "terrible," and the honest read
+      is that it needs an illustrator's eye rather than another round of
+      hand-tuned SVG path math. **What went wrong, so the next attempt doesn't
+      repeat it:**
+      - **Limbs as uniform stroked capsules read as sticks.** Adding ball
+        "mittens" at the ends helped but didn't fix it; real cuteness wants
+        limbs that *taper*, which strokes can't do — they need to be filled
+        paths.
+      - **The raised waving arm fuses into the helmet.** With a chibi head
+        (radius 15.5 of a 64 box) the dome reaches x≈47.5, so a stubby arm
+        physically cannot clear it. The current workaround is a navy knockout
+        clipped to the helmet circle, which *works* but is a patch over a
+        posing problem. Consider: both arms low, or a smaller head, or the
+        figure turned three-quarter.
+      - **Same-fill shapes on a dark ground merge silently.** Every ivory
+        element touching another ivory element becomes one blob. Any future
+        pose needs collision-checking, or a consistent outline treatment.
+
+      **Target:** the pudgy Reddit-avatar build — rounder body, no neck,
+      tapered limbs, genuine negative space between parts. Reference and
+      current state: <https://claude.ai/artifact/KxjPaM4yNcBNKLEK2fut8p>.
+      Palette is settled and should not change (ivory `#F7F5F0`, glass
+      `#12314A`/`#6FB6CE`, gold `#E8B44A`, ground `#0B1524`). *(Filed
+      2026-09-23.)*
+
 - [ ] **Cache indicators in search results: split "cached graph" from "cached
       search", and stop the badge outliving its cache** — the suspicion was
       right on both counts. The badge exists — it reads **"⚡ opens
@@ -1429,11 +1457,56 @@ than deleted so the plan doesn't get re-proposed.
       retyped across modules. A whole-codebase sweep, not a targeted one; keep the
       wire format identical so snapshots, saved sessions, and the SSE protocol are
       unaffected. *(From the `todos.md` inbox, 2026-07-13.)*
-- [ ] **Publish to PyPI — pick an available distribution name** — the package
-      `name` in `pyproject.toml` must change even though the GitHub repo and the
-      `atlas` CLI stay as-is. **Availability checked 2026-08-09:** `atlas` is
-      TAKEN; `arxiv-atlas`, `atlas-papers`, `papers-atlas`, `atlas-graph`, and
-      `citation-atlas` are all free (404 on the PyPI JSON API). Also needs the
+- [ ] **Rebrand: Atlas → Curious Astronaut** — settled 2026-09-23, and it
+      **gates the PyPI ticket below**, so do it first. Three things forced it.
+      (1) **`atlas` is unavailable and uncrowdable** — the PyPI name is held by
+      an active project (danijar's "Interactive environments for AI agents",
+      last release 2024-12-07), so PEP 541 is off the table and every candidate
+      needed a qualifier. (2) **Every qualifier re-narrowed the product**:
+      `papers-atlas`, `citation-atlas`, `atlas-graph` all name the *artifact*
+      the app renders. (3) **The map metaphor is a ceiling.** Atlas caps the
+      product at things that are map-shaped, and the app already runs without a
+      graph at all — `services/sources` lets the teacher answer from an
+      uploaded textbook with no graph in sight, and every exploration has a
+      permanent General discussion. A name should name the relationship, not
+      the object on screen; an astronaut is the explorer, not the map.
+      **"arXiv Atlas" was already vestigial** — `README.md` says only "Atlas"
+      and mentions arXiv twice, both incidental; the graph is Semantic
+      Scholar's, across all fields. *(`OnePager.md` and `CLAUDE.md` still carry
+      the old "arXiv Atlas" wording — they are wrong, and this ticket fixes
+      them.)*
+
+      **The sweep:** `src/atlas/` → the new package, the `atlas` CLI console
+      script, every source-file copyright header (see
+      [docs/licensing.md](docs/licensing.md)), `pyproject.toml` name +
+      description, `config.json`/`config.example.json` if any key embeds the
+      name, `data/atlas.log`, all the package READMEs, `README.md`,
+      `docs/`, `CLAUDE.md`, and the GitHub repo itself (a **second** rename
+      after `arxiv-digest` → `atlas` on 2026-07-17; old remote URLs redirect,
+      so this is safe but worth doing once and deliberately). **Do the rename
+      before the PyPI publish and before any one-way import into the work
+      Artifactory** — both freeze the name permanently.
+
+      **Branding assets exist** — palette and icon explorations, with the
+      helmet mark chosen for the favicon:
+      <https://claude.ai/artifact/KxjPaM4yNcBNKLEK2fut8p>. Ivory `#F7F5F0`
+      suit, deep glass `#12314A` with a `#6FB6CE` rim, gold `#E8B44A` face,
+      navy `#0B1524` ground, and the citation graph ghosted into the visor at
+      ~6%. *(Filed 2026-09-23.)*
+- [ ] **Publish to PyPI as `curious-astronaut`** — **name chosen 2026-09-23**
+      (free on PyPI as of that date; see the rebrand ticket above for why not
+      an `atlas-*` name). **Blocked on the rebrand landing first** — publishing
+      under the old package name would defeat the point. The GitHub repo and
+      the CLI follow the rebrand; this ticket is only the packaging.
+
+      **The Xray blocker is CLEARED (2026-09-23, Patrick):** the policy does
+      **not** flag *declared* optional dependencies, only what actually
+      resolves. Since v7.15.0 moved `pymupdf` into the `pdf` extra, the default
+      dependency graph carries no AGPL, which is exactly the shape needed — so
+      the PyMuPDF → `pypdfium2`/`pdfminer.six` swap is **not** required. Don't
+      re-open it. *(Previous availability check, 2026-08-09: `atlas` TAKEN;
+      `arxiv-atlas`, `atlas-papers`, `papers-atlas`, `atlas-graph`,
+      `citation-atlas` free — all superseded by the rebrand.)* Also needs the
       packaging work: **bundling the built React frontend (`frontend/dist`) as
       package data** so `atlas serve` works from an installed wheel,
       config-file discovery for an installed package (today it reads
@@ -1451,17 +1524,11 @@ than deleted so the plan doesn't get re-proposed.
       **Consequences of that framing:**
       - PyPI gives no *fork* — no git history, no PRs. It seeds a work-side
         repo once; it is not a synced remote. Accepted.
-      - **The PyMuPDF/AGPL blocker is half-cleared.** `pymupdf` moved to the
-        `pdf` extra in **v7.15.0** (see [docs/history.md](docs/history.md)), so
-        the default dependency graph now carries no AGPL at all — the shape
-        that was supposed to get this past Xray. **What is still unanswered is
-        whether that is enough:** some policy engines flag *declared* optional
-        dependencies, not just what resolves. **Patrick owns clarifying the
-        Xray policy** on exactly that point. If declared extras are also
-        flagged, the fallback is swapping PyMuPDF for `pypdfium2` (BSD-3/
-        Apache-2.0) or `pdfminer.six` (MIT) — a much bigger job, since
-        `mine.py`/`floats.py` lean on PyMuPDF's layout and image extraction.
-        Confirm before building either.
+      - **The PyMuPDF/AGPL blocker is fully cleared** (2026-09-23) — see the
+        Xray note at the top of this ticket. `pymupdf` sits in the `pdf` extra
+        as of **v7.15.0**, declared extras are not flagged, and
+        `mine.py`/`floats.py` keep their PyMuPDF dependency. Settled; don't
+        re-litigate.
       - **Open: does the work side need the frontend TypeScript source?** A
         wheel/sdist would carry the built `frontend/dist`, not `frontend/src`.
         Their Artifactory also fronts npm, so building the frontend at work is
@@ -1491,9 +1558,10 @@ than deleted so the plan doesn't get re-proposed.
       tag matches `pyproject.toml`'s version — it is the place the build and
       publish jobs will land. **Fold PyPI publishing in** — the concrete
       packaging (distribution name, frontend bundling) is the "Publish to PyPI"
-      item above; this is the surrounding automation, and it **shouldn't start
-      until the Xray policy answer lands**, since that decides whether there's
-      a publishable artifact at all. Deploy is the genuinely open one: no
+      item above; this is the surrounding automation. **The Xray gate that used
+      to block this is cleared (2026-09-23)** — there *is* a publishable
+      artifact — so the only ordering left is: rebrand → packaging → this.
+      Deploy is the genuinely open one: no
       target has been chosen, and the service needs an `ANTHROPIC_API_KEY` and
       a writable `data/`, so it isn't a static host. *(From the `todos.md`
       inbox, 2026-07-20; narrowed 2026-08-09 when CI shipped.)*
