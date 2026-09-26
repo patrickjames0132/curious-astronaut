@@ -1,9 +1,9 @@
-# Atlas
+# Curious Astronaut
 
 **Explore how research papers connect — and have an AI teacher narrate the
 story of how a field got here.**
 
-Drop in a paper and Atlas renders a **Connected-Papers-style interactive
+Drop in a paper and Curious Astronaut renders a **Connected-Papers-style interactive
 graph** of how it links to the literature — the papers it cites (its
 intellectual ancestors), the papers that cite it (its descendants), and its
 nearest neighbors by meaning. Then wander: double-click any node to re-center
@@ -21,7 +21,7 @@ corpus of papers to store. The only things kept on disk are a small cache of
 the graphs you've looked at, your saved sessions, and the library of sources
 you upload (embedded locally; nothing leaves your machine).
 
-**Why it exists.** Atlas is free software (MIT), built to put research and
+**Why it exists.** Curious Astronaut is free software (MIT), built to put research and
 self-teaching within reach of anyone who wants to learn something — not to
 become a product. It runs on your own machine, and the sources you upload
 never leave it. If something with more reach ever does this better, good;
@@ -106,7 +106,7 @@ the API-key values may be left blank. For the **full value-by-value reference**
 (every tunable, its default, and *why* it's there), see
 **[docs/configuration.md](docs/configuration.md)**.
 
-The two **data-source keys are completely optional** — Atlas explores the graph
+The two **data-source keys are completely optional** — Curious Astronaut explores the graph
 fully without them, just on tighter public rate limits. The **Anthropic key is
 the one that unlocks the AI teacher** (lectures, research Q&A, library chat); the
 graph explorer runs fine without it, but the Assistant panel needs it.
@@ -150,14 +150,14 @@ graph explorer runs fine without it, but the Assistant panel needs it.
 
 ```bash
 cd frontend && npm install && npm run build && cd ..
-uv run atlas serve                      # http://127.0.0.1:5000
-uv run atlas serve --port 5050          # ...or another port (--host to expose it)
+uv run astronaut serve                      # http://127.0.0.1:5000
+uv run astronaut serve --port 5050          # ...or another port (--host to expose it)
 ```
 
 **Development** (two terminals, hot-reloading frontend):
 
 ```bash
-uv run atlas serve                      # Terminal 1 — API
+uv run astronaut serve                      # Terminal 1 — API
 cd frontend && npm run dev                    # Terminal 2 — http://localhost:5173
 ```
 
@@ -247,7 +247,7 @@ The Vite dev server proxies `/api/*` to Flask.
    **alt-click** empty (or **Clear**) to reset. Picked papers ring cyan and the
    rest dim; the teacher then grounds only in your selection — even papers a
    filter later hides, which stay drawn with a dotted ring. Click the
-   **Atlas** brand anytime to go home. By default the app **sizes each graph
+   **Curious Astronaut** brand anytime to go home. By default the app **sizes each graph
    for you** (how many landmark citers to ship, where the Latest bands start —
    per seed); turn **"Size graphs automatically" off** in Settings ▸ Graph to
    have it ship everything it can and size the bands yourself, and each filter
@@ -340,7 +340,7 @@ The Vite dev server proxies `/api/*` to Flask.
      written out by the model.
      Underneath each answer, a line says what actually grounded it — which of
      your sources, which papers, how much of the web — computed from what the
-     agent did, not from what it claims. When nothing grounded it, it says that too: Atlas grounds
+     agent did, not from what it claims. When nothing grounded it, it says that too: Curious Astronaut grounds
      answers in real material, and is honest when it can't. A lecture gets the
      same line, saying how many papers it narrated.
      **And a turn tells you which graph it came from, once that stops being
@@ -351,7 +351,7 @@ The Vite dev server proxies `/api/*` to Flask.
      loaded. So any turn answered over a graph other than the one you are
      looking at says *"From the “…” graph"* at the top, which is the difference
      between a dead link and an answer that explains itself.
-   - **No graph open? Then the assistant *is* the page.** Atlas opens on a
+   - **No graph open? Then the assistant *is* the page.** Curious Astronaut opens on a
      centred chat bar — no graph and no uploaded library required — and the
      same agent answers seedless, searching your library through its tools
      rather than being handed passages, so a greeting stays a greeting and a
@@ -380,7 +380,7 @@ The Vite dev server proxies `/api/*` to Flask.
 ## The codebase
 
 The rewrite's first principle: **every package documents itself**. Start at
-any folder's `README.md` — e.g. `src/atlas/agents/` (the two tiers —
+any folder's `README.md` — e.g. `src/curious_astronaut/agents/` (the two tiers —
 orchestrators that own an outcome, workers that own one source each — plus
 the event protocol and the streaming bridge), `services/sources/` (hybrid retrieval:
 FTS5 + vectors + RRF), `frontend/src/README.md` (the render-tree map), or
@@ -400,7 +400,7 @@ All of that also runs in CI (`.github/workflows/ci.yml`) on every push to
 toolchain from `.tool-versions` with mise, so it runs the *same* python / uv /
 node / trivy the developer machines do — and because Trivy is genuinely on
 PATH there, the security scan actually runs rather than skipping. It reuses
-`bin/setup.sh` rather than restating it, with `ATLAS_SKIP_TORCH=1`, which
+`bin/setup.sh` rather than restating it, with `CA_SKIP_TORCH=1`, which
 drops the `sources` extra: nothing in the gate needs torch, and skipping it
 avoids dragging the 37 Linux CUDA packages into every run (1.0 GB → 304 MB).
 The `pdf` and `corpus` extras *are* installed there — those tests build real

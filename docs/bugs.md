@@ -22,19 +22,50 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### Our User-Agent pointed at a repo that had not existed for two months (v8.0.0)
+
+- **Symptom.** None visible — which is the point. Every outbound request to
+  arXiv, OpenAlex and the PDF fetcher identified itself as
+  `curious-astronaut/1.1 (https://github.com/patrickjames0132/arxiv-digest)`
+  long after the repo stopped being called `arxiv-digest`. Nothing broke,
+  nothing logged, and no test asserted on it. It was found only because the
+  v8.0.0 rebrand grepped for every occurrence of the old names.
+- **Root cause.** The 2026-07-17 rename (`arxiv-digest` → `atlas`) updated
+  imports, paths and prose, but the repo URL lived **inside a string literal**,
+  in four separate modules (`integrations/arxiv/categories.py`,
+  `integrations/arxiv/client.py`, `integrations/openalex/client.py`,
+  `services/pdf/fetch.py`). A rename sweep driven by identifiers and file paths
+  never sees those — they are opaque text to every tool that would otherwise
+  catch a stale name, from the type checker to the linter. GitHub's redirect
+  then hid the consequence: the stale URL still resolved, so even a human
+  clicking it saw the right repo.
+- **Fix.** All four updated to the current repo URL in v8.0.0, and the rebrand
+  sweep explicitly enumerated string-literal categories (User-Agent strings,
+  log filenames, env-var names, localStorage keys) as their own pass rather
+  than trusting an identifier-level rename.
+- **Lesson / guard.** **A rename is not done when the code compiles.** Names
+  leak into string literals that no tool validates: user agents, log paths,
+  env vars, storage keys, URLs. When renaming, grep the *old* name
+  case-insensitively across every tracked file and account for each hit
+  individually — and treat a redirect (GitHub's, a DNS alias, a symlink) as a
+  reason the staleness will stay invisible, not a reason it is harmless. The
+  same sweep caught `ATLAS_SKIP_TORCH`, which had to stay in lockstep across
+  CI and both setup scripts or the Linux CI sync would have silently pulled
+  1 GB of CUDA packages.
+
 ### No current OpenAI model could run an agent at all (v7.28.1)
 
 - **Symptom.** Point any agent at `openai:gpt-5.6-…` (or `gpt-6-…`) with a
   blank `base_url` and every run failed on the first request:
   `Function tools with reasoning_effort are not supported for gpt-5.6-luna
   in /v1/chat/completions. To use function tools, use /v1/responses or set
-  reasoning_effort to 'none'.` Atlas never sets `reasoning_effort` anywhere,
+  reasoning_effort to 'none'.` Curious Astronaut never sets `reasoning_effort` anywhere,
   which is what made the message read like someone else's bug.
 - **Root cause.** `agents/factory.py`'s `openai` arm built PydanticAI's
   `OpenAIChatModel`, i.e. the legacy chat-completions endpoint. We send no
   `reasoning_effort`, so OpenAI applies the model's default — on its current
   models that is reasoning *on* — and chat-completions refuses function tools
-  in that state. Every Atlas agent is function tools (structured output is a
+  in that state. Every Curious Astronaut agent is function tools (structured output is a
   tool call), so the arm could not drive a current OpenAI model at all. A
   second, silent loss hid behind the same choice: on chat-completions
   PydanticAI strips `WebSearchTool` from every model that isn't a
@@ -142,7 +173,7 @@ recur with the next data release, and its workaround must survive future cleanup
   Duplicate React keys made reconciliation retain stale explorer elements.
 - **Fix.** Distinct `graph:<epoch>` and `teacher:<epoch>` keys preserve the intended
   remount boundary without collisions.
-- **Lesson / guard.** `frontend/test/Atlas.test.tsx` exercises repeated navigation
+- **Lesson / guard.** `frontend/test/Curious Astronaut.test.tsx` exercises repeated navigation
   through General and two graph threads and counts the rendered panels.
 
 ### Lecture follow-ups had no lecture in their history (v7.22.0)
@@ -278,7 +309,7 @@ demand, which is how it was finally caught.*
   one asserting the list projection still drops the abstract. Worth noting the
   *reporting* was the real obstacle: the failure surfaced only as a red line
   under the bubble, so the four-deep chain had to be read out of the traceback
-  in `data/atlas.log`.
+  in `data/curious-astronaut.log`.
 
 ### The autosave copied one exploration's conversation into another's row
 
@@ -433,7 +464,7 @@ v7.14.0. The bug was small; the detour is the part worth keeping.*
 v7.14.0. Two bugs, one line of code.*
 
 - **Symptom.** Two, and they looked unrelated. A machine with a blank
-  `llm.providers` block couldn't start Atlas at all: `create_app` raised
+  `llm.providers` block couldn't start Curious Astronaut at all: `create_app` raised
   before returning, so the **keyless graph explorer** — the half of the app
   that needs no API key, and the half README.md and `docs/configuration.md`
   both promise costs nothing — was unreachable by exactly the people it was
@@ -487,7 +518,7 @@ v7.14.0. Two bugs, one line of code.*
 
 *Found 2026-08-16 by Patrick, as an ingest that died 36 minutes in. Fixed in v7.12.0.*
 
-- **Symptom.** `atlas corpus ingest --release 2026-08-05` ran for 36 minutes,
+- **Symptom.** `astronaut corpus ingest --release 2026-08-05` ran for 36 minutes,
   reached citations shard **355/395**, and died inside a DuckDB worker:
 
   ```
@@ -525,7 +556,7 @@ v7.14.0. Two bugs, one line of code.*
   tail via `Range`. The checkpoint records the advertised size alongside the
   byte count, so a shard whose size disagrees is re-fetched rather than
   trusted, and a 416 is now resolved by probing the object's real size instead
-  of being guessed at. `atlas corpus verify [--deep] [--repair]` audits an
+  of being guessed at. `astronaut corpus verify [--deep] [--repair]` audits an
   existing corpus. Repairing the real shard cost only the missing 497 MB,
   because a truncation cuts the tail and the bytes on disk are a valid prefix.
 - **Lesson / guard.** **The quiet variant is the dangerous one.** This
@@ -697,7 +728,7 @@ v7.14.0. Two bugs, one line of code.*
   *runtime*, and this run spent all 12 steps on reads before it ever reached
   the web. From there it was a closed loop, and each lap cost two requests:
   `search_web` refused (`STEPS_EXHAUSTED` — it never reached the scout, which
-  is how `data/atlas.log` proves it, with no `search_web need=` line for the
+  is how `data/curious-astronaut.log` proves it, with no `search_web need=` line for the
   whole run) → the model wrote an answer → the guard saw `web_searches_run ==
   0` and bounced it with *"call search_web"* → the model obeyed. Twice, until
   the `UsageLimits` backstop fired. The 16 model requests in the log are the
@@ -755,7 +786,7 @@ v7.14.0. Two bugs, one line of code.*
 - **Fix.** Scouts emit a `pending` trace on `PartEndEvent`; the finished trace
   **replaces** its pending twin in the store (`traceAdded`) so one chip fills
   in rather than two stacking up. Separately, the web scout dropped from Sonnet
-  to Haiku with `max_uses` 4 → 2 — it was the slow half, and `data/atlas.log`
+  to Haiku with `max_uses` 4 → 2 — it was the slow half, and `data/curious-astronaut.log`
   had one of its calls holding a connection for 86 seconds.
 - **Lesson / guard.** *An event named for a thing is not proof it precedes
   that thing.* When ordering matters, assert the order — a presence check
@@ -782,7 +813,7 @@ v6.14.0.*
   S2 while the header said OpenAlex, and its citations carried 40-hex S2
   paperIds. The seeding click (v6.11.0) built with the *workspace's* provider,
   producing `?seed=<S2 paperId>&provider=openalex`, which
-  `openalex.resolve_seed_work` correctly found nothing for. `data/atlas.log`
+  `openalex.resolve_seed_work` correctly found nothing for. `data/curious-astronaut.log`
   had both halves in plain sight: `semantic_scholar.client` requests during an
   OpenAlex session, then `graph build failed for 9ecbd3cf…`.
 - **Why it hid.** `/api/ask` and `/api/ask_sources` are siblings serving the
@@ -826,14 +857,14 @@ Green on macOS and Linux for as long as the test had existed.*
   agent calls `search_sources`, which runs the *real* retrieval path, which
   embeds the query with a *real* sentence-transformers model. So the suite
   downloaded and ran a BERT model on any machine where torch was importable —
-  flatly contradicting `test/atlas/conftest.py`'s "fully offline" guarantee.
+  flatly contradicting `test/curious_astronaut/conftest.py`'s "fully offline" guarantee.
   It had never been *noticed* because `_load_model` swallows failures and
   returns `None`: wherever torch was missing or the model wouldn't load, the
   code degraded silently to lexical search and the test passed anyway. Windows
   CI was simply the first environment where torch *was* present, *was*
   loadable, and was the **CUDA build with no GPU** — where the same code path
   doesn't degrade, it segfaults.
-- **The second, self-inflicted half.** CI had set `ATLAS_SKIP_TORCH=1` so
+- **The second, self-inflicted half.** CI had set `CA_SKIP_TORCH=1` so
   `bin/setup.sh` would skip torch entirely, which would have masked this
   forever. It didn't work: **`uv run` syncs the project before running**, so
   `uv run nox` reinstalled the very package the bootstrap had excluded. The
@@ -903,7 +934,7 @@ before the logs settled it.*
   real question `conversational` to excuse itself from searching — a genuine
   design weakness (`_must_have_looked` only fires on `answered`, and `kind` is
   self-reported by the party it constrains), so the story fit. It was wrong.
-  `grep 'answer kind=' data/atlas.log` showed
+  `grep 'answer kind=' data/curious-astronaut.log` showed
   `kind=answered library=False searches=0`: the classification was correct
   every time, and there simply was **no library in scope** on those turns.
 - **Root cause.** A missing branch in `transcript/provenance.ts`. The
@@ -1032,7 +1063,7 @@ reached into nor, as it turned out, the figure it actually asked for.*
   p.72" can only be read as the address that was tried — and the same
   mislabeling family as the Sarsa(λ) incident below, where our text asserted
   something about a figure we hadn't actually identified. Guarded by
-  `test/atlas/agents/test_library_figures.py` (every emit path's chip
+  `test/curious_astronaut/agents/test_library_figures.py` (every emit path's chip
   contract, including the unknown-source and lookup-explodes degradations)
   and the hyphen/en-dash/spaced-dash cases in `test_captions.py`. Note the
   hyphen truncation was found *by writing the test*, not by the browser
@@ -1087,7 +1118,7 @@ Chapter-2 bandit parameter study confidently captioned as backup diagrams.*
   (bandit parameter study) as "the backup diagrams for the Bellman optimality
   equations".
 - **Root cause.** Three stacked design gaps, reconstructed from
-  `data/atlas.log`. (1) The wanted backup diagrams are **uncaptioned inline
+  `data/curious-astronaut.log`. (1) The wanted backup diagrams are **uncaptioned inline
   graphics** — invisible to caption-anchored mining (the documented
   limitation, and textbooks hit it hard). (2) The tool's wrong-page message
   listed the pages that DO have figures **as bare page numbers** — an open
@@ -1132,7 +1163,7 @@ booktabs-table extractor.*
   and algorithm floats, so any PyMuPDF rect-algebra over them must be
   audited for empty-operand semantics (`|`, `&`, `contains` all special-case
   empty). Guarded by the synthetic-PDF tests in
-  `test/atlas/services/pdf/test_floats.py` (`draw_line` produces exactly such
+  `test/curious_astronaut/services/pdf/test_floats.py` (`draw_line` produces exactly such
   height-0 rects; the booktabs and algorithm tests fail if `|` sneaks back),
   and by comments at both construction sites.
 
@@ -1543,7 +1574,7 @@ the notebooks after a vocabulary rename.*
 - **Lesson / guard.** A shared async client and a per-call event loop are
   incompatible the moment anything runs concurrently — the loop a pooled
   connection was born on must outlive every stream using it. New test
-  `test/atlas/agents/test_streams.py` drives **8 streams concurrently** and
+  `test/curious_astronaut/agents/test_streams.py` drives **8 streams concurrently** and
   asserts they all complete cleanly (the prior suite only ever drove one at a
   time, so it couldn't have caught this).
 
@@ -1716,7 +1747,7 @@ notation".*
   presentation MathML (`<mi>`, `<msub>`…), a content-MathML / semantic
   annotation (the source of the literal words `subscript`, `superscript`,
   `italic-ϵ`), and a LaTeX annotation. `_FigureParser` in
-  `src/atlas/integrations/arxiv/figures.py` stripped tags and accumulated **all
+  `src/curious_astronaut/integrations/arxiv/figures.py` stripped tags and accumulated **all
   of it**, concatenating the three into soup. The clean LaTeX was sitting
   unused in each element's `alttext` attribute the whole time.
 - **Fix.** `_FigureParser` now tracks `<math>` nesting: on entering the

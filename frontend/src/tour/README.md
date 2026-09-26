@@ -28,14 +28,14 @@ localStorage seen-flag: **HOME_TOUR** (the chat bar, its two toggles, the
 data-source dropdown, and the three header drawers — Library, Assistant,
 Sessions) auto-runs on first launch, before any graph exists; **GRAPH_TOUR**
 (the graph tools, the detail panel, the lectures, the Q&A researcher)
-auto-runs when the first graph lands. `Atlas.tsx` picks the list by whether a
+auto-runs when the first graph lands. `App.tsx` picks the list by whether a
 graph is up — the same "?" click tours whatever the user is actually looking
 at. Swapping the `steps` prop mid-run restarts the walk from the new list's
 first stop.
 
 ## The third list: the settings modal (v7.29.0)
 
-`SETTINGS_TOUR` is not driven by `Atlas.tsx` at all: `SettingsModal` mounts
+`SETTINGS_TOUR` is not driven by `App.tsx` at all: `SettingsModal` mounts
 `Tour` itself, inside the modal so it stacks above it, and launches it from
 the ringed **?** beside its ✕ (auto-run once on the first open, under
 `TOUR_KEYS.settings`). Its steps stage `<section>` or `<section>/<page>`,
@@ -57,7 +57,7 @@ is what the walk relies on rather than a fallback for a reader who folded it
 away. `'assistant'` does both jobs at once as of v7.10.0: it opens the panel
 *and* reaches `Teacher`'s own `stagedOpen`, which unfolds the lecture section
 — folded by default there too, and for the same reason. Entering a step with no stage fires `onStage(undefined)`, which is
-the caller's cue to put drawers away again (in `Atlas`, the two drawers close;
+the caller's cue to put drawers away again (in `Curious Astronaut`, the two drawers close;
 the assistant only ever opens — collapsing it mid-walk would hide the graph
 tour's own lecture/ask stops, which stage it too). A staged step's target may
 not exist (or be visible) at mount, so its walk-membership is judged by
@@ -89,7 +89,7 @@ classes — a rename-safe, greppable contract between `steps.ts` and the DOM.
 
 ## Who drives it
 
-`Atlas.tsx`: auto-runs each phase **once ever** (guarded by its
+`App.tsx`: auto-runs each phase **once ever** (guarded by its
 `TOUR_KEYS` localStorage flag) — home on first launch, graph on the first
 graph — and re-launches the current phase from the header's always-present
 **"?"** button (`.tour-launch`). Done, Skip, ✕, and Esc all mark the phase

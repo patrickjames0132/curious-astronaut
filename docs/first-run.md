@@ -5,9 +5,9 @@ for someone who is not a developer." Nothing here is built yet. This exists so
 the build decision is made once, with numbers, instead of re-argued each time
 the ticket comes up.*
 
-Today's path to a running Atlas: install mise → it installs Python 3.14, uv,
+Today's path to a running Curious Astronaut: install mise → it installs Python 3.14, uv,
 Node and trivy → `uv sync --all-groups` → `npm install && npm run build` →
-`uv run atlas serve`. Reasonable for the person who wrote it. A wall for a
+`uv run astronaut serve`. Reasonable for the person who wrote it. A wall for a
 student who wants to learn something.
 
 ## The finding that reframes the question
@@ -25,7 +25,7 @@ macOS, 2026-08-28:
 The gap is `torch` (418 MB on its own) and what it drags with it —
 `transformers`, `scipy`, `sympy`, `numpy`. On **Linux** it is worse than the
 table shows: the lockfile resolves 37 `nvidia-*` CUDA packages there, which is
-why CI sets `ATLAS_SKIP_TORCH=1` rather than pay for them.
+why CI sets `CA_SKIP_TORCH=1` rather than pay for them.
 
 None of it is needed to explore a graph or hear a lecture. `torch` arrives via
 `sentence-transformers`, which is imported in exactly one place —
@@ -61,7 +61,7 @@ Four separate walls, and they are not equally hard:
 
 ## The three options, priced
 
-### A. Prebuilt release artifact (`pip install`, then `atlas serve`)
+### A. Prebuilt release artifact (`pip install`, then `astronaut serve`)
 
 **Cost:** config discovery must move off `PROJECT_ROOT` to a real user path
 (`~/.config/atlas/` or platformdirs), `frontend/dist` must ship as package
@@ -99,7 +99,7 @@ missing is the *moment*: a first-launch state that says "you have no model
 provider; here are four, two are free" and links to Settings, instead of the
 teacher failing on first use with a message about `config.json`.
 
-**Leaves standing:** walls 1 and 2 entirely. This does not make Atlas
+**Leaves standing:** walls 1 and 2 entirely. This does not make Curious Astronaut
 installable — it makes it *usable once installed*.
 
 ## Recommendation
@@ -135,7 +135,7 @@ Sequence, not a choice — the options are not alternatives:
 
 ## Open questions
 
-- **Where should config live for an installed Atlas?** `~/.config/atlas/` is
+- **Where should config live for an installed Curious Astronaut?** `~/.config/atlas/` is
   the obvious answer, but the `.config-location` sidecar and the "path is
   anchored to the repo root" convention in `StorageConfig` both assume a
   checkout. Settle this before the packaging work hard-codes anything — it is

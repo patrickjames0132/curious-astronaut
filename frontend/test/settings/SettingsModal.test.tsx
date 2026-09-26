@@ -17,10 +17,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import SettingsModal from '../../src/settings/SettingsModal'
-import type { AtlasConfig } from '../../src/api'
+import type { AppConfig } from '../../src/api'
 
 /** A minimal but complete-enough config the modal's sections can render. */
-function makeConfig(): AtlasConfig {
+function makeConfig(): AppConfig {
   return {
     storage: { data_dir: 'data', s2_corpus: null },
     providers: {
@@ -85,7 +85,7 @@ const fetchState = {
 beforeEach(() => {
   // The settings tour auto-runs once ever; every test but the tour's own
   // starts with it already seen, or its bubble text lands in the queries.
-  localStorage.setItem('atlas.tour.settings', '1')
+  localStorage.setItem('curious_astronaut.tour.settings', '1')
   fetchState.config = makeConfig()
   fetchState.path = '/repo/config.json'
   fetchState.failPutWith = null
@@ -114,7 +114,7 @@ beforeEach(() => {
       if (fetchState.failPutWith) {
         return new Response(JSON.stringify({ error: fetchState.failPutWith }), { status: 400 })
       }
-      fetchState.config = (fetchState.lastPutBody as { config: AtlasConfig }).config
+      fetchState.config = (fetchState.lastPutBody as { config: AppConfig }).config
     }
     if (init?.method === 'PUT' && String(url).endsWith('/api/settings/location')) {
       fetchState.path = (JSON.parse(String(init.body)) as { path: string }).path
@@ -164,7 +164,7 @@ describe('SettingsModal', () => {
     fireEvent.change(screen.getByDisplayValue('86400'), { target: { value: '123' } })
     fireEvent.click(await screen.findByText('Save'))
     await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
-    const body = fetchState.lastPutBody as { config: AtlasConfig }
+    const body = fetchState.lastPutBody as { config: AppConfig }
     expect(body.config.graph.cache_ttl).toBe(123)
     expect(body.config.untouched_section).toEqual({ keep: 'me' })
   })
@@ -198,7 +198,7 @@ describe('SettingsModal', () => {
     fireEvent.change(stepBudget, { target: { value: '8' } })
     fireEvent.click(await screen.findByText('Save'))
     await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
-    let body = fetchState.lastPutBody as { config: AtlasConfig }
+    let body = fetchState.lastPutBody as { config: AppConfig }
     expect(body.config.llm.agents.find((agent) => agent.id === 'researcher')?.extras).toEqual({
       max_steps: 8,
     })
@@ -206,7 +206,7 @@ describe('SettingsModal', () => {
     fireEvent.change(screen.getByDisplayValue('8'), { target: { value: '' } })
     fireEvent.click(await screen.findByText('Save'))
     await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
-    body = fetchState.lastPutBody as { config: AtlasConfig }
+    body = fetchState.lastPutBody as { config: AppConfig }
     expect(body.config.llm.agents.find((agent) => agent.id === 'researcher')?.extras).toEqual({})
   })
 
@@ -310,7 +310,7 @@ describe('SettingsModal', () => {
     fireEvent.change(summarizerVendor, { target: { value: 'ollama' } })
     fireEvent.click(await screen.findByText('Save'))
     await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
-    const body = fetchState.lastPutBody as { config: AtlasConfig }
+    const body = fetchState.lastPutBody as { config: AppConfig }
     // The model must move with the vendor — an anthropic model name under an
     // ollama prefix would be a config that cannot run.
     expect(body.config.llm.agents.find((agent) => agent.id === 'summarizer')?.model).toBe(
@@ -325,7 +325,7 @@ describe('SettingsModal', () => {
     fireEvent.change(lecturerModel, { target: { value: 'claude-opus-4-8' } })
     fireEvent.click(await screen.findByText('Save'))
     await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
-    const body = fetchState.lastPutBody as { config: AtlasConfig }
+    const body = fetchState.lastPutBody as { config: AppConfig }
     expect(body.config.llm.agents.find((agent) => agent.id === 'lecturer')?.model).toBe(
       'anthropic:claude-opus-4-8',
     )
@@ -390,7 +390,7 @@ describe('SettingsModal', () => {
     fireEvent.change(keyInput, { target: { value: 'sk-new' } })
     fireEvent.click(await screen.findByText('Save'))
     await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
-    const body = fetchState.lastPutBody as { config: AtlasConfig }
+    const body = fetchState.lastPutBody as { config: AppConfig }
     expect(body.config.llm.providers.anthropic?.api_key).toBe('sk-new')
   })
 
@@ -430,7 +430,7 @@ describe('SettingsModal', () => {
     expect(new Set(vendors.map((select) => select.value))).toEqual(new Set(['ollama']))
     fireEvent.click(await screen.findByText('Save'))
     await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
-    const body = fetchState.lastPutBody as { config: AtlasConfig }
+    const body = fetchState.lastPutBody as { config: AppConfig }
     const model = (id: string) => body.config.llm.agents.find((agent) => agent.id === id)?.model
     expect(model('lecturer')).toBe('ollama:qwen3:8b')
     expect(model('researcher')).toBe('ollama:qwen3:8b')
@@ -468,7 +468,7 @@ describe('SettingsModal', () => {
     fireEvent.change(await screen.findByDisplayValue('6'), { target: { value: '9' } })
     fireEvent.click(await screen.findByText('Save'))
     await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
-    const body = fetchState.lastPutBody as { config: AtlasConfig }
+    const body = fetchState.lastPutBody as { config: AppConfig }
     expect(body.config.sources.semantic_enabled).toBe(false)
     expect(body.config.sources.retrieval.search_k).toBe(9)
     // Everything else in the block rode along untouched.
@@ -500,11 +500,11 @@ describe('SettingsModal', () => {
   })
 
   it('the settings tour auto-runs once on first open, then stays behind the ?', async () => {
-    localStorage.removeItem('atlas.tour.settings')
+    localStorage.removeItem('curious_astronaut.tour.settings')
     await renderOpen()
     expect(await screen.findByRole('dialog', { name: 'Guided tour' })).toBeTruthy()
     fireEvent.click(screen.getByText('Skip tips'))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Guided tour' })).toBeNull())
-    expect(localStorage.getItem('atlas.tour.settings')).toBe('1')
+    expect(localStorage.getItem('curious_astronaut.tour.settings')).toBe('1')
   })
 })

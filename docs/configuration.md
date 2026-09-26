@@ -5,7 +5,7 @@
 deliberately *aren't* config — are catalogued in
 [`constants.md`](constants.md).) Each field's meaning lives as a Pydantic
 `Field(description=...)` right next to it in
-[`config.py`](../src/atlas/config.py) — read that file for what each
+[`config.py`](../src/curious_astronaut/config.py) — read that file for what each
 setting does. This page is for the **why** behind specific example values,
 where a JSON file (no comments allowed) can't say it.
 
@@ -28,7 +28,7 @@ because those are chat/tool-use credentials, not graph data sources).
   request/second on the graph endpoints. Waiting 1.1s between requests up
   front is cheaper than firing bursts and eating 429s + exponential backoff.
   Set to `0` to disable (the test suite does this so it never sleeps).
-- **No `api_key` still works.** Atlas runs fully keyless, just harder
+- **No `api_key` still works.** Curious Astronaut runs fully keyless, just harder
   rate-limited. A free key from
   [semanticscholar.org/product/api](https://www.semanticscholar.org/product/api)
   lifts that ceiling substantially.
@@ -60,7 +60,7 @@ measured 20.6s vs 98.2s per shard, 2.2h vs 10.6h per release. Recombined
 2026-07-19: in practice one drive held both, and the split was config surface
 nobody used. If ingest speed ever matters again, the fix is a fast drive for
 the whole root.) See
-[`corpus/README.md`](../src/atlas/integrations/semantic_scholar/corpus/README.md).
+[`corpus/README.md`](../src/curious_astronaut/integrations/semantic_scholar/corpus/README.md).
 
 ## `graph` — neighborhood size
 
@@ -68,7 +68,7 @@ The app **sizes every relation itself** — there are no per-relation count
 knobs. (The `ref_limit` / `cite_limit` / `latest_limit` / `similar_limit`
 fields were deleted after sitting at `null` in the real `config.json` for
 months; the only remaining ceiling is `UNBOUNDED_LANDMARK_CAP` (500) in
-`src/atlas/integrations/caps.py` — a named **payload guard**, not a tuning
+`src/curious_astronaut/integrations/caps.py` — a named **payload guard**, not a tuning
 knob, so a mega seed can't page its entire citer list into one response.)
 
 Sizing is **always adaptive** — no on/off toggles either (they were only ever
@@ -175,7 +175,7 @@ from `config.json`.
 
 ### `llm.agents` — the agents this app runs
 
-A **list** with one entry per sub-agent package under `src/atlas/agents/`,
+A **list** with one entry per sub-agent package under `src/curious_astronaut/agents/`,
 potentially on different vendors. Today: `summarizer` (the detail panel's
 on-demand paper TL;DR — generation only ever fires on the panel's explicit
 TL;DR toggle, cached per paper forever), `lecturer`, `researcher`, and the two
@@ -200,7 +200,7 @@ workers it sends out, `paper_scout` and `web_scout`. Each entry:
   above.
 - An entry is deliberately **thin**: an agent's words (system prompt,
   skills) and its tool functions are *code*, defined in its own package's
-  `config.py` and `tools.py` (see `src/atlas/agents/README.md`).
+  `config.py` and `tools.py` (see `src/curious_astronaut/agents/README.md`).
   Config carries only what an operator tunes — the model and the knobs.
 - **`extras`** holds that agent's tuning knobs, and is **typed**: each
   agent id maps to a model in `config.py`'s `AGENT_EXTRAS` registry

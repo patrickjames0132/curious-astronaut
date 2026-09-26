@@ -16,7 +16,7 @@
  * typed; everything else rides along untouched (the whole object round-trips
  * back to the server on save, so unknown sections must be preserved).
  */
-export interface AtlasConfig {
+export interface AppConfig {
   storage: { data_dir: string; s2_corpus: string | null; [key: string]: unknown }
   providers: {
     default_provider: 's2' | 'openalex'
@@ -61,7 +61,7 @@ export interface AtlasConfig {
 export interface SettingsPayload {
   /** Absolute path of the config file the app is running on. */
   path: string
-  config: AtlasConfig
+  config: AppConfig
 }
 
 /** One rejected setting: where it is in the config, and what's wrong with it. */
@@ -119,7 +119,7 @@ export async function getSettings(): Promise<SettingsPayload> {
  * @param config The full config object (the edited copy of what GET returned).
  * @returns The fresh settings payload.
  */
-export async function putSettings(config: AtlasConfig): Promise<SettingsPayload> {
+export async function putSettings(config: AppConfig): Promise<SettingsPayload> {
   const res = await fetch('/api/settings', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

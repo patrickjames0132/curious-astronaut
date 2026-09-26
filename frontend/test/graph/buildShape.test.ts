@@ -78,7 +78,7 @@ describe('persistence', () => {
   it('round-trips a shape through localStorage', () => {
     setBuildShape({ adaptive: false, clusterStart: 2015, numberOfBands: 8, nodesPerBand: 25 })
     expect(getBuildShape().clusterStart).toBe(2015)
-    expect(localStorage.getItem('atlas.buildShape')).toContain('2015')
+    expect(localStorage.getItem('ca.buildShape')).toContain('2015')
   })
 
   it('defaults to adaptive when nothing is stored', () => {

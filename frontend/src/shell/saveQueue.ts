@@ -6,7 +6,7 @@
 import type { SaveSessionBody } from '../api'
 
 /** Local outbox prefix. Only unacknowledged saves live here. */
-const PREFIX = 'atlas.pending-exploration.'
+const PREFIX = 'curious_astronaut.pending-exploration.'
 
 /** A writer preserves per-exploration order and replays unacknowledged saves.
  * The backend still owns durable storage; this small outbox covers page teardown

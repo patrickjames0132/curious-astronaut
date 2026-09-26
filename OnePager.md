@@ -131,7 +131,7 @@ than deleted so the plan doesn't get re-proposed.
 - **Offline S2 citations corpus (optional):** the bulk Datasets releases
   (papers + 2.4B citation edges) ingested via DuckDB → Parquet — citations
   hash-partitioned, papers clustered by `corpusid`, citer queries two-phase
-  (`integrations/semantic_scholar/corpus/`, `atlas corpus` CLI; hundreds of GB,
+  (`integrations/semantic_scholar/corpus/`, `astronaut corpus` CLI; hundreds of GB,
   on its own drive outside the repo). Serves the all-history landmark rankings
   the live S2 endpoint can't; builds fall back to the live path automatically.
 - **Seed discovery:** provider-native paper search (S2 relevance search /
@@ -289,7 +289,7 @@ than deleted so the plan doesn't get re-proposed.
       skipped the search, but the log said `kind=answered` and the real cause
       was elsewhere (`docs/bugs.md`). Narrowed pre-emptively in v6.7.1
       (`answered` is the prompt's default; any question on any subject
-      qualifies). Watch with `grep 'answer kind=' data/atlas.log` — a
+      qualifies). Watch with `grep 'answer kind=' data/curious-astronaut.log` — a
       `conversational` line on a turn that clearly asked something is the
       signal. If it ever does slip, the lever is a cheap pre-classifier
       deciding the kind before the researcher runs, so the answering model
@@ -784,9 +784,9 @@ than deleted so the plan doesn't get re-proposed.
       `max_age=None` — **they never expire** (`routes/graph.py:392`).
 
       **Test gap:** `has_graph` is asserted only for the fresh case
-      (`test/atlas/services/test_search.py:46,156`); nothing ages a snapshot
+      (`test/curious_astronaut/services/test_search.py:46,156`); nothing ages a snapshot
       past `cache_ttl` and asserts the badge goes away, though the aging helper
-      already exists (`test/atlas/storage/test_cache.py:21-23`).
+      already exists (`test/curious_astronaut/storage/test_cache.py:21-23`).
       *(From the `todos.md` inbox, 2026-08-16.)*
 
 - [ ] **An error in the chat can't be dismissed** — when a turn fails the
@@ -1202,13 +1202,13 @@ than deleted so the plan doesn't get re-proposed.
       refused for an owner that no longer exists" — both, probably. Check
       `docs/history.md`'s v7.22.0 threads entry and the v7.16.0 autosave
       entry for the invariants those were supposed to hold.
-- [ ] **`atlas corpus verify` mistakes a tidied-up release for a destroyed
+- [ ] **`astronaut corpus verify` mistakes a tidied-up release for a destroyed
       one** — deleting a release's `raw/` shards once its ingest succeeds is
       **supported and documented** (`corpus/paths.py`'s module docstring: "A
       release's `raw/` shards remain deletable the moment its ingest
       succeeds"), and Patrick did exactly that to the 2026-08-05 release on the
       Mac — 47 GB of Parquet left, `raw/` gone, `download.json` still listing
-      all 455 shards `done`. Run `atlas corpus verify` against that release now
+      all 455 shards `done`. Run `astronaut corpus verify` against that release now
       and `_inspect_shard` hits `not target.exists()` for every shard and
       reports **455 × "missing"**. With `--repair` it would then cheerfully
       **re-download all ~408 GB** — a spectacular answer to "please check my
@@ -1224,7 +1224,7 @@ than deleted so the plan doesn't get re-proposed.
       Worth deciding at the same time whether `--repair` should refuse (or
       demand confirmation) when the miss count is *everything*, since that
       shape is far more likely to be a tidied release than a corrupted one.
-      Note `atlas corpus download`'s behaviour on the same state is
+      Note `astronaut corpus download`'s behaviour on the same state is
       **correct and should not change** — shards gone means re-fetch, which is
       what "a re-ingest just means a re-download" promises.
 
@@ -1250,7 +1250,7 @@ than deleted so the plan doesn't get re-proposed.
       `docs/bugs.md`'s "A dropped connection looks exactly like a finished
       download" for why each path exists. *(Found 2026-08-16.)*
 
-- [ ] **Rename `integrations/` to `providers/`** — `src/atlas/integrations/`
+- [ ] **Rename `integrations/` to `providers/`** — `src/curious_astronaut/integrations/`
       holds one subpackage per external data source (`semantic_scholar/`,
       `openalex/`, `arxiv/`), and "integrations" is the vaguer word for what
       they are: the app already says **provider** everywhere else — the
@@ -1273,7 +1273,7 @@ than deleted so the plan doesn't get re-proposed.
       should start from that rather than from the hunch. *(From the `todos.md`
       inbox, 2026-08-15.)*
 
-      **What one real turn looks like** (`data/atlas.log`, 2026-08-15
+      **What one real turn looks like** (`data/curious-astronaut.log`, 2026-08-15
       21:23–21:24, "what's new in quantum computing?"): ~31s wall clock for
       `searches=1 passages=6 paper_searches=3 web_searches=1 web_pages=8`.
       That is **three scout runs**, and a scout is not one call — the logged
@@ -1312,7 +1312,7 @@ than deleted so the plan doesn't get re-proposed.
       *placement and naming*, not extraction. `frontend/` is a generic name
       inherited from `npm create vite`, and it sits at the repo root as a peer
       of `src/` — which reads oddly now that the backend is a proper src-layout
-      package (`src/atlas/`) and the frontend is the larger of the two trees.
+      package (`src/curious_astronaut/`) and the frontend is the larger of the two trees.
       Options worth weighing: rename in place (`web/`, `ui/`, `app/`, or
       something Atlas-specific); move it under a shared parent so the two halves
       are visibly siblings (`packages/`, `apps/`); or leave it and just write
@@ -1457,47 +1457,12 @@ than deleted so the plan doesn't get re-proposed.
       retyped across modules. A whole-codebase sweep, not a targeted one; keep the
       wire format identical so snapshots, saved sessions, and the SSE protocol are
       unaffected. *(From the `todos.md` inbox, 2026-07-13.)*
-- [ ] **Rebrand: Atlas → Curious Astronaut** — settled 2026-09-23, and it
-      **gates the PyPI ticket below**, so do it first. Three things forced it.
-      (1) **`atlas` is unavailable and uncrowdable** — the PyPI name is held by
-      an active project (danijar's "Interactive environments for AI agents",
-      last release 2024-12-07), so PEP 541 is off the table and every candidate
-      needed a qualifier. (2) **Every qualifier re-narrowed the product**:
-      `papers-atlas`, `citation-atlas`, `atlas-graph` all name the *artifact*
-      the app renders. (3) **The map metaphor is a ceiling.** Atlas caps the
-      product at things that are map-shaped, and the app already runs without a
-      graph at all — `services/sources` lets the teacher answer from an
-      uploaded textbook with no graph in sight, and every exploration has a
-      permanent General discussion. A name should name the relationship, not
-      the object on screen; an astronaut is the explorer, not the map.
-      **"arXiv Atlas" was already vestigial** — `README.md` says only "Atlas"
-      and mentions arXiv twice, both incidental; the graph is Semantic
-      Scholar's, across all fields. *(`OnePager.md` and `CLAUDE.md` still carry
-      the old "arXiv Atlas" wording — they are wrong, and this ticket fixes
-      them.)*
-
-      **The sweep:** `src/atlas/` → the new package, the `atlas` CLI console
-      script, every source-file copyright header (see
-      [docs/licensing.md](docs/licensing.md)), `pyproject.toml` name +
-      description, `config.json`/`config.example.json` if any key embeds the
-      name, `data/atlas.log`, all the package READMEs, `README.md`,
-      `docs/`, `CLAUDE.md`, and the GitHub repo itself (a **second** rename
-      after `arxiv-digest` → `atlas` on 2026-07-17; old remote URLs redirect,
-      so this is safe but worth doing once and deliberately). **Do the rename
-      before the PyPI publish and before any one-way import into the work
-      Artifactory** — both freeze the name permanently.
-
-      **Branding assets exist** — palette and icon explorations, with the
-      helmet mark chosen for the favicon:
-      <https://claude.ai/artifact/KxjPaM4yNcBNKLEK2fut8p>. Ivory `#F7F5F0`
-      suit, deep glass `#12314A` with a `#6FB6CE` rim, gold `#E8B44A` face,
-      navy `#0B1524` ground, and the citation graph ghosted into the visor at
-      ~6%. *(Filed 2026-09-23.)*
 - [ ] **Publish to PyPI as `curious-astronaut`** — **name chosen 2026-09-23**
-      (free on PyPI as of that date; see the rebrand ticket above for why not
-      an `atlas-*` name). **Blocked on the rebrand landing first** — publishing
-      under the old package name would defeat the point. The GitHub repo and
-      the CLI follow the rebrand; this ticket is only the packaging.
+      (free on PyPI as of that date; see the rebrand entry in
+      [docs/history.md](docs/history.md) for why not an `atlas-*` name).
+      **The rebrand shipped in v8.0.0**, so the package is already named
+      `curious-astronaut` and the CLI is `astronaut` — this ticket is now only
+      the packaging and the publish itself.
 
       **The Xray blocker is CLEARED (2026-09-23, Patrick):** the policy does
       **not** flag *declared* optional dependencies, only what actually
@@ -1508,7 +1473,7 @@ than deleted so the plan doesn't get re-proposed.
       `arxiv-atlas`, `atlas-papers`, `papers-atlas`, `atlas-graph`,
       `citation-atlas` free — all superseded by the rebrand.)* Also needs the
       packaging work: **bundling the built React frontend (`frontend/dist`) as
-      package data** so `atlas serve` works from an installed wheel,
+      package data** so `astronaut serve` works from an installed wheel,
       config-file discovery for an installed package (today it reads
       `config.json` from the cwd), and the PyPI metadata (license, authors,
       classifiers, project URLs, long-description from the README).

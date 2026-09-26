@@ -146,6 +146,6 @@ data-driven and, where the distribution is local, strictly more accurate.
   answer).
 - [`landmark-vocabulary.md`](landmark-vocabulary.md) — every term used above,
   defined once with worked examples.
-- `src/atlas/services/graph/budget.py` (`select_landmarks`, `PER_YEAR_CAP`,
+- `src/curious_astronaut/services/graph/budget.py` (`select_landmarks`, `PER_YEAR_CAP`,
   `computed_cite_limit`) and `bands.py` (`earliest_band_year`, `TAU`,
   `max_span`) — the two rules as shipped.

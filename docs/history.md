@@ -1,4 +1,4 @@
-# Atlas — shipped history
+# Curious Astronaut — shipped history
 
 > The complete record of what has shipped, split out of
 > [OnePager.md](../OnePager.md) on 2026-07-16 so the one-pager stays a working
@@ -41,7 +41,7 @@
       later, in a different package. That is why the split shipped with an
       **enforced invariant** rather than a convention:
       `test_no_module_imports_an_optional_package_at_module_scope` parses every
-      module in `src/atlas` and fails on any module-scope import of an optional
+      module in `src/curious_astronaut` and fails on any module-scope import of an optional
       package (`TYPE_CHECKING` blocks exempt, since
       `from __future__ import annotations` makes them free). Verified to fail on
       the pre-split code.
@@ -49,14 +49,14 @@
       **`optional.py` is the seam**, and it has two halves for two situations.
       `require(module, extra)` raises `MissingExtra` naming the capability in
       the reader's terms and the exact install command — because
-      `No module named 'fitz'` tells someone who just installed Atlas nothing.
+      `No module named 'fitz'` tells someone who just installed Curious Astronaut nothing.
       `available(extra)` is the *ask before doing* half, for code that would
       rather degrade quietly: the embedder calls it and logs one line about
       falling back to lexical search instead of dumping a traceback for what is
       a supported way to install. That is the web scout's `supports_web_search`
       pattern (v7.13.0) applied to packaging.
 
-      **CI got the same win**: `ATLAS_SKIP_TORCH=1` now drops the `sources`
+      **CI got the same win**: `CA_SKIP_TORCH=1` now drops the `sources`
       extra rather than deselecting one package, taking the Linux environment
       from 1.0 GB to 304 MB. `pdf` and `corpus` stay installed there — those
       tests build real PDFs and query real Parquet.
@@ -75,7 +75,7 @@
       *(v7.14.0)* — the model names for Google and OpenAI were a hand-written
       list in `routes/settings.py` (`KNOWN_MODELS`, shipped v7.13.0), and it
       rotted in three weeks: Google retired the 2.5 line for new users, so
-      picking the only Gemini models Atlas offered answered `404 ... no longer
+      picking the only Gemini models Curious Astronaut offered answered `404 ... no longer
       available to new users`. A hardcoded list of a thing the vendor controls
       rots by construction, and behind a `<select>` it is not a stale hint but
       a wall — every option dead and no way past it.
@@ -180,7 +180,7 @@
       **The free path was the point, not the vendor count.** Adding OpenAI beside
       Anthropic swaps one credit card for another; **Ollama** (local, no key, no
       signup, nothing leaving the machine) and **Google**'s free tier are what
-      change who can use Atlas. OpenAI's `base_url` was included for the same
+      change who can use Curious Astronaut. OpenAI's `base_url` was included for the same
       reason — the one adapter also drives Groq, OpenRouter, Together and LM
       Studio, several with free tiers.
 
@@ -230,13 +230,13 @@
       query expansion + title resolution and whole-result caching; the `arxiv`
       package and the claude-CLI backend retired. Frontend: strict TS, Redux
       Toolkit (3 slices: workspace/transcript/highlight), the 743-line
-      Teacher.tsx and 577-line Atlas.tsx decomposed along the hybrid structure
-      rule, ingest progress bars, a Home button, and the **"Atlas"** rebrand
+      Teacher.tsx and 577-line App.tsx decomposed along the hybrid structure
+      rule, ingest progress bars, a Home button, and the **"Curious Astronaut"** rebrand
       (in-app copy; repo name unchanged).
 - [x] **`atlas` package rename** *(v2.0.1)* — the backend catches up to the
-      in-app rebrand above: `src/arxiv_digest/` → `src/atlas/`,
-      `test/arxiv_digest/` → `test/atlas/`, every import updated, and the
-      console script `arxiv-atlas` → `atlas` (`uv run atlas serve`).
+      in-app rebrand above: `src/arxiv_digest/` → `src/curious_astronaut/`,
+      `test/arxiv_digest/` → `test/curious_astronaut/`, every import updated, and the
+      console script `arxiv-atlas` → `atlas` (`uv run astronaut serve`).
       `pyproject.toml` has no remaining `arxiv` references. GitHub repo name
       unchanged (`arxiv-digest`) — a separate, un-requested action.
 
@@ -285,7 +285,7 @@
 - [x] **Loading spinners for graph render + search** *(v2.2.0)* — neither the
       "Building graph…" overlay nor the "Searching Semantic Scholar…" hit-list
       note had any animated feedback, so a slow S2 fetch could read as hung.
-      Added a shared `.spin` primitive (centralized in `atlas.css` — it existed
+      Added a shared `.spin` primitive (centralized in `curious_astronaut.css` — it existed
       once already, duplicated in the library upload flow; de-duped it there
       too) and wired it into both spots. *(From the `todos.md` inbox,
       2026-07-06.)*
@@ -1450,7 +1450,7 @@ now lives in the parent exploration; switching graphs resumes its own transcript
 
       Side effect worth noting: the workers had **no test package at all** —
       the researcher stubs them, so nothing exercised the scout's own logic.
-      `test/atlas/agents/workers/search/papers/test_main.py` now mirrors it.
+      `test/curious_astronaut/agents/workers/search/papers/test_main.py` now mirrors it.
       *(Patrick's ask, 2026-08-15; shipped 2026-08-15.)*
 
 - [x] **Retire the `search` node type — a discovered paper should attach to
@@ -1510,7 +1510,7 @@ now lives in the parent exploration; switching graphs resumes its own transcript
       prompt-only, or a reconciliation worker running after both scouts — and
       said to try prompting first and measure, because the rule against
       speculative agents is the one that killed the orchestrator. Grepping
-      `data/atlas.log` across a week of real runs settled whether prompting
+      `data/curious-astronaut.log` across a week of real runs settled whether prompting
       was already half-working: it wasn't working at all. Every paper search
       restated the user's question at topic level (`quantum computing advances
       2024`, `quantum physics breakthroughs 2023 2024 2025`), never once
@@ -1571,7 +1571,7 @@ now lives in the parent exploration; switching graphs resumes its own transcript
       preferring the model's own knowledge over paper search, with nothing
       structural behind it. Web search is not recall: it is a **third grounded
       source**, as real, citable and retrievable as a paper or a page of the
-      reader's own book. It *extends* the grounding boundary ("Atlas grounds;
+      reader's own book. It *extends* the grounding boundary ("Curious Astronaut grounds;
       the line tells you in what") rather than abandoning it. Keep that
       reasoning in mind before "restoring" v6.8.0's decision over this one.
 
@@ -1631,7 +1631,7 @@ now lives in the parent exploration; switching graphs resumes its own transcript
 
 - [x] **The graph-free chat follows the provider dropdown — and its citations
       carry the backend that minted them** *(v6.14.0)* — two symptoms, one root
-      cause, both confirmed in `data/atlas.log`. `streamAskSources` had no
+      cause, both confirmed in `data/curious-astronaut.log`. `streamAskSources` had no
       `provider` field and `api_ask_sources` never read one, so the landing
       chat always ran on the *default* backend no matter what the header's
       "Data source" dropdown said. Symptom 1: switch to OpenAlex, ask a
@@ -1754,7 +1754,7 @@ now lives in the parent exploration; switching graphs resumes its own transcript
       citation was the clutter the compact chip existed to remove.
       *(From the 2026-08-10 design conversation; shipped 2026-08-13.)*
 
-- [x] **Atlas grounds — the general-assistant ambition is cut** *(v6.8.0)* —
+- [x] **Curious Astronaut grounds — the general-assistant ambition is cut** *(v6.8.0)* —
       two days after the librarian retirement shipped, a scope correction that
       is mostly deletion. v6.7.0 had tried to give the graph-free chat a
       general-purpose character: a prompt rule preferring the model's own
@@ -1776,7 +1776,7 @@ now lives in the parent exploration; switching graphs resumes its own transcript
 
       **Why it shouldn't work.** Claude Desktop already does general knowledge,
       web search and RAG, and always will do them better — that is what it is
-      for. Atlas's value is the citation graph and the student's own material;
+      for. Curious Astronaut's value is the citation graph and the student's own material;
       competing on general chat is unwinnable and off-mission. The distinction
       that survives: recall as *scaffolding inside a grounded answer* (what a
       Bellman equation is, on the way to answering something a paper does
@@ -1792,7 +1792,7 @@ now lives in the parent exploration; switching graphs resumes its own transcript
       count paper searches separately** so the line distinguishes "searched the
       literature and cited none of it" from "nothing was searched at all". The
       resulting product story is simpler and more honest than what it replaced:
-      *Atlas grounds; the line tells you in what; if nothing grounded it, it
+      *Curious Astronaut grounds; the line tells you in what; if nothing grounded it, it
       says so and you take the question elsewhere.*
 
 - [x] **The conversational loophole, narrowed** *(v6.7.1)* — a follow-up to
@@ -1905,7 +1905,7 @@ now lives in the parent exploration; switching graphs resumes its own transcript
       figure than the one on screen. The regex now takes hyphen/en-dash/
       em-dash numbering, but only when digits follow immediately, so a spaced
       "Figure 3 - A single slit" keeps its dash. Guarded by a new
-      `test/atlas/agents/test_library_figures.py` (every emit path's chip
+      `test/curious_astronaut/agents/test_library_figures.py` (every emit path's chip
       contract) plus caption cases; story in `docs/bugs.md`. *(From the
       `todos.md` inbox, 2026-07-19; browser-tested. The separate "no figures
       extractable from the Feynman Lectures" investigation stays open — this
@@ -2525,7 +2525,7 @@ now lives in the parent exploration; switching graphs resumes its own transcript
       cannot see.
 
 - [x] **A truncated shard passed as a finished download — the corpus pull now
-      measures completeness, and `atlas corpus verify` audits what's already on
+      measures completeness, and `astronaut corpus verify` audits what's already on
       disk** *(v7.12.0)* — an ingest of the 2026-08-05 release died 36 minutes
       in, at citations shard 355/395, on a DuckDB "malformed JSON … unexpected
       end of data" that pointed at the wrong layer entirely. The shard was
@@ -2546,7 +2546,7 @@ now lives in the parent exploration; switching graphs resumes its own transcript
       file for one of five `Range` retries to resume. The checkpoint stores the
       advertised size, so a mismatched shard is re-fetched rather than trusted;
       a 416 is resolved by probing the object's true size instead of guessed
-      at. `atlas corpus verify [--deep] [--repair]` is the audit for corpora
+      at. `astronaut corpus verify [--deep] [--repair]` is the audit for corpora
       pulled before the guard existed — size against the Datasets API, then
       optionally a full decompress, then optional repair.
 
@@ -2780,7 +2780,7 @@ now lives in the parent exploration; switching graphs resumes its own transcript
       subset-extrapolated "≈3 minutes" was optimistic — the full 24.8 GB exceeds
       DuckDB's memory cap, spills (`_spill/`), and ran **~10–15 minutes** on the
       real release; a DuckDB progress bar now shows during the sort (added after
-      Patrick sat through the gap with no feedback). `atlas corpus compact`
+      Patrick sat through the gap with no feedback). `astronaut corpus compact`
       migrates a pre-v5.12.0 corpus in place off the parquet root alone. (b) is
       the query shape in `source.py`: both citer queries rank narrow
       (`corpusid, year, isinfluential`), the landmark budget rule now travels
@@ -3256,7 +3256,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       the corpus (landmarks **citation-sorted across all history** — the ranking the
       live ~10k-offset endpoint can't give) and falls back to the recency-biased
       live path when the corpus is absent or can't resolve the seed. Operator
-      workflow via the **`atlas corpus`** CLI (`status`/`download`/`ingest`/`activate`);
+      workflow via the **`astronaut corpus`** CLI (`status`/`download`/`ingest`/`activate`);
       corpus root is `config.storage.s2_corpus_dir` (gitignored, outside the repo).
       Which path served a build is on `Graph.citation_source` and surfaced in the UI
       (the Field-Landmarks note reads "offline citations corpus" vs the live caveat),
@@ -3613,7 +3613,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       handler blurs it, and keyboard focus lights the row like a hover
       instead of boxing the text. Collapsed, the cylinder alone with its
       right-hand popup is unchanged.
-- [x] **The search chip names the corpus; the settings nav icons match; "Atlas"
+- [x] **The search chip names the corpus; the settings nav icons match; "Curious Astronaut"
       lines up** *(v7.30.0)* — three things found looking at the app after
       v7.29.0. The researcher's paper-search chip reads **`🔎 Searching
       Semantic Scholar for “…”`** while the scout runs and **`🔎 Searched
@@ -3630,7 +3630,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       three full-size colour emoji — both now carry U+FE0F, the emoji
       variation selector, and the column is one icon set. And the rail's
       **brand row kept a tighter 6px gap** than the 10px every other entry
-      uses ("this row is a wordmark", said the comment), which put "Atlas" 4px
+      uses ("this row is a wordmark", said the comment), which put "Curious Astronaut" 4px
       left of every label below it; it takes the entry's gap now.
 - [x] **Settings: a Library section, per-vendor "Apply Default Models", a
       settings tour, and the dead frontier-window row gone** *(v7.29.0)* — four
@@ -3761,7 +3761,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       of the pointer. And the width you had is saved on the way out, so
       reopening is not a fresh start.
 
-      **The brand row became one hit target while we were in there.** "Atlas"
+      **The brand row became one hit target while we were in there.** "Curious Astronaut"
       and the seed title are labels rather than controls, and a hover
       highlight that stopped at the glyph made the row look like an icon
       button with two words parked beside it. It is now a `.rail-item` like
@@ -3988,7 +3988,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 - [x] **The landing page is a chat bar** *(v6.13.0)* — home was a sentence and
       a button in a lot of empty space, with the assistant filed behind a
-      header toggle and gated on owning a library. Now Atlas opens on a centred
+      header toggle and gated on owning a library. Now Curious Astronaut opens on a centred
       chat: the assistant is the front door, and needs neither a graph nor an
       uploaded library. Patrick's design, sanity-checked with a co-worker.
 
@@ -4110,7 +4110,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       The **adaptive switch rebuilds the graph immediately** (one click is a
       complete intent); the band-shape numbers rebuild on modal close (they
       write per keystroke — rebuilding each would hammer the provider), both
-      watched in `Atlas.tsx` off the store so the modal stays a settings editor
+      watched in `App.tsx` off the store so the modal stays a settings editor
       that knows nothing about the graph. Open question parked: with adaptive ON,
       whether nodes-per-band should come from the SKIP rule instead of the fixed
       50. The **corpus on/off toggle** — the ticket's other half — stays in the
@@ -4384,7 +4384,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       hides the body via `hidden` rather than unmounting, so the tour's
       `presentIf` existence checks still see the year/citation stops; a new
       tour stop on the header teaches the gesture, and every stop inside the
-      panel now stages **`'controls'`** (`Atlas` → `GraphExplorer`'s
+      panel now stages **`'controls'`** (`Curious Astronaut` → `GraphExplorer`'s
       `tourStage` → the new `stagedOpen` prop), re-expanding a collapsed
       panel mid-walk and never re-collapsing after (the detail panel's
       no-tidy-up precedent). The collapsed flag is the panel's one piece of
@@ -4729,6 +4729,46 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Infrastructure, quality & tooling
 
+- [x] **Rebrand: Atlas → Curious Astronaut** *(v8.0.0)* — the PyPI
+      distribution-name question turned into a rebrand. Three things forced it.
+      (1) **`atlas` was unavailable and uncrowdable** — the PyPI name is held by
+      an active project (danijar's "Interactive environments for AI agents",
+      last release 2024-12-07), so PEP 541 was off the table and every candidate
+      needed a qualifier. (2) **Every qualifier re-narrowed the product**:
+      `papers-atlas`, `citation-atlas`, `atlas-graph` all name the *artifact*
+      the app renders. (3) **The map metaphor was a ceiling.** Atlas capped the
+      product at things that are map-shaped, when the app already runs without a
+      graph at all — `services/sources` lets the teacher answer from an uploaded
+      textbook, and every exploration has a permanent General discussion. A name
+      should name the relationship, not the object on screen; an astronaut is
+      the explorer, not the map. "arXiv Atlas" was already vestigial: `README.md`
+      said only "Atlas" and mentioned arXiv twice, both incidental.
+
+      Shipped as a 248-file sweep (199 renames): `src/atlas/` →
+      `src/curious_astronaut/`, `test/atlas/` → `test/curious_astronaut/`,
+      dist name `curious-astronaut`, **CLI `atlas` → `astronaut`**
+      (`astronaut serve`), `data/atlas.log` → `data/curious-astronaut.log`,
+      `ATLAS_SKIP_TORCH` → `CA_SKIP_TORCH` (CI + both setup scripts), User-Agent
+      strings, every package README, and the brand prose throughout. Frontend:
+      `Atlas.tsx` → **`App.tsx`** and `atlas.css` → `app.css` — `Shell.tsx` was
+      tried first and rejected because `frontend/src/shell/` and
+      `frontend/src/shell/shell.css` already exist and macOS's case-insensitive
+      filesystem would have made `./Shell` ambiguous; `App` is brand-neutral, so
+      a future rebrand never touches it again. `AtlasConfig` → `AppConfig`,
+      `.atlas*` CSS classes → `.shell-*`, localStorage keys `atlas.*` → `ca.*`
+      (a one-time reset of rail-open, detail-panel width and build shape), and
+      `favicon.svg` became the new helmet mark — ivory shell, deep glass,
+      gold `^_^`, citation graph ghosted into the visor.
+
+      **Major, not minor:** the CLI name, package name, log path and stored
+      prefs all break for an existing install. Two latent bugs surfaced and were
+      fixed en route — the User-Agent URLs still pointed at
+      `github.com/patrickjames0132/arxiv-digest`, stale since the 2026-07-17
+      rename (see [bugs.md](bugs.md)), and CLAUDE.md's "quick backend check"
+      imported `app` from `app.py`, which has only ever exported `create_app`.
+      Branding assets: <https://claude.ai/artifact/KxjPaM4yNcBNKLEK2fut8p>.
+      *(Settled 2026-09-23, shipped 2026-09-25.)*
+
 - [x] **Rename `digest.db` → `cache.db`** *(v7.22.1)* — the ephemeral graph-snapshot store
       is still named `digest.db`, a leftover from the retired daily-digest era;
       it's really the 1-day graph/artifact **cache** now. Rename the file (and
@@ -4765,7 +4805,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       Licensed - GNU AFFERO GPL 3.0 or Artifex commercial"**. Everything else
       was BSD-3 (torch, scikit-learn, flask), Apache-2.0
       (sentence-transformers), or MIT (anthropic, duckdb, sqlite-vec).
-      Enterprise scanners commonly ban AGPL outright, and Atlas is a Flask
+      Enterprise scanners commonly ban AGPL outright, and Curious Astronaut is a Flask
       **network service** — precisely the scenario AGPL §13 targets.
 
       It shipped as one of the three extras in the packaging split (see
@@ -4853,7 +4893,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       `nvidia-*` CUDA packages gated `sys_platform == 'linux'`, so a naive
       `uv sync` on `ubuntu-latest` downloads the full CUDA stack every cold
       cache (the env drops 951M → 484M on macOS, far more on Linux). Shipped as
-      **`ATLAS_SKIP_TORCH=1`**, an opt-in guard added to `bin/setup.{sh,bat}` so
+      **`CA_SKIP_TORCH=1`**, an opt-in guard added to `bin/setup.{sh,bat}` so
       CI and a local bootstrap remain **one script**. It also makes
       `windows-latest` cheap, since the `[[tool.uv.index]]` CUDA routing never
       engages. **Deliberate side effect: CI now fails if anything imports torch
@@ -4990,7 +5030,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       since v5.5.0, i.e. the exact confusion this whole change set out to kill,
       sitting in the tests.
 - [x] **Phase 2.3 — Legacy teardown** *(v1.4.0)* — retired the digest-era backend
-      now that Atlas stands on its own: deleted `store.py`, `pipeline.py`,
+      now that Curious Astronaut stands on its own: deleted `store.py`, `pipeline.py`,
       `summarizer.py`, `embeddings.py`; slimmed `search.py`/`arxiv_client.py` to
       just the seed search; removed 8 legacy `app.py` routes + 8 unused `api.ts`
       functions; trimmed dead `config.py`/`.env.example` settings; `run.py` is now
@@ -5005,16 +5045,16 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       `storage/` (cache, sessions), `library/` (sources, embeddings) — with
       **Google-style docstrings (Args/Returns/Raises) on all 134 backend
       functions**. Frontend: `api.ts` → an `api/` module; `GraphExplorer.tsx`
-      (1,244 lines) → `Atlas.tsx` (a 560-line orchestrator) over concern
+      (1,244 lines) → `App.tsx` (a 560-line orchestrator) over concern
       folders — `header/`, `search/`, `graph/`, `detail/`, `teacher/`,
       `library/`, `sessions/` — each owning its components, hooks, and CSS
-      (the 1,000-line `atlas.css` split alongside). Everything
+      (the 1,000-line `curious_astronaut.css` split alongside). Everything
       JSDoc/docstring-documented.
 - [x] **`src/` layout for the backend** *(v1.21.2)* — `backend/arxiv_digest/` →
       `src/arxiv_digest/` (the standard `src`-layout), with the project now a real
       **installed package** (hatchling build, uv editable install): `backend/run.py`
       folded into the package as `cli.py` behind an **`arxiv-atlas` console script**
-      (`uv run arxiv-atlas serve` replaces `uv run python backend/run.py serve`;
+      (`uv run arxiv-astronaut serve` replaces `uv run python backend/run.py serve`;
       same subcommands), and every `sys.path` shim deleted — imports just work in
       tests, nox, and one-liners. mypy/pytest configs retargeted. The move also
       let mypy see `cli.py` for the first time, catching a **real bug**: CLI
@@ -5064,7 +5104,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       module logger, with the `token → error` framing locked in by a test.
       *(From the `todos.md` inbox, 2026-07-04.)*
 - [x] **File logging + honest search-failure traces** *(v2.1.0)* — `create_app()`
-      now logs to a rotating file (`data/atlas.log`, 5MB × 3 backups) as well as
+      now logs to a rotating file (`data/curious-astronaut.log`, 5MB × 3 backups) as well as
       the console, so agent runs survive after the terminal scrolls away.
       Diagnosing a real failure (a `search_papers` call for "BERT pre-training
       deep bidirectional transformers...") turned up two gaps: the researcher's
@@ -5082,7 +5122,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       **Next:** sweep other silent-failure spots (other agent tools, route
       error paths) that should log before returning a user-facing message.
 - [x] **No single-letter identifiers** *(v2.4.2)* — swept the whole codebase
-      (backend `src/atlas`, `frontend/src`, **and** `test/`) clean of
+      (backend `src/curious_astronaut`, `frontend/src`, **and** `test/`) clean of
       single-letter variable / parameter / loop / comprehension / generic-type
       names, renaming each for what it holds: `node` not `n`, `event` not `e`,
       `query` not `q`, `top_k` not `k` (threaded through the public
@@ -5161,7 +5201,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       the frontend now has a real offline test surface: **Vitest 4** (+
       jsdom + RTL), configured in `vite.config.ts`'s `test` block, with the
       suite in **`frontend/test/`** mirroring `src/` the way the backend's
-      `test/` mirrors `src/atlas/`. Seven files / **54 tests** cover the
+      `test/` mirrors `src/curious_astronaut/`. Seven files / **54 tests** cover the
       pure logic with real edge cases — `graph/model` helpers (incl. the
       `ID_RE` pasted-id fast path), `notation/splitMath` (math vs. currency
       vs. mid-stream unclosed delimiters) and `latexToUnicode`, the
@@ -5197,7 +5237,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       `test_search.py`, exactly the drift the hook exists to stop.
       Negative-tested: a deliberately bad file fails the run. *(Follow-through
       on the v2.4.2 sweep.)*
-- [x] **`atlas serve` takes `--port` and `--host`** *(v4.10.0)* — the CLI serve
+- [x] **`astronaut serve` takes `--port` and `--host`** *(v4.10.0)* — the CLI serve
       command gained `--host`/`--port` options that override
       `config.server.host`/`port` per invocation (a second instance, or when 5000
       is busy, no longer needs a config edit). Both default to `None` and fall
@@ -5233,8 +5273,8 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       *(From the `todos.md` inbox, 2026-07-09.)*
 - [x] **Moved `ml_pipelines/` into `src/` and split `models/` per model**
       *(v4.10.1)* — the training pipelines moved from the repo root to
-      `src/ml_pipelines/` — a second top-level package **alongside** `src/atlas/`,
-      **not** bundled into the shipped app wheel (`packages = ["src/atlas"]`
+      `src/ml_pipelines/` — a second top-level package **alongside** `src/curious_astronaut/`,
+      **not** bundled into the shipped app wheel (`packages = ["src/curious_astronaut"]`
       unchanged) and not force-typed by strict mypy, but importable everywhere
       because the editable install already puts `src/` on `sys.path`. The shared
       `ml_pipelines/models/` package **dissolved**: each model's committed

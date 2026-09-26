@@ -17,9 +17,9 @@ fi
 # The heavy capabilities are optional extras since v7.15.0 (see
 # docs/first-run.md): `sources` (sentence-transformers + torch), `pdf`
 # (PyMuPDF) and `corpus` (DuckDB). A local bootstrap installs all of them, so
-# `atlas serve` is fully functional — that is what a developer expects here.
+# `astronaut serve` is fully functional — that is what a developer expects here.
 #
-# ATLAS_SKIP_TORCH=1 drops the `sources` extra, which is where torch lives. CI
+# CA_SKIP_TORCH=1 drops the `sources` extra, which is where torch lives. CI
 # sets it: nothing in the gate needs torch (sentence-transformers is imported
 # lazily inside services/sources/embeddings.py's _get_model, and the embedding
 # tests inject a fake module), while on Linux installing it drags in the 37
@@ -29,7 +29,7 @@ fi
 # they are ~100 MB rather than ~900. Keeping it an opt-in env var means CI and
 # a local bootstrap stay ONE script.
 sync_args=(--all-groups --extra pdf --extra corpus)
-if [ "${ATLAS_SKIP_TORCH:-}" != "1" ]; then
+if [ "${CA_SKIP_TORCH:-}" != "1" ]; then
   sync_args+=(--extra sources)
 fi
 uv sync "${sync_args[@]}"

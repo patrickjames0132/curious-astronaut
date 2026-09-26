@@ -120,68 +120,6 @@ wheels = [
 ]
 
 [[package]]
-name = "atlas"
-version = "7.32.0"
-source = { editable = "." }
-dependencies = [
-    { name = "anthropic" },
-    { name = "click" },
-    { name = "flask" },
-    { name = "flask-cors" },
-    { name = "huggingface-hub" },
-    { name = "pydantic" },
-    { name = "pydantic-ai-slim", extra = ["anthropic", "google", "openai"] },
-    { name = "sqlite-vec" },
-]
-
-[package.optional-dependencies]
-corpus = [
-    { name = "duckdb" },
-]
-pdf = [
-    { name = "pymupdf" },
-]
-sources = [
-    { name = "sentence-transformers" },
-    { name = "torch", version = "2.12.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
-    { name = "torch", version = "2.13.0+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'win32'" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "nox" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "anthropic", specifier = ">=0.40" },
-    { name = "click", specifier = ">=8.1" },
-    { name = "duckdb", marker = "extra == 'corpus'", specifier = ">=1.5" },
-    { name = "flask", specifier = ">=3.0" },
-    { name = "flask-cors", specifier = ">=4.0" },
-    { name = "huggingface-hub", specifier = ">=0.28" },
-    { name = "pydantic", specifier = ">=2.7" },
-    { name = "pydantic-ai-slim", extras = ["anthropic", "openai", "google"], specifier = ">=2.5.0" },
-    { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.24" },
-    { name = "sentence-transformers", marker = "extra == 'sources'", specifier = ">=5.6" },
-    { name = "sqlite-vec", specifier = ">=0.1.6" },
-    { name = "torch", marker = "sys_platform == 'win32' and extra == 'sources'", specifier = ">=2.9", index = "https://download.pytorch.org/whl/cu130" },
-    { name = "torch", marker = "sys_platform != 'win32' and extra == 'sources'", specifier = ">=2.9" },
-]
-provides-extras = ["sources", "pdf", "corpus"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=1.11" },
-    { name = "nox", specifier = ">=2024.4" },
-    { name = "pre-commit", specifier = ">=3.7" },
-    { name = "pytest", specifier = ">=8.0" },
-]
-
-[[package]]
 name = "attrs"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -617,6 +555,68 @@ nvrtc = [
 ]
 nvtx = [
     { name = "nvidia-nvtx" },
+]
+
+[[package]]
+name = "curious-astronaut"
+version = "8.0.0"
+source = { editable = "." }
+dependencies = [
+    { name = "anthropic" },
+    { name = "click" },
+    { name = "flask" },
+    { name = "flask-cors" },
+    { name = "huggingface-hub" },
+    { name = "pydantic" },
+    { name = "pydantic-ai-slim", extra = ["anthropic", "google", "openai"] },
+    { name = "sqlite-vec" },
+]
+
+[package.optional-dependencies]
+corpus = [
+    { name = "duckdb" },
+]
+pdf = [
+    { name = "pymupdf" },
+]
+sources = [
+    { name = "sentence-transformers" },
+    { name = "torch", version = "2.12.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
+    { name = "torch", version = "2.13.0+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'win32'" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "nox" },
+    { name = "pre-commit" },
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.40" },
+    { name = "click", specifier = ">=8.1" },
+    { name = "duckdb", marker = "extra == 'corpus'", specifier = ">=1.5" },
+    { name = "flask", specifier = ">=3.0" },
+    { name = "flask-cors", specifier = ">=4.0" },
+    { name = "huggingface-hub", specifier = ">=0.28" },
+    { name = "pydantic", specifier = ">=2.7" },
+    { name = "pydantic-ai-slim", extras = ["anthropic", "openai", "google"], specifier = ">=2.5.0" },
+    { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.24" },
+    { name = "sentence-transformers", marker = "extra == 'sources'", specifier = ">=5.6" },
+    { name = "sqlite-vec", specifier = ">=0.1.6" },
+    { name = "torch", marker = "sys_platform == 'win32' and extra == 'sources'", specifier = ">=2.9", index = "https://download.pytorch.org/whl/cu130" },
+    { name = "torch", marker = "sys_platform != 'win32' and extra == 'sources'", specifier = ">=2.9" },
+]
+provides-extras = ["sources", "pdf", "corpus"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.11" },
+    { name = "nox", specifier = ">=2024.4" },
+    { name = "pre-commit", specifier = ">=3.7" },
+    { name = "pytest", specifier = ">=8.0" },
 ]
 
 [[package]]

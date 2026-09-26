@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * Typed client for the Atlas backend API.
+ * Typed client for the Curious Astronaut backend API.
  *
  * Split by concern into sibling modules; this barrel re-exports them so callers
  * keep importing everything from `./api`:

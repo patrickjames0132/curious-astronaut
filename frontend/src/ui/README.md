@@ -87,7 +87,7 @@ button and `graph/canvas/GraphCanvas`, which paints with JS and so can't
 inherit a CSS variable from a stylesheet.
 
 - **Dark is the default**, and deliberately *not* `prefers-color-scheme` —
-  Atlas is a dark-first app, and a light OS setting shouldn't hand a
+  Curious Astronaut is a dark-first app, and a light OS setting shouldn't hand a
   first-time user the theme we treat as the alternative. Light is an
   explicit opt-in, remembered in `localStorage`.
 - **The palette lives in CSS**, not here: dark on `:root`, light on

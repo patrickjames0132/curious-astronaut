@@ -42,7 +42,7 @@ import {
   putSettingsLocation,
   SettingsError,
   type SettingsFieldError,
-  type AtlasConfig,
+  type AppConfig,
   type SettingsPayload,
 } from '../api'
 import { DEFAULT_SHAPE, setBuildShape, useBuildShape } from '../graph/buildShape'
@@ -77,7 +77,7 @@ const SECTIONS = [
     icon: '🕸\uFE0F',
     label: 'Graph',
     blurb:
-      "How big a graph comes back and how far back its recent-citer queries reach. Left automatic, Atlas sizes each graph from the seed's own citation pool; turn that off to size it yourself.",
+      "How big a graph comes back and how far back its recent-citer queries reach. Left automatic, Curious Astronaut sizes each graph from the seed's own citation pool; turn that off to size it yourself.",
   },
   {
     id: 'providers',
@@ -91,7 +91,7 @@ const SECTIONS = [
     icon: '🎓',
     label: 'Agents',
     blurb:
-      'The AI teacher: the crew that writes lectures, answers questions, and scouts papers and the web. Two halves — which vendors Atlas can reach, and which model each agent runs on. Every agent picks its own, so running the lecturer on a free local model while the web scout stays on a cloud one is a normal setup.',
+      'The AI teacher: the crew that writes lectures, answers questions, and scouts papers and the web. Two halves — which vendors Curious Astronaut can reach, and which model each agent runs on. Every agent picks its own, so running the lecturer on a free local model while the web scout stays on a cloud one is a normal setup.',
     pages: [
       { id: 'providers', label: 'Model Providers' },
       { id: 'agents', label: 'Agent Settings' },
@@ -117,7 +117,7 @@ const SECTIONS = [
 type SectionId = (typeof SECTIONS)[number]['id']
 
 /** Apply a mutation to a draft config clone (the `edit` callback's shape). */
-type Edit = (mutate: (next: AtlasConfig) => void) => void
+type Edit = (mutate: (next: AppConfig) => void) => void
 
 /**
  * One agent entry from `llm.agents`, found (or created) by id so a knob can
@@ -128,7 +128,7 @@ type Edit = (mutate: (next: AtlasConfig) => void) => void
  * @returns The agent entry, guaranteed to have an extras object.
  */
 function agentEntry(
-  draft: AtlasConfig,
+  draft: AppConfig,
   id: string,
 ): { model: string; extras: Record<string, number> } {
   let entry = draft.llm.agents.find((candidate) => candidate.id === id)
@@ -197,7 +197,7 @@ function ExtrasNumber({
   fallback,
   min = 1,
 }: {
-  draft: AtlasConfig
+  draft: AppConfig
   edit: Edit
   agentId: string
   extrasKey: string
@@ -304,7 +304,7 @@ interface RowDef {
    *  `label` still feeds the search. */
   bare?: boolean
   control: (
-    draft: AtlasConfig,
+    draft: AppConfig,
     edit: Edit,
     models: AgentModels,
     /** Move the modal to a sub-page of the current section — for a control
@@ -339,7 +339,7 @@ function ModelInput({
   agentId,
   models,
 }: {
-  draft: AtlasConfig
+  draft: AppConfig
   edit: Edit
   agentId: string
   models: AgentModels
@@ -436,7 +436,7 @@ function VendorField({
   vendor,
   field,
 }: {
-  draft: AtlasConfig
+  draft: AppConfig
   edit: Edit
   vendor: string
   field: string
@@ -472,7 +472,7 @@ const ADVANCED_AGENTS: ReadonlySet<string> = new Set(['lecturer', 'researcher'])
  * @param tier That vendor's advanced/light picks.
  */
 function applyVendorToAll(
-  next: AtlasConfig,
+  next: AppConfig,
   vendor: string,
   tier: { advanced: string; light: string },
 ): void {
@@ -500,7 +500,7 @@ function VendorApply({
   models,
   goToPage,
 }: {
-  draft: AtlasConfig
+  draft: AppConfig
   edit: Edit
   vendor: string
   models: AgentModels
@@ -632,7 +632,7 @@ function SourcesText({
   field,
   placeholder,
 }: {
-  draft: AtlasConfig
+  draft: AppConfig
   edit: Edit
   group: SourcesGroup
   field: string
@@ -668,7 +668,7 @@ function SourcesNumber({
   field,
   min,
 }: {
-  draft: AtlasConfig
+  draft: AppConfig
   edit: Edit
   group: SourcesGroup
   field: string
@@ -1401,7 +1401,7 @@ const FILE_ROW_TEXT = 'Config file location choose file explorer finder json'
  */
 export default function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [payload, setPayload] = useState<SettingsPayload | null>(null)
-  const [draft, setDraft] = useState<AtlasConfig | null>(null)
+  const [draft, setDraft] = useState<AppConfig | null>(null)
   const [section, setSection] = useState<SectionId>('general')
   const [filter, setFilter] = useState('')
   const [error, setError] = useState<string | null>(null)

@@ -3,7 +3,7 @@
 A config-file editor in the style of Claude Desktop's settings window: a left
 sidebar (search field + grouped nav items) and a right content pane of
 label-left / control-right rows separated by hairline dividers. Opened from
-the header's ⚙ button (`Atlas.tsx` holds the visibility state, like the other
+the header's ⚙ button (`App.tsx` holds the visibility state, like the other
 overlays).
 
 ## Design decisions worth knowing
@@ -16,7 +16,7 @@ overlays).
   error list (`{path, message}` each), rendered in the footer as one readable
   line per bad setting rather than a wall of raw Pydantic text. Hand-edits and modal edits are therefore
   the same thing, and sections the modal doesn't render round-trip untouched
-  (the `AtlasConfig` type keeps unknown sections via index signatures).
+  (the `AppConfig` type keeps unknown sections via index signatures).
 - **Explicit Save/Discard, not autosave.** A dirty draft (deep-compare against
   the last-loaded config) raises a footer bar; nothing touches the file until
   Save. Cheap to reason about, and a bad edit can't half-apply.
@@ -42,7 +42,7 @@ overlays).
   **immediately** — one click is a complete intent. The three band-shape number
   inputs rebuild on **modal close**, because they write on every keystroke and
   rebuilding per character would hammer the provider. Neither is wired through
-  this component: `Atlas.tsx` watches the store (the switch via a `useBuildShape`
+  this component: `App.tsx` watches the store (the switch via a `useBuildShape`
   effect, the numbers via a `sameBuild` comparison on close), so the modal stays
   a settings editor that knows nothing about the graph.
 - **`adaptive` is a switch, not a checkbox** (`.settings-switch`) — a real
@@ -191,7 +191,7 @@ overlays).
 `frontend/test/settings/` (drafting, dirty detection, save/error paths, the
 location switch, the Library landing/sub-page split and its edits, a
 vendor's one-click crew, the tour's auto-run and ?-launch) plus the backend
-contract in `test/atlas/routes/test_settings.py`.
+contract in `test/curious_astronaut/routes/test_settings.py`.
 
 
 ## The one row that isn't a setting: Drop cache (v7.6.0)

@@ -1,7 +1,7 @@
 # `frontend/test`
 
 The frontend test suite: **Vitest** (+ React Testing Library for the DOM
-cases), mirroring `src/` the way the backend's `test/` mirrors `src/atlas/` —
+cases), mirroring `src/` the way the backend's `test/` mirrors `src/curious_astronaut/` —
 a test lives in the folder matching the module under test.
 
 ```

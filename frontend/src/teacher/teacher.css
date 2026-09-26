@@ -1108,7 +1108,7 @@
   border-left-color: #f78ca0;
 }
 /* A scout is running. The spinner is the app's shared in-flight primitive
-   (`.spin`, atlas.css) rather than the panel's hopping dots: those say "an
+   (`.spin`, curious_astronaut.css) rather than the panel's hopping dots: those say "an
    agent is composing" — the send button, a generating lecture, a bubble
    waiting on its first token — and a chip is a step in a list, not a voice.
    Reusing them everywhere flattened the difference.

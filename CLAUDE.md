@@ -13,11 +13,15 @@ it captures how we collaborate so you don't have to re-derive it each session.
 
 ## What this project is
 
-**arXiv Atlas** — a Connected-Papers-style interactive citation/similarity graph
+**Curious Astronaut** — a Connected-Papers-style interactive citation/similarity graph
 with (on the roadmap) an AI teacher that narrates the history and intuition of a
 field. It connects to **Semantic Scholar** dynamically instead of storing a paper
-corpus locally. The repo is named `atlas` on GitHub (renamed 2026-07-17 from
-`arxiv-digest`, its daily-digest-era name; old remote URLs redirect).
+corpus locally. The repo is named `curious-astronaut` on GitHub — its third
+name, after `arxiv-digest` (the daily-digest era) → `atlas` (2026-07-17) →
+`curious-astronaut` (2026-09-24, when the Atlas branding was retired: see
+`docs/history.md`). Old remote URLs redirect, so stale clones keep working.
+The Python package is `curious_astronaut`, the PyPI distribution is
+`curious-astronaut`, and **the CLI is `astronaut`** (`astronaut serve`).
 
 - **Vision, feature stack, and the open Backlog live in [OnePager.md](OnePager.md).**
   Keep it current. Read it to understand where we are and what's next. The
@@ -25,7 +29,7 @@ corpus locally. The repo is named `atlas` on GitHub (renamed 2026-07-17 from
   **[docs/history.md](docs/history.md)**; the notable-bugs log in
   **[docs/bugs.md](docs/bugs.md)** — split out 2026-07-16 so the OnePager stays
   a working document.
-- Backend: Python/Flask + uv (`src/atlas/`, standard src-layout,
+- Backend: Python/Flask + uv (`src/curious_astronaut/`, standard src-layout,
   installed editable). Frontend: React + TS +
   Vite (`frontend/`). Graph rendering via `react-force-graph-2d`.
 
@@ -171,7 +175,7 @@ authoritative.
 
 ## Release mechanics
 
-- **Versioning:** SemVer. **`v1.0.0`** is the arXiv Atlas pivot (the graph
+- **Versioning:** SemVer. **`v1.0.0`** is the Curious Astronaut pivot (the graph
   explorer replacing the old digest). From here: new feature = **minor**
   (`1.0.0` → `1.1.0`), bug fix = **patch**, breaking change = **major**. Bump
   `version` in `pyproject.toml`, then run `uv lock`. (History: the `0.x` line was
@@ -193,7 +197,7 @@ authoritative.
   owns the branch (see "Worktrees" under "Session start"), then delete the
   feature branch (`git branch -d feature/<short-name>`).
 
-The repo is **public** (`github.com/patrickjames0132/atlas`, MIT, created
+The repo is **public** (`github.com/patrickjames0132/curious-astronaut`, MIT, created
 2026-06-28), default branch `main`. *(This line said "private" until
 2026-08-09; the GitHub API says otherwise, so it was stale. Two things follow
 from public that are easy to get wrong: **GitHub Actions minutes are free and
@@ -270,19 +274,19 @@ it does not wait on a PyPI release.)*
   `POST /paper/batch` instead. Recommendations need `from=all-cs` (the default
   "recent" pool returns nothing for older seeds). Graph snapshots are cached in
   `data/cache.db` (`cache` table, 1-day TTL). Encourage setting `S2_API_KEY`.
-- **Run backend:** `uv run atlas serve` (Python 3.14 in `.venv`; the
+- **Run backend:** `uv run astronaut serve` (Python 3.14 in `.venv`; the
   console script comes from the editable src-layout install — `cli.py`).
 - **Optional extras (v7.15.0).** `sources` (sentence-transformers + torch),
   `pdf` (PyMuPDF) and `corpus` (DuckDB) are `[project.optional-dependencies]`,
   not core — 83 MB vs 1.0 GB. **Import them only through
-  `atlas.optional.require`, never at module scope**; a test walks the tree and
+  `curious_astronaut.optional.require`, never at module scope**; a test walks the tree and
   fails otherwise. `bin/setup` installs all of them locally.
 - **Logs:** `create_app()` logs to the console *and* a rotating file,
-  `data/atlas.log` (5MB × 3 backups, gitignored with the rest of `data/`).
+  `data/curious-astronaut.log` (5MB × 3 backups, gitignored with the rest of `data/`).
   Useful for after-the-fact debugging of agent runs (e.g. an S2 429 or search
   failure the UI only shows as a failed trace chip) — `grep` it for `WARNING`/
   `ERROR` after reproducing.
-- **Quick backend checks:** `uv run python -c "from atlas.app import app; ..."`
+- **Quick backend checks:** `uv run python -c "from curious_astronaut.app import create_app; ..."`
   (no path shims needed — the package is installed) and Flask's
   `app.test_client()` — avoid hammering the live S2 API in tests.
 - Don't re-hit the live API repeatedly while iterating; it throttles the IP
@@ -299,7 +303,7 @@ worth knowing before you edit either the workflow or `bin/setup.sh`:
 
 - It **reuses `bin/setup.sh`** instead of restating the bootstrap, so CI can't
   drift from what you run locally. Change the bootstrap and CI follows.
-- It sets **`ATLAS_SKIP_TORCH=1`** (the guard in `bin/setup.{sh,bat}`), which
+- It sets **`CA_SKIP_TORCH=1`** (the guard in `bin/setup.{sh,bat}`), which
   since v7.15.0 drops the **`sources` extra** rather than deselecting a single
   package. Nothing in the gate needs torch — `sentence_transformers` is
   imported lazily in `services/sources/embeddings.py`'s `_get_model` and the
@@ -309,7 +313,7 @@ worth knowing before you edit either the workflow or `bin/setup.sh`:
   PDFs and query real Parquet. **Side effect worth preserving: CI fails if
   anything imports an optional package at module scope**, which is what keeps
   those lazy imports honest. Don't "fix" a CI-only ImportError by installing
-  the extra in CI — fix the eager import, via `atlas.optional.require`.
+  the extra in CI — fix the eager import, via `curious_astronaut.optional.require`.
 - It runs **`npm run build` as a separate step**, because no nox session
   typechecks the frontend (`tsc -b`). Adding a nox session for it would let
   that step be dropped; today the two are deliberately both present.
@@ -342,14 +346,14 @@ The five sessions:
   half of the no-single-letter-identifiers convention (see "Code conventions").
   Prettier fixes in place like ruff `--fix`: a reformat fails the run so the
   changes get restaged.
-- **`mypy`** — type-checks `src/atlas`, **strict since v1.21.1**: no
+- **`mypy`** — type-checks `src/curious_astronaut`, **strict since v1.21.1**: no
   `disable_error_code` entries and `check_untyped_defs = true`. Keep it that way —
   new code must type-check clean; don't reintroduce disabled codes. At SDK
   boundaries prefer isinstance narrowing on real types (see `teacher/agentic.py`)
   over `getattr` duck-typing, and use `flask.typing.ResponseReturnValue` for
   views that return `(body, status)` tuples.
-- **`tests`** — `pytest` over `test/`, which **mirrors `src/atlas/`**
-  (669 offline tests; no live arXiv/S2/Anthropic calls, ever). Shared fixtures
+- **`tests`** — `pytest` over `test/`, which **mirrors `src/curious_astronaut/`**
+  (840 offline tests; no live arXiv/S2/Anthropic calls, ever). Shared fixtures
   in `test/conftest.py`: autouse temp-DB isolation (tests can't touch real
   `data/`), `fake_claude` (a scripted Anthropic client built from **real SDK
   event objects** — use it for anything agentic), and `stub_embeddings`

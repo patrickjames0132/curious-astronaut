@@ -24,12 +24,12 @@ import { useSyncExternalStore } from 'react'
 /** The two themes. Dark is the default and the app's native look. */
 export type Theme = 'dark' | 'light'
 
-const STORAGE_KEY = 'atlas.theme'
+const STORAGE_KEY = 'curious_astronaut.theme'
 
 /**
  * The stored preference, or dark.
  *
- * Deliberately **not** `prefers-color-scheme`: Atlas is a dark-first app, and
+ * Deliberately **not** `prefers-color-scheme`: Curious Astronaut is a dark-first app, and
  * a light OS setting shouldn't silently hand a first-time user the theme we
  * treat as the alternative. An explicit toggle is the only way into light.
  *

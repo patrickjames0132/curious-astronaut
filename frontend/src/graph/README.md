@@ -33,7 +33,7 @@ it styles the whole area, and both `controls/` components import it.)
 ## `GraphExplorer` — where the mutable world lives
 
 The graph area's composition root (canvas + controls + legend + the detail
-panel), moved here from the old Atlas because it's a graph concern. It owns
+panel), moved here from the old shell because it's a graph concern. It owns
 everything sim-side and canvas-local: the `base` dataset (derived from the
 store's raw `GraphResponse`), declutter filters, hover, selection wiring,
 canvas size, and the filtered `view`. From the store it reads the graph,
@@ -154,7 +154,7 @@ A module-level store behind `useSyncExternalStore`, the same pattern as
   saved it did. localStorage, like the theme, is the honest home.
 - **`shapeParams` sends nothing while adaptive**, so the common request URL is
   exactly what it was before shapes existed. `sameBuild` likewise treats any
-  two adaptive shapes as equal — that's what stops Atlas rebuilding the graph
+  two adaptive shapes as equal — that's what stops Curious Astronaut rebuilding the graph
   on modal close when nothing that matters changed.
 
 ## The per-chip count sliders
@@ -183,7 +183,7 @@ and `GraphExplorer` trims the view by it. Worth knowing:
 
 ## Who uses it, and how/why
 
-- **`Atlas.tsx`** (the shell) — renders `GraphExplorer` and passes its
+- **`App.tsx`** (the shell) — renders `GraphExplorer` and passes its
   overlays as children; uses `ID_RE` for the pasted-id fast path.
 - **`detail/`** — `useSelection` types against `Base`/`VNode`;
   `DetailPanel` uses `formatPubDate` + `BADGE_COLOR`.

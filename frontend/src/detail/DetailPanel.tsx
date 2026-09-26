@@ -329,7 +329,7 @@ export default function DetailPanel({
   onExplore,
   onGenerateTldr,
 }: DetailPanelProps) {
-  const { width, onHandlePointerDown, dragging } = useResizablePanel('atlas.detailWidth', 340)
+  const { width, onHandlePointerDown, dragging } = useResizablePanel('ca.detailWidth', 340)
   // Deduped in node.rels order. The dedupe used to matter because the two
   // citer relations shared one "citation" badge; a restore now folds them into
   // one relation before the panel ever sees them (`foldRetiredNodeRels`), so
