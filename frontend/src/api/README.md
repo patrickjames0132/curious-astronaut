@@ -1,6 +1,6 @@
 # `src/api`
 
-The typed client for the arXiv Atlas backend — one module per backend
+The typed client for the Curious Astronaut backend — one module per backend
 concern, re-exported through the `index.ts` barrel so components import
 everything from `./api`. This is the only layer that knows URLs, wire
 shapes, and SSE frames; components above it deal in types.
@@ -79,7 +79,7 @@ api/
 
 ## Who uses it, and how/why (traced from the old app; components port next)
 
-- **`Atlas.tsx`** — `fetchGraphStream` (seed/re-seed, via the `loadGraph`
+- **`App.tsx`** — `fetchGraphStream` (seed/re-seed, via the `loadGraph`
   thunk), session save/restore via `sessions.ts`.
 - **`search/`** — `useDirectSearch` calls `searchLive` on submit (an SSE
   stream: `trace` frames as the scout works, then one `result`); `getFields`

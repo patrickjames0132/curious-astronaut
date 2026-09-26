@@ -10,7 +10,7 @@
  * happen and counted the citations; it does not label them), so the wording
  * lives here, where it can change without touching the agent. The rule it
  * encodes: say what the answer *drew on*, and never imply grounding that
- * isn't there. Atlas grounds answers; when it can't, the honest thing is to
+ * isn't there. Curious Astronaut grounds answers; when it can't, the honest thing is to
  * say so and let the student take the question elsewhere.
  *
  * Authors:

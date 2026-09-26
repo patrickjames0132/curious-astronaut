@@ -3,12 +3,12 @@
 *(Written 2026-07-18, alongside v5.27.0's open-access PDF mining. This is the
 design rationale behind `services/pdf`'s storage choices — the questions
 Patrick asked before approving, answered for the next reader. The package's
-mechanics live in `src/atlas/services/pdf/README.md`; the knobs in
+mechanics live in `src/curious_astronaut/services/pdf/README.md`; the knobs in
 `docs/configuration.md` § `pdf`.)*
 
 ## The shape of the problem
 
-For papers ar5iv can't serve (journal papers, failed LaTeX conversions), Atlas
+For papers ar5iv can't serve (journal papers, failed LaTeX conversions), Curious Astronaut
 downloads the paper's open-access PDF and mines it with pymupdf. Three
 artifacts come out of one file:
 

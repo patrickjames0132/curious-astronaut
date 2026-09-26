@@ -7,7 +7,7 @@
  *
  * This slice is why the old `onStateChange`/`teacherStateRef` plumbing died:
  * the transcript used to live in Teacher.tsx with a live duplicate hoisted
- * into Atlas purely so Save could read it. Now there is exactly one copy,
+ * into Curious Astronaut purely so Save could read it. Now there is exactly one copy,
  * owned by neither component.
  *
  * **Why it holds more than one conversation.** Until v7.16.0 it held exactly

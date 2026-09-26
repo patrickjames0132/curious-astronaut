@@ -1,4 +1,4 @@
-# `src` — the Atlas frontend
+# `src` — the Curious Astronaut frontend
 
 React + TypeScript (strict) + Vite. State follows one rule: **a component's
 state lives where the component lives; only genuinely cross-cutting state
@@ -10,9 +10,9 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
 ## The render-tree map (find a component by where you see it)
 
 ```
-<Atlas>                            Atlas.tsx        — the shell
+<App>                            App.tsx        — the shell
 ├─ left rail (collapsible)         shell/SideBar.tsx
-│  ├─ brand row (the whole row collapses the rail): "Atlas" · seed title
+│  ├─ brand row (the whole row collapses the rail): "Curious Astronaut" · seed title
 │  ├─ ✎ New Exploration
 │  ├─ threads (General + graphs)   shell/ThreadList.tsx
 │  ├─ explorations (⋮ → rename / delete)  shell/useSessions.ts
@@ -34,7 +34,7 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 tree across both, so the switch never
    │                                 remounts it — see teacher/README.md.
    ├─ graph area                   graph/GraphExplorer.tsx
-   │  ├─ overlays (from the shell): loading / error  (Atlas.tsx)
+   │  ├─ overlays (from the shell): loading / error  (App.tsx)
    │  ├─ controls panel (folded)   graph/controls/GraphControls.tsx
    │  ├─ find control (🔍 → pill)  graph/controls/FindBar.tsx
    │  ├─ the canvas                graph/canvas/GraphCanvas.tsx

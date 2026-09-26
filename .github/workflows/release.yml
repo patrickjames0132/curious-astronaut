@@ -1,4 +1,4 @@
-# Tag-time checks for arXiv Atlas.
+# Tag-time checks for Curious Astronaut.
 #
 # The release ritual is deliberately manual and lives in CLAUDE.md ("Release
 # mechanics"): bump `version` in pyproject.toml -> `uv lock` -> commit on the

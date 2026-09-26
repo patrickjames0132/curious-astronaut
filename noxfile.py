@@ -1,7 +1,7 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-Quality gate for arXiv Atlas — run every check with ``uv run nox``.
+Quality gate for Curious Astronaut — run every check with ``uv run nox``.
 
 Five sessions, all run by default: ``precommit`` (pre-commit hooks, incl. ruff
 and the frontend's prettier/oxlint), ``mypy`` (type checks), ``tests``

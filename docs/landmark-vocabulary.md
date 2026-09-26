@@ -264,11 +264,11 @@ The worst word in the codebase. Always disambiguate:
 
 | Term | Defined in |
 | --- | --- |
-| Rule 1, Rule 2, `PER_YEAR_CAP`, `computed_cite_limit`, `select_landmarks` | `src/atlas/services/graph/budget.py` |
-| `tail_edge`, `tau`, `max_span`, `band_start`, `MIN_LANDMARK_YEARS` | `src/atlas/services/graph/bands.py` |
-| `REACHABLE_CITERS`, `_MAX_OFFSET` | `src/atlas/integrations/semantic_scholar/traversal.py` |
-| `UNBOUNDED_LANDMARK_CAP` (500) | `src/atlas/integrations/openalex/` |
-| The fitted `tau` / `max_span` (now inlined as `TAU` / `MAX_SPAN`) | `src/atlas/services/graph/bands.py` |
+| Rule 1, Rule 2, `PER_YEAR_CAP`, `computed_cite_limit`, `select_landmarks` | `src/curious_astronaut/services/graph/budget.py` |
+| `tail_edge`, `tau`, `max_span`, `band_start`, `MIN_LANDMARK_YEARS` | `src/curious_astronaut/services/graph/bands.py` |
+| `REACHABLE_CITERS`, `_MAX_OFFSET` | `src/curious_astronaut/integrations/semantic_scholar/traversal.py` |
+| `UNBOUNDED_LANDMARK_CAP` (500) | `src/curious_astronaut/integrations/openalex/` |
+| The fitted `tau` / `max_span` (now inlined as `TAU` / `MAX_SPAN`) | `src/curious_astronaut/services/graph/bands.py` |
 
 ## A note on older names
 

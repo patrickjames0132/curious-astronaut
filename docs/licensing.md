@@ -1,4 +1,4 @@
-# Licensing — why Atlas is MIT, and when that must change
+# Licensing — why Curious Astronaut is MIT, and when that must change
 
 The decision, the reasoning behind it, and the one trigger that forces a
 revisit. Written 2026-07-20 when the project first got a `LICENSE`, ahead of
@@ -10,14 +10,14 @@ sharing the code more widely and publishing to PyPI.
 
 ## The decision
 
-**Atlas is licensed under the [MIT License](../LICENSE).** Anyone may fork it,
+**Curious Astronaut is licensed under the [MIT License](../LICENSE).** Anyone may fork it,
 modify it, and even sell their own service built on it. The only obligations on
 them are trivial: keep the copyright notice, and accept that the software comes
 with no warranty.
 
 That last point is the one that protects **us**: MIT's disclaimer ("THE SOFTWARE
 IS PROVIDED 'AS IS'… IN NO EVENT SHALL THE AUTHORS… BE LIABLE…") means someone
-who uses Atlas, has it break, and tries to sue over the damage will lose. Every
+who uses Curious Astronaut, has it break, and tries to sue over the damage will lose. Every
 mainstream open-source license disclaims this equally; it is not a weak point of
 MIT.
 
@@ -29,7 +29,7 @@ confusion:
 - **Copyright** protects the **expression** — the actual code as written. It is
   automatic and free the moment the code exists, and it stops someone from
   **copying the code**. It does *not* stop someone re-implementing the same idea
-  in their own, different code. We hold Atlas's copyright automatically.
+  in their own, different code. We hold Curious Astronaut's copyright automatically.
 - **A patent** protects an **invention / method** — a novel, non-obvious *way of
   doing something*, independent of the specific code. It must be applied for,
   examined, and granted (slow and expensive), and it stops others from using the
@@ -51,7 +51,7 @@ license as MIT, with one addition: **patent clauses**.
 
 Neither clause requires *us* to own a patent — they defuse patents that
 **other people** (contributors, users) might hold. But their value only appears
-once there are **outside contributors or a base of users**. Today Atlas is
+once there are **outside contributors or a base of users**. Today Curious Astronaut is
 solo-authored with none, so Apache's patent machinery would sit idle, and MIT's
 smaller, ubiquitous, ~20-line text wins on simplicity.
 
@@ -64,7 +64,7 @@ and enforce it against us. Publishing *is* the shield; the license is not.
 
 ## ⚠️ The trigger: relicense to Apache-2.0 BEFORE accepting outside contributions
 
-**The moment Atlas opens to third-party contributions — a pull request from
+**The moment Curious Astronaut opens to third-party contributions — a pull request from
 anyone but the author, a collaborator with commit access, a public
 `CONTRIBUTING` guide, or a CLA — relicense MIT → Apache-2.0 *first*, before the
 first outside contribution lands.**

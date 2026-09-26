@@ -1,4 +1,4 @@
-# The quality gate for arXiv Atlas, run on GitHub — the same `uv run nox` you'd
+# The quality gate for Curious Astronaut, run on GitHub — the same `uv run nox` you'd
 # run by hand, plus the frontend typecheck that nox deliberately doesn't cover.
 #
 # Why this exists: the gate used to depend entirely on remembering to run it
@@ -31,7 +31,7 @@ env:
   # See bin/setup.sh for the full reasoning. A useful side effect: this run
   # fails if anything ever starts importing torch at module scope, which keeps
   # the embedder's lazy import honest.
-  ATLAS_SKIP_TORCH: '1'
+  CA_SKIP_TORCH: '1'
 
 jobs:
   gate:
@@ -74,7 +74,7 @@ jobs:
 
       # --no-sync is load-bearing: `uv run` syncs the project first by default,
       # which would reinstall the torch that bin/setup.sh deliberately skipped
-      # (silently undoing ATLAS_SKIP_TORCH — that's exactly how run #1 ended up
+      # (silently undoing CA_SKIP_TORCH — that's exactly how run #1 ended up
       # with a CUDA torch on the Windows runner). The bootstrap step above has
       # already synced; this just runs.
       - name: Quality gate (uv run --no-sync nox)

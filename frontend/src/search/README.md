@@ -134,5 +134,5 @@ pins the reducer sequence (`turnStarted` → `answerSet` → `paperRefsSet` →
 `turnCompleted`), that the finished turn is in `conversationHistory`, and
 that a broken run stays unfinished; the binding filters are pinned
 server-side, where they are actually enforced
-(`test/atlas/agents/workers/search/papers/test_main.py`), along with the
-route's SSE frames and its nickname resolve (`test/atlas/routes/test_search.py`).
+(`test/curious_astronaut/agents/workers/search/papers/test_main.py`), along with the
+route's SSE frames and its nickname resolve (`test/curious_astronaut/routes/test_search.py`).

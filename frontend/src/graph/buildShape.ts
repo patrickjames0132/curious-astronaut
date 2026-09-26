@@ -59,7 +59,7 @@ export const DEFAULT_SHAPE: BuildShape = {
   nodesPerBand: 50,
 }
 
-const STORAGE_KEY = 'atlas.buildShape'
+const STORAGE_KEY = 'ca.buildShape'
 
 /**
  * The stored shape, or the adaptive default.

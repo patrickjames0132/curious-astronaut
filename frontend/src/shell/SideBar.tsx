@@ -269,7 +269,7 @@ export default function SideBar({
       style={collapsed ? undefined : { width }}
     >
       <div className="rail-top">
-        {/* Brand row: the whole row is the collapse toggle. "Atlas" and the
+        {/* Brand row: the whole row is the collapse toggle. "Curious Astronaut" and the
             open graph's title are labels rather than controls, but a hover
             highlight that stopped at the glyph made the row look like an icon
             button with two words parked beside it — so the row is one target,
@@ -302,7 +302,7 @@ export default function SideBar({
           </span>
           {open && (
             <>
-              <span className="rail-brand">Atlas</span>
+              <span className="rail-brand">Curious Astronaut</span>
               {/* Its own tooltip inside the button's: the row's says what the
                   click does, and the seed — the one thing here that truncates
                   — says what it is in full. */}

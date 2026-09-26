@@ -11,7 +11,7 @@
  * Two phases, because the app has two first-times: {@link HOME_TOUR} covers
  * the search surface and auto-runs on first launch, before any graph exists;
  * {@link GRAPH_TOUR} covers the graph tools and auto-runs on the first graph.
- * `Atlas.tsx` picks the list (and the seen-flag) by whether a graph is up.
+ * `App.tsx` picks the list (and the seen-flag) by whether a graph is up.
  * A third list, {@link SETTINGS_TOUR}, belongs to the settings modal, which
  * mounts it itself (the ? beside its ✕): its steps *stage* the section or
  * sub-page they point at, so the walk drives the modal's own nav.
@@ -29,11 +29,11 @@ import type { TourStep } from './Tour'
 /** localStorage keys remembering each tour phase has auto-run once. */
 export const TOUR_KEYS = {
   /** The pre-graph search tour — first launch. */
-  home: 'atlas.tour.home',
+  home: 'curious_astronaut.tour.home',
   /** The graph-tools tour — first graph. */
-  graph: 'atlas.tour.graph',
+  graph: 'curious_astronaut.tour.graph',
   /** The settings modal's tour — first time it is opened. */
-  settings: 'atlas.tour.settings',
+  settings: 'curious_astronaut.tour.settings',
 } as const
 
 /** The startup tour: the chat bar, before any graph is loaded. */
@@ -58,7 +58,7 @@ export const HOME_TOUR: TourStep[] = [
       'opens it on the map; put one inside a question ("what does @… say about X?") and ' +
       'Enter completes the title, then it answers from that paper without disturbing the ' +
       'graph you are looking at. Nothing is picked for you — press Enter with no row ' +
-      'chosen and Atlas searches properly for what you typed and lists what it found.',
+      'chosen and Curious Astronaut searches properly for what you typed and lists what it found.',
   },
   {
     target: '[data-tour="search-filters"]',
@@ -389,7 +389,7 @@ export const SETTINGS_TOUR: TourStep[] = [
     target: '[data-tour="settings-adaptive"]',
     title: 'Graph size',
     body:
-      'Left on, Atlas sizes each graph from the seed’s own citation pool. Turn it off to ' +
+      'Left on, Curious Astronaut sizes each graph from the seed’s own citation pool. Turn it off to ' +
       'set the band shape yourself. These live in this browser, not the file, and apply as ' +
       'you change them — the current graph rebuilds when you close settings.',
     stage: 'graph',
@@ -409,7 +409,7 @@ export const SETTINGS_TOUR: TourStep[] = [
     target: '[data-tour="settings-vendor-apply"]',
     title: 'The AI teacher’s vendors',
     body:
-      'Model Providers holds the credentials for each vendor Atlas can reach — Google ' +
+      'Model Providers holds the credentials for each vendor Curious Astronaut can reach — Google ' +
       'and a local Ollama cost nothing. Under each one, "Apply Default Models" puts the ' +
       'lecturer and researcher on its advanced model and the summarizer and scouts on its ' +
       'light one in one click, and takes you to Agent Settings to see it — the quick way ' +

@@ -1,4 +1,4 @@
-# Pre-commit hooks for arXiv Atlas — run via `uv run nox` (the `precommit`
+# Pre-commit hooks for Curious Astronaut — run via `uv run nox` (the `precommit`
 # session) or directly with `pre-commit run --all-files`.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -50,8 +50,8 @@ repos:
       - id: pydoclint
         name: pydoclint (docstring completeness)
         language: system
-        entry: uvx --from pydoclint==0.9.1 pydoclint src/atlas
-        files: ^src/atlas/.*\.py$
+        entry: uvx --from pydoclint==0.9.1 pydoclint src/curious_astronaut
+        files: ^src/curious_astronaut/.*\.py$
         pass_filenames: false
 
   # Frontend format + lint — the same npm scripts you'd run by hand, over the

@@ -40,7 +40,7 @@ canvas about what "a reference" looks like, and both style via
   The body hides via `hidden`, **not** unmounting — the guided tour judges
   its year/citation stops by element *existence* (`presentIf`), and those
   targets must survive a collapse. The panel steps stage `'controls'`
-  (`tour/steps.ts` → `Atlas` → `GraphExplorer`'s `tourStage` → the
+  (`tour/steps.ts` → `Curious Astronaut` → `GraphExplorer`'s `tourStage` → the
   `stagedOpen` prop), which re-expands a collapsed panel so the walk has
   something to spotlight; it never re-collapses after (no tidy-up, same as
   the detail panel's staged seed selection).

@@ -16,11 +16,11 @@ if %errorlevel%==0 (
 )
 
 rem The heavy capabilities are optional extras since v7.15.0; a local bootstrap
-rem installs all of them. ATLAS_SKIP_TORCH=1 drops the `sources` extra, which is
+rem installs all of them. CA_SKIP_TORCH=1 drops the `sources` extra, which is
 rem where torch lives -- see setup.sh for the full story. CI runs the .sh under
 rem bash on both runners, so this branch exists for parity, not because CI uses
-rem it. Don't set it locally: `atlas serve` needs torch to embed anything.
-if "%ATLAS_SKIP_TORCH%"=="1" (
+rem it. Don't set it locally: `astronaut serve` needs torch to embed anything.
+if "%CA_SKIP_TORCH%"=="1" (
   call uv sync --all-groups --extra pdf --extra corpus || exit /b 1
 ) else (
   call uv sync --all-groups --extra pdf --extra corpus --extra sources || exit /b 1

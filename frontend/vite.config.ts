@@ -23,7 +23,7 @@ export default defineConfig({
     },
   },
   // Vitest. The suite lives in test/ (mirroring src/, like the backend's
-  // test/ mirrors src/atlas/) and is fully offline. Environment defaults to
+  // test/ mirrors src/curious_astronaut/) and is fully offline. Environment defaults to
   // node; component/hook tests opt into jsdom per file with a
   // `// @vitest-environment jsdom` docblock.
   test: {

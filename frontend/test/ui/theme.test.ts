@@ -35,13 +35,13 @@ describe('theme store', () => {
   })
 
   it('starts light when that was the stored choice', async () => {
-    localStorage.setItem('atlas.theme', 'light')
+    localStorage.setItem('curious_astronaut.theme', 'light')
     await loadTheme()
     expect(document.documentElement.dataset.theme).toBe('light')
   })
 
   it('ignores a stored value it does not recognize', async () => {
-    localStorage.setItem('atlas.theme', 'solarized')
+    localStorage.setItem('curious_astronaut.theme', 'solarized')
     await loadTheme()
     expect(document.documentElement.dataset.theme).toBe('dark')
   })
@@ -52,11 +52,11 @@ describe('theme store', () => {
     expect(document.documentElement.dataset.theme).toBe('light')
     // Not persisted: a config default must stay a default, or changing it
     // would stop reaching browsers that had merely visited.
-    expect(localStorage.getItem('atlas.theme')).toBeNull()
+    expect(localStorage.getItem('curious_astronaut.theme')).toBeNull()
   })
 
   it("a configured default never overrides the user's own choice", async () => {
-    localStorage.setItem('atlas.theme', 'dark')
+    localStorage.setItem('curious_astronaut.theme', 'dark')
     const { applyConfiguredDefault } = await loadTheme()
     applyConfiguredDefault('light')
     expect(document.documentElement.dataset.theme).toBe('dark')
@@ -66,9 +66,9 @@ describe('theme store', () => {
     const { setTheme } = await loadTheme()
     setTheme('light')
     expect(document.documentElement.dataset.theme).toBe('light')
-    expect(localStorage.getItem('atlas.theme')).toBe('light')
+    expect(localStorage.getItem('curious_astronaut.theme')).toBe('light')
     setTheme('dark')
     expect(document.documentElement.dataset.theme).toBe('dark')
-    expect(localStorage.getItem('atlas.theme')).toBe('dark')
+    expect(localStorage.getItem('curious_astronaut.theme')).toBe('dark')
   })
 })
