@@ -175,6 +175,15 @@ authoritative.
 
 ## Release mechanics
 
+**The full runbook is [docs/releasing.md](docs/releasing.md)** — what a tag push
+does, the out-of-repo setup (trusted publishing, the two pending publishers, the
+environment rules), how to rehearse without releasing, and how to recover when a
+release fails partway or a bad version lands. Read it before your first release;
+the steps below are the short form.
+
+> **Pushing a `v*` tag publishes to PyPI.** Step 5 below is therefore the
+> irreversible step — a PyPI version can never be replaced, only yanked.
+
 - **Versioning:** SemVer. **`v1.0.0`** is the Curious Astronaut pivot (the graph
   explorer replacing the old digest). From here: new feature = **minor**
   (`1.0.0` → `1.1.0`), bug fix = **patch**, breaking change = **major**. Bump
@@ -192,7 +201,9 @@ authoritative.
   the tag lands on `main`.
 - **Tag in lockstep:** create an **annotated** tag `vX.Y.Z` matching the
   `pyproject.toml` version, on the merge commit.
-- **Push:** `git push origin main --follow-tags`.
+- **Push:** `git push origin main --follow-tags` — **this publishes to PyPI**
+  (`--follow-tags` sends the tag, and the tag is the trigger). To land the code
+  without releasing, push `main` alone and hold the tag back.
 - **Release `main` and clean up:** `git switch --detach main` so no worktree
   owns the branch (see "Worktrees" under "Session start"), then delete the
   feature branch (`git branch -d feature/<short-name>`).
@@ -322,8 +333,9 @@ worth knowing before you edit either the workflow or `bin/setup.sh`:
 version — the one automated check on the otherwise manual release ritual — and
 **since v8.2.0 also builds and publishes to PyPI**. Pushing a `v*` tag now
 builds the frontend, builds the sdist + wheel, verifies the artifacts, uploads
-to **TestPyPI**, and then uploads to **PyPI**. Four things follow that are worth
-knowing before you push a tag:
+to **TestPyPI**, and then uploads to **PyPI**. The runbook is
+[docs/releasing.md](docs/releasing.md); four things are worth knowing here
+because they constrain how you edit the workflow:
 
 - **A tag push is now an irreversible outward action.** A PyPI version can never
   be replaced, only yanked. The `pypi` job sits behind a GitHub **environment**
