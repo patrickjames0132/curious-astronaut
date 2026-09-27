@@ -1460,17 +1460,28 @@ than deleted so the plan doesn't get re-proposed.
       retyped across modules. A whole-codebase sweep, not a targeted one; keep the
       wire format identical so snapshots, saved sessions, and the SSE protocol are
       unaffected. *(From the `todos.md` inbox, 2026-07-13.)*
-- [ ] **Publish to PyPI as `curious-astronaut`** — **the packaging shipped in
-      v8.1.0** (bundled frontend, installed-layout path resolution, PyPI
-      metadata — see [docs/history.md](docs/history.md)), and the **rebrand in
-      v8.0.0** settled the name. What is left is the publish itself: a PyPI
-      account + trusted-publishing/API token, a **`npm run build` → `uv build` →
-      `uv publish`** run (in that order — a wheel built without the frontend
-      serves the "not built yet" hint, and `uv build` builds the wheel from the
-      sdist), a TestPyPI dry run, then verifying `pip install curious-astronaut`
-      into a clean venv from the **work-side Artifactory remote**, which is the
-      only check that actually closes the ticket. Best folded into the
-      release-automation item below rather than done by hand once.
+- [ ] **Publish to PyPI as `curious-astronaut`** — down to pressing the button.
+      The **packaging shipped in v8.1.0** (bundled frontend, installed-layout
+      path resolution, PyPI metadata), the **automation in v8.2.0** (a `v*` tag
+      builds, verifies, and publishes via trusted publishing), and the
+      **rebrand in v8.0.0** settled the name — all three in
+      [docs/history.md](docs/history.md). State as of 2026-09-27: PyPI account
+      `patrickjames` exists with 2FA; the name `curious-astronaut` was still
+      unregistered. **What is left:**
+      - Register the **pending publisher** on PyPI *and* TestPyPI — project
+        `curious-astronaut`, owner `patrickjames0132`, repo `curious-astronaut`,
+        workflow `release.yml`, environment `pypi` / `testpypi`. Note the owner
+        is the **GitHub** username, not the PyPI one; they differ by a suffix
+        and a mismatch fails with an opaque OIDC error at upload time.
+      - Create the matching **GitHub environments**, with a required reviewer on
+        `pypi` so the irreversible upload waits for a click.
+      - Dispatch `release.yml` with `target: testpypi`, install from TestPyPI
+        into a clean venv, then push the tag for the real upload.
+      - **Then the check that actually closes this ticket:**
+        `pip install curious-astronaut` into a clean venv **through the
+        work-side Artifactory remote**. Everything before that is a rehearsal —
+        the whole point is the Xray ingress, and nothing outside that network
+        can prove it works.
 
       **The Xray blocker is CLEARED (2026-09-23, Patrick):** the policy does
       **not** flag *declared* optional dependencies, only what actually
@@ -1510,27 +1521,28 @@ than deleted so the plan doesn't get re-proposed.
       *(Raised 2026-07-20; re-scoped 2026-08-09 around the work-Artifactory
       driver; narrowed to the publish step 2026-09-27 when the packaging
       shipped.)*
-- [ ] **A deploy / release-automation strategy** — *(CI, the first of this
-      ticket's three stages, **shipped in v6.10.0** — see
-      [docs/history.md](docs/history.md). What follows is the remainder.)* The
-      release ritual is still manual (bump `pyproject.toml` → `uv lock` → tag →
-      push; see `CLAUDE.md`), and there's no deploy story at all. Still to
+- [ ] **A deploy strategy** — *(this ticket had three stages; **two have
+      shipped** — CI in v6.10.0 and the build-and-publish pipeline in v8.2.0.
+      See [docs/history.md](docs/history.md). What follows is the remainder.)*
+      Cutting a release is still hand-driven up to the tag (bump
+      `pyproject.toml` → `uv lock` → merge → tag → push; see `CLAUDE.md`), but
+      the tag now does the rest by itself. What was never started is deploy —
+      there is no deploy story at all. Originally to
       define: a **repeatable build** (backend wheel + bundled frontend), how a
       **release** is cut and published, and **where/how the service is
-      deployed**. `.github/workflows/release.yml` exists but only asserts the
-      tag matches `pyproject.toml`'s version — it is the place the build and
-      publish jobs will land. **Fold PyPI publishing in** — the concrete
-      packaging (distribution name, frontend bundling, installed-layout paths)
-      **shipped in v8.1.0**, so the build is already repeatable by hand:
-      `npm run build` → `uv build` → `uv publish`, in that order. This ticket is
-      the surrounding automation, and it is now the *only* thing standing
-      between a tag and a published release. **The Xray gate that used to block
-      it is cleared (2026-09-23)**, so the ordering rebrand → packaging → this
-      is finally down to its last step.
+      deployed**. **The first two shipped in v8.2.0**: `release.yml` now builds
+      the frontend, builds and verifies the sdist + wheel, and publishes to
+      TestPyPI then PyPI by trusted publishing, so a `v*` tag is the whole
+      release. Packaging (distribution name, frontend bundling, installed-layout
+      paths) shipped in v8.1.0 before it. **So all that remains of this ticket
+      is deploy** — and it is the genuinely open one: no target has been chosen,
+      and the service needs an `ANTHROPIC_API_KEY` and a writable `data/`, so it
+      isn't a static host.
       Deploy is the genuinely open one: no
       target has been chosen, and the service needs an `ANTHROPIC_API_KEY` and
       a writable `data/`, so it isn't a static host. *(From the `todos.md`
-      inbox, 2026-07-20; narrowed 2026-08-09 when CI shipped.)*
+      inbox, 2026-07-20; narrowed 2026-08-09 when CI shipped, and again
+      2026-09-27 when publishing did — leaving only deploy.)*
 
 ### Larger phases
 

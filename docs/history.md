@@ -4729,6 +4729,54 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Infrastructure, quality & tooling
 
+- [x] **Release automation: `release.yml` builds and publishes to PyPI**
+      *(v8.2.0)* — the second of the release ticket's three stages (CI shipped
+      in v6.10.0; deploy is still open). Pushing a `v*` tag now runs
+      version-check → build → TestPyPI → PyPI, and the manual trigger publishes
+      to TestPyPI on demand so the pipeline can be exercised without cutting a
+      tag. Four decisions are load-bearing.
+
+      **Trusted publishing, not an API token.** PyPI removed password uploads in
+      2024, leaving API tokens or OIDC. The workflow uses OIDC: `id-token: write`
+      lets the runner mint a short-lived token that PyPI verifies against a
+      publisher config naming the repo, **the workflow filename, and the job's
+      environment**. Nothing secret is stored, so there is nothing to leak or
+      rotate — and no credential ever has to exist on a developer machine, which
+      is what made this the right shape rather than a convenience. The cost is a
+      coupling that is invisible from the repo: **renaming `release.yml` or
+      either environment breaks publishing** until PyPI is updated to match.
+
+      **TestPyPI is not skippable.** A PyPI version can never be replaced, only
+      yanked, so `pypi` `needs: testpypi` and the dispatch input offers only
+      `testpypi` or `both` — there is deliberately no path to PyPI that skips the
+      dry run in the same run. `skip-existing: true` on the TestPyPI upload keeps
+      a re-run from failing on a version it already has. The real upload also
+      sits behind a GitHub **environment**, which is where a required reviewer
+      turns the irreversible step into a deliberate click.
+
+      **`npm run build` before `uv build`, asserted rather than assumed.**
+      `hatch_build.py` bundles the frontend only when it exists, and *must*
+      tolerate its absence (hatchling hard-fails on a missing force-include
+      source, which would break `uv sync` on a fresh clone). The price of that
+      tolerance is that the wrong order produces a **valid** wheel that serves
+      the "Frontend not built yet" hint. So a `Verify artifacts` step opens both
+      archives and asserts the bundle landed, `config.example.json` is present,
+      and the sdist still carries `frontend/src`.
+
+      **The secret audit is now machine-checked.** The same step fails the build
+      if either artifact contains `config.json`, `.env`, `.pypirc`, anything
+      under `data/`, or a `.db`/`.log` file. This existed only as a habit before:
+      `config.json` is gitignored and holds **live API keys** (Trivy flags it
+      every run), the sdist's allowlist `include` is the only thing keeping it
+      out, and an upload cannot be taken back. Both failure modes were tested by
+      constructing bad wheels — one stripped of `_frontend/`, one with a
+      `config.json` injected — and confirming the guard rejects each.
+
+      Also corrected here: the v8.1.0 note claiming the legacy
+      `license = { file = … }` form was kept for metadata compatibility. It
+      isn't — hatchling emits `Metadata-Version: 2.5` either way. See that
+      entry, now amended. *(Shipped 2026-09-27.)*
+
 - [x] **Package for PyPI: bundled frontend, installed-layout paths, metadata**
       *(v8.1.0)* — the packaging half of the "Publish to PyPI" ticket, split off
       once the rebrand settled the name. Three things stood between an editable
@@ -4766,12 +4814,20 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
       **(3) PyPI metadata.** Keywords, 15 classifiers, and the four
       `[project.urls]` entries. `license = { file = "LICENSE" }` was left in the
-      legacy form deliberately rather than modernised to PEP 639's
-      `license = "MIT"`: PEP 639 emits metadata 2.4, and the driver for this
-      whole ticket is an **Artifactory proxy with an Xray scanner of unknown
-      vintage**, so maximal compatibility beats modern syntax. The
+      legacy form rather than modernised to PEP 639's `license = "MIT"`.
+      **The original reason for that was wrong and is corrected here:** the
+      thinking was that PEP 639 emits metadata 2.4 and an Artifactory/Xray
+      scanner of unknown vintage might balk. The built wheel reports
+      `Metadata-Version: 2.5` either way — hatchling's current version emits
+      2.5 regardless of which license form is used — so the legacy form buys no
+      compatibility at all. The only real difference is that the full licence
+      text is embedded in the metadata instead of an SPDX
+      `License-Expression: MIT`. Keeping it is therefore a *neutral* choice, not
+      a defensive one, and not worth a version bump to change; the
       `License :: OSI Approved :: MIT License` classifier carries the same
-      information either way.
+      information regardless. Lesson worth more than the detail: **a
+      compatibility argument about generated metadata should be checked against
+      the generated metadata**, which takes one `unzip -p` and was not done.
 
       **Verified by installing it, not by reading it.** The ticket's predicted
       failure was reproduced first — a wheel in a clean venv died with

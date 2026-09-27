@@ -405,7 +405,10 @@ drops the `sources` extra: nothing in the gate needs torch, and skipping it
 avoids dragging the 37 Linux CUDA packages into every run (1.0 GB → 304 MB).
 The `pdf` and `corpus` extras *are* installed there — those tests build real
 PDFs and query real Parquet. A second workflow (`release.yml`) fires on
-`v*` tags and fails if the tag and `pyproject.toml`'s version disagree.
+`v*` tags: it fails if the tag and `pyproject.toml`'s version disagree, then
+builds the frontend, builds the sdist and wheel, verifies the artifacts carry
+the bundled SPA and no local state, and publishes to TestPyPI and then PyPI via
+trusted publishing (no stored token).
 
 For the project's direction and past, two living docs sit beside the code:
 **[OnePager.md](OnePager.md)** (the vision, the full feature stack, and the
