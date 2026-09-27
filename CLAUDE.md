@@ -346,6 +346,15 @@ knowing before you push a tag:
   `if: github.ref_type == 'tag'` on the job and that deployment rule must stay
   in agreement — loosen one without the other and publishing either silently
   widens or starts failing.
+- **The environment rules are part of the release path and live outside the
+  repo.** Nothing in a diff, a test or a type check can see them. The two
+  triggers produce **different ref types** — the dispatch runs on a *branch*,
+  the release on a *tag* — so an environment serving both needs a rule for each.
+  Required today: `testpypi` = branch `main` **and** tag `v*`; `pypi` = tag `v*`
+  only. Getting this wrong fails *only* on the real trigger, since the rehearsal
+  runs on a branch and passes regardless — that's how v8.2.0 died at
+  `Tag "v8.2.0" is not allowed to deploy to testpypi` (see
+  [docs/bugs.md](docs/bugs.md)).
 - **`uv build` refuses a cache dir inside the source tree**, so `release.yml`
   sets no `UV_CACHE_DIR` even though `ci.yml` does. `ci.yml` gets away with it
   because `uv sync`/`uv run` don't care; `uv build` copies the tree to make the

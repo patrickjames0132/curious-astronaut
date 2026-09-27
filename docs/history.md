@@ -4729,6 +4729,43 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Infrastructure, quality & tooling
 
+- [x] **`astronaut --version`, and the environment rules that block a tag**
+      *(v8.3.0)* — two small things caught in the act of publishing, before
+      anything reached PyPI.
+
+      **`--version` did not exist.** The CLI answered `--help` but printed usage
+      for `--version`, which is the first thing anyone tries when filing a bug
+      against a published package. Added as
+      `@click.version_option(package_name="curious-astronaut", …)`, which reads
+      **installed package metadata** rather than a second copy of the number in
+      the source — so `pyproject.toml` stays the only place a release bumps, and
+      a checkout reports the same string as a wheel. Verified by bumping: the
+      flag went from 8.2.0 to 8.3.0 with no source change. Two tests guard the
+      wiring (that it matches `importlib.metadata`, and that `--help`
+      advertises it) rather than the number, so a bump never edits a test. The
+      rebrand's last two stragglers went with it: `cli.py`'s docstring still
+      described "the `atlas` console script" and suggested `uv run atlas --help`.
+
+      **A `v*` tag cannot deploy to an environment whose rules name a branch.**
+      The v8.2.0 release failed with *"Tag "v8.2.0" is not allowed to deploy to
+      testpypi due to environment protection rules"* — a tag is not a branch
+      ref, so a rule listing `main` never matches it, and `pypi needs testpypi`
+      took the whole release down. Both environments now carry an explicit
+      **tag rule `v*`**: `testpypi` has that *plus* branch `main`, because it
+      runs on both the manual dispatch and the tag; `pypi` has the tag rule
+      alone, deliberately, so nothing but a tag can reach PyPI. See
+      [bugs.md](bugs.md) — the same misconfiguration bit twice, first pointing
+      at a `test` branch and then at `main`, which is what makes it worth
+      recording.
+
+      **v8.2.0 therefore never reached PyPI**: its release run died at the
+      TestPyPI gate, so 8.3.0 is the first version published. 8.2.0 exists on
+      TestPyPI (from the manual rehearsal) and as a git tag. It was not reused
+      for this fix on purpose — TestPyPI already held 8.2.0, and
+      `skip-existing: true` would have quietly kept the old files, breaking the
+      one property the rehearsal exists to provide: that what was tested is
+      byte-for-byte what ships. *(Shipped 2026-09-27.)*
+
 - [x] **Make the security gate able to fail; clear a CRITICAL CVE** *(v8.2.0)* —
       found while reading the *first* CI logs anyone had actually been able to
       read (`gh` was pinned in the same release). `noxfile.py` ran

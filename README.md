@@ -152,6 +152,7 @@ graph explorer runs fine without it, but the Assistant panel needs it.
 cd frontend && npm install && npm run build && cd ..
 uv run astronaut serve                      # http://127.0.0.1:5000
 uv run astronaut serve --port 5050          # ...or another port (--host to expose it)
+uv run astronaut --version                  # the installed version
 ```
 
 **Development** (two terminals, hot-reloading frontend):

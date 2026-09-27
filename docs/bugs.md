@@ -22,6 +22,39 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### A tag could not deploy to an environment whose rules named a branch (v8.3.0)
+
+- **Symptom.** The v8.2.0 release run failed at its first publish step with
+  *"Tag "v8.2.0" is not allowed to deploy to testpypi due to environment
+  protection rules"* and *"The deployment was rejected or didn't satisfy other
+  protection rules."* The identical pipeline, dispatched manually from `main`
+  minutes earlier, had succeeded and uploaded to TestPyPI — so the workflow, the
+  trusted-publisher config and the artifacts were all demonstrably fine.
+- **Root cause.** A GitHub environment's *deployment branches and tags* policy
+  had been set to permit `main`. **A tag is not a branch ref**, so `v8.2.0`
+  matched no rule and the job was refused before it ran. Because the `pypi` job
+  declares `needs: testpypi`, a refusal on the rehearsal took the real upload
+  down with it — correct behavior, but it means one mis-scoped rule fails the
+  whole release. The trap is that the two triggers this workflow supports run on
+  *different kinds of ref*: the manual dispatch runs on a branch, and the
+  release runs on a tag, so an environment used by both needs a rule for each.
+  It bit twice in one afternoon — first with the rule pointing at a `test`
+  branch, then at `main` — which is what proves it is a shape people get wrong
+  rather than a one-off slip.
+- **Fix.** Both environments carry an explicit **tag rule `v*`**. `testpypi` has
+  that plus branch `main`, since it serves both triggers. `pypi` has the tag
+  rule *only*, deliberately: nothing but a tag should reach PyPI. The workflow's
+  `if: github.ref_type == 'tag'` on the `pypi` job now agrees with the
+  environment rule, and CLAUDE.md records that the two must be changed together.
+- **Lesson / guard.** **An environment protection rule is part of the release
+  path, and it lives outside the repo where nothing reviews it.** No test, lint
+  or type check can see it; it is invisible in a diff; and it fails *only* on
+  the real trigger, which is the one path you cannot rehearse — the manual
+  rehearsal passed precisely because it ran on a branch. So when a pipeline has
+  more than one trigger, enumerate the **ref type** each one produces and
+  confirm every environment admits all of them. And prefer the cheap failure:
+  this cost nothing because the irreversible job sat behind the one that broke.
+
 ### The security session reported findings and then passed anyway (v8.2.0)
 
 - **Symptom.** `uv run nox` printed
