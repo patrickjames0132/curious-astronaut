@@ -61,7 +61,7 @@ don't work around it.
 
 **Then run the setup script**: `bin\setup.bat` on
 Windows, `bin/setup.sh` on macOS/Linux. It installs the toolchain pinned in
-`.tool-versions` via **mise** (python, uv, nodejs, trivy — mise reads the
+`.tool-versions` via **mise** (python, uv, nodejs, trivy, gh — mise reads the
 asdf-format file but, unlike asdf, works on Windows too), then
 `uv sync --all-groups`s the backend (all dependency groups, so the notebook
 `research` group survives the sync) and `npm install` + `npm run build`s the frontend. It's cheap when
@@ -339,9 +339,18 @@ knowing before you push a tag:
   hint. The workflow's `Verify artifacts` step asserts the bundle landed, along
   with the no-`config.json`/`.env`/`data/` audit that keeps local secrets out of
   a permanent upload.
-- **`workflow_dispatch` publishes to TestPyPI on demand** (`target: testpypi`),
-  which is how to exercise the pipeline without cutting a tag. `both` is the
-  only way to reach PyPI manually, and it still runs TestPyPI first.
+- **`workflow_dispatch` publishes to TestPyPI on demand** — no inputs, TestPyPI
+  only. That's how to exercise the pipeline without cutting a tag. There is
+  deliberately no manual route to PyPI: the `pypi` environment permits only
+  `v*` tags, so an option for it would be a button that always fails. The
+  `if: github.ref_type == 'tag'` on the job and that deployment rule must stay
+  in agreement — loosen one without the other and publishing either silently
+  widens or starts failing.
+- **`uv build` refuses a cache dir inside the source tree**, so `release.yml`
+  sets no `UV_CACHE_DIR` even though `ci.yml` does. `ci.yml` gets away with it
+  because `uv sync`/`uv run` don't care; `uv build` copies the tree to make the
+  sdist and dies with "The cache directory `.uv-cache` is inside the build
+  source directory". Don't "fix" the inconsistency by adding it back.
 
 The five sessions:
 

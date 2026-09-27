@@ -4752,7 +4752,15 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       dry run in the same run. `skip-existing: true` on the TestPyPI upload keeps
       a re-run from failing on a version it already has. The real upload also
       sits behind a GitHub **environment**, which is where a required reviewer
-      turns the irreversible step into a deliberate click.
+      turns the irreversible step into a deliberate click — and whose deployment
+      rule permits only `v*` tags, so **a tag is the one and only route to
+      PyPI**. The manual trigger therefore takes no inputs: an option to publish
+      for real would be a button the environment always rejects. Because
+      `testpypi` and `pypi` both consume the *same* artifact from one `build`
+      job, the rehearsal is byte-for-byte what gets published — a property that
+      an earlier plan to run TestPyPI from a separate branch would have quietly
+      destroyed, since a run has exactly one ref and the two uploads would then
+      have been different builds.
 
       **`npm run build` before `uv build`, asserted rather than assumed.**
       `hatch_build.py` bundles the frontend only when it exists, and *must*
@@ -4772,10 +4780,22 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       constructing bad wheels — one stripped of `_frontend/`, one with a
       `config.json` injected — and confirming the guard rejects each.
 
+      **`gh` is now pinned in `.tool-versions`** as part of this, so the
+      bootstrap installs it and a session can actually read its own CI results
+      (`gh run view`). Until now nobody could: the v8.0.0 CI run was never
+      checked because `gh` wasn't on PATH. Authentication stays out of band —
+      `gh auth login` puts the token in gh's own credential store, so no
+      credential is ever pasted into a transcript.
+
       Also corrected here: the v8.1.0 note claiming the legacy
       `license = { file = … }` form was kept for metadata compatibility. It
       isn't — hatchling emits `Metadata-Version: 2.5` either way. See that
-      entry, now amended. *(Shipped 2026-09-27.)*
+      entry, now amended. **The first attempt at this workflow also failed in
+      CI**, on `uv build` refusing a `UV_CACHE_DIR` inside the build source
+      directory — the pattern was copied from `ci.yml`, which only runs
+      `uv sync`/`uv run` and so never trips it. Noted in the header and in
+      CLAUDE.md so the "inconsistency" doesn't get tidied back up.
+      *(Shipped 2026-09-27.)*
 
 - [x] **Package for PyPI: bundled frontend, installed-layout paths, metadata**
       *(v8.1.0)* — the packaging half of the "Publish to PyPI" ticket, split off

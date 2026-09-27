@@ -28,10 +28,22 @@
 #      Renaming this file or an environment below breaks publishing until the
 #      publisher config on PyPI is updated to match.
 #
-#   3. **TestPyPI is not optional.** A PyPI version can never be replaced, only
-#      yanked, so `pypi` depends on `testpypi` and the manual trigger can only
-#      run TestPyPI alone or both in order — there is deliberately no way to
-#      reach PyPI without a dry run in the same run.
+#   3. **TestPyPI is not optional, and only a tag reaches PyPI.** A PyPI version
+#      can never be replaced, only yanked, so `pypi` depends on `testpypi` —
+#      there is no path to PyPI that skips the dry run, and because both jobs
+#      consume the SAME artifact from one `build`, the rehearsal is byte-for-byte
+#      what gets published. The manual trigger publishes to TestPyPI *only*; the
+#      real upload happens on a `v*` tag push and nowhere else. That is enforced
+#      twice over: by the `if:` on the `pypi` job, and by the `pypi`
+#      environment's own deployment rule, which permits only `v*` tags.
+#
+#   4. **`uv build` rejects a cache directory inside the source tree.** Hence no
+#      `UV_CACHE_DIR` here, unlike `ci.yml` — which pins the cache into the
+#      workspace so one path works on Linux and Windows alike, and gets away
+#      with it because `uv sync`/`uv run` don't care. `uv build` copies the tree
+#      to make the sdist and fails with "The cache directory `.uv-cache` is
+#      inside the build source directory". A release builds once, so a uv cache
+#      bought nothing here anyway.
 #
 # The gate itself is not re-run here: the tag sits on a merge commit that the
 # CI workflow already tested on push to main.
@@ -40,17 +52,13 @@ name: Release
 on:
   push:
     tags: ['v*']
-  # The manual trigger is how the FIRST publish happened: v8.1.0 was already
-  # tagged before this workflow could publish it, and a `workflow_dispatch` on
-  # an old tag would run that tag's copy of this file — which has no publish
-  # job. Dispatching from `main` builds whatever version pyproject.toml says.
+  # Rehearsal on demand: a manual run builds and publishes to **TestPyPI only**,
+  # which is how the pipeline gets exercised without cutting a tag. It takes no
+  # inputs on purpose — a "publish to PyPI too" option would only ever be
+  # blocked by the `pypi` environment's tag-only rule, so offering it would be a
+  # button that always fails. Dispatching from `main` builds whatever version
+  # pyproject.toml currently says.
   workflow_dispatch:
-    inputs:
-      target:
-        description: 'Which index to publish to'
-        type: choice
-        options: [testpypi, both]
-        default: testpypi
 
 # Read-only by default; the two publish jobs widen this for themselves.
 permissions:
@@ -63,7 +71,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  UV_CACHE_DIR: ${{ github.workspace }}/.uv-cache
+  # No UV_CACHE_DIR — see note 4 in the header. npm's cache is fine inside the
+  # workspace: the sdist's `include` list is an allowlist, so it can't sweep it
+  # in, and only `uv build` polices its own cache location.
   npm_config_cache: ${{ github.workspace }}/.npm-cache
 
 jobs:
@@ -110,13 +120,6 @@ jobs:
       # mise reads .tool-versions, so the release build uses the SAME pinned
       # python / uv / nodejs the developer machines and CI do.
       - uses: jdx/mise-action@v4
-
-      - name: Cache uv downloads
-        uses: actions/cache@v6
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: uv-release-${{ hashFiles('uv.lock') }}
-          restore-keys: uv-release-
 
       - name: Cache npm downloads
         uses: actions/cache@v6
@@ -231,12 +234,14 @@ jobs:
           skip-existing: true
 
   # The real thing, and the irreversible one. Gated three ways: it needs the
-  # TestPyPI run to have succeeded first, it only runs on a tag push or an
-  # explicit `both` dispatch, and the `pypi` environment is where a required
-  # reviewer can be configured so a human approves the upload.
+  # TestPyPI run to have succeeded first, it runs on a `v*` tag push and nothing
+  # else, and the `pypi` environment carries a required reviewer so a human
+  # approves the upload. The environment also restricts itself to `v*` tags, so
+  # the `if:` below and the deployment rule have to agree — loosen one without
+  # the other and publishing either silently widens or starts failing.
   pypi:
     needs: testpypi
-    if: github.ref_type == 'tag' || inputs.target == 'both'
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
