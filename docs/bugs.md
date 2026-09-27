@@ -22,6 +22,42 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The security session reported findings and then passed anyway (v8.2.0)
+
+- **Symptom.** `uv run nox` printed
+  `anyio CVE-2026-63374 CRITICAL fixed 4.14.1 → 4.14.2` in the middle of the
+  security scan, then finished with `security: success` and an overall green
+  gate. The CRITICAL was reported three times across three separate runs, by
+  three separate green gates, and shipped in v8.1.0 and v8.2.0 regardless.
+- **Root cause.** `noxfile.py` ran `trivy fs --scanners vuln,secret .` with no
+  `--exit-code`. Trivy's default exit status is **0 whether or not it finds
+  anything** — the flag is opt-in. So the session's success meant only "trivy
+  ran to completion," which is not what "the security session passed" reads
+  like at a glance, and not what anyone summarising the gate assumes. The
+  reason it went unnoticed for so long is subtler: the scan is *verbose* and
+  ends with a secret-detector hit on the local gitignored `config.json`, so
+  there was always alarming-looking output in a passing run, which trained
+  everyone reading it to skim.
+- **Fix.** Split into two runs with opposite policies (v8.2.0).
+  Vulnerabilities: `--exit-code 1 --severity HIGH,CRITICAL`, so a CVE at that
+  bar fails the gate; MEDIUM and LOW still print. Secrets: report-only, but
+  `--skip-files config.json --skip-files .env`, because both are gitignored and
+  *meant* to hold live keys — failing on them would make the gate permanently
+  red on every machine that has run the app, and the thing actually worth
+  catching is a key in a **tracked** file. `anyio` went to 4.15.1 in the same
+  change.
+- **Lesson / guard.** **A check that cannot fail is documentation, not a gate**
+  — and the way to tell the difference is to make it fail on purpose once. The
+  exit code was verified by re-running the scan with the bar lowered to MEDIUM
+  and confirming it returned 1, rather than trusting that the flag did what the
+  docs say. Two habits follow. When a tool is wired into the gate, check its
+  **default exit behavior** explicitly; "it printed a warning" and "it failed"
+  are different, and only one of them stops a release. And when a passing run
+  routinely prints scary output, treat that as a bug in the gate rather than
+  noise to learn around, because it is what makes a real finding invisible.
+  Corollary for reporting: **don't summarise a gate by its session statuses
+  alone** — that is exactly how a CRITICAL got called "all five sessions green."
+
 ### An installed copy anchored its paths off the end of its own layout (v8.1.0)
 
 - **Symptom.** Every test passed, the app ran fine, and then a non-editable

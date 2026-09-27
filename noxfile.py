@@ -67,7 +67,37 @@ def vitest(session: nox.Session) -> None:
 
 @nox.session
 def security(session: nox.Session) -> None:
-    """Scan the repo for known vulnerabilities with Trivy (skipped if absent)."""
+    """Scan for vulnerable dependencies and committed secrets with Trivy.
+
+    Two runs, not one, because the two scanners need opposite failure
+    policies. **Vulnerabilities fail the gate** at HIGH or above: until
+    v8.2.0 this session called ``trivy fs`` with no ``--exit-code``, so it
+    reported findings and then exited 0 — which meant a CRITICAL CVE in
+    ``anyio`` printed inside a run whose summary said ``security: success``,
+    and it shipped. A check that cannot fail is documentation, not a gate.
+    MEDIUM and LOW still print without blocking, so the bar stays at the
+    severities worth interrupting work for.
+
+    **Secrets only report**, and deliberately skip ``config.json`` and
+    ``.env``. Both are gitignored and both are *supposed* to hold live API
+    keys, so failing on them would leave the gate permanently red on every
+    machine that has ever run the app. What we actually want to catch is a
+    key in a *tracked* file, and those are still scanned and reported.
+
+    To waive a specific finding, add it to a ``.trivyignore`` with a comment
+    saying why and when to revisit — don't reach for ``--severity`` or drop
+    the exit code.
+
+    Args:
+        session: The nox session.
+    """
     if shutil.which("trivy") is None:
         session.skip("trivy not on PATH — install it to enable the security scan")
-    session.run("trivy", "fs", "--scanners", "vuln,secret", ".", external=True)
+    session.run(
+        "trivy", "fs", "--scanners", "vuln", "--exit-code", "1",
+        "--severity", "HIGH,CRITICAL", ".", external=True,
+    )
+    session.run(
+        "trivy", "fs", "--scanners", "secret",
+        "--skip-files", "config.json", "--skip-files", ".env", ".", external=True,
+    )

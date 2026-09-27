@@ -395,10 +395,22 @@ The five sessions:
   no test globals (import from `vitest` explicitly). Skips cleanly without
   npm. See `frontend/test/README.md`; pass args through with
   `uv run nox -s vitest -- -t name`.
-- **`security`** — **Trivy** filesystem scan; **skips cleanly when `trivy`
-  isn't on PATH**, so the gate stays green locally without it. Trivy is pinned
-  in `.tool-versions`, so the session-start `bin/setup` script installs it via
-  mise — after bootstrap the scan should actually run, not skip.
+- **`security`** — **Trivy**, run twice with opposite failure policies (since
+  v8.2.0). **Vulnerabilities fail the gate at HIGH or above**
+  (`--exit-code 1 --severity HIGH,CRITICAL`); MEDIUM and LOW print without
+  blocking. **Secrets only report**, and skip `config.json` and `.env` —
+  both gitignored, both *meant* to hold live keys, so failing on them would
+  leave the gate permanently red on any machine that has run the app; a key in
+  a **tracked** file is still caught. Waive a specific finding in a
+  `.trivyignore` with a comment saying why and when to revisit — don't raise
+  `--severity` or drop the exit code. It still **skips cleanly when `trivy`
+  isn't on PATH**, so the gate stays green locally without it; trivy is pinned
+  in `.tool-versions`, so the session-start `bin/setup` installs it via mise and
+  after bootstrap the scan should actually run, not skip. **Why it works this
+  way:** until v8.2.0 this session ran `trivy fs` with no `--exit-code`, so it
+  reported and then exited 0 — a CRITICAL `anyio` CVE printed inside a run whose
+  summary said `security: success`, and shipped anyway (see
+  [docs/bugs.md](docs/bugs.md)). Don't reintroduce a check that cannot fail.
 
 **`git add` a brand-new file before running the gate.** pre-commit's
 `--all-files` enumerates with `git ls-files`, so **untracked files are invisible

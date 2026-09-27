@@ -4729,6 +4729,34 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Infrastructure, quality & tooling
 
+- [x] **Make the security gate able to fail; clear a CRITICAL CVE** *(v8.2.0)* —
+      found while reading the *first* CI logs anyone had actually been able to
+      read (`gh` was pinned in the same release). `noxfile.py` ran
+      `trivy fs --scanners vuln,secret .` with **no `--exit-code`**, and Trivy
+      exits 0 by default whether or not it finds anything — so the session's
+      "success" only ever meant *trivy finished*. A CRITICAL `anyio` CVE
+      (CVE-2026-63374, fixed in 4.14.2) printed inside three consecutive green
+      gates and shipped in v8.1.0 anyway.
+
+      Now two runs with opposite policies, because the scanners need them.
+      **Vulnerabilities fail the gate** at `HIGH,CRITICAL`; MEDIUM and LOW still
+      print without blocking, keeping the bar at severities worth interrupting
+      work for. **Secrets only report**, skipping `config.json` and `.env` —
+      both gitignored, both *meant* to hold live keys, so failing on them would
+      leave the gate permanently red on any machine that has run the app, while
+      a key in a **tracked** file is still caught. That asymmetry is also what
+      hid the bug: the scan always ended with a secret hit on the local config,
+      so a passing run always looked alarming, which trained everyone reading it
+      to skim. `anyio` went to **4.15.1** in the same change, clearing both its
+      CVEs (a HIGH, CVE-2026-63349, came along with the CRITICAL).
+
+      The exit code was verified by making it fail on purpose — re-running with
+      the bar at MEDIUM, where a `setuptools` finding sits, and confirming a
+      return of 1 — rather than trusting the flag. Remaining findings are a
+      MEDIUM (`setuptools`, an sdist `MANIFEST.in` bypass, not our build path
+      since we use hatchling) and a LOW (`torch`). Full story and the two
+      habits it argues for in [bugs.md](bugs.md). *(Shipped 2026-09-27.)*
+
 - [x] **Release automation: `release.yml` builds and publishes to PyPI**
       *(v8.2.0)* — the second of the release ticket's three stages (CI shipped
       in v6.10.0; deploy is still open). Pushing a `v*` tag now runs
