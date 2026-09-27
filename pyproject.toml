@@ -1,11 +1,38 @@
 [project]
 name = "curious-astronaut"
-version = "8.0.0"
+version = "8.1.0"
 description = "Curious Astronaut — an interactive citation/similarity graph explorer with an AI teacher that narrates a field's history over the graph."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Charles Patrick James", email = "charles.patrick.james@gmail.com" }]
 requires-python = ">=3.11"
+keywords = [
+    "research",
+    "citations",
+    "knowledge-graph",
+    "semantic-scholar",
+    "arxiv",
+    "literature-review",
+    "llm",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Education",
+    "Typing :: Typed",
+]
+
 # Core: what the graph explorer and the AI teacher need, and nothing else.
 # 83 MB installed, against 1.0 GB when every capability was mandatory — see
 # docs/first-run.md for the measurements and why this split came first.
@@ -16,6 +43,10 @@ dependencies = [
     "pydantic>=2.7",
     "click>=8.1",
     "huggingface-hub>=0.28",
+    # Direct since v8.1.0: config.py uses it to place config.json and data/ in a
+    # per-user directory when running from an installed wheel. Already present
+    # transitively, so this adds nothing to the install size.
+    "platformdirs>=4.0",
     "pydantic-ai-slim[anthropic,openai,google]>=2.5.0",
     # Stays core although only the `sources` feature uses it: it is ~2 MB, and
     # `services/sources/` imports it from several call sites that would each
@@ -47,6 +78,12 @@ pdf = ["pymupdf>=1.24"]
 # power-user feature measured in hundreds of GB of data on disk.
 corpus = ["duckdb>=1.5"]
 
+[project.urls]
+Homepage = "https://github.com/patrickjames0132/curious-astronaut"
+Repository = "https://github.com/patrickjames0132/curious-astronaut"
+Issues = "https://github.com/patrickjames0132/curious-astronaut/issues"
+Changelog = "https://github.com/patrickjames0132/curious-astronaut/blob/main/docs/history.md"
+
 [project.scripts]
 astronaut = "curious_astronaut.cli:cli"
 
@@ -59,6 +96,47 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/curious_astronaut"]
+
+# The config template ships *inside* the package: an installed copy has no
+# checkout to read it from, and `load_settings` creates a missing config.json
+# from it. Tracked and always present, so a plain force-include is right here —
+# if it ever goes missing the build should fail loudly.
+[tool.hatch.build.targets.wheel.force-include]
+"config.example.json" = "curious_astronaut/config.example.json"
+
+# The built frontend is bundled by a hook instead, because it is a gitignored
+# build artifact that may not exist yet — see hatch_build.py.
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
+# `frontend/dist` is gitignored, and hatchling honours VCS ignores, so it has
+# to be declared an *artifact* to be packaged at all. The glob is tolerant of
+# it not existing yet, unlike a force-include.
+[tool.hatch.build]
+artifacts = ["frontend/dist/**"]
+
+# The sdist carries the frontend **source** (so the work-side import has real
+# sources to build from — see the PyPI ticket) *and* the built `frontend/dist`.
+# Shipping the build output in an sdist is unusual, but `uv build` builds the
+# wheel **from the sdist**, so without it the wheel has no frontend and
+# `pip install <sdist>` yields an app that serves only the "not built yet"
+# hint. The alternative — requiring npm at install time — is far worse.
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/curious_astronaut",
+    "frontend/src",
+    "frontend/public",
+    "frontend/dist",
+    "frontend/index.html",
+    "frontend/package.json",
+    "frontend/package-lock.json",
+    "frontend/tsconfig*.json",
+    "frontend/vite.config.ts",
+    "config.example.json",
+    "hatch_build.py",
+    "README.md",
+    "LICENSE",
+]
 
 # --- torch: CUDA on Windows, stock PyPI everywhere else ---
 #
@@ -88,6 +166,12 @@ dev = [
     "mypy>=1.11",
     "pytest>=8.0",
     "pre-commit>=3.7",
+    # The build backend, as a dev dependency so `hatch_build.py`'s frontend
+    # bundling is importable — and therefore testable — outside a build.
+    # test/test_packaging.py guards it; without that the hook could stop
+    # shipping the frontend and nothing would notice until someone installed
+    # the wheel.
+    "hatchling>=1.25",
     # pydoclint is NOT a project dependency: it pins `docstring_parser_fork`,
     # which collides (same `docstring_parser` import package) with the mainline
     # `docstring-parser` that `anthropic` pulls in, and the mainline shadows the
@@ -117,7 +201,9 @@ check_untyped_defs = true
 # editable install (src-layout); pythonpath is belt-and-braces for running pytest
 # outside a synced uv env.
 testpaths = ["test"]
-pythonpath = ["src"]
+# "." puts the repo root on the path too, so test_packaging.py can import the
+# root-level `hatch_build.py` without a sys.path hack of its own.
+pythonpath = ["src", "."]
 # Test dirs have no __init__.py, so as source packages keep splitting into
 # submodules (semantic_scholar/client.py, arxiv/client.py, ...), two
 # test files can end up sharing a basename in different directories.

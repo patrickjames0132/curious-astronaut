@@ -82,7 +82,7 @@ Without mise, `uv` and `Node.js` installed any other way work fine too.
 > | `sources` | search over your own uploaded books and PDFs | +~800 MB |
 >
 > `bin/setup` installs all of them. To pick: `uv sync --extra pdf`, or
-> `pip install 'atlas[pdf,corpus]'`. Nothing breaks without one — the feature
+> `pip install 'curious-astronaut[pdf,corpus]'`. Nothing breaks without one — the feature
 > says it isn't installed and names the command. See
 > [docs/first-run.md](docs/first-run.md).
 

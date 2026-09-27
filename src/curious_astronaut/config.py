@@ -32,6 +32,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
+import platformdirs
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -45,8 +46,45 @@ from pydantic import (
     model_validator,
 )
 
-# This file lives at src/curious_astronaut/config.py; the repo root is 3 levels up.
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+#: Where this package's own files live — in a checkout that is
+#: ``src/curious_astronaut/``, in a wheel it is ``site-packages/curious_astronaut/``.
+#: Read-only bundled assets (the config template, the built frontend) sit here
+#: in an installed copy, so this is the anchor for *shipped* data.
+PACKAGE_DIR = Path(__file__).resolve().parent
+
+
+def _source_checkout_root() -> Path | None:
+    """The repo root, when this package is being run out of a source checkout.
+
+    The src-layout puts this file at ``<repo>/src/curious_astronaut/config.py``,
+    so the repo root is two parents up; an installed copy sits at
+    ``<venv>/lib/pythonX.Y/site-packages/curious_astronaut/`` where the same
+    two hops land on ``lib/pythonX.Y`` instead. Requiring **both** a
+    ``pyproject.toml`` and a ``src/`` directory there is what tells the two
+    apart — an editable install still resolves to the real checkout, so
+    development keeps the repo-root behaviour it has always had.
+
+    Returns:
+        The checkout's root directory, or None when running from an installed
+        package.
+    """
+    candidate = PACKAGE_DIR.parents[1]
+    if (candidate / "pyproject.toml").is_file() and (candidate / "src").is_dir():
+        return candidate
+    return None
+
+
+#: The checkout root, or None when installed. Distinguishes the two modes.
+CHECKOUT_ROOT = _source_checkout_root()
+
+#: Base for everything the app **writes**: ``config.json``, the
+#: ``.config-location`` sidecar, and any relative ``data_dir``. In a checkout
+#: that is the repo root, exactly as before. Installed, it is a per-user
+#: directory — site-packages is not writable and must not accumulate state.
+#: One root for both config and data (rather than splitting config/data per
+#: XDG) so the installed layout mirrors the repo's: ``config.json`` sitting
+#: next to ``data/``, which keeps the docs and the settings UI honest.
+PROJECT_ROOT = CHECKOUT_ROOT or Path(platformdirs.user_data_dir("curious-astronaut"))
 
 
 class ConfigModel(BaseModel):
@@ -818,7 +856,9 @@ CONFIG_PATH = PROJECT_ROOT / "config.json"
 #: it automatically** at load (fresh checkout boots keyless with no setup
 #: step), and the settings route uses its key order as the canonical
 #: structure every save is written in.
-EXAMPLE_CONFIG_PATH = PROJECT_ROOT / "config.example.json"
+EXAMPLE_CONFIG_PATH = (
+    (CHECKOUT_ROOT / "config.example.json") if CHECKOUT_ROOT else PACKAGE_DIR / "config.example.json"
+)
 
 #: Optional sidecar naming the active config file — one absolute path on one
 #: line. Written by the settings modal's "config file location" setting. A
@@ -862,6 +902,10 @@ def load_settings(path: Path | None = None) -> Config:
     """
     path = path if path is not None else active_config_path()
     if path == CONFIG_PATH and not path.exists():
+        # Installed, PROJECT_ROOT is a per-user directory that may not exist
+        # yet — a first run has nothing there. In a checkout the repo root is
+        # always present, so this is a no-op.
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(EXAMPLE_CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
     try:
         raw = path.read_text()

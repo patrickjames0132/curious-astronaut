@@ -1,9 +1,11 @@
 # First run — scoping the options
 
 *Written 2026-08-28, scoping the Reach & access ticket "Make first-run possible
-for someone who is not a developer." Nothing here is built yet. This exists so
-the build decision is made once, with numbers, instead of re-argued each time
-the ticket comes up.*
+for someone who is not a developer." This exists so the build decision is made
+once, with numbers, instead of re-argued each time the ticket comes up. **Two
+of its steps have since shipped** — the dependency split in v7.15.0 and
+Option A's packaging in v8.1.0 — and the sections below are annotated where
+that changes the picture; the numbers and the reasoning are kept as written.*
 
 Today's path to a running Curious Astronaut: install mise → it installs Python 3.14, uv,
 Node and trivy → `uv sync --all-groups` → `npm install && npm run build` →
@@ -50,12 +52,13 @@ Four separate walls, and they are not equally hard:
 
 1. **A toolchain** — Python 3.14, uv, Node, mise. The one everybody thinks of.
 2. **A build step** — `npm run build`, because `frontend/dist` is gitignored.
-3. **Config** — *less broken than the ticket assumes.* `load_settings` already
-   creates a missing default `config.json` from the tracked example
-   (`config.py:865`), so a fresh **checkout** boots keyless with no config
-   step. But it is anchored to `PROJECT_ROOT = parents[2]` of the package
-   file, which for an installed wheel is `site-packages/` — so config
-   discovery genuinely is broken for every option except "clone the repo."
+3. **Config** — *less broken than the ticket assumes, and **fixed outright in
+   v8.1.0**.* `load_settings` already created a missing default `config.json`
+   from the tracked example, so a fresh **checkout** always booted keyless with
+   no config step. What was broken was the anchor: `PROJECT_ROOT = parents[2]`
+   of the package file, which for an installed wheel walks past
+   `site-packages/` entirely. It now resolves two ways, so an installed copy
+   keeps its state in a `platformdirs` per-user dir. **This wall is gone.**
 4. **Credentials** — needed for the teacher, not the explorer. Since v7.14.0
    the app runs with none.
 
@@ -63,11 +66,15 @@ Four separate walls, and they are not equally hard:
 
 ### A. Prebuilt release artifact (`pip install`, then `astronaut serve`)
 
-**Cost:** config discovery must move off `PROJECT_ROOT` to a real user path
-(`~/.config/atlas/` or platformdirs), `frontend/dist` must ship as package
-data, and `config.example.json` must ship with it. All three are already
-written into the *Publish to PyPI* ticket, so this is that ticket's packaging
-half rather than new work.
+**Cost — all of it paid in v8.1.0.** Config discovery had to move off
+`PROJECT_ROOT`, `frontend/dist` had to ship as package data, and
+`config.example.json` with it. All three shipped: `PROJECT_ROOT` now resolves
+two ways (repo root in a checkout, a `platformdirs` per-user dir once
+installed), the built frontend is bundled as `curious_astronaut/_frontend/`,
+and the example config is force-included. See
+[history.md](history.md) for the mechanics and [bugs.md](bugs.md) for the
+`parents[2]` anchor that made it necessary. **This option now works** —
+`pip install .` into a clean venv serves the real SPA.
 
 **Leaves standing:** wall 1, partly — still needs a Python and a `pip`. Nothing
 else.
@@ -107,7 +114,7 @@ installable — it makes it *usable once installed*.
 Sequence, not a choice — the options are not alternatives:
 
 1. ~~**Split the dependencies into extras**~~ — **done in v7.15.0.**
-   `atlas[sources]`, `atlas[pdf]`, `atlas[corpus]`; the three unused
+   `curious-astronaut[sources]`, `[pdf]`, `[corpus]`; the three unused
    declarations deleted. Measured after: a core install is **83 MB** and boots,
    serves a graph, and reports each missing capability by name. CI dropped from
    1.0 GB to 304 MB. PyMuPDF is now optional, so the default dependency graph
@@ -123,8 +130,10 @@ Sequence, not a choice — the options are not alternatives:
    `pip install .` into a clean venv **failed on config discovery exactly as
    predicted below** (`FileNotFoundError: .../lib/python3.14/config.example.json`),
    which is the next step's first task, not a new problem.
-2. **Option A's packaging half** — config discovery off `PROJECT_ROOT`,
-   `frontend/dist` as package data. Ship it as a GitHub release asset. This is
+2. ~~**Option A's packaging half**~~ — **shipped in v8.1.0**: config
+   discovery off `PROJECT_ROOT`, `frontend/dist` bundled into the wheel, PyPI
+   metadata. What remains is only *distributing* the artifact — a PyPI publish
+   or a GitHub release asset — which is the release-automation ticket. This was
    the largest reach gain per unit of work, and it is a prerequisite for B
    anyway (a Docker image wants an installable package, not a git clone).
 3. **Option C**, whenever. It is small, independent, and helps under A and B
@@ -135,12 +144,18 @@ Sequence, not a choice — the options are not alternatives:
 
 ## Open questions
 
-- **Where should config live for an installed Curious Astronaut?** `~/.config/atlas/` is
-  the obvious answer, but the `.config-location` sidecar and the "path is
-  anchored to the repo root" convention in `StorageConfig` both assume a
-  checkout. Settle this before the packaging work hard-codes anything — it is
-  the same "settle the location first" warning the PyPI ticket already carries
-  about `frontend/dist`.
+- ~~**Where should config live for an installed Curious Astronaut?**~~
+  **Answered in v8.1.0: `platformdirs.user_data_dir("curious-astronaut")`** —
+  `~/Library/Application Support/curious-astronaut` on macOS,
+  `~/.local/share/curious-astronaut` on Linux, `%LOCALAPPDATA%` on Windows.
+  Not a hand-rolled `~/.config/…`, because platformdirs already encodes each
+  platform's convention and the app is cross-platform. The framing that made
+  it easy: the question is not "where does config go" but **which things are
+  writable state and which are shipped assets** — state follows
+  `PROJECT_ROOT` (now per-user when installed), assets follow `PACKAGE_DIR`
+  (always inside the package). The `.config-location` sidecar and
+  `StorageConfig`'s repo-root-relative paths still work, because an editable
+  install still reads as a checkout.
 - ~~**Does a torch-free install degrade honestly?**~~ **Answered in v7.15.0:
   yes.** `optional.require` raises a `MissingExtra` naming the capability and
   the command, and `optional.available` is the ask-before-doing half the
