@@ -4729,6 +4729,67 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Infrastructure, quality & tooling
 
+- [x] **Package for PyPI: bundled frontend, installed-layout paths, metadata**
+      *(v8.1.0)* — the packaging half of the "Publish to PyPI" ticket, split off
+      once the rebrand settled the name. Three things stood between an editable
+      checkout and an installable wheel, and all three only break *after*
+      installation, which is why nothing in the suite had caught them.
+
+      **(1) The built frontend now ships inside the wheel.** `frontend/dist`
+      lands as `curious_astronaut/_frontend/` (64 files), and `app.py` prefers
+      that copy while still falling back to the checkout's `frontend/dist`, so
+      `npm run build` keeps taking effect in development without a reinstall.
+      It goes in through a **custom build hook** (`hatch_build.py`), not a plain
+      `force-include`, for a specific reason: hatchling *fails the build* when a
+      force-include source is missing, and `frontend/dist` is gitignored — so on
+      a fresh clone `uv sync`, which runs the build backend **before**
+      `bin/setup` gets to `npm run build`, would die. The hook looks first and
+      skips quietly. The consequence to remember when release automation lands:
+      **a wheel built without `npm run build` first serves the "Frontend not
+      built yet" hint instead of the app.**
+
+      **(2) Path resolution became two-mode.** The old anchor was
+      `Path(__file__).parents[2]`, which is the repo root from
+      `src/curious_astronaut/` and pure nonsense from
+      `site-packages/curious_astronaut/` — it walked off the end of the layout
+      and pointed at `lib/python3.14/`. `config.py` now detects a source
+      checkout by requiring **both** a `pyproject.toml` and a `src/` dir two
+      levels up (`CHECKOUT_ROOT`); `PROJECT_ROOT` is that root in a checkout and
+      a `platformdirs` per-user data dir otherwise. The distinction that matters
+      is **writable state (`PROJECT_ROOT`) versus shipped assets
+      (`PACKAGE_DIR`)** — `config.json`, `data/` and the logs are state and must
+      never accumulate in site-packages, while `config.example.json` is an asset
+      and is force-included into the package. An editable install still reads as
+      a checkout, so development is byte-identical: `PROJECT_ROOT`,
+      `CONFIG_PATH`, `data_dir` and `FRONTEND_DIST` all resolve exactly where
+      they did before.
+
+      **(3) PyPI metadata.** Keywords, 15 classifiers, and the four
+      `[project.urls]` entries. `license = { file = "LICENSE" }` was left in the
+      legacy form deliberately rather than modernised to PEP 639's
+      `license = "MIT"`: PEP 639 emits metadata 2.4, and the driver for this
+      whole ticket is an **Artifactory proxy with an Xray scanner of unknown
+      vintage**, so maximal compatibility beats modern syntax. The
+      `License :: OSI Approved :: MIT License` classifier carries the same
+      information either way.
+
+      **Verified by installing it, not by reading it.** The ticket's predicted
+      failure was reproduced first — a wheel in a clean venv died with
+      `FileNotFoundError: .../lib/python3.14/config.example.json` — then the fix
+      was checked the same way, including the non-editable `pip install .` the
+      ticket named: `/api/health`, `/` (the real SPA) and `/favicon.svg` all
+      200, with `config.json` created under
+      `~/Library/Application Support/curious-astronaut`. One more trap surfaced
+      there: **`uv build` builds the wheel from the sdist**, so a wheel built
+      through it inherited the sdist's exclusions and shipped no frontend at
+      all. Fixed with `artifacts = ["frontend/dist/**"]` plus `frontend/dist` in
+      the sdist include list — shipping build output in an sdist is unusual, but
+      the alternative is requiring npm at install time, and it also makes
+      `pip install <sdist>` work, which is what the Artifactory path actually
+      serves. Guarded by **13 new tests** in `test/test_packaging.py` (the build
+      hook's present/absent behavior, the both-markers checkout rule, and the
+      pyproject wiring the wheel silently depends on). *(Shipped 2026-09-27.)*
+
 - [x] **Rebrand: Atlas → Curious Astronaut** *(v8.0.0)* — the PyPI
       distribution-name question turned into a rebrand. Three things forced it.
       (1) **`atlas` was unavailable and uncrowdable** — the PyPI name is held by

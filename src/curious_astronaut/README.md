@@ -46,9 +46,53 @@ Every tunable the app has — paths, API keys, model names, agent
 definitions — needs one home, loaded once, validated at startup, with zero
 ambiguity about where a given setting comes from.
 
+## Where the files live: checkout vs installed (v8.1.0)
+
+`config.py` resolves paths **two different ways**, because the package runs in
+two very different places. `_source_checkout_root()` decides which, by looking
+two directories above the package for **both** a `pyproject.toml` and a `src/`
+directory:
+
+```
+                      checkout (incl. editable install)   installed wheel
+CHECKOUT_ROOT         <repo>                               None
+PROJECT_ROOT          <repo>                               platformdirs user data dir
+  config.json         <repo>/config.json                   <user dir>/config.json
+  .config-location    <repo>/.config-location              <user dir>/.config-location
+  data/ (relative)    <repo>/data/                         <user dir>/data/
+PACKAGE_DIR           <repo>/src/curious_astronaut         site-packages/curious_astronaut
+  config.example.json <repo>/config.example.json           <package>/config.example.json
+  built frontend      <repo>/frontend/dist                 <package>/_frontend/
+```
+
+The split is **writable state vs shipped assets**. `PROJECT_ROOT` anchors
+everything the app writes; site-packages is not writable and must never
+accumulate state, so an installed copy puts it under the user's data
+directory. `PACKAGE_DIR` anchors what ships inside the wheel and is only ever
+read.
+
+Three consequences worth knowing:
+
+- **An editable install is still a checkout**, since it resolves to the real
+  `src/` tree. Development behaviour is unchanged by all of this.
+- **Both markers are required.** Checking only for `pyproject.toml` would let a
+  stray one further up the tree convince an installed copy to write into some
+  unrelated directory.
+- **A first run creates the user directory.** `load_settings` does
+  `parent.mkdir(parents=True)` before writing the first `config.json` — in a
+  checkout that is a no-op, installed it is what makes a fresh machine work.
+
+How the bundled assets get there is `hatch_build.py` plus the
+`[tool.hatch.build*]` tables in `pyproject.toml`; `test/test_packaging.py`
+guards both halves. Note the frontend goes in through a **build hook** rather
+than a `force-include` entry because `frontend/dist` is a gitignored build
+artifact that does not exist in a fresh clone, and hatchling fails a build
+outright on a missing force-include source — which would break `uv sync`,
+since that runs the build backend before `bin/setup` gets to `npm run build`.
+
 ## How it's structured
 
-`config.json` (repo root, gitignored — holds real API keys) is parsed by
+`config.json` (gitignored — holds real API keys) is parsed by
 Pydantic v2 models into one `config` object, grouped by the part of the
 app that consumes it:
 
@@ -133,8 +177,11 @@ truth, not a per-feature dependency. By subsystem:
 - **The AI teacher** (`teacher/*`, `routes/teacher.py` — not yet ported)
   will read `config.llm.*` for the Anthropic key and model.
 - **App wiring** (`app.py`, `cli.py` — not yet ported) will read
-  `config.server.*` to start Flask, plus `PROJECT_ROOT` to locate the built
-  frontend.
+  `config.server.*` to start Flask. The built frontend is located by
+  `app.py`'s `FRONTEND_DIST`, which prefers the wheel's bundled
+  `_frontend/` and falls back to the checkout's `frontend/dist` (see
+  "Where the files live" above) — not by `PROJECT_ROOT`, which is for
+  writable state only.
 
 **Every not-yet-ported file above still references the *old* flat names**
 (`config.AGENT_MAX_STEPS`, `config.EMBED_DIM`, `config.TEACHER_MODEL`,

@@ -1,4 +1,4 @@
-# Atlas — One-Pager
+# Curious Astronaut — One-Pager
 
 > **Status:** v7.12.0 · living document · MIT-licensed. The core loop has
 > shipped: the provider-selectable citation graph (Semantic Scholar or
@@ -18,8 +18,8 @@
 
 ## Vision
 
-**Atlas** turns a research paper into an explorable *map* and puts an AI
-teacher beside it. Drop in a paper (say *Attention Is All You Need*) and Atlas
+**Curious Astronaut** turns a research paper into something explorable and puts
+an AI teacher beside it. Drop in a paper (say *Attention Is All You Need*) and it
 renders a **Connected-Papers-style interactive graph** of how it links to the
 literature — the papers it built on, the papers it spawned, and its nearest
 neighbors by meaning. Then hit **"Teach me how we got here"** and Claude narrates
@@ -33,7 +33,7 @@ model-driven, married to an interactive citation graph NotebookLM never had.
 
 ### Why it exists — and what that means for this list
 
-**Atlas is not a business, and is not trying to become one** (Patrick,
+**Curious Astronaut is not a business, and is not trying to become one** (Patrick,
 2026-08-16). It is three things: a tool its author actually uses, a real
 research vehicle (the citation-coverage and landmark-selection work in
 [docs/citation-coverage.md](docs/citation-coverage.md) and
@@ -47,7 +47,7 @@ the mission *succeeding*, not the project dying — so **"is this feature
 unique?" is not a question worth asking here.** The threats that are real are
 **cost, installability, and discoverability**: a person who cannot afford an
 API key, cannot get past the setup script, or never finds the project is a
-person Atlas failed. Weight the Backlog accordingly — see **Reach & access**,
+person the app failed. Weight the Backlog accordingly — see **Reach & access**,
 deliberately placed first.
 
 *(A competitive sweep on 2026-08-16 confirmed the landscape this assumes:
@@ -110,7 +110,7 @@ and ~~polished media~~ (AutoContent API decks, infographics, video).**
 NotebookLM now ships audio overviews you can interrupt with questions,
 one-click decks and auto-infographics, all free. Building a worse version of a
 free Google feature serves nobody, and it was never the interesting part of
-Atlas. One factual blocker to know if anyone revives the audio half:
+Curious Astronaut. One factual blocker to know if anyone revives the audio half:
 **Anthropic has no TTS** — the model writes the script (the lecturer already
 does), but speech needs a separate vendor regardless, which is exactly what
 the Podcastfy/Edge TTS line always was, so "just use our LLM provider" does
@@ -173,13 +173,13 @@ than deleted so the plan doesn't get re-proposed.
 ### Reach & access
 
 > The mission-critical theme (see [Why it exists](#why-it-exists--and-what-that-means-for-this-list)).
-> Everything here is about somebody who cannot currently use Atlas at all —
+> Everything here is about somebody who cannot currently use Curious Astronaut at all —
 > because of cost, because of setup, or because they never found it. None of
 > these are hard problems. They are just the ones that were never prioritized,
 > because the backlog was implicitly sorted by what was interesting to build.
 
 - [ ] **Make first-run possible for someone who is not a developer** — today
-      the path to a running Atlas is: install mise, run a setup script that
+      the path to a running Curious Astronaut is: install mise, run a setup script that
       wants Python 3.14 / uv / Node / trivy, `uv sync --all-groups`, `npm
       install && npm run build`, hand-copy `config.example.json` to
       `config.json`, then find and paste API keys. Every one of those steps is
@@ -196,21 +196,23 @@ than deleted so the plan doesn't get re-proposed.
       **Step one shipped in v7.15.0** — those three capabilities are now
       `[project.optional-dependencies]`, so a core install is 83 MB (see
       [docs/history.md](docs/history.md)). That was the pure-subtraction step
-      every distribution shape needed first. **The next task is already
-      identified**, from trying it: a non-editable `pip install .` fails on
-      config discovery (`FileNotFoundError: …/lib/python3.14/config.example.json`)
-      because `PROJECT_ROOT` is anchored to the repo root. Note this corrects
-      one assumption below — a missing `config.json` is **already** created
-      from the example (`config.py:865`), so a fresh checkout needs no config
-      step; the real config problem is only that path anchoring, which breaks
-      for an installed package.
+      every distribution shape needed first. **Step two shipped in v8.1.0** — the
+      `FileNotFoundError: …/lib/python3.14/config.example.json` that a
+      non-editable `pip install .` used to die on is fixed: `PROJECT_ROOT` now
+      resolves two ways, repo root in a checkout and a `platformdirs` per-user
+      dir once installed, and the built frontend ships inside the wheel. So
+      **`pip install curious-astronaut` + `astronaut serve` already works** —
+      what is left of this ticket is everything that isn't Python packaging.
+      Note this also corrects one assumption below — a missing `config.json` is
+      **already** created from the example, so neither a fresh checkout nor an
+      install needs a config step.
 
       **The options, kept here in summary:** A **Docker image** is the
       obvious one (a single `docker run`, no toolchain at all) and its cost is
       the torch/CUDA question the README already documents plus image size. A
-      **prebuilt release artifact** (the packaging half of the PyPI ticket
-      already specifies bundling `frontend/dist`, so `pip install` + `atlas
-      serve` is most of the way there) is cheaper but still assumes Python. A
+      **prebuilt release artifact** is cheaper but still assumes Python — and
+      as of v8.1.0 it is mostly *done*, since the wheel bundles the frontend and
+      resolves its own paths; it only wants publishing. A
       **guided first-run** that writes `config.json` for you, rather than
       requiring a hand-edit, is small and helps regardless of which of the
       other two wins. Note the config step is the one that *must* be solved
@@ -220,7 +222,7 @@ than deleted so the plan doesn't get re-proposed.
       install that still demands a paid API key has moved the wall, not
       removed it. *(Filed 2026-08-16.)*
 
-- [ ] **Nowhere to try it, and nowhere that explains it** — Atlas is public on
+- [ ] **Nowhere to try it, and nowhere that explains it** — Curious Astronaut is public on
       GitHub with a thorough README, and that reaches developers who already
       read READMEs. It reaches nobody else. There is **no demo, no screenshot,
       no recording, and no hosted instance** — so the only way to find out
@@ -231,7 +233,7 @@ than deleted so the plan doesn't get re-proposed.
       **The cheap end is disproportionately effective and should come first:**
       screenshots and a short screen recording in the README, showing a lecture
       playing while the graph lights up node-by-node. That is the single most
-      convincing thing Atlas does and it is currently described only in prose.
+      convincing thing the app does and it is currently described only in prose.
       **A hosted instance is the expensive end** and carries a real problem
       worth stating before anyone tries: the teacher needs an API key, so a
       public demo means *paying for strangers' tokens*, with no rate-limit
@@ -1314,7 +1316,7 @@ than deleted so the plan doesn't get re-proposed.
       of `src/` — which reads oddly now that the backend is a proper src-layout
       package (`src/curious_astronaut/`) and the frontend is the larger of the two trees.
       Options worth weighing: rename in place (`web/`, `ui/`, `app/`, or
-      something Atlas-specific); move it under a shared parent so the two halves
+      something brand-specific); move it under a shared parent so the two halves
       are visibly siblings (`packages/`, `apps/`); or leave it and just write
       down *why*, which is a legitimate outcome. **What makes this
       non-trivial** is the blast radius of a rename — `frontend/` is named in
@@ -1324,9 +1326,10 @@ than deleted so the plan doesn't get re-proposed.
       good deal of prose across `README.md`, `CLAUDE.md`, and the READMEs
       themselves. Do it as one mechanical sweep with the gate green on both
       sides, or not at all — a half-renamed tree is worse than either end
-      state. Also note the "Publish to PyPI" ticket wants to ship
-      `frontend/dist` as package data, so settle the location *before* the
-      packaging work hard-codes a path. *(From the `todos.md` inbox,
+      state. Note the packaging work (v8.1.0) got there
+      first: `frontend/dist` is now named in `hatch_build.py` and in
+      `pyproject.toml`'s `artifacts`/sdist `include` lists as well, so a rename
+      has two more call sites than it did. *(From the `todos.md` inbox,
       2026-08-09.)*
 - [ ] **Scrub the STOP/SKIP docs & memories once citation-thresholding supersedes
       them** — a deliberately-deferred cleanup, **gated on** the "Replace the
@@ -1457,47 +1460,41 @@ than deleted so the plan doesn't get re-proposed.
       retyped across modules. A whole-codebase sweep, not a targeted one; keep the
       wire format identical so snapshots, saved sessions, and the SSE protocol are
       unaffected. *(From the `todos.md` inbox, 2026-07-13.)*
-- [ ] **Publish to PyPI as `curious-astronaut`** — **name chosen 2026-09-23**
-      (free on PyPI as of that date; see the rebrand entry in
-      [docs/history.md](docs/history.md) for why not an `atlas-*` name).
-      **The rebrand shipped in v8.0.0**, so the package is already named
-      `curious-astronaut` and the CLI is `astronaut` — this ticket is now only
-      the packaging and the publish itself.
+- [ ] **Publish to PyPI as `curious-astronaut`** — **the packaging shipped in
+      v8.1.0** (bundled frontend, installed-layout path resolution, PyPI
+      metadata — see [docs/history.md](docs/history.md)), and the **rebrand in
+      v8.0.0** settled the name. What is left is the publish itself: a PyPI
+      account + trusted-publishing/API token, a **`npm run build` → `uv build` →
+      `uv publish`** run (in that order — a wheel built without the frontend
+      serves the "not built yet" hint, and `uv build` builds the wheel from the
+      sdist), a TestPyPI dry run, then verifying `pip install curious-astronaut`
+      into a clean venv from the **work-side Artifactory remote**, which is the
+      only check that actually closes the ticket. Best folded into the
+      release-automation item below rather than done by hand once.
 
       **The Xray blocker is CLEARED (2026-09-23, Patrick):** the policy does
       **not** flag *declared* optional dependencies, only what actually
       resolves. Since v7.15.0 moved `pymupdf` into the `pdf` extra, the default
-      dependency graph carries no AGPL, which is exactly the shape needed — so
-      the PyMuPDF → `pypdfium2`/`pdfminer.six` swap is **not** required. Don't
-      re-open it. *(Previous availability check, 2026-08-09: `atlas` TAKEN;
-      `arxiv-atlas`, `atlas-papers`, `papers-atlas`, `atlas-graph`,
-      `citation-atlas` free — all superseded by the rebrand.)* Also needs the
-      packaging work: **bundling the built React frontend (`frontend/dist`) as
-      package data** so `astronaut serve` works from an installed wheel,
-      config-file discovery for an installed package (today it reads
-      `config.json` from the cwd), and the PyPI metadata (license, authors,
-      classifiers, project URLs, long-description from the README).
-      `[build-system]` already exists (hatchling).
+      dependency graph carries no AGPL, so the PyMuPDF →
+      `pypdfium2`/`pdfminer.six` swap is **not** required. Settled; don't
+      re-open it.
+
       **The real driver, established 2026-08-09.** Not distribution to the
       public — Patrick needs the code inside his employer's network, and their
       only ingress is an **Artifactory remote that proxies PyPI** (it also
       fronts npm and other public mirrors) with a **JFrog Xray** scan on the
       way in. A public GitHub repo does *not* help if GitHub isn't an approved
       source. Artifactory serves **both sdists and wheels**, so the sdist can
-      carry whatever source the work side needs. The work copy is a **one-way
-      import — no syncing code back** to the GitHub repo (Patrick, 2026-08-09).
-      **Consequences of that framing:**
+      carry whatever source the work side needs — as of v8.1.0 it carries
+      `frontend/src` *and* the built `frontend/dist`. The work copy is a
+      **one-way import — no syncing code back** to the GitHub repo (Patrick,
+      2026-08-09). **Consequences of that framing:**
       - PyPI gives no *fork* — no git history, no PRs. It seeds a work-side
         repo once; it is not a synced remote. Accepted.
-      - **The PyMuPDF/AGPL blocker is fully cleared** (2026-09-23) — see the
-        Xray note at the top of this ticket. `pymupdf` sits in the `pdf` extra
-        as of **v7.15.0**, declared extras are not flagged, and
-        `mine.py`/`floats.py` keep their PyMuPDF dependency. Settled; don't
-        re-litigate.
-      - **Open: does the work side need the frontend TypeScript source?** A
-        wheel/sdist would carry the built `frontend/dist`, not `frontend/src`.
-        Their Artifactory also fronts npm, so building the frontend at work is
-        possible — but only if the TS source gets there somehow.
+      - **Answered by v8.1.0: the work side gets the frontend TypeScript
+        source.** The sdist ships `frontend/src` and `frontend/public`
+        alongside the built bundle, so work can either serve the prebuilt SPA
+        or rebuild it through their npm mirror.
       - The **Windows CUDA torch routing does not survive publication**:
         `[[tool.uv.index]]` is uv-only resolution config, absent from wheel
         metadata, so `pip install` on Windows silently gets PyPI's CPU-only
@@ -1505,13 +1502,14 @@ than deleted so the plan doesn't get re-proposed.
         a documented warning; matters less if the work side is Linux.
       Ties into the licensing work (2026-07-20) — a public, timestamped release
       is also the prior-art defense discussed there, though note
-      `docs/licensing.md:61` credits *"this repo, and PyPI"*, so making the
-      GitHub repo public would serve that goal on its own. **The MIT →
-      Apache-2.0 relicense trigger does *not* fire on a one-way import** (no
-      outside copyright enters the repo); Patrick nonetheless chose to
-      relicense first, 2026-08-09, as a deliberate preference rather than a
-      prerequisite. *(Raised 2026-07-20, deferred from the licensing pass;
-      re-scoped 2026-08-09 around the work-Artifactory driver.)*
+      `docs/licensing.md:61` credits *"this repo, and PyPI"*, so the repo being
+      public already serves that goal on its own. **The MIT → Apache-2.0
+      relicense trigger does *not* fire on a one-way import** (no outside
+      copyright enters the repo); Patrick nonetheless chose to relicense first,
+      2026-08-09, as a deliberate preference rather than a prerequisite.
+      *(Raised 2026-07-20; re-scoped 2026-08-09 around the work-Artifactory
+      driver; narrowed to the publish step 2026-09-27 when the packaging
+      shipped.)*
 - [ ] **A deploy / release-automation strategy** — *(CI, the first of this
       ticket's three stages, **shipped in v6.10.0** — see
       [docs/history.md](docs/history.md). What follows is the remainder.)* The
@@ -1522,10 +1520,13 @@ than deleted so the plan doesn't get re-proposed.
       deployed**. `.github/workflows/release.yml` exists but only asserts the
       tag matches `pyproject.toml`'s version — it is the place the build and
       publish jobs will land. **Fold PyPI publishing in** — the concrete
-      packaging (distribution name, frontend bundling) is the "Publish to PyPI"
-      item above; this is the surrounding automation. **The Xray gate that used
-      to block this is cleared (2026-09-23)** — there *is* a publishable
-      artifact — so the only ordering left is: rebrand → packaging → this.
+      packaging (distribution name, frontend bundling, installed-layout paths)
+      **shipped in v8.1.0**, so the build is already repeatable by hand:
+      `npm run build` → `uv build` → `uv publish`, in that order. This ticket is
+      the surrounding automation, and it is now the *only* thing standing
+      between a tag and a published release. **The Xray gate that used to block
+      it is cleared (2026-09-23)**, so the ordering rebrand → packaging → this
+      is finally down to its last step.
       Deploy is the genuinely open one: no
       target has been chosen, and the service needs an `ANTHROPIC_API_KEY` and
       a writable `data/`, so it isn't a static host. *(From the `todos.md`

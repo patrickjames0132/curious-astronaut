@@ -23,14 +23,22 @@ from flask import Flask, Response, jsonify, send_from_directory
 from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
 
-from .config import config
+from .config import CHECKOUT_ROOT, config
 from .routes import register_blueprints
 
-# The built frontend lands in frontend/dist after `npm run build`. Derived
-# from this file's location (src/curious_astronaut/app.py, two parents up to the
-# repo root) — the app runs from an editable src-layout install, so the repo
-# layout is a safe anchor. Module-level so tests can point it elsewhere.
-FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+# Where the built React app lives, which differs by how this package is running.
+# Installed from a wheel it is bundled *inside* the package as `_frontend/`
+# (see hatch_build.py); in a checkout it is `frontend/dist`, written by
+# `npm run build` and gitignored. Prefer the bundled copy when present so an
+# installed copy never depends on a checkout being nearby, and fall back to the
+# checkout so `npm run build` keeps taking effect during development without a
+# reinstall. Module-level so tests can point it elsewhere.
+_BUNDLED_FRONTEND = Path(__file__).resolve().parent / "_frontend"
+FRONTEND_DIST = (
+    _BUNDLED_FRONTEND
+    if _BUNDLED_FRONTEND.is_dir()
+    else (CHECKOUT_ROOT or Path(__file__).resolve().parents[2]) / "frontend" / "dist"
+)
 
 
 def create_app() -> Flask:

@@ -22,6 +22,47 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### An installed copy anchored its paths off the end of its own layout (v8.1.0)
+
+- **Symptom.** Every test passed, the app ran fine, and then a non-editable
+  `pip install .` into a clean venv died on startup with
+  `FileNotFoundError: …/lib/python3.14/config.example.json`. Nothing was wrong
+  with the file — the path it was looking in has never existed in any layout.
+- **Root cause.** `PROJECT_ROOT` was `Path(__file__).resolve().parents[2]`.
+  From `src/curious_astronaut/config.py` that is the repo root, which is
+  correct and is the only layout any test ever exercised. From
+  `…/site-packages/curious_astronaut/config.py` the same three steps land on
+  `lib/python3.14/` — a real directory, so nothing raised until something
+  actually tried to read a file out of it. The deeper mistake was conflating
+  two different things under one root: **writable state** (`config.json`,
+  `data/`, the log) and **shipped assets** (`config.example.json`). The repo
+  root happens to hold both, which is exactly why the conflation survived so
+  long; site-packages can hold neither, since it is read-only by convention and
+  wiped on upgrade. The same `parents[…]` reasoning was independently repeated
+  in `app.py` for `frontend/dist`.
+- **Fix.** `config.py` detects a source checkout explicitly — `CHECKOUT_ROOT`
+  requires **both** a `pyproject.toml` and a `src/` dir at the candidate root,
+  so an installed layout can't accidentally satisfy it and a stray
+  `pyproject.toml` somewhere up the tree can't either. `PROJECT_ROOT` is that
+  root when it exists and a `platformdirs` per-user data dir otherwise; asset
+  lookups go through `PACKAGE_DIR` instead, and `config.example.json` is
+  force-included into the wheel. `load_settings` also `mkdir(parents=True)`s
+  before writing the first `config.json`, which the repo-root anchor had never
+  needed. An editable install still reads as a checkout, so development paths
+  are unchanged.
+- **Lesson / guard.** **A relative path out of `__file__` encodes an assumption
+  about the install layout, and a test suite that runs from the checkout can
+  only ever verify one of them.** When a path is computed by counting parents,
+  say out loud which layouts it is valid in — and separate *state* from *assets*
+  at that moment, because the repo root masks the distinction. Guarded by
+  `test/test_packaging.py`, which asserts the both-markers rule and the wheel's
+  force-include wiring; the real guard, though, is the habit the fix came from:
+  **install the wheel into a clean venv and start the app.** Two further traps
+  only appeared that way — `uv build` builds the wheel *from the sdist*, so an
+  sdist exclusion silently emptied the wheel's frontend, and hatchling *fails
+  the build* on a missing `force-include` source, which would have broken
+  `uv sync` on any fresh clone (hence `hatch_build.py`).
+
 ### Our User-Agent pointed at a repo that had not existed for two months (v8.0.0)
 
 - **Symptom.** None visible — which is the point. Every outbound request to
