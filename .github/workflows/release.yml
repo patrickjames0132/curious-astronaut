@@ -1,24 +1,70 @@
-# Tag-time checks for Curious Astronaut.
+# Tag-time checks and publishing for Curious Astronaut.
 #
 # The release ritual is deliberately manual and lives in CLAUDE.md ("Release
 # mechanics"): bump `version` in pyproject.toml -> `uv lock` -> commit on the
 # feature branch -> merge to main -> annotated tag vX.Y.Z -> push --follow-tags.
-# Four hand-run steps, and nothing has ever checked that step 1 and step 5
+# Four hand-run steps, and nothing had ever checked that step 1 and step 5
 # agree. A `v6.9.0` tag sitting on a tree that still says `6.8.0` is silent
-# today; this makes it loud.
+# today; `version-matches-tag` makes it loud.
 #
-# Deliberately NOT here (yet): building and publishing anything. The
-# distribution shape is still open — see OnePager.md's "Publish to PyPI"
-# ticket, which is blocked on the PyMuPDF/AGPL question. This file is the place
-# that work will land when it's unblocked.
+# Since v8.2.0 this file also BUILDS and PUBLISHES, which the packaging work in
+# v8.1.0 unblocked. Three things about how it does that are load-bearing:
 #
-# There's also no need to re-run the gate here: the tag sits on a merge commit
-# that the CI workflow already tested on push to main.
+#   1. **The frontend is built before the wheel, always.** `hatch_build.py`
+#      bundles `frontend/dist` into the wheel *when it exists* and skips
+#      quietly when it does not — it has to, because `frontend/dist` is
+#      gitignored and hatchling hard-fails on a missing force-include source,
+#      which would break `uv sync` on a fresh clone. The cost of that tolerance
+#      is that a wheel built without `npm run build` first is a VALID wheel
+#      that serves the "Frontend not built yet" hint instead of the app. So the
+#      build job runs npm first and then `verify-artifacts` asserts the bundle
+#      actually made it in. Never reorder those steps.
+#
+#   2. **No API token exists.** Publishing uses PyPI's trusted publishing
+#      (OIDC): the `id-token: write` permission lets the runner mint a
+#      short-lived token PyPI verifies against a publisher config naming this
+#      repo, this workflow filename, and the job's `environment`. Nothing
+#      secret is stored in the repo, so there is nothing to leak or rotate.
+#      Renaming this file or an environment below breaks publishing until the
+#      publisher config on PyPI is updated to match.
+#
+#   3. **TestPyPI is not optional.** A PyPI version can never be replaced, only
+#      yanked, so `pypi` depends on `testpypi` and the manual trigger can only
+#      run TestPyPI alone or both in order — there is deliberately no way to
+#      reach PyPI without a dry run in the same run.
+#
+# The gate itself is not re-run here: the tag sits on a merge commit that the
+# CI workflow already tested on push to main.
 name: Release
 
 on:
   push:
     tags: ['v*']
+  # The manual trigger is how the FIRST publish happened: v8.1.0 was already
+  # tagged before this workflow could publish it, and a `workflow_dispatch` on
+  # an old tag would run that tag's copy of this file — which has no publish
+  # job. Dispatching from `main` builds whatever version pyproject.toml says.
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which index to publish to'
+        type: choice
+        options: [testpypi, both]
+        default: testpypi
+
+# Read-only by default; the two publish jobs widen this for themselves.
+permissions:
+  contents: read
+
+# Never cancel an in-flight publish — a half-finished upload is the one state
+# worth avoiding here, so this deliberately does NOT cancel-in-progress.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  UV_CACHE_DIR: ${{ github.workspace }}/.uv-cache
+  npm_config_cache: ${{ github.workspace }}/.npm-cache
 
 jobs:
   version-matches-tag:
@@ -27,6 +73,9 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Tag must match pyproject.toml version
+        # Only meaningful on a tag push. On a manual run there is no tag to
+        # compare against, so the next step just reports what will be built.
+        if: github.ref_type == 'tag'
         shell: bash
         run: |
           set -euo pipefail
@@ -42,3 +91,160 @@ jobs:
             exit 1
           fi
           echo "Match."
+
+      - name: Report the version being built
+        if: github.ref_type != 'tag'
+        shell: bash
+        run: |
+          set -euo pipefail
+          project_version="$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+          echo "Manual run from ${GITHUB_REF_NAME}; building version ${project_version}."
+          echo "::notice::Building curious-astronaut ${project_version} from ${GITHUB_REF_NAME}."
+
+  build:
+    needs: version-matches-tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # mise reads .tool-versions, so the release build uses the SAME pinned
+      # python / uv / nodejs the developer machines and CI do.
+      - uses: jdx/mise-action@v4
+
+      - name: Cache uv downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-release-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-release-
+
+      - name: Cache npm downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.npm_config_cache }}
+          key: npm-release-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: npm-release-
+
+      # `npm ci` rather than `npm install`: a release build should install
+      # exactly what package-lock.json pins and fail if the lock is stale,
+      # instead of quietly resolving something newer.
+      - name: Install frontend deps (npm ci)
+        run: npm ci --prefix frontend
+
+      # MUST precede `uv build` — see note 1 in this file's header.
+      - name: Build the frontend
+        run: npm run build --prefix frontend
+
+      # Builds the sdist, then the wheel FROM that sdist. That order is uv's
+      # default and it is why the sdist has to carry `frontend/dist`
+      # (`artifacts` + the sdist `include` list in pyproject.toml): a wheel
+      # built from an sdist that excluded the bundle loses it too.
+      - name: Build sdist and wheel
+        run: uv build
+
+      # Encodes the pre-publish audit that was done by hand for v8.1.0. Two
+      # classes of problem, both permanent once uploaded: a wheel missing the
+      # frontend (serves a hint instead of the app), and an artifact carrying
+      # local state (`config.json` holds real API keys — it is gitignored, and
+      # the sdist's allowlist `include` is what keeps it out).
+      - name: Verify artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import sys
+          import tarfile
+          import zipfile
+          from pathlib import Path
+
+          failures: list[str] = []
+
+          wheels = sorted(Path("dist").glob("*.whl"))
+          sdists = sorted(Path("dist").glob("*.tar.gz"))
+          if len(wheels) != 1 or len(sdists) != 1:
+              print(f"::error::Expected one wheel and one sdist, found {wheels} and {sdists}.")
+              sys.exit(1)
+          wheel, sdist = wheels[0], sdists[0]
+
+          wheel_names = zipfile.ZipFile(wheel).namelist()
+          with tarfile.open(sdist) as archive:
+              sdist_names = archive.getnames()
+
+          # The bundled SPA, without which `astronaut serve` serves a hint.
+          bundled = [name for name in wheel_names if "/_frontend/" in name]
+          if not any(name.endswith("/_frontend/index.html") for name in bundled):
+              failures.append(
+                  f"{wheel.name} has no _frontend/index.html — was `npm run build` run before `uv build`?"
+              )
+          print(f"{wheel.name}: {len(bundled)} bundled frontend files")
+
+          # Needed to write the first config.json on a fresh install.
+          if not any(name.endswith("curious_astronaut/config.example.json") for name in wheel_names):
+              failures.append(f"{wheel.name} is missing config.example.json")
+
+          # The work side may want to rebuild the frontend from source.
+          if not any("/frontend/src/" in name for name in sdist_names):
+              failures.append(f"{sdist.name} carries no frontend/src")
+
+          # Nothing local, ever. `config.json` is the dangerous one: it holds
+          # real API keys, and an upload cannot be taken back.
+          forbidden = ("config.json", ".env", ".pypirc")
+          for label, names in ((wheel.name, wheel_names), (sdist.name, sdist_names)):
+              for name in names:
+                  tail = name.rsplit("/", 1)[-1]
+                  if tail in forbidden or "/data/" in name or tail.endswith((".db", ".log")):
+                      failures.append(f"{label} contains {name!r}, which must never ship")
+
+          for failure in failures:
+              print(f"::error::{failure}")
+          sys.exit(1 if failures else 0)
+          PY
+          echo "Artifacts look right."
+
+      - name: Show what will be published
+        run: ls -l dist/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  # The dry run. `skip-existing` because re-running a release (or dispatching
+  # `both` after a successful TestPyPI upload) must not fail on a version
+  # TestPyPI already has.
+  testpypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  # The real thing, and the irreversible one. Gated three ways: it needs the
+  # TestPyPI run to have succeeded first, it only runs on a tag push or an
+  # explicit `both` dispatch, and the `pypi` environment is where a required
+  # reviewer can be configured so a human approves the upload.
+  pypi:
+    needs: testpypi
+    if: github.ref_type == 'tag' || inputs.target == 'both'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

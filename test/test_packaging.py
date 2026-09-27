@@ -24,9 +24,9 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from hatch_build import BUNDLE_TARGET, frontend_force_includes
 
 from curious_astronaut import config
+from hatch_build import BUNDLE_TARGET, frontend_force_includes
 
 
 class TestFrontendBundling:

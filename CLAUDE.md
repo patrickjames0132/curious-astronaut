@@ -318,9 +318,30 @@ worth knowing before you edit either the workflow or `bin/setup.sh`:
   typechecks the frontend (`tsc -b`). Adding a nox session for it would let
   that step be dropped; today the two are deliberately both present.
 
-`release.yml` fires on `v*` tags and asserts the tag matches `pyproject.toml`'s
-version — the one automated check on the otherwise manual release ritual. It
-publishes nothing yet; that's blocked on the PyPI/AGPL question in the OnePager.
+`release.yml` fires on `v*` tags, asserts the tag matches `pyproject.toml`'s
+version — the one automated check on the otherwise manual release ritual — and
+**since v8.2.0 also builds and publishes to PyPI**. Pushing a `v*` tag now
+builds the frontend, builds the sdist + wheel, verifies the artifacts, uploads
+to **TestPyPI**, and then uploads to **PyPI**. Four things follow that are worth
+knowing before you push a tag:
+
+- **A tag push is now an irreversible outward action.** A PyPI version can never
+  be replaced, only yanked. The `pypi` job sits behind a GitHub **environment**
+  of the same name, which is where a required reviewer is configured, so the
+  upload can be made to wait for a human click.
+- **Publishing uses trusted publishing (OIDC), not a token** — nothing secret is
+  stored. The trade: PyPI's publisher config names this repo, **the workflow
+  filename, and the environment**, so renaming `release.yml` or either
+  environment silently breaks publishing until PyPI is updated to match.
+- **`npm run build` must precede `uv build`**, because `hatch_build.py` bundles
+  the frontend only when it's there and skips quietly when it isn't — so the
+  wrong order yields a *valid* wheel that serves the "Frontend not built yet"
+  hint. The workflow's `Verify artifacts` step asserts the bundle landed, along
+  with the no-`config.json`/`.env`/`data/` audit that keeps local secrets out of
+  a permanent upload.
+- **`workflow_dispatch` publishes to TestPyPI on demand** (`target: testpypi`),
+  which is how to exercise the pipeline without cutting a tag. `both` is the
+  only way to reach PyPI manually, and it still runs TestPyPI first.
 
 The five sessions:
 
@@ -369,5 +390,14 @@ The five sessions:
   isn't on PATH**, so the gate stays green locally without it. Trivy is pinned
   in `.tool-versions`, so the session-start `bin/setup` script installs it via
   mise — after bootstrap the scan should actually run, not skip.
+
+**`git add` a brand-new file before running the gate.** pre-commit's
+`--all-files` enumerates with `git ls-files`, so **untracked files are invisible
+to every hook** — a new module can pass the gate and then fail the very next run
+once it's staged. That is not hypothetical: `hatch_build.py` went in that way in
+v8.1.0, and the moment it became tracked, ruff's isort reclassified
+`from hatch_build import …` in `test/test_packaging.py` from third-party to
+first-party and rewrote the import block (v8.2.0). Harmless there, but the same
+blindness hides real lint and type errors in new code. Stage first, then run.
 
 Run a single session with `uv run nox -s <name>` (e.g. `-s mypy`).
