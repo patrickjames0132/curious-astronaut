@@ -1,12 +1,13 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-CLI entry point for Curious Astronaut (the ``atlas`` console script).
+CLI entry point for Curious Astronaut (the ``astronaut`` console script).
 
 Usage:
-    uv run astronaut serve                  # start the API + Curious Astronaut frontend
-    uv run astronaut serve --port 5050      # ...on a different port (or --host)
-    uv run atlas --help                 # see all commands
+    uv run astronaut serve              # start the API + Curious Astronaut frontend
+    uv run astronaut serve --port 5050  # ...on a different port (or --host)
+    uv run astronaut --version          # the installed version
+    uv run astronaut --help             # see all commands
 
 Every command imports lazily so ``--help`` (and each command) never pays
 the import cost of the parts it doesn't touch.
@@ -22,7 +23,14 @@ from pathlib import Path
 import click
 
 
+# ``package_name`` makes click read the version from installed package metadata
+# (importlib.metadata) rather than a second copy of the number in the source, so
+# there is exactly one place a release bumps: pyproject.toml. It resolves for an
+# editable install too, so `--version` reports the same string in a checkout as
+# from a wheel. Added in v8.3.0: `--version` is the first thing anyone tries when
+# reporting a bug against a published package, and it did not exist.
 @click.group(help="Curious Astronaut — interactive citation/similarity graph explorer.")
+@click.version_option(package_name="curious-astronaut", prog_name="astronaut")
 def cli() -> None:
     """The click command group; subcommands attach below."""
 

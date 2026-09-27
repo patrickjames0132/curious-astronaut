@@ -1,16 +1,18 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-The atlas CLI: ingest dispatch + clean SourceError messages, the
-list/forget library commands, and `serve`'s host/port override plumbing
+The astronaut CLI: ingest dispatch + clean SourceError messages, the
+list/forget library commands, `serve`'s host/port override plumbing
 (the actual serve blocks on a real server, so only the pass-through is
-tested).
+tested), and `--version` reporting the installed package's metadata.
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
 """
 
 from __future__ import annotations
+
+from importlib import metadata
 
 from click.testing import CliRunner
 
@@ -77,3 +79,28 @@ def test_serve_threads_host_and_port_through(monkeypatch):
     # Flags flow through, with --port coerced to int.
     assert runner.invoke(cli, ["serve", "--host", "0.0.0.0", "--port", "5050"]).exit_code == 0
     assert captured == {"host": "0.0.0.0", "port": 5050}
+
+
+def test_version_reports_the_installed_package_version():
+    """`--version` prints the distribution's version, not a hardcoded string.
+
+    Guards the wiring rather than the number: `version_option` reads
+    importlib.metadata, so a stale second copy of the version in the source
+    can't drift from pyproject.toml. Compares against metadata rather than a
+    literal so a release bump never has to touch this test.
+    """
+    expected = metadata.version("curious-astronaut")
+
+    result = CliRunner().invoke(cli, ["--version"])
+
+    assert result.exit_code == 0
+    assert expected in result.output
+    assert "astronaut" in result.output
+
+
+def test_version_is_advertised_in_help():
+    """`--version` shows up in `--help`, so it's discoverable."""
+    result = CliRunner().invoke(cli, ["--help"])
+
+    assert result.exit_code == 0
+    assert "--version" in result.output
