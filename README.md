@@ -72,14 +72,16 @@ Without mise, `uv` and `Node.js` installed any other way work fine too.
 
 > **Three capabilities are optional extras**, because they are most of the
 > install and a reader who only wants the graph and the teacher needs none of
-> them — core is **83 MB** against **1.0 GB** with everything:
+> them — core is **93 MB** against **1.0 GB** with everything (measured on macOS
+> 2026-09-27, fresh installs from PyPI; running the app adds ~30 MB of bytecode
+> caches on top):
 >
 > | Extra | Gives you | Cost |
 > | --- | --- | --- |
-> | *(core)* | the graph explorer and the AI teacher | 83 MB |
+> | *(core)* | the graph explorer and the AI teacher | 93 MB |
 > | `pdf` | figures, tables and algorithm boxes mined from PDFs | +54 MB |
 > | `corpus` | the offline Semantic Scholar citations corpus | +44 MB |
-> | `sources` | search over your own uploaded books and PDFs | +~800 MB |
+> | `sources` | search over your own uploaded books and PDFs | +778 MB |
 >
 > `bin/setup` installs all of them. To pick: `uv sync --extra pdf`, or
 > `pip install 'curious-astronaut[pdf,corpus]'`. Nothing breaks without one — the feature

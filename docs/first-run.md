@@ -15,29 +15,47 @@ student who wants to learn something.
 ## The finding that reframes the question
 
 **The install is 1.0 GB, and the app uses almost none of it.** Measured on
-macOS, 2026-08-28:
+macOS — originally 2026-08-28, **re-measured 2026-09-27** against the published
+package on PyPI (`pip install curious-astronaut[…]` into a clean venv), which is
+now the shape a reader actually gets:
 
-| Install | Size |
-| --- | --- |
-| Today's `.venv` (`uv sync --all-groups`) | **1.0 GB** |
-| Core only — Flask, Pydantic, PydanticAI, the vendor SDKs, sqlite-vec, huggingface-hub | **83 MB** |
-| Core + PyMuPDF (PDF figure mining) | 137 MB |
-| Core + PyMuPDF + DuckDB (the S2 corpus) | 181 MB |
+| Install | 2026-08-28 | **2026-09-27** |
+| --- | --- | --- |
+| Everything (`uv sync --all-groups`, all extras) | 1.0 GB | **1.0 GB** (1004 MB) |
+| Core only — Flask, Pydantic, PydanticAI, the vendor SDKs, sqlite-vec, huggingface-hub | 83 MB | **93 MB** |
+| Core + PyMuPDF (`pdf` — PDF figure mining) | 137 MB | **147 MB** |
+| Core + DuckDB (`corpus` — the S2 corpus) | — | **137 MB** |
+| Core + both | 181 MB | **191 MB** |
+| Core + `sources` (the local embedder) | — | **871 MB** |
 
-The gap is `torch` (418 MB on its own) and what it drags with it —
-`transformers`, `scipy`, `sympy`, `numpy`. On **Linux** it is worse than the
-table shows: the lockfile resolves 37 `nvidia-*` CUDA packages there, which is
-why CI sets `CA_SKIP_TORCH=1` rather than pay for them.
+**The conclusion is unchanged and the ratio barely moved**: core is still under a
+tenth of the full install. Core drifted +10 MB (+12%) as the vendor SDKs grew —
+`anthropic` 17 MB, `openai` 15 MB, `cryptography` 12 MB, `pydantic_ai` 11 MB,
+against 5 MB for our own code.
+
+**Measurement note, because it is easy to get wrong by 30%:** these are
+**fresh-install** figures. Running the app once generates `__pycache__` bytecode
+throughout site-packages and takes core from 93 MB to **123 MB** — real disk, but
+not what was downloaded, and not comparable to the 2026-08-28 row. Measure before
+first run, or say which you mean.
+
+The gap is `torch` (**529 MB** on its own as of 2026-09-27, up from 418 MB) and
+what it drags with it — `transformers`, `scipy`, `sympy`, `numpy`. On **Linux**
+it is worse than the table shows: the lockfile resolves 37 `nvidia-*` CUDA
+packages there, which is why CI sets `CA_SKIP_TORCH=1` rather than pay for them.
 
 None of it is needed to explore a graph or hear a lecture. `torch` arrives via
 `sentence-transformers`, which is imported in exactly one place —
 `services/sources/embeddings.py:82`, inside `_get_model`, lazily — and serves
-only **search over your own uploaded sources**. Likewise `fitz` (PyMuPDF, 58 MB,
-and AGPL) is lazy in `services/pdf/floats.py`, and `duckdb` (43 MB) is imported
-only by the two S2-corpus modules.
+only **search over your own uploaded sources**. Likewise `fitz` (PyMuPDF, 54 MB,
+and AGPL) is lazy in `services/pdf/floats.py`, and `duckdb` (44 MB) is imported
+only by the two S2-corpus modules. (Both re-measured 2026-09-27 and essentially
+unchanged — unlike torch, these two have held steady.)
 
-Three dependencies are worse than optional: **`scikit-learn`, `joblib` and
-`numpy` are declared in `pyproject.toml` and imported nowhere in the repo.**
+~~Three dependencies are worse than optional: **`scikit-learn`, `joblib` and
+`numpy` are declared in `pyproject.toml` and imported nowhere in the repo.**~~
+**Fixed in v7.15.0 — all three declarations were deleted.** The paragraph is kept
+because the reasoning still applies to the next stray dependency:
 They are leftovers from the `ml_pipelines/`+`research/` plumbing deleted
 2026-07-22. (`torch` is declared directly for a real reason — routing the
 Windows build to the CUDA index — not because anything imports it.)
