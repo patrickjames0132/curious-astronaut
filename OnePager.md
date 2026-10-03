@@ -1,10 +1,12 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v7.12.0 · living document · MIT-licensed. The core loop has
-> shipped: the provider-selectable citation graph (Semantic Scholar or
-> OpenAlex, with an optional offline S2 citations corpus for honest
-> all-history landmarks), the AI teacher (four relation-scoped lectures + an
-> agentic researcher with graph- and library-reach), the local semantic
+> **Status:** v8.3.0 · living document · MIT-licensed · on PyPI as
+> `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
+> serve`). The core loop has shipped: the provider-selectable citation graph
+> (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
+> for honest all-history landmarks), the AI teacher (four relation-scoped
+> lectures + an agentic researcher with graph- and library-reach, on any of
+> four LLM vendors including keyless local Ollama), the local semantic
 > library, saved sessions & workspaces, and an in-app settings modal — with
 > light/dark theming and per-request graph sizing (adaptive or user-tuned).
 >
@@ -141,10 +143,11 @@ than deleted so the plan doesn't get re-proposed.
   (canvas force-directed with custom node painting; Force ↔ Timeline layouts).
   Sigma.js + graphology remains the fallback if we ever need very large graphs.
 - **AI teacher:** a **PydanticAI agent crew** (librarian /
-  lecturer / researcher behind a deterministic orchestrator) on the Anthropic
-  API, streaming end-to-end over SSE. **Anthropic-only is a reach problem, not
-  just a gap** — it puts a paid API key between a learner and the teacher; see
-  the first Backlog item.
+  lecturer / researcher behind a deterministic orchestrator), streaming
+  end-to-end over SSE. Each agent picks its own vendor — Anthropic, OpenAI
+  (or any OpenAI-compatible endpoint), Google, or local **Ollama** — so the
+  teacher no longer requires a paid key (v7.13.0; see
+  [docs/history.md](docs/history.md)).
 - **Local library (bring-your-own sources):** PDFs/URLs chunked and embedded
   **locally** (sentence-transformers + sqlite-vec, hybrid FTS5+vector
   retrieval via RRF) — copyrighted books never leave the machine.
@@ -211,16 +214,17 @@ than deleted so the plan doesn't get re-proposed.
       obvious one (a single `docker run`, no toolchain at all) and its cost is
       the torch/CUDA question the README already documents plus image size. A
       **prebuilt release artifact** is cheaper but still assumes Python — and
-      as of v8.1.0 it is mostly *done*, since the wheel bundles the frontend and
-      resolves its own paths; it only wants publishing. A
+      it is *done*: 8.3.0 is on PyPI (2026-09-27), so `pip install
+      curious-astronaut` is a real one-liner for anyone who has Python. A
       **guided first-run** that writes `config.json` for you, rather than
       requiring a hand-edit, is small and helps regardless of which of the
       other two wins. Note the config step is the one that *must* be solved
       either way: `config.py` is `extra="forbid"`, so a hand-copied file that
       drifts fails startup with a stack trace — the worst possible first
-      impression. **Sequence this after the provider work**: a one-command
-      install that still demands a paid API key has moved the wall, not
-      removed it. *(Filed 2026-08-16.)*
+      impression. (The provider work this was sequenced behind shipped in
+      v7.13.0, so a one-command install no longer has to end at a paid API
+      key — a guided first-run should offer the keyless Ollama path.)
+      *(Filed 2026-08-16.)*
 
 - [ ] **Nowhere to try it, and nowhere that explains it** — Curious Astronaut is public on
       GitHub with a thorough README, and that reaches developers who already
@@ -279,9 +283,13 @@ than deleted so the plan doesn't get re-proposed.
       Then make `.source-ref` a button. Note the page-render path has no
       caption-anchoring dependency, so unlike figure mining it works on any
       PDF-backed source — but URL sources have no stored PDF and must degrade
-      to nothing clickable. **Supersedes** the frontend prose-highlight bandaid,
-      built and then removed 2026-07-24 — that highlight could never be
-      clickable without the structured reference v6.6.0 added.
+      to nothing clickable — but should still get the link-blue treatment, so
+      a library citation reads like a paper citation either way. **Supersedes**
+      the frontend prose-highlight bandaid, built and then removed 2026-07-24 —
+      that highlight could never be clickable without the structured reference
+      v6.6.0 added. (Also absorbed, 2026-10-02, the UI theme's highlight-only
+      "Highlight inline library-source references like paper links" ticket of
+      2026-07-19, which predated both.)
       *(From #2 of the 2026-07-24 front-end quick-wins pass.)*
 - [ ] **The guard is gated on a field the model writes** — a known weakness in
       `_must_have_looked`, kept here because the guard itself is core: it only
@@ -314,18 +322,6 @@ than deleted so the plan doesn't get re-proposed.
       skill prompt on the decision rule (expand = "trace a known paper's
       neighbors"; search = "reach recent/topical work no hop can"), and consider a
       cheap heuristic nudge. *(From the `todos.md` inbox, 2026-07-14.)*
-- [ ] **Agent surfaces figures proactively (no explicit ask)** — today the
-      agentic Q&A only calls `show_figure` when the question explicitly asks for
-      a picture; you have to request an image every time to get one. It should
-      **decide on its own** when a figure would answer the question better and
-      pull one in unprompted — e.g. a question about a model's architecture
-      should surface the architecture diagram without being told to. Likely a
-      prompt nudge (make `show_figure` a default reflex when a read paper has a
-      relevant figure, not a last resort), and bumps up against the broader
-      **agent-reliability** item (shipped side: `docs/history.md`) — the model already skips `show_figure`
-      even when asked, so "show more often, unprompted" needs the tool-call
-      compliance to be solid first (stronger `AGENT_MODEL` / sub-agent
-      decomposition). *(From the `todos.md` inbox, 2026-07-07.)*
 - [ ] **"Render page region" fallback for uncaptioned inline diagrams** — the
       v5.28.0 figure miner is caption-anchored, so a diagram with no caption
       (Sutton & Barto's inline backup diagrams; pseudo-code "figures" in very
@@ -432,7 +428,22 @@ than deleted so the plan doesn't get re-proposed.
       Worth deciding *before* building, since the per-request version
       subsumes the other. Either way, keep the automatic fallback: a seed the
       corpus can't resolve must still build from live rather than fail.
-      *(From the `todos.md` inbox, 2026-08-16.)*
+
+      **The cache catch:** the graph cache is keyed by `(provider, seed)` and
+      **not** by citation source, so a live build would be served the corpus
+      snapshot (or vice versa). v6.3.0's `BuildShape.cache_suffix()` is the
+      pattern — a suffix that's empty on the default path and distinguishing
+      otherwise.
+
+      **Sequencing (Patrick, 2026-08-09): after the S2-corpus
+      landmark-citation research lands, not before.** A user-facing "use the
+      corpus" switch is only worth exposing once the corpus path is
+      known-good — shipping it while the corpus still returns a
+      random-looking set of Field Landmarks just hands people a way to make
+      their graph worse. Treat the research outcome as the gate.
+      *(From the `todos.md` inbox, 2026-08-16; absorbed the UI theme's
+      "Settings modal — the corpus vs. live-citations toggle" ticket, filed
+      2026-07-16, on 2026-10-02 — same feature, filed twice.)*
 
 - [ ] **Surveys as a first-class node kind** — a review/survey paper is a
       different animal from a primary result: it's the field's own overlook of
@@ -537,7 +548,19 @@ than deleted so the plan doesn't get re-proposed.
       query, the live complete-pool bands — so one fix should land in all
       three), then decide whether the answer is a per-band cap tweak, a
       different within-band ranking, or something like sampling toward
-      uniformity. *(From the `todos.md` inbox, 2026-07-17.)*
+      uniformity. **The leading candidate for the within-band ranking is
+      citation velocity** — balance citation count against recency, which are
+      inversely related (newer papers haven't had time to accumulate
+      citations), so neither extreme dominates. The stratified/per-year
+      approach has been tried several times and the spread still isn't even;
+      the shelved WIP's **`_velocity` helper — `citation_count / (age + 1)`**
+      (see the mega-papers phase notes in `docs/history.md`; the `stash@{0}`
+      it lived in no longer exists, so that formula is all that survives) is
+      the starting formula, and may need tuning so the balance point lands
+      where the spread looks even. *(From the `todos.md` inbox, 2026-07-17;
+      absorbed "Even Latest-Publications spread via citation velocity",
+      Patrick's brainstorm of 2026-07-10, on 2026-10-02 — one problem, filed
+      twice.)*
 - [ ] **`corpus activate` only checks papers — it will happily activate a corpus
       with no citation edges** — the guard is
       `if not paths.parquet_dataset("papers").exists(): raise`. It never looks at
@@ -561,18 +584,6 @@ than deleted so the plan doesn't get re-proposed.
       active one walks straight through it (documented in `corpus/README.md`;
       the workaround is to move `CURRENT` aside first). *(Found while re-ingesting
       the active release, 2026-07-15.)*
-- [ ] **Even Latest-Publications spread via citation velocity** — the
-      stratified/per-year band approach has been tried several times and the
-      spread still isn't even. Revisit **citation velocity** as the ranking
-      instead: balance citation count against recency, which are inversely
-      proportional (newer papers haven't had time to accumulate citations), so
-      neither extreme dominates the selection. The shelved WIP's
-      **`_velocity` helper — `citation_count / (age + 1)`** (`stash@{0}`, see
-      the mega-papers phase notes in `docs/history.md`) is the starting formula; may need tuning so
-      the balance point lands where the spread looks even. **Related:** the
-      live-path age-origin ticket above bands Latest per year — velocity
-      would slot in as the *within-band* ranking. *(Patrick's brainstorm,
-      2026-07-10.)*
 - [ ] **Latest Publications is thin on arXiv-only seeds — OpenAlex data
       gaps, not S2 offset paging** *(investigated 2026-07-10; the original
       suspicion is settled, the underlying problem is real and still open)* —
@@ -593,11 +604,6 @@ than deleted so the plan doesn't get re-proposed.
       supplement when the latest pool comes back suspiciously thin (the
       fallback is currently all-or-nothing on seed resolution). *(From the
       `todos.md` inbox, 2026-07-09; findings 2026-07-10.)*
-- [ ] **Search cache refresh override** — seed-search results are served from
-      the whole-result cache (v2.0.0) with no way to bypass a stale entry; add
-      a refresh/override button to the search surface, mirroring the graph's
-      per-seed **Refresh** button (v2.5.0) that busts the snapshot cache.
-      *(From the `todos.md` inbox, 2026-07-08.)*
 - [ ] **SPIKE: SPECTER2 semantic retrieval as a landmark source (not just
       Similar)** — a spike to investigate, **not yet a build decision**. Patrick's
       idea: use S2's SPECTER2 recommendations to surface heavily-cited **landmark**
@@ -736,6 +742,77 @@ than deleted so the plan doesn't get re-proposed.
       `#12314A`/`#6FB6CE`, gold `#E8B44A`, ground `#0B1524`). *(Filed
       2026-09-23.)*
 
+- [ ] **Enlarge the favicon** — the helmet mark reads small in a browser
+      tab. `frontend/public/favicon.svg` draws the helmet in a 64-unit
+      viewBox with real margin around it (shell radius 23, comm boxes spanning
+      x 4.5–59.5, so roughly y 9–55 is empty space top and bottom), and a
+      16px tab render spends that margin on nothing. Cheapest lever: tighten
+      the `viewBox` to the mark's bounds rather than redrawing anything — the
+      shapes and palette are settled (see the mascot ticket above). Check the
+      other places the mark is used (app tile, dock) before changing the
+      shared file, since a crop that suits a tab may crowd a tile.
+      *(From the `todos.md` inbox, 2026-10-02.)*
+
+- [ ] **Match the app's colour scheme to the favicon** — the helmet mark has
+      a settled palette (ivory `#F7F5F0`, glass `#12314A`/`#6FB6CE`, gold
+      `#E8B44A`, ground `#0B1524`), and the app around it doesn't use any of
+      it: the neutrals in `frontend/src/index.css` are a grey-black
+      (`--bg #0f1115`, `--panel #171a21`) with a generic blue accent
+      (`--accent #6ea8fe`). Revisit the theme tokens so the app and its icon
+      look like one thing — navy ground, ivory text, the glass blue or gold
+      as the accent. **Scope it to the neutrals and the accent first**: the
+      relation palette (gold seed, blue references, green landmarks) carries
+      meaning and is the subject of its own light-mode ticket below, so
+      changing both at once would make it hard to tell what helped. Both
+      themes need a pass, and the light one has no favicon counterpart to
+      copy, so it needs its own decision. *(From the `todos.md` inbox,
+      2026-10-02.)*
+
+- [ ] **Animate the rest of the UI — panels and the graph's find bar** —
+      the sibling of "Animate the arrival of the graph" (below) and of the
+      chat motion that shipped in v6.15.0. Patrick's examples: the
+      **teacher's side panels** opening and closing, and the **graph's local
+      search bar** (`graph/controls/FindBar.tsx`) appearing; the wider ask is
+      *"animate everything"* — anything that today cuts between two states.
+      Do it as **one motion language**, not per component: a shared duration
+      and easing as CSS tokens, used everywhere, so the app moves with one
+      voice. Every addition needs a `prefers-reduced-motion` path — several
+      stylesheets (`shell.css`, `teacher.css`, `detail.css`,
+      `settings.css`) already have one to extend. Start with an inventory of
+      the cuts; some transitions can't be done in CSS (mount/unmount, `flex`
+      shorthand changes) and need either a stay-mounted-and-hide approach
+      or FLIP, so the inventory decides the cost. *(From the `todos.md`
+      inbox, 2026-10-02.)*
+
+- [ ] **The data source button is a little buggy** — Patrick's report, no
+      repro yet. **Get the exact symptom from him before reading code**: the
+      control has two quite different implementations in
+      `shell/SideBar.tsx`'s `ProviderPicker`, and which one misbehaves
+      decides where to look. *Expanded rail*: a native `<select>` styled as
+      a rail row (since v7.31.0), with a manual `blur()` after a choice to
+      stop the row staying lit. *Collapsed rail*: a button opening a
+      right-hand popup menu over a scrim, which closes on pick. Both are
+      `disabled` while a build is in flight, which a reader can easily
+      experience as "the button didn't work". *(From the `todos.md` inbox,
+      2026-10-02.)*
+
+- [ ] **Put TL;DR before the abstract in the detail panel** — the summary
+      section (`detail/DetailPanel.tsx`'s `SummarySection`) shows an
+      **Abstract | TL;DR** tab pair, abstract first and selected by default;
+      Patrick wants the order swapped. **The tab order is trivial; the
+      default view is the real decision.** A TL;DR is generated by a model
+      call on the *first click* of its tab when the paper has none (every
+      OpenAlex paper, plus S2's gaps) — that click is the only surface
+      allowed to trigger generation. So "TL;DR first" can't simply mean
+      "TL;DR selected on open": that would spend a model call every time a
+      paper is selected. The likely rule: TL;DR leads when one already
+      exists, and the abstract stays the default when it would have to be
+      generated. Keep the ✦ marker and its tooltip meaning the same thing,
+      and update the tour, which teaches the current order in so many words
+      (`tour/steps.ts`'s *"Abstract & TL;DR"* stop: "Every paper opens on its
+      abstract, and a TL;DR is one click away").
+      *(From the `todos.md` inbox, 2026-10-02.)*
+
 - [ ] **Cache indicators in search results: split "cached graph" from "cached
       search", and stop the badge outliving its cache** — the suspicion was
       right on both counts. The badge exists — it reads **"⚡ opens
@@ -831,33 +908,29 @@ than deleted so the plan doesn't get re-proposed.
       row two is worse than one that appends. *(From the `todos.md` inbox,
       2026-08-28.)*
 
-- [ ] **Make it clear that direct search leaves the map** — the ask keeps
-      🔍 **Find papers** while a graph is open (**decided 2026-08-15**, against
-      the first instinct to hide it; it rides the Chat row rather than the bar
-      since v7.11.0), but nothing on screen says what it does
-      differently there. In graph mode every other control is about the papers
-      you can see; this one goes looking for papers that have nothing to do
-      with them, and a reader can reasonably read it as "find papers *in this
-      map*". *(From the `todos.md` inbox, 2026-08-15.)*
+- [ ] **Make it clear that a lone `@paper` leaves the map** — this ticket
+      was filed against the 🔍 **Find papers** toggle, which v7.18.0 replaced
+      with `@` mentions (see `frontend/src/mentions/README.md`), so its
+      original fix — reword the toggle's tooltip — has nothing left to land
+      on. **The concern survives the redesign, in a new place:** with a graph
+      open, picking a paper from the `@` dropdown and sending it *alone*
+      **re-seeds** — you leave the map you were reading — while the same pick
+      inside a question keeps you there and grounds the answer. Nothing on
+      screen says which of the two a send will do before you press Enter.
+      Before building anything, check in the browser whether the dropdown or
+      the transcript's lead line already makes this obvious; if it does,
+      delete this ticket rather than polishing it.
 
-      **Why it stays.** Hiding it would have removed a path, not just a
-      distraction: searching would only be reachable from home, and `goHome`
-      dispatches `workspaceCleared()` — so "go home to search" costs you the
-      graph and any unsaved exploration. Running a search *beside* an open map
-      is also a legitimate thing to want, and it is the reader's call whether
-      the two are related.
+      **Why re-seeding stays.** Removing it would remove a path: `goHome`
+      dispatches `workspaceCleared()`, so "go home to open another paper"
+      costs you the graph and any unsaved exploration. The work is wording,
+      not gating. *(From the `todos.md` inbox, 2026-08-15; re-aimed at `@`
+      2026-10-02.)*
 
-      **So the work is wording, not gating.** Enough that the difference is
-      obvious before the click: the toggle's tooltip and the transcript's lead
-      line should both say these are new papers from the whole corpus, not the
-      neighbourhood on screen. (The **Filters** button stays regardless — since
-      v7.6.0 that window binds the *researcher's* paper searches too, which
-      matters more in graph mode, not less.)
-
-      **What comes after it is now its own ticket** — "Grow the map from a
-      search hit, instead of only leaving it" *(Patrick, 2026-08-15; split
-      out 2026-08-16)*, below. Keep them in that order: this one explains
-      what search does today, that one gives it a second mode.
+      **What comes after it is its own ticket** — "Grow the map from a
+      search hit, instead of only leaving it", below. Keep them in that
+      order: this one explains what a lone mention does today, that one
+      gives it a second mode.
 
 - [ ] **Teach the visual vocabulary — what every colour and glyph means** —
       the app encodes a lot in colour and shape and explains almost none of it.
@@ -871,9 +944,10 @@ than deleted so the plan doesn't get re-proposed.
       all. **Two more surfaces joined the list since** *(Patrick,
       2026-08-16)*: the v7.8.0 **left rail** — its glyphs (✎ new graph, ＋
       save, 📚 library, ⚙, ☀/☾, ?) and the fact that the list under them is
-      your saved graphs — and the **ask's own controls** (🔍 Find papers, ▽
-      Filters, and the 📚 source scope — a labelled chip row under the bar
-      with no graph, bare icons on the Chat row with one, since v7.11.0),
+      your saved graphs — and the **ask's own controls** (▽ Filters and the
+      📚 source scope — a labelled chip row under the bar with no graph, bare
+      icons on the Chat row with one, since v7.11.0; the 🔍 Find papers
+      toggle that used to sit beside them became `@` in v7.18.0),
       which today only the tour explains, and the tour is a one-time read.
       The docked half is the sharper case: there they are icons and nothing
       else.
@@ -885,10 +959,10 @@ than deleted so the plan doesn't get re-proposed.
       (discoverable exactly when the question occurs); or a help/? overlay.
       Reference material argues against the tour.
 
-      **Do this after the two tickets that change the vocabulary itself** —
-      "A filter chip for teacher-discovered nodes and search nodes" and
-      "Rework the `search` node treatment", both below — not before:
-      documenting a palette that's about to lose a colour is work done twice. It's also the reason to keep resisting new
+      **Do this after "A filter chip for teacher-discovered nodes"** (below),
+      which adds a control this page would have to describe — documenting a
+      vocabulary that's about to change is work done twice. It's also the
+      reason to keep resisting new
       colours — the fewer arbitrary hues, the shorter this page is.
       *(Patrick's ask, 2026-08-15.)*
 
@@ -976,85 +1050,19 @@ than deleted so the plan doesn't get re-proposed.
       **with** the question, which needs no side channel at all and may cover
       most of the want. *(From the `todos.md` inbox, 2026-08-15.)*
 
-- [ ] **Say what each agent actually does, in Agent Settings** — the Agents
-      page now lists five foldable groups (Lecturer, Researcher, Summarizer,
-      Paper scout, Web scout — `FIELDS` in
-      `frontend/src/settings/SettingsModal.tsx`, each row tagged with a
-      `group`), and every one of them shows a Vendor/Model pair plus its
-      tunables. What it never says is **what the agent is for.** A reader
-      deciding whether the summarizer can go on a free local model has no
-      basis for the call, and "Paper scout" vs. "Web scout" is only obvious
-      once you already know the architecture. The section `blurb` added in
-      v7.13.0 describes the crew as a whole; the per-agent half is missing.
-
-      **The shape is already there to copy:** sections carry a `blurb`, rows
-      carry a `hint`. This is the same idea one level in — a `GROUP_BLURBS`
-      map keyed by the group name, rendered under the group heading when the
-      group is open, styled like `.settings-blurb`. Nothing needs to move.
-
-      **Two things worth deciding before writing the words.** First, where the
-      text lives: a frontend constant is the cheap answer, but the agents
-      themselves are backend packages, and `AgentConfig` (`config.py`) is
-      deliberately thin — id, model, extras — with each agent's *words* kept
-      in its own package's `config.py`. A `description` served from
-      `/api/settings/models` alongside the vendor lists would keep the
-      description next to the agent instead of forking it into the UI, at the
-      cost of a config field the operator has no reason to tune. Second, the
-      blurbs should carry the **cost-relevant** fact, not just a job title:
-      the summarizer runs once per lecture and is the safest thing to put on
-      a local model, the researcher leans hardest on tool-calling and is the
-      first to break on a small one, and the web scout is the one that goes
-      silent without provider-side search (`WEB_SEARCH_VENDORS` in
-      `agents/factory.py`). That is exactly the knowledge a reader needs at
-      the moment they are choosing a vendor, and today it exists only in
-      `docs/configuration.md` and the Ollama field hint.
-      *(From the `todos.md` inbox, 2026-08-25.)*
-
-- [ ] **Settings modal — the corpus vs. live-citations toggle** — the
-      adaptive-sizing half of the stage-2 ticket shipped in v6.3.0 (the switch,
-      the revived per-chip count sliders, the band-shape inputs — see history).
-      What's left is the **corpus toggle.** The corpus path is a
-      `storage.s2_corpus` edit today (settable in the modal since v6.1.0), but
-      there's no way to say "ignore the corpus for this build" — useful when
-      it's stale, mid-ingest, or suspect. The fallback already exists and is
-      automatic when the corpus can't serve a seed; this makes it deliberate.
-      **The catch:** the graph cache is keyed by `(provider, seed)` and **not**
-      by citation source. v6.3.0's `BuildShape.cache_suffix()` is the pattern to
-      follow — a suffix that's empty on the default path and distinguishing
-      otherwise — so a corpus/live choice keys around the cache instead of
-      serving the wrong old snapshot.
-      **Sequencing (Patrick, 2026-08-09): do this *after* the S2-corpus
-      landmark-citation research tickets land, not before.** The toggle is only
-      worth exposing once the corpus path is known-good — shipping a user-facing
-      "use the corpus" switch while the corpus still returns a random-looking
-      set of Field Landmarks would just hand people a way to make their graph
-      worse. Treat the research outcome as the gate. *(From the `todos.md`
-      inbox, 2026-07-16; scoped 2026-07-19; adaptive half shipped 2026-07-20;
-      gated on the corpus research 2026-08-09.)*
-
-- [ ] **A filter chip for teacher-discovered nodes and search nodes** — discovered
-      papers (dashed ring, from `expand_node`/`search_papers`) and topic-search
-      hits (the pink `search` relation) have no filter control — both are
-      **always shown**: `GraphExplorer.tsx` seeds the `enabled` set with
-      `[...REL_TYPES, 'search', 'similar']`, and `GraphControls` renders chips
-      only for `REL_TYPES`. Give them their own toggle(s) alongside the relation
-      chips so a busy post-Q&A graph can collapse back to the built neighborhood.
-      *(From the `todos.md` inbox, 2026-07-14; absorbs the former "search nodes
-      as a filter chip" ticket, 2026-07-07.)*
-- [ ] **Rework the `search` node treatment (overlap → grounded, dual-relation
-      detail)** — the parked "do we even want a distinct pink `search` relation?"
-      question, shaped: when a topic-search hit is **also** a citation/reference
-      already reachable on the graph, it shouldn't render as an **isolated pink
-      node** — it should merge onto the green/blue node **with its edge**, and the
-      detail panel should show **both** relations (e.g. "Search + Reference").
-      Only genuinely off-graph hits stay pink-and-floating. Needs the search
-      discovery to check for an existing edge/overlap before emitting an
-      edge-less node, plus multi-relation detail badges (the panel already dedupes
-      badges by label). *(From the `todos.md` inbox, 2026-07-14; relates to the
-      v5.2.0 edge-less-node filter fix.)*
-
+- [ ] **A filter chip for teacher-discovered nodes** — discovered papers
+      (dashed ring, drawn when the researcher's `expand_node` attaches them)
+      have no filter control and are **always shown**; `GraphControls`
+      renders chips only for `REL_TYPES`. Give them a toggle alongside the
+      relation chips so a busy post-Q&A graph can collapse back to the built
+      neighborhood. *(The search-node half of this ticket went away in v7.3.0,
+      which stopped drawing edge-less `search` nodes at all — the legacy pink
+      only renders in old saves now. Its sibling "Rework the `search` node
+      treatment" was retired 2026-10-02 for the same reason.)* *(From the
+      `todos.md` inbox, 2026-07-14; absorbs the former "search nodes as a
+      filter chip" ticket, 2026-07-07.)*
 - [ ] **Grow the map from a search hit, instead of only leaving it** — split
-      out of the "direct search leaves the map" ticket above *(Patrick's
+      out of the "a lone `@paper` leaves the map" ticket above *(Patrick's
       idea, 2026-08-15; its own ticket 2026-08-16 — it's a feature, not
       wording)*. Today a paper found by direct search can only **re-seed**:
       you leave the graph you were reading to go look at another one. But the
@@ -1090,16 +1098,8 @@ than deleted so the plan doesn't get re-proposed.
       drag the folded edge to bring it back.) What's left is the *responsive*
       half:
       the layout still assumes a wide desktop window, and nothing reflows or
-      re-clamps as the window narrows (the sideways-scrolling chat panel
-      above is one concrete instance of it). Re-price the remainder against
+      re-clamps as the window narrows. Re-price the remainder against
       the rail as built rather than against the original sketch.
-
-- [ ] **Highlight inline library-source references like paper links** — when an
-      answer cites an uploaded library source inline (source, page number), the
-      reference renders as plain text; style it in the same blue treatment used
-      for research-paper link references so it stands out. The one difference:
-      it's a highlight only — clicking shouldn't do anything, since there's no
-      node/page to jump to. *(From the `todos.md` inbox, 2026-07-19.)*
 
 - [ ] **Let a source be renamed after upload, so chat references are readable**
       — an uploaded source carries whatever name it arrived with, and in a chat
@@ -1107,8 +1107,9 @@ than deleted so the plan doesn't get re-proposed.
       a web page. Give the library an **alias** — an editable display name set
       after upload — and render *that* wherever the source is named to the user
       (the `[Sn]` marker's resolved title, the trace chips, the library list).
-      Pairs naturally with the reference-highlighting ticket above: no point
-      styling a citation to stand out while the text inside it is a hash.
+      Pairs naturally with "Click a library citation to open the source at
+      that page" (Teacher & agent reach): no point making a citation a
+      control while the text inside it is a hash.
       **Design notes:** the alias is presentation-only — retrieval, embeddings,
       and the stored source id must not key on it, or renaming would invalidate
       the index. Keep the original name visible somewhere (tooltip, or beneath
@@ -1357,9 +1358,8 @@ than deleted so the plan doesn't get re-proposed.
       constants (`_MAX_OFFSET` is what S2 serves, `NBUCKETS` is baked into the
       ingested corpus layout) probably stay code. **Part two, a separate pass
       once the knobs settle:** decide which config knobs graduate out of the
-      file entirely and live **with the user** — the settings modal (UI &
-      rendering polish ticket, which this feeds a candidate list; settings
-      button top-right beside help/tutorials). End state worth aiming at: config
+      file entirely and live **with the user** in the settings modal (shipped
+      v6.1.0 — this pass feeds it a candidate list). End state worth aiming at: config
       holds operator concerns (paths, keys, ports), the modal holds user
       preferences, and code holds fitted or structural constants. *(From the
       `todos.md` inbox, 2026-07-17.)*
@@ -1433,18 +1433,9 @@ than deleted so the plan doesn't get re-proposed.
       raw query (cheap, catches "dqn"/"DQN " but not "deep q-network"), or an
       embedding-nearest lookup (catches paraphrase, but a nearest-neighbour
       cache can serve confidently wrong results and needs a distance
-      threshold nobody has fitted). Related but distinct:
-      *"Cached papers don't match the query agent's expanded query"* below is
-      about the **library sources** cache, a different store with a similar
-      smell — worth reading together. *(From the `todos.md` inbox,
+      threshold nobody has fitted). *(From the `todos.md` inbox,
       2026-08-28.)*
 
-- [ ] **Cached papers don't match the query agent's expanded query** — papers
-      served from the local sources cache don't seem to line up with the query
-      the scout searched for, so the researcher may ground on the wrong
-      cached hits. Investigate the retrieval/cache-key path vs. the expanded
-      query (paper scout → researcher/retrieval). *(From the `todos.md` inbox,
-      2026-07-08.)*
 - [ ] **Graph build should survive S2 being down without trapping the user** —
       if Semantic Scholar is unavailable mid-build, the error message should be
       **dismissible** and the graph currently on screen restored (it must not stay
@@ -1460,28 +1451,15 @@ than deleted so the plan doesn't get re-proposed.
       retyped across modules. A whole-codebase sweep, not a targeted one; keep the
       wire format identical so snapshots, saved sessions, and the SSE protocol are
       unaffected. *(From the `todos.md` inbox, 2026-07-13.)*
-- [ ] **Publish to PyPI as `curious-astronaut`** — down to pressing the button.
-      The **packaging shipped in v8.1.0** (bundled frontend, installed-layout
-      path resolution, PyPI metadata), the **automation in v8.2.0** (a `v*` tag
-      builds, verifies, and publishes via trusted publishing), and the
-      **rebrand in v8.0.0** settled the name — all three in
-      [docs/history.md](docs/history.md). State as of 2026-09-27: PyPI account
-      `patrickjames` exists with 2FA; the name `curious-astronaut` was still
-      unregistered. **What is left:**
-      - Register the **pending publisher** on PyPI *and* TestPyPI — project
-        `curious-astronaut`, owner `patrickjames0132`, repo `curious-astronaut`,
-        workflow `release.yml`, environment `pypi` / `testpypi`. Note the owner
-        is the **GitHub** username, not the PyPI one; they differ by a suffix
-        and a mismatch fails with an opaque OIDC error at upload time.
-      - Create the matching **GitHub environments**, with a required reviewer on
-        `pypi` so the irreversible upload waits for a click.
-      - Dispatch `release.yml` with `target: testpypi`, install from TestPyPI
-        into a clean venv, then push the tag for the real upload.
-      - **Then the check that actually closes this ticket:**
-        `pip install curious-astronaut` into a clean venv **through the
-        work-side Artifactory remote**. Everything before that is a rehearsal —
-        the whole point is the Xray ingress, and nothing outside that network
-        can prove it works.
+- [ ] **Install `curious-astronaut` through the work Artifactory** — the
+      publish itself is **done**: 8.3.0 went to PyPI on 2026-09-27 by trusted
+      publishing from a `v*` tag (packaging v8.1.0, automation v8.2.0, the
+      environment fix v8.3.0 — all in [docs/history.md](docs/history.md); the
+      runbook is [docs/releasing.md](docs/releasing.md)). **What is left is
+      the check that actually closes this ticket:** `pip install
+      curious-astronaut` into a clean venv **through the work-side Artifactory
+      remote**. Everything before that was a rehearsal — the whole point is
+      the Xray ingress, and nothing outside that network can prove it works.
 
       **The Xray blocker is CLEARED (2026-09-23, Patrick):** the policy does
       **not** flag *declared* optional dependencies, only what actually
@@ -1520,7 +1498,8 @@ than deleted so the plan doesn't get re-proposed.
       2026-08-09, as a deliberate preference rather than a prerequisite.
       *(Raised 2026-07-20; re-scoped 2026-08-09 around the work-Artifactory
       driver; narrowed to the publish step 2026-09-27 when the packaging
-      shipped.)*
+      shipped; narrowed again to the Artifactory install 2026-10-02, once
+      8.3.0 was live.)*
 - [ ] **A deploy strategy** — *(this ticket had three stages; **two have
       shipped** — CI in v6.10.0 and the build-and-publish pipeline in v8.2.0.
       See [docs/history.md](docs/history.md). What follows is the remainder.)*
@@ -1536,11 +1515,8 @@ than deleted so the plan doesn't get re-proposed.
       release. Packaging (distribution name, frontend bundling, installed-layout
       paths) shipped in v8.1.0 before it. **So all that remains of this ticket
       is deploy** — and it is the genuinely open one: no target has been chosen,
-      and the service needs an `ANTHROPIC_API_KEY` and a writable `data/`, so it
-      isn't a static host.
-      Deploy is the genuinely open one: no
-      target has been chosen, and the service needs an `ANTHROPIC_API_KEY` and
-      a writable `data/`, so it isn't a static host. *(From the `todos.md`
+      and the service needs an LLM vendor (a key, or a local model beside it)
+      and a writable `data/`, so it isn't a static host. *(From the `todos.md`
       inbox, 2026-07-20; narrowed 2026-08-09 when CI shipped, and again
       2026-09-27 when publishing did — leaving only deploy.)*
 
@@ -1571,14 +1547,13 @@ Each phase is independently shippable and gets its own version bump
   [docs/citation-coverage.md](docs/citation-coverage.md) (OpenAlex
   under-extracts preprint→preprint edges; live S2 is recency-truncated; the
   corpus is S2's fix). Read it before touching citation-source logic.
-- **The teacher's API cost is the project's access barrier** — every lecture
-  and every question bills against the user's own Anthropic key, and there is
-  no free path to the teaching at all (the graph explorer is keyless and free;
-  the AI is not). Unmeasured: what a typical session actually costs, which
-  would at least let the README tell someone what they're signing up for.
-  The structural answer is the local/free-tier provider work at the top of the
-  Backlog. *(Replaced the AutoContent ~€24/mo and ElevenLabs cost lines,
-  retired 2026-08-16 with those phases.)*
+- **The teacher's API cost** — since v7.13.0 there is a free path (local
+  Ollama, Google's free tier), but the strongest models are still paid, and
+  a small local model is the first thing to break on the researcher's
+  tool-calling. Unmeasured: what a typical session actually costs on a paid
+  vendor, which would at least let the README tell someone what they're
+  signing up for. *(Replaced the AutoContent ~€24/mo and ElevenLabs cost
+  lines, retired 2026-08-16 with those phases.)*
 - **Paper figures for slides** (later phase) — largely **answered by the
   v5.28.0 figure miner**, which already pulls real figures out of open-access
   PDFs with captions; the open part is only which of ar5iv HTML vs. the arXiv
