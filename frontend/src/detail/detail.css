@@ -55,7 +55,7 @@
   color: var(--muted);
   margin: 14px 0 6px;
 }
-/* The summary tabs (Abstract | TL;DR): the section head restyled as two
+/* The summary tabs (TL;DR | Abstract): the section head restyled as two
    switchable labels. Same small-caps voice as the other section heads; the
    active tab takes the text color, the inactive stays muted. The ✦ on an
    ungenerated TL;DR marks "clicking this runs Claude once". */

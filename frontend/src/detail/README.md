@@ -20,10 +20,14 @@ figures.
 
 ## Design decisions worth knowing
 
-- **One summary section, abstract-first, TL;DR a click away.** The
-  `SummarySection` (in-file, single-parent) shows the abstract by default
-  with a tab to the TL;DR — S2's own when it exists; otherwise the tab
-  wears a ✦ and the first click generates one via the backend's
+- **One summary section, TL;DR first, the abstract a click away.** The
+  `SummarySection` (in-file, single-parent) puts the TL;DR tab first and
+  opens on it **when one already exists** — S2's own, or one generated
+  earlier; otherwise it opens on the abstract, because the TL;DR tab then
+  wears a ✦ and opening on it would bill on every selection. Until the
+  reader picks a tab, that default follows the node, so a TL;DR arriving
+  with hydration takes over. The ✦ tab's first click generates one via the
+  backend's
   `summarizer` micro-agent (`onGenerateTldr` → `api.generateTldr` →
   `POST /api/paper/tldr`). **That click is the only surface that can
   trigger a Claude call** — Patrick's billing rule — and the server caches
