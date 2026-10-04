@@ -71,12 +71,16 @@ export interface DetailPanelProps {
 }
 
 /**
- * The one summary section: the abstract by default, a TL;DR view one click
- * away. Both providers land here — S2 papers usually bring their own TL;DR,
- * and a paper without one (every OpenAlex paper, plus S2's gaps) generates
- * it via `onGenerateTldr` on the FIRST toggle only: the ✦ on the tab marks
- * that clicking it runs Claude once (then the server's cache serves it
- * forever). Papers with only one of the two render it plainly, no tabs.
+ * The one summary section: TL;DR first, the abstract one click away. Both
+ * providers land here — S2 papers usually bring their own TL;DR, and a paper
+ * without one (every OpenAlex paper, plus S2's gaps) generates it via
+ * `onGenerateTldr` on the FIRST toggle only: the ✦ on the tab marks that
+ * clicking it runs Claude once (then the server's cache serves it forever).
+ * So the section *opens* on the TL;DR only when one already exists — opening
+ * on a ✦ tab would bill on every selection — and on the abstract otherwise.
+ * Until the reader picks a tab that default follows the node, so a TL;DR
+ * that arrives with hydration takes over the section it was missing from.
+ * Papers with only one of the two render it plainly, no tabs.
  *
  * @returns The summary section, or null when the node has neither text.
  */
@@ -87,12 +91,14 @@ function SummarySection({
   node: VNode
   onGenerateTldr?: () => Promise<void>
 }) {
-  const [view, setView] = useState<'abstract' | 'tldr'>('abstract')
+  // The reader's pick, or null while they haven't made one (the default rule
+  // above decides).
+  const [view, setView] = useState<'abstract' | 'tldr' | null>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // A different paper resets the section to its abstract-first default.
+  // A different paper resets the section to its default.
   useEffect(() => {
-    setView('abstract')
+    setView(null)
     setPending(false)
     setError(null)
   }, [node.id])
@@ -100,7 +106,7 @@ function SummarySection({
   const canGenerate = !!onGenerateTldr && !!node.abstract
   const showTabs = !!node.abstract && (!!node.tldr || canGenerate)
   // No abstract means the TL;DR is all there is to show (and vice versa).
-  const shown = node.abstract ? view : 'tldr'
+  const shown = node.abstract ? (view ?? (node.tldr ? 'tldr' : 'abstract')) : 'tldr'
   const onTldrTab = () => {
     setView('tldr')
     if (node.tldr || pending || !canGenerate) return
@@ -114,9 +120,6 @@ function SummarySection({
     <div className="detail-summary-group" data-tour="detail-summary">
       {showTabs ? (
         <div className="detail-summary-tabs">
-          <button className={shown === 'abstract' ? 'on' : ''} onClick={() => setView('abstract')}>
-            Abstract
-          </button>
           <button
             className={shown === 'tldr' ? 'on' : ''}
             onClick={onTldrTab}
@@ -127,6 +130,9 @@ function SummarySection({
             }
           >
             TL;DR{node.tldr ? '' : ' ✦'}
+          </button>
+          <button className={shown === 'abstract' ? 'on' : ''} onClick={() => setView('abstract')}>
+            Abstract
           </button>
         </div>
       ) : (

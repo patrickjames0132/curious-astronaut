@@ -1,5 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="7 7 50 50" fill="none">
   <title>Curious Astronaut</title>
+  <!-- The viewBox is cropped to the mark (x 7-57) rather than the 64-unit
+       drawing grid, and the comm boxes sit tucked into the shell (2 units
+       proud of it, not 4.5) — both so a 16px tab spends its pixels on the
+       helmet, which otherwise reads small beside full-bleed favicons. -->
   <defs>
     <clipPath id="visor">
       <path d="M16 32C16 22.5 23 17 32 17s16 5.5 16 15c0 9-7 15-16 15s-16-6-16-15Z"/>
@@ -8,8 +12,8 @@
 
   <!-- helmet shell + comm boxes -->
   <circle cx="32" cy="32" r="23" fill="#F7F5F0"/>
-  <rect x="4.5" y="25.5" width="6.5" height="13" rx="2.6" fill="#F7F5F0"/>
-  <rect x="53" y="25.5" width="6.5" height="13" rx="2.6" fill="#F7F5F0"/>
+  <rect x="7" y="25.5" width="6.5" height="13" rx="2.6" fill="#F7F5F0"/>
+  <rect x="50.5" y="25.5" width="6.5" height="13" rx="2.6" fill="#F7F5F0"/>
 
   <!-- visor glass -->
   <path d="M16 32C16 22.5 23 17 32 17s16 5.5 16 15c0 9-7 15-16 15s-16-6-16-15Z" fill="#12314A"/>

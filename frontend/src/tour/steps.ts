@@ -271,12 +271,12 @@ export const GRAPH_TOUR: TourStep[] = [
   {
     target: '[data-tour="detail-summary"]',
     stage: 'details',
-    title: 'Abstract & TL;DR',
+    title: 'TL;DR & abstract',
     body:
-      'Every paper opens on its abstract, and a TL;DR is one click away — Semantic ' +
-      'Scholar’s own when it exists. When the tab shows a ✦, clicking it asks Claude ' +
-      'to write one. That happens once, and the summary is remembered for good. Math ' +
-      'renders properly, subscripts and all.',
+      'A paper opens on its TL;DR when it has one — Semantic Scholar’s own, or one ' +
+      'written earlier — with the full abstract a click away. When the TL;DR tab shows ' +
+      'a ✦, clicking it asks Claude to write one. That happens once, and the summary ' +
+      'is remembered for good. Math renders properly, subscripts and all.',
   },
   {
     target: '[data-tour="detail-actions"]',

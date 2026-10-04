@@ -637,6 +637,20 @@
 
 ### Detail panel & paper enrichment
 
+- [x] **TL;DR before the abstract in the detail panel** *(v8.4.0)* — the
+      summary section's tabs now read **TL;DR | Abstract**, and the section
+      opens on the TL;DR **when one already exists**. The tab order was
+      trivial; the default view was the decision. A paper without a TL;DR
+      (every OpenAlex paper, plus S2's gaps) gets one from a model call on
+      the *first click* of its ✦ tab — the only surface allowed to bill — so
+      opening on it would have spent a call on every selection. Such a paper
+      still opens on its abstract. The view is now the reader's pick *or
+      null*, and null derives from the node, so a TL;DR that arrives with
+      hydration takes over the section it was missing from, while a tab the
+      reader chose sticks. The tour's stop became *"TL;DR & abstract"* to
+      teach the new order. *(From the `todos.md` inbox, 2026-10-02;
+      browser-tested and approved by Patrick, 2026-10-03.)*
+
 - [x] **General non-arXiv full text — and figures** *(v5.27.0)* — papers
       without an ar5iv render (journal papers, failed LaTeX conversions) now
       get **full text and figures mined from their open-access PDF**. The
@@ -3573,6 +3587,22 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Enlarge the favicon** *(v8.4.0)* — the helmet mark read small in a
+      browser tab beside full-bleed icons like Gmail's and GitHub's: the
+      64-unit drawing grid left real margin around the mark, and the comm
+      boxes stood 4.5 units proud of the shell, so the helmet circle filled
+      only ~72% of the icon. Two changes, both in `frontend/public/favicon.svg`
+      and nowhere else (it is only ever the tab icon): the `viewBox` is
+      cropped to the mark (`7 7 50 50`), and the comm boxes are **tucked in**
+      to stand 2 units proud rather than 4.5 — the crop alone only reached
+      ~82%, because the boxes set the width. The circle now fills ~92%.
+      Tried on the way, rendered side by side on the tab-bar colour: a 1-unit
+      tuck (`8 8 48 48`, ~96%) — Patrick tried it and went back to 2; and
+      dropping the comm boxes entirely (100%), which turns the helmet into a
+      plain round face at 16px. The full mascot's shapes and palette are
+      untouched. *(From the `todos.md` inbox, 2026-10-02; browser-tested and
+      approved by Patrick, 2026-10-03.)*
+
 - [x] **The Library is a modal** *(v7.32.0)* — the rail's 📚 entry now opens
       a centred dialog over the workspace, the same shell as Settings (scrim,
       card radius, shadow — `.library-backdrop` / `.library-modal` mirror
@@ -4728,6 +4758,13 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       inbox, 2026-07-08.)*
 
 ### Infrastructure, quality & tooling
+
+- [x] **`urllib3` 2.7.0 → 2.8.0** *(v8.4.0)* — two HIGH CVEs
+      (CVE-2026-97687, HTTPS-proxy TLS override; CVE-2026-97689, unbounded
+      chunk-parser allocation) published against the transitive `urllib3`
+      and failed the `security` session mid-feature. `uv lock
+      --upgrade-package urllib3`, nothing else moved. The gate did exactly
+      what v8.2.0 made it able to do.
 
 - [x] **`astronaut --version`, and the environment rules that block a tag**
       *(v8.3.0)* — two small things caught in the act of publishing, before
