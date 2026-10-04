@@ -75,6 +75,7 @@ import Lightbox from '../figures/Lightbox'
 import ChatMessage from './transcript/ChatMessage'
 import { useConversation } from './useConversation'
 import { useResizablePanel } from '../ui/useResizablePanel'
+import { useTheme } from '../ui/theme'
 import './teacher.css'
 
 /**
@@ -475,6 +476,31 @@ export default function Teacher({
     askTop.current = bar.getBoundingClientRect().top
   }, [empty])
 
+  // A theme switch on the empty landing replays its entrance — the picture,
+  // the greeting and the bar rise in together again, so the page reads as
+  // re-lit rather than recoloured underneath you. The CSS animations are
+  // restarted in place through the Web Animations API (cancel, then play)
+  // instead of by remounting: a remount would throw away a half-typed
+  // question. Reduced motion needs no check here — teacher.css sets those
+  // animations to `none`, so there is nothing to replay. Optional-called for
+  // jsdom, which has no getAnimations.
+  const theme = useTheme()
+  const lastTheme = useRef(theme)
+  useEffect(() => {
+    if (lastTheme.current === theme) return
+    lastTheme.current = theme
+    if (!empty) return
+    const landingParts = [
+      ...(scrollRef.current?.querySelectorAll('.landing-hero, .landing-greeting') ?? []),
+      askRef.current,
+    ]
+    for (const part of landingParts)
+      for (const animation of part?.getAnimations?.() ?? []) {
+        animation.cancel()
+        animation.play()
+      }
+  }, [theme, empty])
+
   // What the ask bar invites, which is not always the same offer. The old copy
   // promised books and PDFs whenever there was no graph — fine back when a
   // library was the price of admission, and a lie now that the assistant is
@@ -721,17 +747,15 @@ export default function Teacher({
             <>
               {/* Decorative — the greeting below is the content, so the
                   picture stays out of the accessibility tree. Two cuts of the
-                  same painting, one per theme (teacher.css picks): dark is
-                  feathered to transparent so it dissolves into the page; light
-                  keeps its paper and multiplies it away. */}
+                  same painting, one per theme (teacher.css picks). */}
               <img
                 className="landing-hero landing-hero-dark"
-                src="/curious-astronaut-floating-dark.webp"
+                src="/curious-astronaut-dark.webp"
                 alt=""
               />
               <img
                 className="landing-hero landing-hero-light"
-                src="/curious-astronaut-floating-light.webp"
+                src="/curious-astronaut-light.webp"
                 alt=""
               />
               <h1 className="landing-greeting">What do you want to explore?</h1>
