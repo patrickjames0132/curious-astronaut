@@ -86,6 +86,36 @@
   min-height: 0;
   overflow-y: auto;
 }
+/* The floating astronaut above the greeting. Width-led, but capped by the
+   viewport height too, so a short window keeps the composer on screen rather
+   than pushing it below the fold.
+
+   Two cuts of one painting, because no single cut works on both grounds. Dark
+   is feathered to transparent *inside its own dark paint*, so the navy edge
+   melts into the page instead of ending in the watercolour's pale fringe
+   (which read as a torn-paper border on dark). That same fade over a light
+   page leaves a grey halo, so light keeps the original white paper and
+   multiplies it: white × page = page, exactly, and the fringe stays the
+   natural watercolour edge it was painted as. */
+.landing-hero {
+  display: block;
+  width: min(320px, 70%);
+  max-height: 30vh;
+  object-fit: contain;
+  margin: 0 auto 18px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.landing-hero-light {
+  display: none;
+  mix-blend-mode: multiply;
+}
+:root[data-theme='light'] .landing-hero-dark {
+  display: none;
+}
+:root[data-theme='light'] .landing-hero-light {
+  display: block;
+}
 .landing-greeting {
   margin: 0 0 26px;
   text-align: center;
@@ -136,6 +166,7 @@
    read yet — so it plays when you arrive at the app and never replays on a
    docked panel being toggled open (display:none → block restarts CSS
    animations, which would re-run this on every ✕ and re-open). */
+.teacher.landing.empty .landing-hero,
 .teacher.landing.empty .landing-greeting {
   animation:
     rise 0.7s var(--ease-rise) both,
@@ -462,6 +493,7 @@
     animation: none;
     opacity: 0.7;
   }
+  .teacher.landing.empty .landing-hero,
   .teacher.landing.empty .landing-greeting,
   .teacher.landing.empty .ask-dock,
   .trace-line,

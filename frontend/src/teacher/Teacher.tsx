@@ -718,7 +718,24 @@ export default function Teacher({
         {chatTurns}
         {chat.length === 0 &&
           (landing ? (
-            <h1 className="landing-greeting">What do you want to explore?</h1>
+            <>
+              {/* Decorative — the greeting below is the content, so the
+                  picture stays out of the accessibility tree. Two cuts of the
+                  same painting, one per theme (teacher.css picks): dark is
+                  feathered to transparent so it dissolves into the page; light
+                  keeps its paper and multiplies it away. */}
+              <img
+                className="landing-hero landing-hero-dark"
+                src="/curious-astronaut-floating-dark.webp"
+                alt=""
+              />
+              <img
+                className="landing-hero landing-hero-light"
+                src="/curious-astronaut-floating-light.webp"
+                alt=""
+              />
+              <h1 className="landing-greeting">What do you want to explore?</h1>
+            </>
           ) : hasGraph ? (
             <div className="teacher-hint">
               Ask a question about the papers on the graph — or ask for a lecture on them, on the
