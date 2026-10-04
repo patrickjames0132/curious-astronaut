@@ -111,14 +111,25 @@ rendering boundary; `figures/README.md` describes figure placement.
 ## The landing
 
 With no graph and an empty transcript the composer is the whole page: the
-floating-astronaut painting, the greeting, then the bar, rising in together on
-one entrance. The painting is **two cuts of one image**, picked by theme in
-`teacher.css` — dark is feathered to transparent inside its own dark paint so
-it dissolves into the page (the watercolour's pale fringe read as a torn-paper
-border there), light keeps the white paper and `mix-blend-mode: multiply`s it
-away. Both live in `frontend/public/` as WebP; the full-size source painting
-is deliberately kept out of the repo. The images are decorative (`alt=""`):
-the greeting is the content.
+astronaut painting, the greeting, then the bar, rising in together on one
+entrance. The painting is **two cuts of one full-bleed image**, both oval and
+the same proportions, picked by theme in `teacher.css`:
+
+- **Dark** is the painting as painted, its rectangle dissolved by an elliptical
+  `mask-image`, so the nebula thins into a page whose navy is close to its own.
+- **Light** can't fade that way — dark paint at partial alpha over off-white is
+  a grey haze — so its oval is *painted*: the image sits on white paper inside
+  a watercolour brush edge, and `mix-blend-mode: multiply` turns the paper into
+  exactly the page colour. The edge was lifted from an earlier, square version
+  of the painting and remapped onto an ellipse (measure where its paint ends in
+  every direction, smooth away the square, keep the brush wiggle).
+
+**A theme switch replays the entrance** for all three parts at once. The
+effect restarts their CSS animations in place through the Web Animations API
+(`getAnimations()` → cancel, play) rather than remounting — a remount would
+drop a half-typed question. Both WebPs live in `frontend/public/`; the
+full-size source paintings are deliberately kept out of the repo. The images
+are decorative (`alt=""`): the greeting is the content.
 
 ## Verification
 

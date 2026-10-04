@@ -3587,6 +3587,34 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **A full-bleed astronaut, oval in both themes — and a theme switch
+      that re-lights the landing** *(v8.6.0)* — Patrick repainted the home
+      page's astronaut (v8.5.0, below) to fill its whole canvas, which made
+      v8.5.0's cut-outs obsolete. **Dark** became the painting as painted with
+      an elliptical CSS `mask-image` doing the shadowing — a one-number edit
+      instead of a regenerated image. **Light took four tries, recorded so
+      nobody repeats them:** the same elliptical fade (a grey haze — dark paint
+      at partial alpha over off-white); the new painting inside v8.5.0's
+      watercolour brush edge stretched to the new width (right finish, wrong
+      shape beside dark's oval); that edge warped straight from a square onto
+      an ellipse (pinched diagonals, a lemon with points); and what shipped —
+      measure where the old painting's paint ends along each of 1,440
+      directions, smooth that over ~15° so the square's overall shape divides
+      out while the brush wiggle stays, and map it onto an ellipse at 88% of
+      the half-size (92% clipped the strokes flat against the image edge). The
+      painting sits on white paper inside it and `multiply` makes the paper
+      the page. **The theme switch:** Patrick wanted the picture, greeting and
+      bar to rise in together on a ☀/☾ toggle. The per-theme `<img>` swap was
+      already replaying the picture's entrance by itself (an element leaving
+      `display: none` restarts its CSS animations), so the fix was to replay
+      the other two with it: a `useTheme()` effect in `Teacher.tsx` restarts
+      all three in place via `getAnimations()` (cancel, play), never by
+      remounting, which would drop a half-typed question. Reduced motion has
+      nothing to replay, since those animations are `none` there. Files:
+      `curious-astronaut-{dark,light}.webp`, 31 KB + 30 KB; v8.5.0's two
+      `curious-astronaut-floating-*` images are gone. *(Patrick's ask,
+      2026-10-04; browser-tested and approved the same day.)*
+
 - [x] **The floating astronaut on the home page** *(v8.5.0)* — Patrick's
       watercolour of the astronaut drifting through a nebula now sits above
       *"What do you want to explore?"*, rising in with the greeting and the

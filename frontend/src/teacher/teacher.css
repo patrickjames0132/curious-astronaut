@@ -90,21 +90,29 @@
    viewport height too, so a short window keeps the composer on screen rather
    than pushing it below the fold.
 
-   Two cuts of one painting, because no single cut works on both grounds. Dark
-   is feathered to transparent *inside its own dark paint*, so the navy edge
-   melts into the page instead of ending in the watercolour's pale fringe
-   (which read as a torn-paper border on dark). That same fade over a light
-   page leaves a grey halo, so light keeps the original white paper and
-   multiplies it: white × page = page, exactly, and the fringe stays the
-   natural watercolour edge it was painted as. */
+   Two cuts of one full-bleed painting, one per theme, both oval and both the
+   same proportions, so a theme switch changes the finish, not the shape.
+   - **Dark** is the painting as painted, its rectangle dissolved by an
+     elliptical mask — solid in the middle, gone well before the corners — so
+     the nebula thins into a page whose navy is close to its own.
+   - **Light** can't fade that way: dark paint at partial alpha over off-white
+     is a grey haze. So the oval is *painted* instead: the painting sits on
+     white paper inside a watercolour brush edge (lifted from the first, square
+     version of the painting and remapped onto an ellipse), and `multiply`
+     turns the paper into exactly the page colour.
+   A theme switch on the empty landing replays the entrance for the picture,
+   greeting and bar together — see the theme effect in Teacher.tsx. */
 .landing-hero {
   display: block;
-  width: min(320px, 70%);
+  width: min(460px, 86%);
   max-height: 30vh;
   object-fit: contain;
   margin: 0 auto 18px;
   user-select: none;
   -webkit-user-drag: none;
+}
+.landing-hero-dark {
+  mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
 }
 .landing-hero-light {
   display: none;
