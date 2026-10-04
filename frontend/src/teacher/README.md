@@ -108,6 +108,18 @@ streamed tool traces, inline figures and expandable lecture beats. All of that
 stays on its turn across save and restore. `transcript/README.md` describes the
 rendering boundary; `figures/README.md` describes figure placement.
 
+## The landing
+
+With no graph and an empty transcript the composer is the whole page: the
+floating-astronaut painting, the greeting, then the bar, rising in together on
+one entrance. The painting is **two cuts of one image**, picked by theme in
+`teacher.css` — dark is feathered to transparent inside its own dark paint so
+it dissolves into the page (the watercolour's pale fringe read as a torn-paper
+border there), light keeps the white paper and `mix-blend-mode: multiply`s it
+away. Both live in `frontend/public/` as WebP; the full-size source painting
+is deliberately kept out of the repo. The images are decorative (`alt=""`):
+the greeting is the content.
+
 ## Verification
 
 `test/teacher/useConversation.test.tsx` runs the real hook through a lecture and

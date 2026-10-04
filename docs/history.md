@@ -3587,6 +3587,30 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **The floating astronaut on the home page** *(v8.5.0)* — Patrick's
+      watercolour of the astronaut drifting through a nebula now sits above
+      *"What do you want to explore?"*, rising in with the greeting and the
+      bar on their shared entrance. The painting came on white paper, and
+      that was the whole problem. **A white-to-transparent cut-out didn't
+      work on dark:** the pale lavender fringe survived as a torn-paper
+      border, and a few near-white specks with it. What did work was to give
+      up on the edge entirely: take the solid paint only (holes like the
+      white suit filled back in), erode it well inside the dark paint, feather
+      it wide, and multiply by an ellipse — inset further on the right, where
+      the painting itself is cropped flat — so the navy dissolves into the
+      page. Two follow-ups from the browser: the first ellipse still let the
+      fringe show as a haze along the top (shrunk), and the crop cut through a
+      nearly-transparent tail, leaving a faint straight line on the left (the
+      tail now snaps to zero before cropping). **That fade fails on light** —
+      dark paint feathering over off-white leaves a grey halo — so light
+      gets a second cut: the original paper, `mix-blend-mode: multiply`, which
+      makes the white exactly the page colour and keeps the watercolour edge
+      as painted. Two WebPs in `frontend/public/` (53 KB + 30 KB, from a
+      564 KB JPG kept out of the repo), swapped by `data-theme`, decorative
+      (`alt=""`), capped at `30vh` so a short window keeps the composer on
+      screen. *(Patrick's ask, 2026-10-03; browser-tested and approved the
+      same night.)*
+
 - [x] **Enlarge the favicon** *(v8.4.0)* — the helmet mark read small in a
       browser tab beside full-bleed icons like Gmail's and GitHub's: the
       64-unit drawing grid left real margin around the mark, and the comm
