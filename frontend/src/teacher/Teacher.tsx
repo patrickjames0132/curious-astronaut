@@ -76,6 +76,7 @@ import ChatMessage from './transcript/ChatMessage'
 import { useConversation } from './useConversation'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import { useTheme } from '../ui/theme'
+import { usePresence } from '../ui/usePresence'
 import './teacher.css'
 
 /**
@@ -200,6 +201,13 @@ export default function Teacher({
   // composer on every pick would fight the textarea's own caret handling.
   const resolvedMentions = useRef<Map<string, MentionPaper>>(new Map())
   const mentions = useMentionSuggestions(provider, siblingThreads)
+  // The `@` list fades out rather than vanishing (ui/usePresence). Closing
+  // usually clears the hook's results in the same render, so the exit plays
+  // over the last list that was actually on screen, not an emptied one.
+  const mentionsPanel = usePresence(mentions.open)
+  const lastMentions = useRef(mentions)
+  if (mentions.open) lastMentions.current = mentions
+  const shownMentions = mentions.open ? mentions : lastMentions.current
   // Which scope picker's popover is open — one shared slot, so opening either
   // picker closes the other (their popovers overlap when both are open).
   const [openScope, setOpenScope] = useState<'lectures' | 'sources' | 'filters' | null>(null)
@@ -799,16 +807,18 @@ export default function Teacher({
           {/* The `@` dropdown, anchored to the bar (which is positioned) and
               opening upward — the composer sits at the bottom of the panel, so
               a list below it would open off-screen. */}
-          {mentions.open && (
+          {mentionsPanel.present && (
             <MentionSuggestions
-              threads={mentions.threads}
-              papers={mentions.papers}
-              highlighted={mentions.highlighted}
-              whole={mentions.active?.whole ?? false}
-              loading={mentions.loading}
-              step={mentions.step}
+              threads={shownMentions.threads}
+              papers={shownMentions.papers}
+              highlighted={shownMentions.highlighted}
+              whole={shownMentions.active?.whole ?? false}
+              loading={shownMentions.loading}
+              step={shownMentions.step}
               onPick={pickMention}
               onHighlight={mentions.setHighlighted}
+              closing={mentionsPanel.closing}
+              onAnimationEnd={mentionsPanel.onAnimationEnd}
             />
           )}
           <textarea

@@ -3587,6 +3587,35 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Popovers, menus and the find bar move — both ways — and the data
+      source picker opens on one click** *(v8.8.0)* — steps (1) and (2) of
+      the "Animate the rest of the UI" order, plus a bug fix.
+      **One motion language:** the entrance curves and the `rise`/`fade`
+      keyframes moved from `teacher.css` (where only the chat could reach
+      them, and where the find bar's borrowed `fade` would have broken the
+      day the panel's stylesheet stopped loading first) to `:root` in
+      `index.css`, joined by `--motion-pop` (160ms), `--motion-morph`
+      (240ms) and `--motion-exit` (120ms — leaving should never make the
+      reader wait). **Popovers and menus** — filters, `@` suggestions,
+      source scope, the ⋯ row menu, the collapsed data-source menu — open
+      with a fade and a slight scale from the edge they hang off (each sets
+      its `transform-origin`), and close by the same move run back. **The
+      find bar** unfolds out of its 🔍 (a `clip-path` that starts as the
+      button's own 34px circle and opens leftward), folds back into it, and
+      the 🔍 pops in after. **Exits needed new plumbing:** React unmounts the
+      instant `open` drops, so nothing could animate out. `ui/usePresence`
+      holds a closing element mounted with `.closing` until its *own*
+      `animationend` (the event bubbles; a child's fade must not end the
+      parent's exit), skips the exit where none can play (reduced motion; no
+      animation engine — jsdom), and falls back on a 600ms timer. Exits are
+      their own keyframes, never the entrance reversed — an animation only
+      restarts when its name changes. The `@` panel fades over the last list
+      actually on screen, because its hook clears the results in the render
+      that closes it. Patrick's ask for the exits came out of the browser
+      round: *"closing them should also fade out."* **The data-source fix**
+      is in [docs/bugs.md](docs/bugs.md). *(Order picked 2026-10-06;
+      browser-tested and approved the same day.)*
+
 - [x] **The app wears the favicon's palette** *(v8.7.0)* — the app around
       the helmet mark used none of its colours: a grey-black page and a
       generic blue accent. **Dark** now takes the mark wholesale — the

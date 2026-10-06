@@ -25,6 +25,7 @@
 
 import { useEffect, useState } from 'react'
 import { DEFAULT_SEARCH_OPTIONS, getFields } from '../api'
+import { usePresence } from '../ui/usePresence'
 import type { Field, Provider, SearchOptions } from '../api'
 import './search.css'
 
@@ -144,6 +145,8 @@ export default function SearchControls({
   open,
   onOpenChange,
 }: SearchControlsProps) {
+  // Stays mounted through its exit fade after `open` drops (ui/usePresence).
+  const popover = usePresence(open)
   // The field vocabulary loads lazily the first time the popover opens, so the
   // common no-filter path never pays the fetch. null = not yet loaded.
   const [fieldOptions, setFieldOptions] = useState<Field[] | null>(null)
@@ -204,8 +207,11 @@ export default function SearchControls({
         {activeCount ? <span className="toggle-count">{activeCount}</span> : null}
       </button>
 
-      {open && (
-        <div className="filter-pop">
+      {popover.present && (
+        <div
+          className={`filter-pop${popover.closing ? ' closing' : ''}`}
+          onAnimationEnd={popover.onAnimationEnd}
+        >
           <button
             type="button"
             className="link-btn filter-close"

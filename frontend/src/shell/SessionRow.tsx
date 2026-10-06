@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { SavedSessionMeta } from '../api'
+import { usePresence } from '../ui/usePresence'
 /** Props for {@link SessionRow}. */
 interface SessionRowProps {
   session: Pick<SavedSessionMeta, 'name'>
@@ -51,6 +52,8 @@ export default function SessionRow({
   onDelete,
 }: SessionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  // Stays mounted through its exit fade after the menu closes (ui/usePresence).
+  const menu = usePresence(menuOpen)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(session.name)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -136,12 +139,18 @@ export default function SessionRow({
           ⋮
         </button>
       )}
-      {menuOpen && (
+      {menu.present && (
         <>
           {/* A click anywhere else closes it — cheaper and more reliable than
-              a document listener, and it can't leak past unmount. */}
-          <div className="rail-menu-scrim" onClick={() => setMenuOpen(false)} />
-          <div className="rail-menu" role="menu">
+              a document listener, and it can't leak past unmount. Gone the
+              moment the menu starts closing, so the exit fade never swallows
+              the reader's next click. */}
+          {menuOpen && <div className="rail-menu-scrim" onClick={() => setMenuOpen(false)} />}
+          <div
+            className={`rail-menu${menu.closing ? ' closing' : ''}`}
+            role="menu"
+            onAnimationEnd={menu.onAnimationEnd}
+          >
             <button
               type="button"
               role="menuitem"

@@ -24,6 +24,8 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
+import { usePresence } from '../ui/usePresence'
+
 /** One selectable item, reduced to what the picker shows. */
 export interface ScopeItem {
   id: string
@@ -86,6 +88,8 @@ export default function ScopePicker({
   labels: ScopeLabels
   dataTour?: string
 }) {
+  // Stays mounted through its exit fade after `open` drops (ui/usePresence).
+  const popover = usePresence(open)
   const all = checkedIds.length === items.length
   // `all` still drives the trigger's styling (an off-default scope lights it
   // up), but it can't drive the *wording* on its own: "All sources" claims a
@@ -111,8 +115,11 @@ export default function ScopePicker({
         <span className="scope-btn-icon">{labels.icon}</span>
         <span className="scope-btn-label">{buttonLabel}</span>
       </button>
-      {open && (
-        <div className="scope-pop">
+      {popover.present && (
+        <div
+          className={`scope-pop${popover.closing ? ' closing' : ''}`}
+          onAnimationEnd={popover.onAnimationEnd}
+        >
           <div className="scope-pop-head">
             <span>{labels.heading}</span>
             {/* Compact "All / None" (not "Select all / Deselect all"): with a

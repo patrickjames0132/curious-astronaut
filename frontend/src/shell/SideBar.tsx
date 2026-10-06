@@ -28,6 +28,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import ThreadList from './ThreadList'
 import { useResizablePanel } from '../ui/useResizablePanel'
+import { usePresence } from '../ui/usePresence'
 import { PROVIDER_LABEL } from '../api'
 import type { Provider, SavedSessionMeta } from '../api'
 import './shell.css'
@@ -147,6 +148,8 @@ function DatabaseGlyph() {
  */
 function ProviderPicker({ provider, onChange, disabled, labelled }: ProviderPickerProps) {
   const [open, setOpen] = useState(false)
+  // The collapsed rail's popup stays mounted through its exit fade.
+  const menu = usePresence(open)
   const title = `Data source: ${PROVIDER_LABEL[provider]} — which academic database graphs are built from; references, citations and the seed all come from this one source`
   if (labelled)
     return (
@@ -190,10 +193,14 @@ function ProviderPicker({ provider, onChange, disabled, labelled }: ProviderPick
           <DatabaseGlyph />
         </span>
       </button>
-      {open && (
+      {menu.present && (
         <>
-          <div className="rail-menu-scrim" onClick={() => setOpen(false)} />
-          <div className="rail-menu rail-menu-right" role="menu">
+          {open && <div className="rail-menu-scrim" onClick={() => setOpen(false)} />}
+          <div
+            className={`rail-menu rail-menu-right${menu.closing ? ' closing' : ''}`}
+            role="menu"
+            onAnimationEnd={menu.onAnimationEnd}
+          >
             {(Object.keys(PROVIDER_LABEL) as Provider[]).map((key) => (
               <button
                 key={key}

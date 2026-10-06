@@ -50,6 +50,20 @@
   --panel-float: rgba(17, 29, 48, 0.92);
   --panel-float-soft: rgba(17, 29, 48, 0.85);
 
+  /* Motion — one language for the whole app, so things move with one voice.
+     The two entrance curves are a pair (see teacher.css "entrances"): the
+     rise eases OUT, quick off the mark and settling; the fade eases IN,
+     holding low and resolving late, so an element surfaces rather than
+     slides. --motion-pop is the short beat for anything that opens on a
+     click (popovers, menus); longer arrivals set their own duration. */
+  --ease-rise: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-fade: cubic-bezier(0.55, 0, 0.75, 0.35);
+  --motion-pop: 160ms;
+  /* Exits are quicker than entrances: a dismissal should feel immediate. */
+  --motion-exit: 120ms;
+  /* A control changing shape in place (the find bar unfolding). */
+  --motion-morph: 240ms;
+
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
   background: var(--bg);
@@ -119,4 +133,73 @@ a {
 }
 a:hover {
   text-decoration: underline;
+}
+
+/* The two halves of the app's entrance (used together, on --ease-rise and
+   --ease-fade): a short rise into place and a fade that resolves late. */
+@keyframes rise {
+  from {
+    transform: translateY(16px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Popovers and menus open with a short fade and a slight scale-up from the
+   edge they hang off (each sets its own transform-origin), so they read as
+   coming out of their button — and close by the same move run back, faster:
+   leaving should never make the reader wait. The `.closing` class comes from
+   ui/usePresence, which keeps the element mounted until `pop-out` ends.
+   The exit is its own keyframe, not `pop` reversed: an animation only
+   restarts when its *name* changes, so flipping the direction would not
+   replay anything. A closing popover stops taking clicks. */
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+.filter-pop,
+.scope-pop,
+.rail-menu,
+.mention-panel {
+  animation: pop var(--motion-pop) var(--ease-rise) both;
+}
+.filter-pop.closing,
+.scope-pop.closing,
+.rail-menu.closing,
+.mention-panel.closing {
+  animation: pop-out var(--motion-exit) var(--ease-fade) both;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .filter-pop,
+  .scope-pop,
+  .rail-menu,
+  .mention-panel {
+    animation: none;
+  }
 }
