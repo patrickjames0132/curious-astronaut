@@ -24,6 +24,28 @@ import type { CSSProperties } from 'react'
 import { CHIP_TYPES, REL_COLOR, REL_LABEL } from '../theme'
 import { CITE_SLIDER_STEPS, citationThreshold } from '../model'
 import '../graph.css'
+import { usePresence } from '../../ui/usePresence'
+
+/**
+ * The collapsed controls' icon: three slider tracks, each knob at a different
+ * point — "settings you can tune", in the shape every app uses for it.
+ *
+ * @returns The inline SVG, drawn in currentColor.
+ */
+function SlidersGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <path d="M2 4h12M2 8h12M2 12h12" />
+      </g>
+      <g stroke="currentColor" strokeWidth="1.5" fill="var(--panel)">
+        <circle cx="6" cy="4" r="1.9" />
+        <circle cx="10.5" cy="8" r="1.9" />
+        <circle cx="4.5" cy="12" r="1.9" />
+      </g>
+    </svg>
+  )
+}
 
 /** Props for {@link GraphControls}. */
 export interface GraphControlsProps {
@@ -168,8 +190,18 @@ export default function GraphControls({
   const hiCitations = citationThreshold(citeHi, minCitations, maxCitations)
   const citePct = (position: number) => (position / CITE_SLIDER_STEPS) * 100
 
-  // One readout string for the expanded footer AND the collapsed bar: a
-  // hand-pick wins over the plain filter count. No denominator on the pick
+  // The panel never shrinks into a bar any more: collapsing fades it out
+  // toward its corner and a round sliders button pops in where it was (the
+  // find bar's 🔍 pattern). It stays mounted behind `hidden` once the fade
+  // has played (ui/usePresence), so the tour's existence checks still see
+  // the year and citation stops on a collapsed panel. Collapsing used to
+  // switch the panel to `width: auto` while its body was still folding, and
+  // for a few frames auto meant the widest unwrapped row — the panel
+  // ballooned before it closed. No width ever changes now.
+  const panel = usePresence(!collapsed)
+
+  // The readout string for the panel's footer: a hand-pick wins over the
+  // plain filter count. No denominator on the pick
   // since v7.24.0 — the selection outranks the filters (`scope/README.md`),
   // so it is not "out of the shown papers": a selected paper the filters
   // hide is still in scope, still drawn, and would make "5 / 3" a lie.
@@ -179,230 +211,245 @@ export default function GraphControls({
       : `${visibleCount} / ${totalCount} papers shown`
 
   return (
-    <div className={`controls${collapsed ? ' collapsed' : ''}`}>
-      <button
-        className="ctrl-head"
-        data-tour="controls-head"
-        aria-expanded={!collapsed}
-        onClick={() => setCollapsed((wasCollapsed) => !wasCollapsed)}
-        title={
-          collapsed
-            ? 'Open the graph controls — layout, filters, and the map’s actions'
-            : 'Collapse the controls to a slim bar and free up the canvas'
-        }
+    <>
+      {collapsed && !panel.present && (
+        <button
+          type="button"
+          className="ctrl-icon"
+          // The tour's first stop: only ever on the control that's visible.
+          data-tour="controls-head"
+          aria-expanded={false}
+          onClick={() => setCollapsed(false)}
+          title="Open the graph controls — layout, filters, and the map’s actions"
+          aria-label="Open the graph controls"
+        >
+          <SlidersGlyph />
+        </button>
+      )}
+      <div
+        className={`controls${panel.closing ? ' closing' : ''}`}
+        hidden={!panel.present}
+        onAnimationEnd={panel.onAnimationEnd}
       >
-        <span>Graph controls</span>
-        {collapsed && <span className="ctrl-head-count">{countReadout}</span>}
-        <span className="ctrl-head-caret" aria-hidden="true">
-          {collapsed ? '▾' : '▴'}
-        </span>
-      </button>
+        <button
+          className="ctrl-head"
+          data-tour={panel.present ? 'controls-head' : undefined}
+          aria-expanded={!collapsed}
+          onClick={() => setCollapsed(true)}
+          title="Fold the controls away into the sliders button and free up the canvas"
+        >
+          <span>Graph controls</span>
+          <span className="ctrl-head-caret" aria-hidden="true">
+            ▴
+          </span>
+        </button>
 
-      <div className="ctrl-body" hidden={collapsed}>
-        <div className="layout-toggle" data-tour="layout">
-          <button className={layout === 'force' ? 'on' : ''} onClick={() => onLayout('force')}>
-            Force
-          </button>
-          <button
-            className={layout === 'timeline' ? 'on' : ''}
-            onClick={() => onLayout('timeline')}
-          >
-            Timeline
-          </button>
-        </div>
-        {/* Two layouts, one control. With automatic sizing on it's the plain
+        <div className="ctrl-body">
+          <div className="layout-toggle" data-tour="layout">
+            <button className={layout === 'force' ? 'on' : ''} onClick={() => onLayout('force')}>
+              Force
+            </button>
+            <button
+              className={layout === 'timeline' ? 'on' : ''}
+              onClick={() => onLayout('timeline')}
+            >
+              Timeline
+            </button>
+          </div>
+          {/* Two layouts, one control. With automatic sizing on it's the plain
             wrapping pill row it has always been. With it off, each chip becomes
             the label atop its own count slider — the chip is still the on/off
             toggle (highlighted while on), it just now heads a slider that trims
             how many of that relation show. */}
-        {showRelCaps ? (
-          <div className="rel-caps" data-tour="relations">
-            {CHIP_TYPES.map((type) => {
-              const on = enabled.has(type)
-              const total = relTotals[type] ?? 0
-              // A slider only under a chip that's on and has more than one paper
-              // to trim; otherwise the chip stands alone (still a toggle).
-              const showSlider = on && total > 1
-              const cap = relCaps[type] ?? total
-              return (
-                <div
-                  key={type}
-                  className="rel-cap-group"
-                  style={{ '--c': REL_COLOR[type] } as CSSProperties}
-                >
-                  <div className="rel-cap-head">
-                    <button
-                      className={`rel-toggle ${on ? 'on' : ''}`}
-                      onClick={() => onToggleType(type)}
-                      title={on ? `Hide ${REL_LABEL[type]}` : `Show ${REL_LABEL[type]}`}
-                    >
-                      <i />
-                      {REL_LABEL[type]}
-                    </button>
+          {showRelCaps ? (
+            <div className="rel-caps" data-tour="relations">
+              {CHIP_TYPES.map((type) => {
+                const on = enabled.has(type)
+                const total = relTotals[type] ?? 0
+                // A slider only under a chip that's on and has more than one paper
+                // to trim; otherwise the chip stands alone (still a toggle).
+                const showSlider = on && total > 1
+                const cap = relCaps[type] ?? total
+                return (
+                  <div
+                    key={type}
+                    className="rel-cap-group"
+                    style={{ '--c': REL_COLOR[type] } as CSSProperties}
+                  >
+                    <div className="rel-cap-head">
+                      <button
+                        className={`rel-toggle ${on ? 'on' : ''}`}
+                        onClick={() => onToggleType(type)}
+                        title={on ? `Hide ${REL_LABEL[type]}` : `Show ${REL_LABEL[type]}`}
+                      >
+                        <i />
+                        {REL_LABEL[type]}
+                      </button>
+                      {showSlider && (
+                        <span className="rel-cap-count">
+                          {cap}/{total}
+                        </span>
+                      )}
+                    </div>
                     {showSlider && (
-                      <span className="rel-cap-count">
-                        {cap}/{total}
-                      </span>
+                      <input
+                        className="rel-cap-slider"
+                        type="range"
+                        min={1}
+                        max={total}
+                        value={cap}
+                        // The filled portion up to the thumb, as a CSS var the
+                        // track gradient reads — the single-knob analog of the
+                        // range sliders' `.range-fill`.
+                        style={{ '--fill': `${(cap / total) * 100}%` } as CSSProperties}
+                        onChange={(event) => onRelCap?.(type, Number(event.target.value))}
+                        title={`Show the ${cap} most-cited of ${total} ${REL_LABEL[type]}`}
+                        aria-label={`${REL_LABEL[type]} shown`}
+                      />
                     )}
                   </div>
-                  {showSlider && (
-                    <input
-                      className="rel-cap-slider"
-                      type="range"
-                      min={1}
-                      max={total}
-                      value={cap}
-                      // The filled portion up to the thumb, as a CSS var the
-                      // track gradient reads — the single-knob analog of the
-                      // range sliders' `.range-fill`.
-                      style={{ '--fill': `${(cap / total) * 100}%` } as CSSProperties}
-                      onChange={(event) => onRelCap?.(type, Number(event.target.value))}
-                      title={`Show the ${cap} most-cited of ${total} ${REL_LABEL[type]}`}
-                      aria-label={`${REL_LABEL[type]} shown`}
-                    />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="ctrl-rels" data-tour="relations">
-            {CHIP_TYPES.map((type) => {
-              const on = enabled.has(type)
-              return (
-                <button
-                  key={type}
-                  className={`rel-toggle ${on ? 'on' : ''}`}
-                  onClick={() => onToggleType(type)}
-                  style={{ '--c': REL_COLOR[type] } as CSSProperties}
-                  title={on ? `Hide ${REL_LABEL[type]}` : `Show ${REL_LABEL[type]}`}
-                >
-                  <i />
-                  {REL_LABEL[type]}
-                </button>
-              )
-            })}
-          </div>
-        )}
+                )
+              })}
+            </div>
+          ) : (
+            <div className="ctrl-rels" data-tour="relations">
+              {CHIP_TYPES.map((type) => {
+                const on = enabled.has(type)
+                return (
+                  <button
+                    key={type}
+                    className={`rel-toggle ${on ? 'on' : ''}`}
+                    onClick={() => onToggleType(type)}
+                    style={{ '--c': REL_COLOR[type] } as CSSProperties}
+                    title={on ? `Hide ${REL_LABEL[type]}` : `Show ${REL_LABEL[type]}`}
+                  >
+                    <i />
+                    {REL_LABEL[type]}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
-        {showYears && (
-          <div className="years" data-tour="years">
-            <div className="years-label">
-              Years <b>{yearLo}</b> – <b>{yearHi}</b>
+          {showYears && (
+            <div className="years" data-tour="years">
+              <div className="years-label">
+                Years <b>{yearLo}</b> – <b>{yearHi}</b>
+              </div>
+              <div className="range-dual">
+                <div className="range-track" />
+                <div
+                  className="range-fill"
+                  style={{
+                    left: `${yearPct(yearLo)}%`,
+                    width: `${yearPct(yearHi) - yearPct(yearLo)}%`,
+                  }}
+                />
+                <input
+                  type="range"
+                  min={minYear}
+                  max={maxYear}
+                  value={yearLo}
+                  aria-label="Earliest year"
+                  onChange={(event) => onYearLo(Math.min(Number(event.target.value), yearHi))}
+                />
+                <input
+                  type="range"
+                  min={minYear}
+                  max={maxYear}
+                  value={yearHi}
+                  aria-label="Latest year"
+                  onChange={(event) => onYearHi(Math.max(Number(event.target.value), yearLo))}
+                />
+              </div>
             </div>
-            <div className="range-dual">
-              <div className="range-track" />
-              <div
-                className="range-fill"
-                style={{
-                  left: `${yearPct(yearLo)}%`,
-                  width: `${yearPct(yearHi) - yearPct(yearLo)}%`,
-                }}
-              />
-              <input
-                type="range"
-                min={minYear}
-                max={maxYear}
-                value={yearLo}
-                aria-label="Earliest year"
-                onChange={(event) => onYearLo(Math.min(Number(event.target.value), yearHi))}
-              />
-              <input
-                type="range"
-                min={minYear}
-                max={maxYear}
-                value={yearHi}
-                aria-label="Latest year"
-                onChange={(event) => onYearHi(Math.max(Number(event.target.value), yearLo))}
-              />
+          )}
+
+          {showCitations && (
+            <div className="cites" data-tour="citations">
+              <div className="cites-label">
+                Citations <b>{loCitations.toLocaleString()}</b> –{' '}
+                <b>{hiCitations.toLocaleString()}</b>
+              </div>
+              <div className="range-dual">
+                <div className="range-track" />
+                <div
+                  className="range-fill"
+                  style={{
+                    left: `${citePct(citeLo)}%`,
+                    width: `${citePct(citeHi) - citePct(citeLo)}%`,
+                  }}
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={CITE_SLIDER_STEPS}
+                  value={citeLo}
+                  aria-label="Fewest citations"
+                  onChange={(event) => onCiteLo(Math.min(Number(event.target.value), citeHi))}
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={CITE_SLIDER_STEPS}
+                  value={citeHi}
+                  aria-label="Most citations"
+                  onChange={(event) => onCiteHi(Math.max(Number(event.target.value), citeLo))}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="ctrl-foot">
+            <span className="count-readout">{countReadout}</span>
+            <div className="ctrl-btns" data-tour="actions">
+              <button
+                className="mini-btn"
+                onClick={onReleaseAll}
+                title="Unpin every node and re-settle the layout"
+              >
+                Release {pinnedCount || ''}
+              </button>
+              <button className="mini-btn" onClick={onFit} title="Re-center the graph">
+                Fit
+              </button>
+              <button
+                className="mini-btn"
+                onClick={onRefresh}
+                disabled={refreshing}
+                title="Bust this paper's cached snapshot and re-fetch from Semantic Scholar"
+              >
+                {refreshing ? 'Refreshing…' : 'Refresh'}
+              </button>
+              <button
+                className="mini-btn"
+                onClick={onClearAll}
+                disabled={selectedCount === 0 && litCount === 0}
+                title="Clear every highlight and hand-picked selection (Esc does the same)"
+              >
+                Clear
+              </button>
             </div>
           </div>
-        )}
-
-        {showCitations && (
-          <div className="cites" data-tour="citations">
-            <div className="cites-label">
-              Citations <b>{loCitations.toLocaleString()}</b> –{' '}
-              <b>{hiCitations.toLocaleString()}</b>
-            </div>
-            <div className="range-dual">
-              <div className="range-track" />
-              <div
-                className="range-fill"
-                style={{
-                  left: `${citePct(citeLo)}%`,
-                  width: `${citePct(citeHi) - citePct(citeLo)}%`,
-                }}
-              />
-              <input
-                type="range"
-                min={0}
-                max={CITE_SLIDER_STEPS}
-                value={citeLo}
-                aria-label="Fewest citations"
-                onChange={(event) => onCiteLo(Math.min(Number(event.target.value), citeHi))}
-              />
-              <input
-                type="range"
-                min={0}
-                max={CITE_SLIDER_STEPS}
-                value={citeHi}
-                aria-label="Most citations"
-                onChange={(event) => onCiteHi(Math.max(Number(event.target.value), citeLo))}
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="ctrl-foot">
-          <span className="count-readout">{countReadout}</span>
-          <div className="ctrl-btns" data-tour="actions">
-            <button
-              className="mini-btn"
-              onClick={onReleaseAll}
-              title="Unpin every node and re-settle the layout"
+          <div className="ctrl-select" data-tour="selector">
+            <span
+              className="select-hint"
+              title="Hand-pick papers to scope the assistant's lectures and answers to them"
             >
-              Release {pinnedCount || ''}
-            </button>
-            <button className="mini-btn" onClick={onFit} title="Re-center the graph">
-              Fit
-            </button>
-            <button
-              className="mini-btn"
-              onClick={onRefresh}
-              disabled={refreshing}
-              title="Bust this paper's cached snapshot and re-fetch from Semantic Scholar"
-            >
-              {refreshing ? 'Refreshing…' : 'Refresh'}
-            </button>
-            <button
-              className="mini-btn"
-              onClick={onClearAll}
-              disabled={selectedCount === 0 && litCount === 0}
-              title="Clear every highlight and hand-picked selection (Esc does the same)"
-            >
-              Clear
-            </button>
+              ⌥ alt-drag to add papers to the assistant's scope · ⇧ shift-click one · esc clears all
+              highlights
+            </span>
           </div>
-        </div>
-        <div className="ctrl-select" data-tour="selector">
-          <span
-            className="select-hint"
-            title="Hand-pick papers to scope the assistant's lectures and answers to them"
-          >
-            ⌥ alt-drag to add papers to the assistant's scope · ⇧ shift-click one · esc clears all
-            highlights
-          </span>
-        </div>
 
-        <div className="ctrl-hint" data-tour="hint">
-          {layout === 'timeline'
-            ? 'papers placed left→right by year · double-click to re-seed'
-            : 'drag to pin · double-click a node to re-seed'}
-        </div>
+          <div className="ctrl-hint" data-tour="hint">
+            {layout === 'timeline'
+              ? 'papers placed left→right by year · double-click to re-seed'
+              : 'drag to pin · double-click a node to re-seed'}
+          </div>
 
-        {providerNote && <div className="provider-note">ⓘ {providerNote}</div>}
+          {providerNote && <div className="provider-note">ⓘ {providerNote}</div>}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

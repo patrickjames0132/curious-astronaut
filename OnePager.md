@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.9.0 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.10.0 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -779,12 +779,14 @@ than deleted so the plan doesn't get re-proposed.
       entrances via `ui/usePresence` (see [docs/history.md](docs/history.md));
       (3) the assistant and detail panels ✓, **shipped in v8.9.0** — they
       slide by negative margin (`panel-in`/`panel-out`) so the canvas
-      glides with them. Still to do, in order: (4) modals (Settings, Library, the figure lightbox) and folding
-      sections (graph controls, trace chips, lecture beats, settings
-      groups); (5) the thread/exploration switch; (6) the graph's arrival,
+      glides with them; (4) modals and folding sections ✓, **shipped in
+      v8.10.0** — modals via `usePresence`, folds via `ui/Fold` (grid-row
+      height), and the graph controls now fold away into a sliders button.
+      Still to do, in order: (5) the thread/exploration switch; (6) the graph's arrival,
       which is its own ticket below. Use the `:root` motion tokens in
       `index.css` (`--ease-rise`/`--ease-fade`, `--motion-pop`/`-morph`/
-      `-exit`/`-panel`) and `usePresence` for anything that leaves.
+      `-exit`/`-panel`/`-modal`/`-fold`), `usePresence` for anything that
+      leaves, and `Fold` for anything that opens in place.
 
 - [ ] **Cache indicators in search results: split "cached graph" from "cached
       search", and stop the badge outliving its cache** — the suspicion was

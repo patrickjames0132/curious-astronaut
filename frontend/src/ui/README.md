@@ -10,6 +10,8 @@ ui/
   theme.ts             — the light/dark store (below)
   usePresence.ts       — keeps a closing element mounted through its exit
                          animation (below)
+  Fold.tsx             — a section that opens and closes by animating its
+                         height (below)
 ```
 
 ## `useResizablePanel`
@@ -147,3 +149,25 @@ detail panel (`graph/GraphExplorer` holds the last paper while it slides out)
 and the assistant (`teacher/Teacher`, which never unmounts: there the hook
 only delays `.collapsed` until the slide-out has played). Verified by `test/ui/usePresence.test.tsx`, which
 stubs an animation engine into jsdom to exercise the exit path.
+
+## `Fold` — sections that open to their real height (v8.10.0)
+
+`height: auto` can't be animated, so `<Fold open>` uses the one-cell grid:
+the wrapper is `display: grid` and its single row animates between `0fr` and
+`1fr` — a fraction of the content's own height — while `.fold-inner` clips
+(`fold-open` / `fold-close` in `index.css`). It only clips *while moving*, so
+anything in an open section that overflows (a tooltip, a focus ring) isn't
+cut off at rest.
+
+- **Only a change animates.** A fold that mounts already open just appears.
+  Without that, a restored conversation would unfold every trace at once.
+- **Closed means unmounted, or `keepMounted`.** The default unmounts the
+  content after the close plays (via `usePresence`); `keepMounted` keeps it
+  behind `hidden`, for content that is costly to rebuild — a lecture's beats
+  hold their loaded figures.
+
+Users: the trace steps and lecture beats in a chat turn
+(`teacher/transcript/ChatMessage`) and the folding groups in Settings
+(`settings/SettingsModal`). (The graph controls used it briefly, and moved
+to a fade-into-a-button instead — see `graph/controls/README.md`.) Verified by
+`test/ui/Fold.test.tsx`.

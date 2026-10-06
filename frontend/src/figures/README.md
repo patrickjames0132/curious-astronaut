@@ -39,10 +39,14 @@ importing from the other's folder — teacher's `FigCard.tsx` stayed put
   cited paper, not just the one you're looking at).
 - **Each caller owns its own lightbox state.** `Teacher.tsx` and
   `graph/GraphExplorer.tsx` each hold their own `useState<AnswerFigure |
-  null>` and render their own `<Lightbox>` instance — this component has no
-  state of its own beyond the Escape-key listener. Simpler than threading
+  null>` and render their own `<Lightbox>` instance. Simpler than threading
   one shared instance through two unrelated component trees for a feature
   that's never open from both places at once anyway.
+- **It is always rendered, and takes `null` when closed (v8.10.0).** That
+  lets it fade out: `ui/usePresence` holds it mounted through the exit, and
+  it keeps the last figure it showed, because the caller has already set its
+  state to null by then. The Escape listener is attached only while a figure
+  is open.
 
 ## Who uses it, and how/why
 

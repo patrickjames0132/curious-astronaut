@@ -6,7 +6,8 @@ parent is `graph/GraphExplorer.tsx`.
 
 ```
 controls/
-  GraphControls.tsx — a collapsible header bar over: layout toggle,
+  GraphControls.tsx — a panel that folds away into a sliders button, over:
+                      layout toggle,
                       per-relation filter chips, the dual-knob year slider,
                       the citation-count threshold slider, the count
                       readout + release/fit/refresh/clear action row, the
@@ -23,12 +24,18 @@ canvas about what "a reference" looks like, and both style via
 
 ## `GraphControls` — points worth knowing
 
-- **The whole panel collapses to its header bar — and starts there.** The
-  "Graph controls"
-  header is a button: clicking it hides the body and shrinks the panel to a
-  slim strip (the find control's collapse-until-wanted idea, panel-sized),
-  giving the canvas the 272px box back; the count readout rides the
-  collapsed bar so the panel still reports its state while tucked away. The collapsed flag
+- **The whole panel folds away into a sliders button — and starts there.**
+  Since v8.10.0, collapsed is a square sliders button in the panel’s corner
+  (`.ctrl-icon`, the find bar's 🔍 pattern), not a slim header strip: the
+  "Graph controls" header folds the panel (it fades out toward its corner,
+  `pop-out`, via `ui/usePresence`) and the button pops in; the button opens it
+  again. The strip went because it cost a row of canvas for a paper count,
+  and because collapsing it switched the panel to `width: auto` while the
+  body was still folding — for a few frames auto meant the widest unwrapped
+  row, and the panel ballooned before it closed. Nothing changes width now.
+  The count readout lives in the open panel's footer only. Only the visible
+  control carries `data-tour="controls-head"`, so the tour's first stop never
+  lands on a hidden header. The collapsed flag
   is the panel's one piece of local state (like FindBar's own open/closed),
   and since **v7.9.0 it starts `true`**: a freshly built graph opens onto the
   *graph*, not onto its own chrome, and the reader who wants to declutter
@@ -37,7 +44,7 @@ canvas about what "a reference" looks like, and both style via
   re-seeding while the explorer is up leaves the panel however the reader
   left it, because expanding it was a choice and a re-seed is no reason to
   undo it.
-  The body hides via `hidden`, **not** unmounting — the guided tour judges
+  The panel hides via `hidden`, **not** unmounting — the guided tour judges
   its year/citation stops by element *existence* (`presentIf`), and those
   targets must survive a collapse. The panel steps stage `'controls'`
   (`tour/steps.ts` → `Curious Astronaut` → `GraphExplorer`'s `tourStage` → the

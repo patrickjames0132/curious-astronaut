@@ -3587,6 +3587,36 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Modals and folding sections animate, and the graph controls fold
+      into a sliders button** *(v8.10.0)* — step (4) of the "Animate the rest
+      of the UI" order, plus the controls icon from the `todos.md` inbox.
+      **Modals** (Settings, Library, the figure lightbox): the backdrop dims in
+      while the card rises a few pixels from just under full size, and both run
+      back on close; the backdrop owns the exit (its own `animationend` is what
+      `usePresence` waits for). The lightbox became always-rendered with a
+      nullable `figure`, holding the last one while it fades. **Folding
+      sections** — a turn's "N steps" trace, a lecture's beats, the Settings
+      groups — go through a new `ui/Fold`: a one-cell grid whose row animates
+      `0fr` ↔ `1fr`, i.e. to the content's real height, which `height: auto`
+      can't do. It animates only on a *change* (a fold that mounts open just
+      appears, or a restored conversation would unfold every trace at once),
+      clips only while moving, and has a `keepMounted` mode for the beats,
+      which hold their loaded figures. First pass was too quick (240/120ms);
+      Patrick asked for a little slower, so folds got their own
+      `--motion-fold` (340ms) and `--motion-fold-exit` (260ms). **The graph
+      controls** started in `Fold` too and showed the bug that retired their
+      collapsed bar: collapsing switched `.controls` to `width: auto` while the
+      body was still folding, and for a few frames auto meant the widest
+      unwrapped row — the panel ballooned before it closed. Now collapsed is a
+      rounded-square **sliders button** (`SlidersGlyph`, drawn inline in
+      `currentColor` — Patrick's reference was a stock image, used only for the
+      idea), matching the assistant's reopen button; the panel pops out of its
+      corner and fades back into it, staying in the DOM behind `hidden` for the
+      tour's existence checks, and only the *visible* control carries
+      `data-tour="controls-head"`. The paper-count readout that rode the old
+      bar now lives in the open panel's footer only. *(Browser-tested and
+      approved by Patrick, 2026-10-06.)*
+
 - [x] **The docked panels slide, and the graph glides with them**
       *(v8.9.0)* — step (3) of the "Animate the rest of the UI" order. The
       detail panel and the assistant used to appear and vanish in one frame,

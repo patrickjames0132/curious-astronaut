@@ -153,9 +153,9 @@ export const GRAPH_TOUR: TourStep[] = [
     target: '[data-tour="controls-head"]',
     title: 'The controls panel',
     body:
-      'Everything that declutters the map lives under this header. It starts folded to ' +
-      'this slim bar so the canvas is yours; the header is a button — click it to open ' +
-      'the panel, and again to fold it away. The next stops walk through what’s inside.',
+      'Everything that declutters the map lives behind this sliders button. It starts ' +
+      'folded away so the canvas is yours — click it to open the panel, and click the ' +
+      'panel’s header to fold it back. The next stops walk through what’s inside.',
   },
   {
     target: '[data-tour="layout"]',

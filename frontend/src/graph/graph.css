@@ -15,13 +15,51 @@
   border-radius: 10px;
   backdrop-filter: blur(4px);
 }
-/* Collapsed, the panel is just its header bar — width shrinks to the label so
-   the canvas gets the 272px box back (the find control's collapse-until-wanted
-   idea, panel-sized). The body stays in the DOM (`hidden`), so the tour's
-   existence checks still see the year/citation stops on graphs that have them. */
-.controls.collapsed {
-  width: auto;
-  padding: 8px 12px;
+/* Collapsed, the panel gives way to a round sliders button in its corner
+   (`.ctrl-icon`, below) — the find bar's collapse-until-wanted idea. The panel
+   pops out of that corner and fades back into it (`pop` / `pop-out`); once
+   faded it stays in the DOM behind `hidden`, so the tour's existence checks
+   still see the year/citation stops on graphs that have them. */
+.controls {
+  transform-origin: top left;
+  animation: pop var(--motion-pop) var(--ease-rise) both;
+}
+.controls[hidden] {
+  display: none;
+}
+.controls.closing {
+  animation: pop-out var(--motion-exit) var(--ease-fade) both;
+  pointer-events: none;
+}
+.ctrl-icon {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 4;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  /* A rounded square, matching the assistant's reopen button
+     (.pane-assistant) — the two corner buttons that bring a panel back. */
+  border-radius: 9px;
+  background: var(--panel);
+  box-shadow: 0 4px 14px var(--shadow);
+  color: var(--text);
+  cursor: pointer;
+  animation: pop var(--motion-pop) var(--ease-rise) both;
+}
+.ctrl-icon:hover {
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
+@media (prefers-reduced-motion: reduce) {
+  .controls,
+  .ctrl-icon {
+    animation: none;
+  }
 }
 .ctrl-head {
   display: flex;
@@ -39,16 +77,8 @@
   text-transform: uppercase;
   cursor: pointer;
 }
-.controls.collapsed .ctrl-head {
-  margin-bottom: 0;
-}
 .ctrl-head:hover {
   color: var(--text-strong);
-}
-.ctrl-head-count {
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: normal;
 }
 .ctrl-head-caret {
   margin-left: auto;

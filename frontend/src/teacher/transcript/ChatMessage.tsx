@@ -27,6 +27,7 @@ import AnswerMarkdown from './AnswerMarkdown'
 import BeatList from './BeatList'
 import { provenanceLine } from './provenance'
 import { describeScope } from '../../scope/resolve'
+import Fold from '../../ui/Fold'
 
 /**
  * Why a failed search never turned anything up, in plain words — "the budget
@@ -189,13 +190,13 @@ function TraceBlock({ trace, working }: { trace: TraceEvent[]; working: boolean 
         </span>
         {working ? 'Working' : `${steps} step${steps > 1 ? 's' : ''}`}
       </button>
-      {open && (
+      <Fold open={open}>
         <div className="trace-steps">
           {trace.map((event, index) => (
             <TraceLine key={index} trace={event} />
           ))}
         </div>
-      )}
+      </Fold>
     </div>
   )
 }
@@ -382,10 +383,10 @@ export default function ChatMessage({
             </span>
             {beats.length} beat{beats.length > 1 ? 's' : ''}
           </button>
-          {/* `hidden` rather than unmounted: a folded lecture keeps its beats'
-              figures loaded, so unfolding it is instant rather than a flash of
-              re-fetched images. */}
-          <div hidden={!beatsOpen}>
+          {/* Kept mounted rather than unmounted: a folded lecture keeps its
+              beats' figures loaded, so unfolding it is instant rather than a
+              flash of re-fetched images. */}
+          <Fold open={!!beatsOpen} keepMounted>
             <BeatList
               beats={beats}
               activeBeat={activeBeat ?? null}
@@ -394,7 +395,7 @@ export default function ChatMessage({
               onRefClick={onRefClick}
               onEnlarge={onEnlarge}
             />
-          </div>
+          </Fold>
         </div>
       )}
       {(() => {

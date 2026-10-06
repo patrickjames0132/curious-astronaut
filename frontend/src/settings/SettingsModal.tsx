@@ -46,6 +46,8 @@ import {
   type SettingsPayload,
 } from '../api'
 import { DEFAULT_SHAPE, setBuildShape, useBuildShape } from '../graph/buildShape'
+import { usePresence } from '../ui/usePresence'
+import Fold from '../ui/Fold'
 import './settings.css'
 
 /** Bounds for the band-shape inputs, mirroring the backend's own clamps. */
@@ -1498,7 +1500,10 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute on filter change only
   }, [query])
 
-  if (!open) return null
+  // Fades out rather than vanishing (ui/usePresence); nothing here resets on
+  // close, so the content holds still while it leaves.
+  const presence = usePresence(open)
+  if (!presence.present) return null
 
   const dirty =
     payload !== null && draft !== null && JSON.stringify(draft) !== JSON.stringify(payload.config)
@@ -1591,7 +1596,11 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
     })
 
   return (
-    <div className="settings-backdrop" onClick={onClose}>
+    <div
+      className={`settings-backdrop${presence.closing ? ' closing' : ''}`}
+      onClick={onClose}
+      onAnimationEnd={presence.onAnimationEnd}
+    >
       <div
         className="settings-modal"
         role="dialog"
@@ -1692,11 +1701,11 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
                           <span className="settings-group-caret">{open ? '▾' : '▸'}</span>
                         </button>
                       )}
-                      {open && group.name !== undefined && GROUP_BLURBS[group.name] && (
-                        <p className="settings-group-blurb">{GROUP_BLURBS[group.name]}</p>
-                      )}
-                      {open &&
-                        group.rows.map((row) =>
+                      <Fold open={open}>
+                        {group.name !== undefined && GROUP_BLURBS[group.name] && (
+                          <p className="settings-group-blurb">{GROUP_BLURBS[group.name]}</p>
+                        )}
+                        {group.rows.map((row) =>
                           row.bare ? (
                             <div key={row.key} className="settings-row bare" data-tour={row.tour}>
                               {row.control(draft, edit, models, setPage)}
@@ -1713,6 +1722,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
                             </div>
                           ),
                         )}
+                      </Fold>
                     </div>
                   )
                 })}
