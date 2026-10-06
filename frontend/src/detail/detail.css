@@ -8,6 +8,20 @@
   background: var(--panel);
   padding: 20px;
   overflow-y: auto;
+  /* Slides in on the first selection and out when it clears (panel-in /
+     panel-out, index.css); switching papers keeps the same element, so it
+     doesn't replay. It slides out from behind the assistant panel, which
+     comes after it in the row and paints on top. */
+  animation: panel-in var(--motion-panel) var(--ease-rise) both;
+}
+.detail.closing {
+  animation: panel-out var(--motion-panel) var(--ease-fade) both;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail {
+    animation: none;
+  }
 }
 .detail .close {
   position: absolute;

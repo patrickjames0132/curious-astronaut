@@ -35,9 +35,24 @@
   --lecture-wash-strong: 0.16;
 }
 /* Collapsed = hidden but still mounted, so the conversation is preserved and
-   the canvas reclaims the width. */
+   the canvas reclaims the width. The class only lands after the slide-out
+   (.closing) has played; reopening slides it back (.reopening). Both are
+   driven from Teacher.tsx — see the dock comment there. */
 .teacher.collapsed {
   display: none;
+}
+.teacher.closing {
+  animation: panel-out var(--motion-panel) var(--ease-fade) both;
+  pointer-events: none;
+}
+.teacher.reopening {
+  animation: panel-in var(--motion-panel) var(--ease-rise) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .teacher.closing,
+  .teacher.reopening {
+    animation: none;
+  }
 }
 /* The landing surface: the same panel, given the whole body. Before a graph
    exists the conversation IS the page, so it drops the docked chrome (fixed

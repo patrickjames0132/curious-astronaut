@@ -141,6 +141,9 @@ clears `closing`, so the entrance replays.
 Users: the filters popover (`search/SearchControls`), the source-scope picker
 (`teacher/ScopePicker`), both rail menus (`shell/SessionRow`, the collapsed
 data-source menu in `shell/SideBar`), the `@` suggestions (`teacher/Teacher` →
-`mentions/MentionSuggestions`), and the graph's find bar
-(`graph/controls/FindBar`). Verified by `test/ui/usePresence.test.tsx`, which
+`mentions/MentionSuggestions`), the graph's find bar
+(`graph/controls/FindBar`), and — since v8.9.0 — the two docked panels: the
+detail panel (`graph/GraphExplorer` holds the last paper while it slides out)
+and the assistant (`teacher/Teacher`, which never unmounts: there the hook
+only delays `.collapsed` until the slide-out has played). Verified by `test/ui/usePresence.test.tsx`, which
 stubs an animation engine into jsdom to exercise the exit path.

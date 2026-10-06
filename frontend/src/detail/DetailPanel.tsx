@@ -25,6 +25,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import type { AnimationEvent, CSSProperties } from 'react'
 import type { AnswerFigure, CategoriesResponse, CodeLinksResponse, FiguresResponse } from '../api'
 import type { VNode } from '../graph/model'
 import { formatPubDate } from '../graph/model'
@@ -68,6 +69,10 @@ export interface DetailPanelProps {
    *  it runs on the explicit TL;DR toggle, never automatically, so unread
    *  papers never bill. */
   onGenerateTldr?: () => Promise<void>
+  /** The panel is sliding out (ui/usePresence in GraphExplorer). */
+  closing?: boolean
+  /** Wire-through for the presence hook's exit bookkeeping. */
+  onAnimationEnd?: (event: AnimationEvent) => void
 }
 
 /**
@@ -334,6 +339,8 @@ export default function DetailPanel({
   onClose,
   onExplore,
   onGenerateTldr,
+  closing = false,
+  onAnimationEnd,
 }: DetailPanelProps) {
   const { width, onHandlePointerDown, dragging } = useResizablePanel('ca.detailWidth', 340)
   // Deduped in node.rels order. The dedupe used to matter because the two
@@ -355,7 +362,13 @@ export default function DetailPanel({
     (!!node.arxiv_id &&
       (categories === undefined || codeLinks === undefined || figures === undefined))
   return (
-    <aside className="detail" data-tour="details" style={{ width }}>
+    <aside
+      className={`detail${closing ? ' closing' : ''}`}
+      data-tour="details"
+      // --panel-width feeds the slide keyframes (index.css).
+      style={{ width, '--panel-width': `${width}px` } as CSSProperties}
+      onAnimationEnd={onAnimationEnd}
+    >
       <div
         className={`panel-resize-handle${dragging ? ' dragging' : ''}`}
         onPointerDown={onHandlePointerDown}

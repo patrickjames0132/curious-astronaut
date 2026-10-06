@@ -357,7 +357,10 @@
 
 /* Reopen the assistant once it's collapsed — the header tab that used to do
    this is gone, so it sits at the edge the panel flies in from. */
+/* Pops in as the assistant slides away — the same entrance as the app's
+   popovers — so the way back appears where the panel left. */
 .pane-assistant {
+  animation: pop var(--motion-pop) var(--ease-rise) both;
   position: absolute;
   top: 10px;
   right: 12px;
@@ -427,7 +430,8 @@
   /* The dots stop hopping but stay visible — the meaning is "still working",
      which the reader needs either way. */
   .rail-working-dot,
-  .rail-item {
+  .rail-item,
+  .pane-assistant {
     animation: none;
     transition: none;
   }

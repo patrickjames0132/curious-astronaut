@@ -100,6 +100,14 @@ figures.
   filter's clickable `.cat-chip` — nothing to toggle here) between the
   meta line and the TL;DR.
 
+- **It slides in and out, and the graph glides with it (v8.9.0).** The
+  panel keeps its full width and a negative `margin-right` pulls it past the
+  edge (`panel-in` / `panel-out` in `index.css`), so its text never reflows
+  mid-motion while the canvas resizes frame by frame. `GraphExplorer` mounts
+  it through `ui/usePresence` and passes the **last** selected paper while it
+  slides out — the selection is already null by then. Switching papers keeps
+  the same element, so nothing replays.
+
 ## Who uses it, and how/why (traced from the old app)
 
 `graph/GraphExplorer.tsx` owns the `useSelection` instance, hands its

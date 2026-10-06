@@ -42,6 +42,7 @@ import {
   visibleNodesSet,
 } from '../store/workspace'
 import { useSelection } from '../detail/useSelection'
+import { usePresence } from '../ui/usePresence'
 import DetailPanel from '../detail/DetailPanel'
 import Lightbox from '../figures/Lightbox'
 import GraphCanvas from './canvas/GraphCanvas'
@@ -279,6 +280,13 @@ export default function GraphExplorer({
     onNodeClick,
     mergeDetail,
   } = useSelection({ base, graph, provider, loadGraph: doLoadGraph })
+  // The detail panel slides out rather than vanishing (ui/usePresence). The
+  // selection is already null by then, so the exit shows the last paper that
+  // was actually in the panel.
+  const detailPanel = usePresence(!!selected)
+  const lastSelected = useRef(selected)
+  if (selected) lastSelected.current = selected
+  const shownNode = selected ?? lastSelected.current
 
   // The guided tour's detail-panel stops: when the tour stages 'details' and
   // nothing is selected (the user ✕'d the panel), select the seed so the
@@ -709,24 +717,26 @@ export default function GraphExplorer({
         {hasGraph && <Legend hasDiscovered={hasDiscovered} hasGhosts={view.ghostIds.size > 0} />}
       </main>
 
-      {selected && (
+      {detailPanel.present && shownNode && (
         <DetailPanel
-          node={selected}
-          detailLoading={detailLoading === selected.id}
+          node={shownNode}
+          detailLoading={detailLoading === shownNode.id}
           fieldsLabel={provider === 'openalex' ? 'OpenAlex tags' : 'Semantic Scholar tags'}
-          figures={figures[selected.arxiv_id ?? selected.id]}
-          codeLinks={selected.arxiv_id ? codeLinks[selected.arxiv_id] : undefined}
-          categories={selected.arxiv_id ? categories[selected.arxiv_id] : undefined}
+          figures={figures[shownNode.arxiv_id ?? shownNode.id]}
+          codeLinks={shownNode.arxiv_id ? codeLinks[shownNode.arxiv_id] : undefined}
+          categories={shownNode.arxiv_id ? categories[shownNode.arxiv_id] : undefined}
           onEnlarge={setLightbox}
-          isPinned={pinned.has(selected.id)}
-          onTogglePin={() => togglePin(selected.id)}
+          isPinned={pinned.has(shownNode.id)}
+          onTogglePin={() => togglePin(shownNode.id)}
           onClose={() => setSelectedId(null)}
           onExplore={doLoadGraph}
           onGenerateTldr={async () => {
             // The panel's TL;DR toggle — the one gesture allowed to bill.
-            const tldr = await generateTldr(selected.id, selected.title, selected.abstract ?? '')
-            mergeDetail(selected.id, { tldr })
+            const tldr = await generateTldr(shownNode.id, shownNode.title, shownNode.abstract ?? '')
+            mergeDetail(shownNode.id, { tldr })
           }}
+          closing={detailPanel.closing}
+          onAnimationEnd={detailPanel.onAnimationEnd}
         />
       )}
       {lightbox && <Lightbox figure={lightbox} onClose={() => setLightbox(null)} />}

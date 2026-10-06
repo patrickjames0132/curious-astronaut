@@ -61,6 +61,9 @@
   --motion-pop: 160ms;
   /* Exits are quicker than entrances: a dismissal should feel immediate. */
   --motion-exit: 120ms;
+  /* A docked panel arriving or leaving. Longer than a popover because the
+     canvas travels with it — the graph has to glide, not lurch. */
+  --motion-panel: 280ms;
   /* A control changing shape in place (the find bar unfolding). */
   --motion-morph: 240ms;
 
@@ -201,5 +204,26 @@ a:hover {
   .rail-menu,
   .mention-panel {
     animation: none;
+  }
+}
+
+/* Docked panels (the detail panel, the assistant) slide in from and out to
+   the right. They slide rather than squeeze: the panel keeps its full width
+   (--panel-width, set inline from its resizable width) and a negative
+   margin-right pulls it off the edge, so its text never reflows mid-motion,
+   while the canvas — flex: 1, followed by GraphExplorer's ResizeObserver —
+   grows or shrinks by exactly that margin each frame and the graph glides.
+   `.shell-body` clips horizontally so the off-edge part is never seen. Each
+   panel decides *when* these play; see their stylesheets. */
+@keyframes panel-in {
+  from {
+    margin-right: calc(-1 * var(--panel-width, 340px));
+    opacity: 0;
+  }
+}
+@keyframes panel-out {
+  to {
+    margin-right: calc(-1 * var(--panel-width, 340px));
+    opacity: 0;
   }
 }

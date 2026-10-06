@@ -3587,6 +3587,30 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **The docked panels slide, and the graph glides with them**
+      *(v8.9.0)* — step (3) of the "Animate the rest of the UI" order. The
+      detail panel and the assistant used to appear and vanish in one frame,
+      snapping the canvas to its new width. **They slide rather than
+      squeeze:** a panel keeps its full width (`--panel-width`, fed inline
+      from its resizable width) and a negative `margin-right` pulls it past
+      the edge (`panel-in` / `panel-out`, `index.css`), so its text never
+      reflows mid-motion, while the canvas — `flex: 1`, followed by
+      `GraphExplorer`'s ResizeObserver — grows by exactly that margin each
+      frame. `.shell-body` clips on x with `overflow-x: clip` (not `hidden`:
+      no scroll container, and vertical overflow is untouched). **The detail
+      panel** goes through `ui/usePresence`, holding the last paper while it
+      slides out (the selection is already null by then); it emerges from
+      behind the assistant, which follows it in the row and paints on top,
+      and switching papers keeps the element, so nothing replays. **The
+      assistant** can't unmount — that is what keeps the conversation — so
+      the hook only delays `.collapsed` (`display: none`) until the
+      slide-out has played, and the slide-in is tied to the *reopen*
+      (`reopening`, set when `collapsed` flips false), never to the class,
+      so a panel arriving with its graph is left to the graph's entrance
+      (step 6). The ↩ reopen button pops in where the panel left. 280ms
+      (`--motion-panel`), longer than a popover because the canvas travels
+      too. *(Browser-tested and approved by Patrick, 2026-10-06.)*
+
 - [x] **Popovers, menus and the find bar move — both ways — and the data
       source picker opens on one click** *(v8.8.0)* — steps (1) and (2) of
       the "Animate the rest of the UI" order, plus a bug fix.
