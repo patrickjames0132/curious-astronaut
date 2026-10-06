@@ -52,7 +52,7 @@ import { activateThread, selectScope } from '../store/workspace'
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { FormEvent, KeyboardEvent } from 'react'
+import type { AnimationEvent, CSSProperties, FormEvent, KeyboardEvent } from 'react'
 import {
   DEFAULT_SEARCH_OPTIONS,
   type AnswerFigure,
@@ -226,6 +226,23 @@ export default function Teacher({
   // result whose summary says so.
   const [searchError, setSearchError] = useState<string | null>(null)
   const { width, onHandlePointerDown, dragging } = useResizablePanel('atlas.teacherWidth', 340)
+  // Closing and reopening slide the docked panel (panel-out / panel-in,
+  // index.css). It must stay mounted — that is what keeps the conversation —
+  // so `display: none` (.collapsed) only lands once the slide-out has
+  // played, and the slide-in is tied to the *reopen*, not to the class: a
+  // panel arriving with its graph is the graph's entrance, not this one.
+  const dock = usePresence(!collapsed)
+  const [wasCollapsed, setWasCollapsed] = useState(collapsed)
+  const [reopening, setReopening] = useState(false)
+  if (collapsed !== wasCollapsed) {
+    setWasCollapsed(collapsed)
+    setReopening(!collapsed)
+  }
+  const onDockAnimationEnd = (event: AnimationEvent) => {
+    dock.onAnimationEnd(event)
+    if (reopening && event.target === event.currentTarget && event.animationName === 'panel-in')
+      setReopening(false)
+  }
   // A scout run shares the bar's busy state with the researcher: one bar, one
   // spinner, and neither can be fired while the other is running.
   const { searching, runSearch } = useDirectSearch(provider, searchOptions, setSearchError)
@@ -701,9 +718,11 @@ export default function Teacher({
 
   return (
     <section
-      className={`teacher${landing ? ' landing' : ''}${landing && chat.length === 0 ? ' empty' : ''}${collapsed ? ' collapsed' : ''}`}
+      className={`teacher${landing ? ' landing' : ''}${landing && chat.length === 0 ? ' empty' : ''}${collapsed && !dock.present ? ' collapsed' : ''}${dock.closing ? ' closing' : ''}${reopening ? ' reopening' : ''}`}
       data-tour="assistant-panel"
-      style={landing ? undefined : { width }}
+      // --panel-width feeds the slide keyframes (index.css).
+      style={landing ? undefined : ({ width, '--panel-width': `${width}px` } as CSSProperties)}
+      onAnimationEnd={onDockAnimationEnd}
     >
       {/* Nothing to resize against on the landing surface — it owns the body. */}
       {!landing && (

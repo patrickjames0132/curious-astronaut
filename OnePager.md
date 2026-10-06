@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.8.0 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.9.0 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -776,15 +776,15 @@ than deleted so the plan doesn't get re-proposed.
       **In progress — the order Patrick picked (2026-10-06) from the
       inventory:** (1) shared motion tokens + popovers/menus ✓ and (2) the
       find bar ✓, both **shipped in v8.8.0**, with exits as well as
-      entrances via `ui/usePresence` (see [docs/history.md](docs/history.md)).
-      Still to do, in order: (3) the assistant panel's close/reopen and the
-      detail panel's open/close — both canvas-resizing, so they go together;
-      (4) modals (Settings, Library, the figure lightbox) and folding
+      entrances via `ui/usePresence` (see [docs/history.md](docs/history.md));
+      (3) the assistant and detail panels ✓, **shipped in v8.9.0** — they
+      slide by negative margin (`panel-in`/`panel-out`) so the canvas
+      glides with them. Still to do, in order: (4) modals (Settings, Library, the figure lightbox) and folding
       sections (graph controls, trace chips, lecture beats, settings
       groups); (5) the thread/exploration switch; (6) the graph's arrival,
       which is its own ticket below. Use the `:root` motion tokens in
       `index.css` (`--ease-rise`/`--ease-fade`, `--motion-pop`/`-morph`/
-      `-exit`) and `usePresence` for anything that leaves.
+      `-exit`/`-panel`) and `usePresence` for anything that leaves.
 
 - [ ] **Cache indicators in search results: split "cached graph" from "cached
       search", and stop the badge outliving its cache** — the suspicion was

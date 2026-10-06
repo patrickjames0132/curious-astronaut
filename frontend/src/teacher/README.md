@@ -108,6 +108,16 @@ streamed tool traces, inline figures and expandable lecture beats. All of that
 stays on its turn across save and restore. `transcript/README.md` describes the
 rendering boundary; `figures/README.md` describes figure placement.
 
+## Docked: closing and reopening
+
+Beside a graph the panel's ✕ slides it off the right edge, and reopening
+slides it back (`panel-out` / `panel-in`, v8.9.0). It never unmounts — that
+is what keeps the conversation — so `ui/usePresence` only delays the
+`.collapsed` class (`display: none`) until the slide-out has played. The
+slide-in is tied to the **reopen** (`reopening`, set when `collapsed` flips
+false), not to the class, so the panel arriving with its graph is left to
+the graph's own entrance.
+
 ## The landing
 
 With no graph and an empty transcript the composer is the whole page: the
