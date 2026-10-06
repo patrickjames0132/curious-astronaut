@@ -5,34 +5,50 @@
  * graph paints with JS and can't read a stylesheet rule, so GraphCanvas reads
  * these computed values instead of hardcoding near-white strokes. */
 :root {
-  --bg: #0f1115;
-  --panel: #171a21;
-  --border: #262b36;
-  --text: #c7ccd6;
-  --text-strong: #f2f4f8;
-  --muted: #7c8392;
-  --accent: #6ea8fe;
-  --accent-strong: #3b82f6;
+  /* The palette is the favicon's (v8.7.0): the helmet's night-sky ground for
+     the page, its ivory shell for strong text, and its visor-rim glass blue
+     as the accent. Neutrals are that navy, lifted in steps for surfaces. */
+  --bg: #0b1524;
+  --panel: #111d30;
+  --border: #1e2c42;
+  --text: #c9d2de;
+  --text-strong: #f7f5f0;
+  --muted: #7f8ca0;
+  --accent: #6fb6ce;
+  /* Filled controls (send, primary buttons) carry white text, so this is the
+     glass blue darkened until white on it clears 4.5:1. */
+  --accent-strong: #2f7f9c;
   /* Citation chips that BUILD a graph, vs --accent for the ones that
-     spotlight a paper already on one. Distinct hue, same weight. */
-  --seed-ref: #4fd1c5;
+     spotlight a paper already on one. Distinct hue, same weight. Gold — the
+     helmet's ^_^, and the seed's colour on the graph, which is what these
+     chips make. (Teal until v8.7.0; it sat too close to glass blue.) */
+  --seed-ref: #e8b44a;
+  /* The wordmark (.rail-brand): the visor rim's glass blue, in both themes.
+     The visor glass (#12314a) was tried on light and reverted; the title is
+     due a real redesign, which should start here. */
+  --brand: #6fb6ce;
+  /* Chat bubbles. On dark the answer sits on the page colour and the question
+     on --chip, and both read; light needs its own pair (below). */
+  --question-bg: var(--chip);
+  --answer-bg: var(--bg);
+  --answer-shadow: none;
   /* The ask bar's own surface. Not --chip: on light that sits within a hair of
      --bg and the composer stops reading as a control at all. Dark lifts off the
      page with fill alone; light is a raised white card, which is the honest
      light-mode idiom for the same job. */
-  --composer-bg: #232936;
+  --composer-bg: #18263b;
   --composer-border: transparent;
   --composer-shadow: none;
-  --chip: #232936;
-  --canvas-ink: rgba(231, 236, 245, 0.9);
-  --canvas-ink-soft: rgba(242, 244, 248, 0.55);
-  --canvas-ink-hard: #f2f4f8;
+  --chip: #18263b;
+  --canvas-ink: rgba(247, 245, 240, 0.9);
+  --canvas-ink-soft: rgba(247, 245, 240, 0.55);
+  --canvas-ink-hard: #f7f5f0;
   --shadow: rgba(0, 0, 0, 0.45);
   --hover: rgba(255, 255, 255, 0.05);
   /* Translucent surfaces that float over the canvas (controls, legend) —
    * they blur what's behind them, so they can't just be --panel. */
-  --panel-float: rgba(23, 26, 33, 0.92);
-  --panel-float-soft: rgba(23, 26, 33, 0.85);
+  --panel-float: rgba(17, 29, 48, 0.92);
+  --panel-float-soft: rgba(17, 29, 48, 0.85);
 
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
@@ -49,25 +65,41 @@
    * greys below follow the React/Angular docs' lead: strong text lands in
    * the mid-20s rather than near-black, borders barely separate, and the
    * page sits a shade off white so panels can be white without glaring. */
+  /* The favicon's ink and accents on the original cool off-white page. An
+     ivory page (the helmet's shell) was tried in v8.7.0's browser round and
+     read as dingy — warm grey under the question bubbles and the chat — so
+     the neutrals stayed cool and only the ink and accents took the palette:
+     navy text, glass blue darkened to read on white. */
   --bg: #f5f6f8;
   --panel: #ffffff;
   --border: #e6e9ee;
-  --text: #4a5261;
-  --text-strong: #23272f;
-  --muted: #79808f;
-  --accent: #2c6fd1;
-  --accent-strong: #2563eb;
-  --seed-ref: #0d9488;
+  /* Body ink is a deep navy-grey, not a mid slate: v8.7.0's first light pass
+     (#46556a) passed contrast on paper and still read as washed out across a
+     long answer. */
+  --text: #2c3747;
+  --text-strong: #141f2e;
+  --muted: #5f6a7a;
+  --accent: #2a7896;
+  --accent-strong: #2f7f9c;
+  --seed-ref: #8c600b;
+  --brand: #6fb6ce;
+  /* On an off-white page the dark theme's bubbles vanish: the answer *was*
+     the page colour and the question one shade off it. So the answer is a
+     white card lifted by the same faint shadow as the composer, and the
+     question takes a light wash of the glass blue. */
+  --question-bg: #e3eef3;
+  --answer-bg: #ffffff;
+  --answer-shadow: 0 1px 3px rgba(11, 21, 36, 0.07);
   --composer-bg: #ffffff;
   --composer-border: #d5dae2;
-  --composer-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --composer-shadow: 0 1px 2px rgba(11, 21, 36, 0.06);
   --chip: #eff2f6;
-  --canvas-ink: rgba(35, 39, 47, 0.82);
-  --canvas-ink-soft: rgba(35, 39, 47, 0.4);
-  --canvas-ink-hard: #23272f;
+  --canvas-ink: rgba(27, 42, 61, 0.82);
+  --canvas-ink-soft: rgba(27, 42, 61, 0.4);
+  --canvas-ink-hard: #1b2a3d;
   /* Softer on light — a 0.45 black shadow reads as grime on white. */
-  --shadow: rgba(15, 23, 42, 0.12);
-  --hover: rgba(17, 20, 27, 0.05);
+  --shadow: rgba(11, 21, 36, 0.12);
+  --hover: rgba(11, 21, 36, 0.05);
   --panel-float: rgba(255, 255, 255, 0.94);
   --panel-float-soft: rgba(255, 255, 255, 0.88);
 }

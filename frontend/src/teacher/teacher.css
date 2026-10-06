@@ -651,13 +651,14 @@
   white-space: pre-wrap;
 }
 .chat.user {
-  background: var(--chip);
+  background: var(--question-bg);
   color: var(--text-strong);
   margin-left: 28px;
 }
 .chat.assistant {
-  background: var(--bg);
+  background: var(--answer-bg);
   border: 1px solid var(--border);
+  box-shadow: var(--answer-shadow);
   color: var(--text);
 }
 /* An answer with cited papers is clickable to re-light them — same affordance

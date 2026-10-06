@@ -3587,6 +3587,35 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **The app wears the favicon's palette** *(v8.7.0)* — the app around
+      the helmet mark used none of its colours: a grey-black page and a
+      generic blue accent. **Dark** now takes the mark wholesale — the
+      helmet's night navy (`#0b1524`) as the page with panels lifted a step
+      above it, its ivory shell as strong text, and the visor rim's glass
+      blue (`#6fb6ce`) as the accent; filled controls use `#2f7f9c`, the
+      glass blue darkened until white on it clears 4.5:1 (the old blue
+      managed 3.68). **Light took three browser rounds.** An ivory page (the
+      shell colour) read as dingy — warm grey under the question bubbles —
+      so the neutrals went back to the cool `#f5f6f8` and only the ink and
+      accent took the palette. Then body text at `#46556a` passed contrast
+      on paper and still read washed out across a long answer, so it went
+      to `#2c3747`. Then the chat bubbles vanished: the answer card's
+      background *was* `--bg`, and the question bubble sat one shade off it.
+      They got their own tokens (`--answer-bg`, `--question-bg`,
+      `--answer-shadow`), which resolve to the old values on dark and to a
+      white, faintly shadowed card and a glass-blue wash on light.
+      **`--seed-ref` went teal → gold** — the chips that *build* a graph sat
+      a hair from the new glass-blue accent of the chips that spotlight
+      one, and gold is already the seed's colour on the canvas, which is
+      what those chips make. Smaller sweeps: four near-black modal/tour
+      scrims tinted navy, two settings tints hard-coded from the old accent
+      now `color-mix` the variable. **Deliberately untouched:** the relation
+      palette (`graph/theme.ts`), so references keep `#6ea8fe` and no longer
+      share the accent's hue. The wordmark went through two looks (blue and
+      gold words; the visor glass on light) before being parked in glass
+      blue — its redesign is a Backlog ticket. *(From the `todos.md` inbox,
+      2026-10-02; browser-tested and approved by Patrick, 2026-10-06.)*
+
 - [x] **A full-bleed astronaut, oval in both themes — and a theme switch
       that re-lights the landing** *(v8.6.0)* — Patrick repainted the home
       page's astronaut (v8.5.0, below) to fill its whole canvas, which made
