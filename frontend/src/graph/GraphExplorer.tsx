@@ -739,7 +739,7 @@ export default function GraphExplorer({
           onAnimationEnd={detailPanel.onAnimationEnd}
         />
       )}
-      {lightbox && <Lightbox figure={lightbox} onClose={() => setLightbox(null)} />}
+      <Lightbox figure={lightbox} onClose={() => setLightbox(null)} />
     </>
   )
 }

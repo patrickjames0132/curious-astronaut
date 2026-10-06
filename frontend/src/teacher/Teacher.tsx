@@ -922,7 +922,7 @@ export default function Teacher({
         <div className="ask-tools">{sourcePicker}</div>
       </div>
 
-      {lightbox && <Lightbox figure={lightbox} onClose={() => setLightbox(null)} />}
+      <Lightbox figure={lightbox} onClose={() => setLightbox(null)} />
     </section>
   )
 }

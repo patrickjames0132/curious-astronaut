@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { deleteSource, ingestUrl, uploadSource } from '../api'
 import { useAppDispatch, useAppSelector } from '../store'
 import { loadLibrary, selectLibrary } from '../store/library'
+import { usePresence } from '../ui/usePresence'
 import './sources.css'
 
 /** One file in an in-flight upload batch, tracked for per-file progress.
@@ -174,10 +175,16 @@ export default function Sources({ open, onClose }: { open: boolean; onClose: () 
     [refresh],
   )
 
-  if (!open) return null
+  // Fades out rather than vanishing (ui/usePresence).
+  const presence = usePresence(open)
+  if (!presence.present) return null
 
   return (
-    <div className="library-backdrop" onClick={onClose}>
+    <div
+      className={`library-backdrop${presence.closing ? ' closing' : ''}`}
+      onClick={onClose}
+      onAnimationEnd={presence.onAnimationEnd}
+    >
       <section
         className="library-modal"
         data-tour="library-panel"

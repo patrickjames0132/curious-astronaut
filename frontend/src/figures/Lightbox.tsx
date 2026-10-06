@@ -14,9 +14,10 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { AnswerFigure } from '../api'
 import MathText from '../notation/MathText'
+import { usePresence } from '../ui/usePresence'
 
 /**
  * Render a figure enlarged full-screen (click/Escape to dismiss).
@@ -27,47 +28,64 @@ export default function Lightbox({
   figure,
   onClose,
 }: {
-  figure: AnswerFigure
+  /** The figure to show, or null when closed. Always rendered by its parent,
+   *  so the lightbox can fade out over the figure it was showing. */
+  figure: AnswerFigure | null
   onClose: () => void
 }) {
+  // Fades out rather than vanishing (ui/usePresence). The parent has already
+  // dropped the figure by then, so the exit shows the last one it had.
+  const presence = usePresence(figure !== null)
+  const lastFigure = useRef(figure)
+  if (figure) lastFigure.current = figure
+  const shown = figure ?? lastFigure.current
+
   // Close on Escape while open.
   useEffect(() => {
+    if (!figure) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [figure, onClose])
 
+  if (!presence.present || !shown) return null
   return (
-    <div className="fig-lightbox" onClick={onClose} role="dialog" aria-label="Enlarged figure">
+    <div
+      className={`fig-lightbox${presence.closing ? ' closing' : ''}`}
+      onClick={onClose}
+      role="dialog"
+      aria-label="Enlarged figure"
+      onAnimationEnd={presence.onAnimationEnd}
+    >
       <button className="fig-lightbox-close" aria-label="Close">
         ✕
       </button>
       <img
-        src={figure.image}
-        alt={figure.caption || 'Figure'}
+        src={shown.image}
+        alt={shown.caption || 'Figure'}
         onClick={(event) => event.stopPropagation()}
       />
-      {(figure.title || figure.caption || typeof figure.figure === 'number') && (
+      {(shown.title || shown.caption || typeof shown.figure === 'number') && (
         <div className="fig-lightbox-cap" onClick={(event) => event.stopPropagation()}>
-          {figure.label ? (
-            <b>{figure.label}</b>
+          {shown.label ? (
+            <b>{shown.label}</b>
           ) : (
-            typeof figure.figure === 'number' && <b>Figure {figure.slot ?? figure.figure}</b>
+            typeof shown.figure === 'number' && <b>Figure {shown.slot ?? shown.figure}</b>
           )}
-          {figure.title && (
+          {shown.title && (
             <span>
-              {typeof figure.figure === 'number' ? ' · ' : ''}
+              {typeof shown.figure === 'number' ? ' · ' : ''}
               <b>
-                <MathText>{figure.title}</MathText>
+                <MathText>{shown.title}</MathText>
               </b>
             </span>
           )}
-          {figure.caption && (
+          {shown.caption && (
             <span>
-              {typeof figure.figure === 'number' || figure.title ? ' — ' : ''}
-              <MathText>{figure.caption}</MathText>
+              {typeof shown.figure === 'number' || shown.title ? ' — ' : ''}
+              <MathText>{shown.caption}</MathText>
             </span>
           )}
         </div>

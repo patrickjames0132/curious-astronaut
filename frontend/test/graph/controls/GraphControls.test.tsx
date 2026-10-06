@@ -67,7 +67,7 @@ function makeProps(overrides: Partial<GraphControlsProps> = {}): GraphControlsPr
  */
 function renderPanel(overrides: Partial<GraphControlsProps> = {}) {
   const view = render(<GraphControls {...makeProps(overrides)} />)
-  fireEvent.click(screen.getByRole('button', { name: /Graph controls/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open the graph controls' }))
   return view
 }
 
@@ -111,52 +111,47 @@ describe('GraphControls count readout', () => {
 })
 
 describe('GraphControls collapse', () => {
-  it('starts folded to the slim bar, so a new graph opens onto the canvas', () => {
+  it('starts folded to the sliders button, so a new graph opens onto the canvas', () => {
     const { container } = render(<GraphControls {...makeProps()} />)
-    const head = screen.getByRole('button', { name: /Graph controls/ })
-    expect(head.getAttribute('aria-expanded')).toBe('false')
-    expect(container.querySelector('.ctrl-body')!.hasAttribute('hidden')).toBe(true)
-    expect(container.querySelector('.controls')!.className).toContain('collapsed')
+    const icon = screen.getByRole('button', { name: 'Open the graph controls' })
+    expect(icon.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('.controls')!.hasAttribute('hidden')).toBe(true)
   })
 
-  it('opens on the header click (body hidden, not unmounted) and folds back', () => {
+  it('opens from the button and folds back from the header (hidden, not unmounted)', () => {
     const { container } = render(<GraphControls {...makeProps()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open the graph controls' }))
+    const panel = container.querySelector('.controls')!
+    expect(panel.hasAttribute('hidden')).toBe(false)
+    expect(screen.queryByRole('button', { name: 'Open the graph controls' })).toBeNull()
+
     const head = screen.getByRole('button', { name: /Graph controls/ })
-    const body = container.querySelector('.ctrl-body')!
-
-    fireEvent.click(head)
     expect(head.getAttribute('aria-expanded')).toBe('true')
-    expect(body.hasAttribute('hidden')).toBe(false)
-    expect(head.textContent).not.toContain('10 / 12 papers shown')
-
     fireEvent.click(head)
-    expect(head.getAttribute('aria-expanded')).toBe('false')
     // Hidden, NOT unmounted — the tour's presentIf existence checks rely on
     // the year/citation targets staying in the DOM while collapsed.
-    expect(body.hasAttribute('hidden')).toBe(true)
+    expect(panel.hasAttribute('hidden')).toBe(true)
     expect(container.querySelector('[data-tour="years"]')).not.toBeNull()
-    // The visible-count readout rides the collapsed bar, unit and all.
-    expect(head.textContent).toContain('10 / 12 papers shown')
+    expect(screen.getByRole('button', { name: 'Open the graph controls' })).toBeTruthy()
   })
 
-  it('reports the hand-picked selection in the collapsed bar, and reverts on clear', () => {
-    const { rerender } = render(<GraphControls {...makeProps({ selectedCount: 3 })} />)
-    const head = screen.getByRole('button', { name: /Graph controls/ })
-    expect(head.textContent).toContain('3 papers selected')
-
-    // Deselecting all hands the bar back to the visible-count readout.
-    rerender(<GraphControls {...makeProps({ selectedCount: 0 })} />)
-    expect(head.textContent).toContain('10 / 12 papers shown')
-    expect(head.textContent).not.toContain('selected')
+  it("marks only the visible control as the tour's controls-head stop", () => {
+    const { container } = render(<GraphControls {...makeProps()} />)
+    const marked = () => container.querySelectorAll('[data-tour="controls-head"]')
+    expect(marked()).toHaveLength(1)
+    expect(marked()[0].className).toBe('ctrl-icon')
+    fireEvent.click(screen.getByRole('button', { name: 'Open the graph controls' }))
+    expect(marked()).toHaveLength(1)
+    expect(marked()[0].className).toBe('ctrl-head')
   })
 
   it('expands when the tour stages the panel open', () => {
     const { container, rerender } = render(<GraphControls {...makeProps()} />)
-    const body = container.querySelector('.ctrl-body')!
-    expect(body.hasAttribute('hidden')).toBe(true)
+    const panel = container.querySelector('.controls')!
+    expect(panel.hasAttribute('hidden')).toBe(true)
 
     rerender(<GraphControls {...makeProps({ stagedOpen: true })} />)
-    expect(body.hasAttribute('hidden')).toBe(false)
+    expect(panel.hasAttribute('hidden')).toBe(false)
   })
 })
 

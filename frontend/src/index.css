@@ -61,9 +61,15 @@
   --motion-pop: 160ms;
   /* Exits are quicker than entrances: a dismissal should feel immediate. */
   --motion-exit: 120ms;
+  /* A folding section opening and closing (ui/Fold). Slower than a popover:
+     the content moves the layout below it, and the eye has to follow. */
+  --motion-fold: 340ms;
+  --motion-fold-exit: 260ms;
   /* A docked panel arriving or leaving. Longer than a popover because the
      canvas travels with it — the graph has to glide, not lurch. */
   --motion-panel: 280ms;
+  /* A modal card rising over its dimmed backdrop. */
+  --motion-modal: 220ms;
   /* A control changing shape in place (the find bar unfolding). */
   --motion-morph: 240ms;
 
@@ -215,6 +221,109 @@ a:hover {
    grows or shrinks by exactly that margin each frame and the graph glides.
    `.shell-body` clips horizontally so the off-edge part is never seen. Each
    panel decides *when* these play; see their stylesheets. */
+/* Modals (Settings, Library, the figure lightbox): the backdrop dims in
+   while the card rises a few pixels and settles from a hair under full
+   size; closing runs both back, quicker. The backdrop owns the exit — its
+   own animationend is what ui/usePresence waits for — so the card's exit is
+   set to the same length and the two always finish together. */
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes backdrop-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@keyframes modal-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+.settings-backdrop,
+.library-backdrop,
+.fig-lightbox {
+  animation: backdrop-in var(--motion-modal) var(--ease-rise) both;
+}
+.settings-modal,
+.library-modal,
+.fig-lightbox img {
+  animation: modal-in var(--motion-modal) var(--ease-rise) both;
+}
+.settings-backdrop.closing,
+.library-backdrop.closing,
+.fig-lightbox.closing {
+  animation: backdrop-out var(--motion-exit) var(--ease-fade) both;
+  pointer-events: none;
+}
+.closing > .settings-modal,
+.closing > .library-modal,
+.fig-lightbox.closing img {
+  animation: modal-out var(--motion-exit) var(--ease-fade) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-backdrop,
+  .library-backdrop,
+  .fig-lightbox,
+  .settings-modal,
+  .library-modal,
+  .fig-lightbox img {
+    animation: none;
+  }
+}
+
+/* Folding sections (ui/Fold): a one-cell grid whose row animates between
+   0fr and 1fr — a fraction of the content's real height, which `height:
+   auto` can't do — with the inner cell clipping. Only a change of state
+   plays (.opening / .closing); a fold that mounts open just appears. */
+.fold {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.fold[hidden] {
+  display: none;
+}
+.fold-inner {
+  min-height: 0;
+}
+.fold.opening > .fold-inner,
+.fold.closing > .fold-inner {
+  overflow: hidden;
+}
+@keyframes fold-open {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+@keyframes fold-close {
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+.fold.opening {
+  animation: fold-open var(--motion-fold) var(--ease-rise) both;
+}
+.fold.closing {
+  animation: fold-close var(--motion-fold-exit) var(--ease-fade) both;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fold.opening,
+  .fold.closing {
+    animation: none;
+  }
+}
+
 @keyframes panel-in {
   from {
     margin-right: calc(-1 * var(--panel-width, 340px));
