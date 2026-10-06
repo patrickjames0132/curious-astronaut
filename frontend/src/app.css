@@ -59,6 +59,18 @@
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  /* Fades in each time the explorer mounts — which is every switch of thread
+     or exploration, a New Exploration back to a graph, and a session restore
+     (each bumps the workspace epoch, and GraphExplorer is keyed on it). It
+     replaced a hard cut between two graphs. A re-seed inside a thread doesn't
+     remount, so it doesn't replay; the transcript beside it already re-rises
+     bubble by bubble on the same remount, so the two arrive together. */
+  animation: fade var(--motion-switch) ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .canvas-wrap {
+    animation: none;
+  }
 }
 
 /* --- shared spinner primitive: any in-flight state, anywhere in the app --- */

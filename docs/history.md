@@ -3587,6 +3587,21 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Switching thread or exploration fades instead of cutting**
+      *(v8.11.0)* — step (5) of the "Animate the rest of the UI" order. Every
+      switch of thread or exploration, a session restore, and a New
+      Exploration back to a graph bump the workspace epoch, and
+      `GraphExplorer` is keyed on it — so the canvas was a hard cut between two
+      graphs. `.canvas-wrap` now fades in on every mount (`--motion-switch`,
+      320ms), arriving with the transcript beside it, which already re-rises
+      bubble by bubble on the same remount. A re-seed inside a thread doesn't
+      remount, so it doesn't replay. **Fade-in only, on purpose:** a crossfade
+      needs the outgoing explorer alive beside the incoming one, and two live
+      explorers at once is the shape of "Thread switches accumulated entire
+      graph explorers" in [bugs.md](bugs.md). The first graph's appearance
+      gets the fade too, which step (6) will build on. *(Browser-tested and
+      approved by Patrick, 2026-10-06.)*
+
 - [x] **Modals and folding sections animate, and the graph controls fold
       into a sliders button** *(v8.10.0)* — step (4) of the "Animate the rest
       of the UI" order, plus the controls icon from the `todos.md` inbox.
