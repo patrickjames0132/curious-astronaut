@@ -16,13 +16,8 @@
      more of it. */
   --lecture-wash: 0.06;
   --lecture-wash-strong: 0.1;
-  /* The two entrance curves (see "entrances" below). The rise eases OUT —
-     quick off the mark, settling gently into place. The fade eases IN — it
-     holds low and resolves late, which is what makes the element look like
-     it's surfacing rather than sliding. They're named because they're used
-     in four places and only make sense as a pair. */
-  --ease-rise: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --ease-fade: cubic-bezier(0.55, 0, 0.75, 0.35);
+  /* The entrance curves (--ease-rise / --ease-fade) live on :root in
+     index.css now — the whole app's motion language, not just this panel's. */
   position: relative; /* anchors the .panel-resize-handle on the left edge */
   width: 340px;
   flex-shrink: 0;
@@ -150,22 +145,8 @@
 
    `both` holds the from-state before the first frame, which is what stops
    the flash of final-position content that a bare `forwards` leaves. */
-@keyframes rise {
-  from {
-    transform: translateY(16px);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-@keyframes fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+/* The `rise` and `fade` keyframes live in index.css with the rest of the
+   app's motion language. */
 /* The front door: the greeting arrives, then the whole composer block a beat
    later — bar and tool row together, since `.ask-dock` is one element, which
    is the point of the wrapper: a chip row arriving separately would read as a
@@ -382,6 +363,7 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
+  transform-origin: top right;
   z-index: 20;
   width: 240px;
   max-height: 320px;

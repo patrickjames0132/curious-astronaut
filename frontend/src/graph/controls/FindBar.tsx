@@ -22,6 +22,7 @@
  */
 
 import { useState } from 'react'
+import { usePresence } from '../../ui/usePresence'
 import '../graph.css'
 
 /**
@@ -50,8 +51,10 @@ export default function FindBar({
   // A live query pins the pill open regardless of focus — the hit count (and
   // the spotlight it explains) shouldn't vanish because the user clicked away.
   const expanded = open || query !== ''
+  // The pill folds back into its circle before the 🔍 returns (ui/usePresence).
+  const pill = usePresence(expanded)
 
-  if (!expanded) {
+  if (!pill.present) {
     return (
       <button
         className="graph-find-toggle"
@@ -65,7 +68,11 @@ export default function FindBar({
     )
   }
   return (
-    <div className="graph-find" data-tour="find">
+    <div
+      className={`graph-find${pill.closing ? ' closing' : ''}`}
+      data-tour="find"
+      onAnimationEnd={pill.onAnimationEnd}
+    >
       <input
         autoFocus
         value={query}

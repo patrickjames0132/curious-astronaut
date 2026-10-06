@@ -73,6 +73,7 @@
   bottom: calc(100% + 8px);
   left: 0;
   right: 0;
+  transform-origin: bottom center;
   z-index: 30;
   padding: 12px;
   background: var(--panel);

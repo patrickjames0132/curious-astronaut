@@ -22,6 +22,32 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The data-source picker needed two clicks to open (v8.8.0)
+
+- **Symptom.** With the rail expanded, the first click on the data-source row
+  only highlighted it — and wiped its ⌄ caret — without opening the list; a
+  second click opened it. Patrick's report: *"it simply highlights and doesn't
+  open a dropdown … I have to click on it again."*
+- **Root cause.** Two, stacked. The row is a `<label>` wrapping a native
+  `<select>`, and the select sat in flow at **its own text height**: the
+  cylinder icon, the space above and below the name, and the caret area (where
+  people aim) were all the *label*. **Clicking a label focuses its control but
+  never opens a select**, so the first click focused, and only a click that
+  happened to land on the text line opened the list. Separately, the caret was
+  the row's `background-image`, and the hover and `:focus-visible` highlights
+  set the `background` *shorthand* — which resets the image — so the focus
+  from that first click erased the caret. (Chrome counts a mouse-focused
+  select as `:focus-visible`, so a plain click triggered it.)
+- **Fix.** `shell/shell.css`: the select is absolutely positioned over the
+  **whole** row (`inset: 0`), padded so its text sits on the label column
+  exactly as before; the caret moved to a `::after` layer no background rule
+  can touch.
+- **Lesson / guard.** A native control "dressed as" a row has to *be* the row,
+  not sit inside one — a label's activation behaviour differs from the
+  control's own. And never put content in `background-image` on an element
+  whose state styles set the `background` shorthand. The CSS comments at both
+  rules say why, so neither gets "simplified" back.
+
 ### A tag could not deploy to an environment whose rules named a branch (v8.3.0)
 
 - **Symptom.** The v8.2.0 release run failed at its first publish step with

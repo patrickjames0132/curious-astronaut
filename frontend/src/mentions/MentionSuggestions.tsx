@@ -25,6 +25,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
+import type { AnimationEvent } from 'react'
 import type { MentionPaper } from '../api'
 import type { MentionChoice, MentionThread } from './parse'
 import './mentions.css'
@@ -51,6 +52,10 @@ export interface MentionSuggestionsProps {
   /** Move the keyboard selection onto a row (hover), so mouse and keyboard
    *  never disagree about which row Enter would take. */
   onHighlight: (index: number) => void
+  /** The panel is playing its exit (ui/usePresence) — rows stop taking clicks. */
+  closing?: boolean
+  /** Wire-through for the presence hook's exit bookkeeping. */
+  onAnimationEnd?: (event: AnimationEvent) => void
 }
 
 /**
@@ -98,6 +103,8 @@ export default function MentionSuggestions({
   step,
   onPick,
   onHighlight,
+  closing = false,
+  onAnimationEnd,
 }: MentionSuggestionsProps) {
   // The paper section exists once a lookup could have run: results are up,
   // or one is in flight. Below the query floor there is neither, and the
@@ -108,7 +115,7 @@ export default function MentionSuggestions({
     ...papers.map((paper): MentionChoice => ({ kind: 'paper', paper })),
   ]
   return (
-    <div className="mention-panel">
+    <div className={`mention-panel${closing ? ' closing' : ''}`} onAnimationEnd={onAnimationEnd}>
       {/* Only the rows scroll. The footer sits outside the scrolling box so
           it stays in view however long the list gets — with eight rows up
           it used to be below the fold, which is exactly when it is needed. */}

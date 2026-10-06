@@ -1,12 +1,15 @@
 # `src/ui`
 
 Small cross-cutting UI utilities with multiple consumers and no feature
-home — the root-level case of the hybrid structure rule. One module today:
+home — the root-level case of the hybrid structure rule:
 
 ```
 ui/
-  useResizablePanel.ts — drag-to-resize for a right-docked panel, width
+  useResizablePanel.ts — drag-to-resize for a docked panel, width
                          remembered in localStorage
+  theme.ts             — the light/dark store (below)
+  usePresence.ts       — keeps a closing element mounted through its exit
+                         animation (below)
 ```
 
 ## `useResizablePanel`
@@ -110,3 +113,34 @@ mirror, so the hook gained a `side` option rather than a twin: it flips the
 sign of the drag and nothing else. Both directions keep the same feel — the
 pointer moves *away* from the panel's own edge to widen it, which is the only
 property that has to hold.
+
+## `usePresence` — exits, not just entrances (v8.8.0)
+
+React removes an element the moment its `open` flag goes false, so anything
+could animate *in* but nothing could animate *out*. `usePresence(open)`
+splits "open" from "present": when `open` drops, the element stays mounted
+with `closing` set, its stylesheet plays an exit keyframe off a `.closing`
+class, and the element's own `animationend` unmounts it. Reopening mid-exit
+clears `closing`, so the entrance replays.
+
+- **Exits are their own keyframes** (`pop-out`, `find-fold` — in `index.css`
+  and `graph/graph.css`), never the entrance with `animation-direction:
+  reverse`: an animation only restarts when its *name* changes, so a flipped
+  direction would not replay anything.
+- **Only the element's own `animationend` counts** — the event bubbles, and a
+  child's fade finishing first must not cut the parent's exit short.
+- **Nothing lingers as a ghost.** Where no exit can play — reduced motion, or
+  no animation engine at all (jsdom) — it unmounts at once; a 600ms fallback
+  timeout catches any missed event. A `.closing` element sets
+  `pointer-events: none`, and the click-away scrims render only while open,
+  so the exit never swallows the reader's next click.
+- **Content must survive the exit.** The `@` list's hook clears its results
+  in the same render that closes it, so `Teacher` hands the panel the last
+  list that was actually on screen while it fades.
+
+Users: the filters popover (`search/SearchControls`), the source-scope picker
+(`teacher/ScopePicker`), both rail menus (`shell/SessionRow`, the collapsed
+data-source menu in `shell/SideBar`), the `@` suggestions (`teacher/Teacher` →
+`mentions/MentionSuggestions`), and the graph's find bar
+(`graph/controls/FindBar`). Verified by `test/ui/usePresence.test.tsx`, which
+stubs an animation engine into jsdom to exercise the exit path.

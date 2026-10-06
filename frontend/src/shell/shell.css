@@ -238,6 +238,7 @@
   position: absolute;
   top: 100%;
   right: 4px;
+  transform-origin: top right;
   z-index: 45;
   min-width: 150px;
   padding: 4px;
@@ -272,25 +273,48 @@
 /* --- the data-source picker, in the rail's bottom band --- */
 
 /* Collapsed: the cylinder alone, with its choice in a popup. */
-/* Expanded: a native select dressed as a rail row. The select is stripped to
-   its text — no border, no background, no native arrow — and inherits the
-   row's font and colour, so the chosen name sits on the label column exactly
-   as "Library" does below it; the row's own hover/disabled treatment does
-   the rest. The caret is the row's, drawn at its far end, so it reads as one
-   control whose whole width opens the list. */
+/* Expanded: a native select dressed as a rail row. The select is stripped
+   bare — no border, no background, no native arrow — stretched across the
+   whole row, and inherits the row's font and colour, so the chosen name sits
+   on the label column exactly as "Library" does below it; the row's own
+   hover/disabled treatment does the rest. The caret is the row's, drawn at
+   its far end, so it reads as one control whose whole width opens the list.
+   (The list itself is the browser's: native, so it can't take the app's
+   popover animation — that only plays on the collapsed rail's menu.) */
 .rail-provider-row {
   cursor: pointer;
   padding-right: 24px;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%237c8392' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 9px center;
-  background-size: 10px 6px;
 }
+/* The caret is its own layer, not the row's background-image: the hover and
+   focus highlights set the `background` shorthand, which reset the image and
+   wiped the caret off the row the moment it was touched. */
+.rail-provider-row::after {
+  content: '';
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  margin-top: -3px;
+  background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%237c8392' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E")
+    no-repeat center / contain;
+  pointer-events: none;
+}
+/* The select covers the WHOLE row, padded so its text sits exactly where the
+   label column is. It used to sit in flow at its own text height, so most of
+   the row — the cylinder, the space above and below the name, and the caret
+   where people actually aim — was the <label> around it. A click there only
+   *focuses* a select; it doesn't open it. So the first click highlighted the
+   row and the second, if it happened to land on the text, opened the list.
+   Now every pixel of the row is the select, and one click opens it.
+   (Left padding = the row's 8px + the 20px glyph lane + the 10px gap.) */
 .rail-provider-row select {
-  flex: 1;
-  min-width: 0;
-  padding: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0 24px 0 38px;
   border: none;
+  border-radius: inherit;
   background: transparent;
   color: inherit;
   font: inherit;
@@ -323,6 +347,7 @@
   right: auto;
   left: calc(100% + 6px);
   min-width: 180px;
+  transform-origin: bottom left;
 }
 .rail-tick {
   width: 12px;

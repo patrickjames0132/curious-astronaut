@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.7.0 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.8.0 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -773,17 +773,18 @@ than deleted so the plan doesn't get re-proposed.
       or FLIP, so the inventory decides the cost. *(From the `todos.md`
       inbox, 2026-10-02.)*
 
-- [ ] **The data source button is a little buggy** — Patrick's report, no
-      repro yet. **Get the exact symptom from him before reading code**: the
-      control has two quite different implementations in
-      `shell/SideBar.tsx`'s `ProviderPicker`, and which one misbehaves
-      decides where to look. *Expanded rail*: a native `<select>` styled as
-      a rail row (since v7.31.0), with a manual `blur()` after a choice to
-      stop the row staying lit. *Collapsed rail*: a button opening a
-      right-hand popup menu over a scrim, which closes on pick. Both are
-      `disabled` while a build is in flight, which a reader can easily
-      experience as "the button didn't work". *(From the `todos.md` inbox,
-      2026-10-02.)*
+      **In progress — the order Patrick picked (2026-10-06) from the
+      inventory:** (1) shared motion tokens + popovers/menus ✓ and (2) the
+      find bar ✓, both **shipped in v8.8.0**, with exits as well as
+      entrances via `ui/usePresence` (see [docs/history.md](docs/history.md)).
+      Still to do, in order: (3) the assistant panel's close/reopen and the
+      detail panel's open/close — both canvas-resizing, so they go together;
+      (4) modals (Settings, Library, the figure lightbox) and folding
+      sections (graph controls, trace chips, lecture beats, settings
+      groups); (5) the thread/exploration switch; (6) the graph's arrival,
+      which is its own ticket below. Use the `:root` motion tokens in
+      `index.css` (`--ease-rise`/`--ease-fade`, `--motion-pop`/`-morph`/
+      `-exit`) and `usePresence` for anything that leaves.
 
 - [ ] **Cache indicators in search results: split "cached graph" from "cached
       search", and stop the badge outliving its cache** — the suspicion was
