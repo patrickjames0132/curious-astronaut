@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.6.0 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.7.0 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -742,20 +742,20 @@ than deleted so the plan doesn't get re-proposed.
       `#12314A`/`#6FB6CE`, gold `#E8B44A`, ground `#0B1524`). *(Filed
       2026-09-23.)*
 
-- [ ] **Match the app's colour scheme to the favicon** — the helmet mark has
-      a settled palette (ivory `#F7F5F0`, glass `#12314A`/`#6FB6CE`, gold
-      `#E8B44A`, ground `#0B1524`), and the app around it doesn't use any of
-      it: the neutrals in `frontend/src/index.css` are a grey-black
-      (`--bg #0f1115`, `--panel #171a21`) with a generic blue accent
-      (`--accent #6ea8fe`). Revisit the theme tokens so the app and its icon
-      look like one thing — navy ground, ivory text, the glass blue or gold
-      as the accent. **Scope it to the neutrals and the accent first**: the
-      relation palette (gold seed, blue references, green landmarks) carries
-      meaning and is the subject of its own light-mode ticket below, so
-      changing both at once would make it hard to tell what helped. Both
-      themes need a pass, and the light one has no favicon counterpart to
-      copy, so it needs its own decision. *(From the `todos.md` inbox,
-      2026-10-02.)*
+- [ ] **Redesign the title** — the rail's "Curious Astronaut" wordmark is
+      plain bold text in one colour, and Patrick finds it boring in both
+      themes. v8.7.0 parked it in the visor rim's glass blue (`--brand`,
+      `#6fb6ce`) everywhere, which is fine on dark (8:1) and pale on white
+      (~2.2:1) — a placeholder, not a decision. **Tried and reverted during
+      v8.7.0's browser round, so don't re-propose them as-is:** splitting
+      the words into glass blue and the ^_^ gold, and the visor glass
+      `#12314a` on light (dark mode can't use it at all; it is ~1.3:1 on the
+      navy rail). Open directions: a wordmark with the helmet mark beside it
+      (the rail already has the space when expanded), a typeface rather
+      than a colour as the distinguishing move, or treatment that differs by
+      theme on purpose. Start from `--brand` in `frontend/src/index.css` and
+      `.rail-brand` in `shell/shell.css`. *(Patrick, 2026-10-06, while
+      approving v8.7.0.)*
 
 - [ ] **Animate the rest of the UI — panels and the graph's find bar** —
       the sibling of "Animate the arrival of the graph" (below) and of the

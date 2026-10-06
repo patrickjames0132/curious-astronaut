@@ -103,7 +103,7 @@
 .canvas-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(10, 12, 16, 0.72);
+  background: rgba(5, 11, 20, 0.72);
   z-index: 15; /* above .controls (4) / .hit-list (5), below .overlay (20) */
   pointer-events: none;
 }

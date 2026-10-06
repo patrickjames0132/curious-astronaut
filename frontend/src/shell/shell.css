@@ -132,7 +132,7 @@
   flex-shrink: 0;
   font-weight: 700;
   font-size: 15px;
-  color: var(--accent);
+  color: var(--brand);
 }
 /* Subordinate to the brand in every way that reads: smaller, grey, and the
    only thing in the row that truncates. */

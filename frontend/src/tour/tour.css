@@ -15,7 +15,7 @@
   z-index: 61;
   border-radius: 10px;
   /* The dimmer: one halo shadow covering the rest of the viewport. */
-  box-shadow: 0 0 0 200vmax rgba(8, 10, 16, 0.62);
+  box-shadow: 0 0 0 200vmax rgba(5, 11, 20, 0.62);
   border: 1px solid var(--accent);
   pointer-events: none;
   transition:
