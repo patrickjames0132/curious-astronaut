@@ -247,6 +247,24 @@ than deleted so the plan doesn't get re-proposed.
       recorded walkthrough that costs nothing to serve. The recording is
       probably the honest answer. *(Filed 2026-08-16.)*
 
+- [ ] **Say what the app is on the home page** — the landing surface is the
+      astronaut picture, "What do you want to explore?" and the composer.
+      That's inviting if you already know what Curious Astronaut does, and
+      says nothing if you don't: a first-time visitor isn't told that it
+      draws a citation and similarity graph from Semantic Scholar, or that
+      the assistant can teach a field's history and answer from your own
+      sources. The sibling of the ticket above, but **inside the app** and
+      free to build. It's the first thing anyone who does get it installed
+      will see. Keep it short (a line or two under the greeting, or a few
+      "try this" prompts that show by example) so the empty landing stays
+      calm, and make it disappear once a conversation starts, like the
+      greeting does. Start from the `landing` branch of the empty-chat
+      render in `frontend/src/teacher/Teacher.tsx` (`.landing-greeting`) and
+      its styles in `teacher/teacher.css`; the theme-switch replay effect
+      there animates `.landing-hero` and `.landing-greeting`, so a new
+      element should join it. Mind the in-app help rule: the tour's first
+      step may already say some of this. *(Patrick, filed 2026-10-06.)*
+
 ### Teacher & agent reach
 
 - [ ] **The reroute-to-lecture correction should keep the framing the reader
