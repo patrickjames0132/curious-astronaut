@@ -93,19 +93,30 @@ optional, behind a key.
    to the map. Conversational, so you can go back and forth; questions that reach
    past the neighborhood expand the graph or pull that paper from S2 on demand.
 
-4. **Concept mindmap** `[core]` — the model emits a concept map (ideas as
-   nodes, relationships as edges) rendered in the same graph library. **The
-   differentiated half is the "Bridge these topics" action**, not the map
-   itself: a mindmap over your own sources is NotebookLM's shipped feature,
-   while cross-linking two fields with no citation edge between them (e.g.
-   astrophysics ↔ reinforcement learning) is pure reasoning nobody else
-   offers. Build the bridge first; the plain map is the easy part that follows.
+4. **Knowledge network — a short course on a paper's prerequisites** `[core]`
+   — a second tool beside the graph, on the same seed paper. The paper is the
+   root of a tree you expand one level at a time into **what you need to know
+   to understand it**: prerequisite *papers* (resolved against the seed's real
+   references, not invented) and *concepts*, each breakable further — DQN →
+   Q-learning → Bellman equations → … → eigenvectors, as deep as you care to
+   go. Check off what you already know and that branch is pruned; the
+   unchecked nodes, ordered prerequisites-first, are **the course**, with a
+   teacher-written lesson at each stop and, later, interactive visuals built
+   on the fly. *(Replaced the plain concept mindmap, 2026-10-06 — a mindmap
+   over your own sources is NotebookLM's feature; this one answers a
+   different question: not "what does the paper say" but "what do I need
+   first".)*
 
 5. **Slides from the lecture** `[core]` — a deck generated **by the agent crew
    we already run**, from the lecture beats it already writes, embedding the
    **papers' own figures** we already mine out of the open-access PDFs. No
    third-party media API and no subscription: three things that exist,
    composed. *(Replaced the AutoContent API plan, 2026-08-16 — see below.)*
+
+6. **Bridge two topics** `[core]` — the surviving half of the old concept
+   mindmap: cross-linking two fields with no citation edge between them (e.g.
+   astrophysics ↔ reinforcement learning). Pure reasoning, rendered in the
+   same graph library.
 
 **Retired 2026-08-16 — ~~audio lecture~~ (Podcastfy + Edge TTS / ElevenLabs)
 and ~~polished media~~ (AutoContent API decks, infographics, video).**
@@ -1526,12 +1537,98 @@ than deleted so the plan doesn't get re-proposed.
 
 ### Larger phases
 
-- [ ] **Phase 5 — Concept mindmap** — concept-map JSON, "bridge two topics,"
-      `/api/mindmap`. Lead with the bridge; see the feature stack for why that
-      half is the one worth building.
+- [ ] **Phase 5 — Knowledge network: a short course on a paper's
+      prerequisites** — workshopped with Patrick 2026-10-06; replaces the old
+      "Concept mindmap" phase (its *bridge* half survives as its own phase
+      below). The goal, in Patrick's words: the user should **feel like they
+      are taking a short course on the paper's dependencies and
+      prerequisites**. Ships as two tickets, each its own minor version, in
+      this order:
+
+      **5a — Thread card home (the shell redesign).** A graph thread becomes
+      a *paper* thread that opens onto a card home styled after Google AI
+      Studio's agent gallery (a grid of icon + title + one-line description
+      cards). Two cards for now: **Graph** (today's explorer, unchanged) and
+      **Knowledge network** (5b; a placeholder until it lands). Decided:
+      - *Explore* on a search result creates the thread and lands on the
+        cards, not straight on the graph. The graph then loads **only when
+        its card is opened**, so a reader who only wants the course never
+        spends S2 requests on a graph.
+      - **Revisiting a thread reopens the tool last used**, with a way back
+        to the cards from the thread header.
+      - **One assistant transcript per thread, shared by both tools** — the
+        thread owns the transcript (v7.22.0); the teacher grounds in
+        whichever tool is open.
+      - **General gets no cards** — it has no seed; it stays the search and
+        chat space.
+      Lands alone because it reworks thread creation, navigation and saving
+      — the same ground as the open "deleting a running thread resurrects
+      it" bug under Enhancements & tech debt; read that first.
+
+      **5b — Knowledge network v1.** The seed paper is the root of a tree.
+      Expanding a node is **one LLM call returning typed children** — *paper*
+      or *concept* — fetched lazily, a level at a time; paper children are
+      **resolved against the seed's real references** on the provider (DQN's
+      references already hold much of its chain: Q-learning, TD learning,
+      experience replay), concepts fill the gaps between. Opening a node
+      gives a teacher-written lesson in a detail panel. **"What you know" is
+      UI check-offs**: checking a node prunes its branch. The unchecked
+      nodes, ordered prerequisites-first, are **the course** — a "next
+      lesson" walk through them. Check-offs persist **per thread**, in the
+      saved thread record. Two design problems to solve inside the ticket:
+      prerequisites are a **DAG, not a tree** (eigenvectors sit under PCA
+      *and* policy iteration — render a tree but give a concept one
+      identity, so a repeat shows "covered above" and a check-off prunes it
+      everywhere; canonicalizing names is the real work), and **where
+      decomposition stops** (an LLM will happily recurse to set theory — the
+      check-offs are the floor).
+
+      **Later stages, deliberately out of v1:**
+      - **A challenger agent** that asks probe questions to learn what the
+        reader knows, instead of trusting check-offs alone.
+      - **Cross-paper memory of what you know.** Note this does *not* need
+        user auth: `astronaut serve` is a local single-user install with
+        `data/cache.db` already, so a known-concepts table there carries a
+        reader's knowledge from one paper's course to the next. Auth only
+        enters with a hosted deploy (see "A deploy strategy").
+      - **Verified resources** — links to e.g. 3Blue1Brown's neural-network
+        series. Never a URL taken straight from the model: a curated list or
+        a confirmed lookup first.
+      - **Interactive visuals built on the fly** — Brilliant.org-style
+        explainers. **Start with generated interactive widgets** (JS/SVG with
+        sliders — "drag this vector and watch *Av*") in a sandboxed iframe:
+        no server render, nothing to install, and actually interactive.
+        **Manim was considered and set aside** (2026-10-06): it pulls LaTeX,
+        ffmpeg and cairo into an app whose core install is 83 MB, renders
+        take seconds to minutes, generated scenes fail often, and it makes
+        video, not interaction. If ever revived, only as an optional extra
+        like `sources`/`pdf`.
+
+      **The landscape, swept 2026-10-06** (so it isn't re-searched; and per
+      "Why it exists" above, overlap is not a reason to stop):
+      [SpatialRead](https://www.producthunt.com/p/spatialread/spatialread)
+      builds a branching tree of expand/simplify explanations over one
+      paper's text — LLM prose, no papers as nodes, no model of the reader.
+      [MyLens](https://mylens.ai/ai-tree) generates expandable AI trees on any
+      topic and striking illustrated, "built live" diagrams (Patrick flagged
+      an electric-grid / solar power-flow example), and per Patrick appears
+      to offer **MCP on its free tier** — unverified, worth a look someday,
+      either as a visual source to call or as a model for exposing our own
+      tools. [Manimator](https://arxiv.org/abs/2507.14306) (ICML 2025) and
+      Generative Manim already turn papers/prompts into Manim video.
+      [Asta](https://wiki.ubc.ca/Ai2_Asta) is search, summaries and data
+      analysis. Nobody found combines **paper-grounded prerequisite nodes**,
+      **a reader-shaped tree**, and **a citation graph beside it**. Patrick's
+      framing: the end state may read as *MyLens + SpatialRead*, grounded in
+      the literature.
 - [ ] **Phase 6 — Slides from the lecture** — a deck built by the existing
       agent crew from lecture beats + already-mined paper figures.
-      *(Renumbered from the retired audio phase, 2026-08-16.)*
+      *(Renumbered from the retired audio phase, 2026-08-16. Patrick,
+      2026-10-06: keep it in mind for future development.)*
+- [ ] **Bridge two topics** *(unnumbered; split out of the old Phase 5,
+      2026-10-06)* — cross-link two fields with no citation edge between
+      them; `/api/bridge` or similar. The half of the old concept mindmap
+      worth building — see the feature stack.
 - ~~Phase 6 — Audio lecture (Podcastfy / Edge TTS / ElevenLabs)~~ and
   ~~Phase 7 — Polished media (AutoContent API)~~ — **retired 2026-08-16**,
   reasoning in the feature stack above. Don't re-file these from `todos.md`.
