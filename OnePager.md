@@ -265,6 +265,22 @@ than deleted so the plan doesn't get re-proposed.
       element should join it. Mind the in-app help rule: the tour's first
       step may already say some of this. *(Patrick, filed 2026-10-06.)*
 
+      **First attempt, reverted 2026-10-06:** a paragraph under the greeting,
+      Asta-style (bold pitch, plain detail). Patrick: the page looked better
+      without it, because the landing works by being quiet. So the
+      description should live *off* the landing surface. Options on the
+      table, in order of preference: (1) a welcome step at the start of the
+      home tour, which auto-runs on first launch, the exact moment and
+      audience; (2) a muted "What is this?" link under the bar that opens
+      it in a popover (and could later hold example queries); (3) a
+      one-line tagline under the rail wordmark, which ties into "Redesign
+      the title"; (4) not the placeholder, which already teaches `@`. 1+2
+      pair well. Copy from the attempt: **"A map of any research field,
+      with a guide who knows its history."** Curious Astronaut draws the
+      citation graph around a paper from Semantic Scholar or OpenAlex. Its
+      assistant answers from those papers and from your own books and PDFs,
+      citing each, or lectures on how the field got where it is.
+
 ### Teacher & agent reach
 
 - [ ] **The reroute-to-lecture correction should keep the framing the reader
