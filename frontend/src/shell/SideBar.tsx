@@ -25,7 +25,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useId, useState } from 'react'
 import ThreadList from './ThreadList'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import { usePresence } from '../ui/usePresence'
@@ -71,8 +71,6 @@ export interface SideBarProps {
   onProviderChange: (provider: Provider) => void
   /** A build is in flight, so switching backend is disabled. */
   loadingGraph: boolean
-  /** The open graph's seed title, shown under the brand (null = no graph). */
-  seedTitle: string | null
 }
 
 /** Props for {@link ProviderPicker}. */
@@ -248,7 +246,6 @@ export default function SideBar({
   provider,
   onProviderChange,
   loadingGraph,
-  seedTitle,
 }: SideBarProps) {
   const [expandedId, setExpandedId] = useState(openSessionId)
   useEffect(() => setExpandedId(openSessionId), [openSessionId])
@@ -276,12 +273,13 @@ export default function SideBar({
       style={collapsed ? undefined : { width }}
     >
       <div className="rail-top">
-        {/* Brand row: the whole row is the collapse toggle. "Curious Astronaut" and the
-            open graph's title are labels rather than controls, but a hover
-            highlight that stopped at the glyph made the row look like an icon
-            button with two words parked beside it — so the row is one target,
-            the way every other entry below it is, and the seed reads as a
-            subtitle to the app name, which is what it is. */}
+        {/* Brand row: the whole row is the collapse toggle. "Curious Astronaut"
+            is a label rather than a control, but a hover highlight that
+            stopped at the glyph made the row look like an icon button with
+            two words parked beside it — so the row is one target, the way
+            every other entry below it is. (It used to carry the open graph's
+            title as a grey subtitle too; that went in v8.12.0 — the
+            highlighted thread below already says which paper is open.) */}
         <button
           type="button"
           className="rail-item rail-brandrow"
@@ -290,36 +288,12 @@ export default function SideBar({
           aria-label={open ? 'Collapse the menu' : 'Expand the menu'}
           aria-expanded={open}
         >
-          {/* The panel glyph both apps use: a rectangle with its left column
-              filled, which reads as "there is a rail here" at either state. */}
+          {/* The helmet is the toggle: it is the logo when the rail is open
+              and the one thing left at the top when it is folded. */}
           <span className="rail-glyph" aria-hidden="true">
-            <svg viewBox="0 0 16 16" focusable="false">
-              <rect
-                x="1.6"
-                y="2.6"
-                width="12.8"
-                height="10.8"
-                rx="2"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-              />
-              <line x1="6.2" y1="2.6" x2="6.2" y2="13.4" stroke="currentColor" strokeWidth="1.3" />
-            </svg>
+            <HelmetMark />
           </span>
-          {open && (
-            <>
-              <span className="rail-brand">Curious Astronaut</span>
-              {/* Its own tooltip inside the button's: the row's says what the
-                  click does, and the seed — the one thing here that truncates
-                  — says what it is in full. */}
-              {seedTitle && (
-                <span className="rail-seed" title={seedTitle}>
-                  {seedTitle}
-                </span>
-              )}
-            </>
-          )}
+          {open && <span className="rail-brand">Curious Astronaut</span>}
         </button>
 
         <button
@@ -451,5 +425,60 @@ export default function SideBar({
         aria-label={open ? 'Resize the menu' : 'Drag right to open the menu'}
       />
     </nav>
+  )
+}
+
+/** The visor's outline, shared by its fill, its clip and its rim. */
+const VISOR = 'M16 32C16 22.5 23 17 32 17s16 5.5 16 15c0 9-7 15-16 15s-16-6-16-15Z'
+
+/**
+ * The helmet mark from `public/favicon.svg`, inline so the theme can reach it:
+ * on the light rail its ivory shell would vanish into white, so the shell and
+ * comm boxes take a glass-blue outline (`--helmet-outline`, transparent on
+ * dark). The reflection is pared down to the sheen and the ghosted graph
+ * edges — at 22px the favicon's node dots and second sheen are noise.
+ *
+ * @returns The helmet as an inline SVG.
+ */
+function HelmetMark() {
+  const visorClip = `visor-${useId()}`
+  return (
+    <svg className="rail-helmet" viewBox="6 6 52 52" focusable="false">
+      <defs>
+        <clipPath id={visorClip}>
+          <path d={VISOR} />
+        </clipPath>
+      </defs>
+      <g className="helmet-shell">
+        <rect x="7" y="25.5" width="6.5" height="13" rx="2.6" />
+        <rect x="50.5" y="25.5" width="6.5" height="13" rx="2.6" />
+        <circle cx="32" cy="32" r="23" />
+      </g>
+      <path d={VISOR} fill="#12314a" />
+      <g clipPath={`url(#${visorClip})`}>
+        <path d="M6 48 22 8h7L13 48Z" fill="#ffffff" opacity=".08" />
+        <path
+          d="m22.4 26.2 5.2-3.3 6.2 2.4 5.2-2.7"
+          fill="none"
+          stroke="#9fd4e8"
+          strokeWidth="1"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity=".5"
+        />
+      </g>
+      <path d={VISOR} fill="none" stroke="#6fb6ce" strokeWidth="1.5" />
+      <g
+        fill="none"
+        stroke="#e8b44a"
+        strokeWidth="2.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="m21.4 33.8 3.6-4.5 3.6 4.5" />
+        <path d="m35.4 33.8 3.6-4.5 3.6 4.5" />
+        <path d="M28.7 39.7h6.6" />
+      </g>
+    </svg>
   )
 }

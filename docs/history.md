@@ -3587,6 +3587,40 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Redesign the title** *(v8.12.0)* — the rail's "Curious Astronaut" wordmark is
+      plain bold text in one colour, and Patrick finds it boring in both
+      themes. v8.7.0 parked it in the visor rim's glass blue (`--brand`,
+      `#6fb6ce`) everywhere, which is fine on dark (8:1) and pale on white
+      (~2.2:1) — a placeholder, not a decision. **Tried and reverted during
+      v8.7.0's browser round, so don't re-propose them as-is:** splitting
+      the words into glass blue and the ^_^ gold, and the visor glass
+      `#12314a` on light (dark mode can't use it at all; it is ~1.3:1 on the
+      navy rail). Open directions: a wordmark with the helmet mark beside it
+      (the rail already has the space when expanded), a typeface rather
+      than a colour as the distinguishing move, or treatment that differs by
+      theme on purpose. Start from `--brand` in `frontend/src/index.css` and
+      `.rail-brand` in `shell/shell.css`. *(Patrick, 2026-10-06, while
+      approving v8.7.0.)*
+
+      **Shipped.** Six studies went to a mockup page
+      (<https://claude.ai/artifact/QLwaS8FkV7VYchQD2nKhs7>): the helmet beside
+      the system bold, Fredoka, Comfortaa and Exo 2; a stacked lockup; and the
+      helmet *as* the toggle. Patrick picked the last "by a mile". So the panel
+      glyph is gone and the helmet (inline in `SideBar.tsx`, from
+      `favicon.svg`, reflection pared down for 22px) is the collapse button,
+      and the last thing left at the top of a folded rail. The name is
+      **Fredoka 600** at 17px, self-hosted from `@fontsource/fredoka` (latin
+      only, 16 KB) so the app never calls a font CDN. Colour is now per theme:
+      glass blue `#6fb6ce` on dark (7.5:1), a deeper glass `#1d5f7a` on light
+      (7.1:1, up from 2.3:1). On light the ivory shell melted into the white
+      rail, so it wears a glass-blue outline (`--helmet-outline`); dark wears
+      none. A hover-only outline was tried and dropped in favour of that. Also
+      from the same round: **the open paper's title no longer rides beside the
+      name** (the `seedTitle` prop is gone) — the highlighted thread already
+      says which paper is open. The tour's rail step now says to click the
+      helmet. *(Browser-tested and approved by Patrick, 2026-10-06.)*
+
+
 - [x] **Switching thread or exploration fades instead of cutting**
       *(v8.11.0)* — step (5) of the "Animate the rest of the UI" order. Every
       switch of thread or exploration, a session restore, and a New

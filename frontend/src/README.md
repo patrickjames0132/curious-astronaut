@@ -12,7 +12,7 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
 ```
 <App>                            App.tsx        — the shell
 ├─ left rail (collapsible)         shell/SideBar.tsx
-│  ├─ brand row (the whole row collapses the rail): "Curious Astronaut" · seed title
+│  ├─ brand row (the whole row collapses the rail): "Curious Astronaut"
 │  ├─ ✎ New Exploration
 │  ├─ threads (General + graphs)   shell/ThreadList.tsx
 │  ├─ explorations (⋮ → rename / delete)  shell/useSessions.ts

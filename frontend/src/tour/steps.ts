@@ -112,8 +112,8 @@ export const HOME_TOUR: TourStep[] = [
       'up to date as you work. Threads nest underneath: General for broad questions and ' +
       'one discussion per graph. Use the caret to collapse them, and each ⋮ menu to rename or delete a graph thread. Click a thread to resume it. ✎ starts a new ' +
       'exploration; the one you leave is already saved. Hover a row for ⋮ to rename or ' +
-      'delete it, and collapse the whole rail when the map wants the room — click its ' +
-      'title row, or drag its right edge; the drag folds it away and pulls it back open.',
+      'delete it, and collapse the whole rail when the map wants the room — click the ' +
+      'helmet at the top, or drag its right edge; the drag folds it away and pulls it back open.',
   },
   {
     target: '[data-tour="settings-btn"]',

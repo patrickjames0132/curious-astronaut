@@ -296,7 +296,6 @@ export default function App() {
         provider={provider}
         onProviderChange={(next) => dispatch(switchProvider(next))}
         loadingGraph={loading}
-        seedTitle={graph?.seed.title ?? null}
       />
 
       <div className="shell-main">
