@@ -56,7 +56,6 @@ async function setup() {
         provider="s2"
         onProviderChange={() => {}}
         loadingGraph={false}
-        seedTitle={null}
       />
     )
   }

@@ -23,10 +23,12 @@
      helmet's ^_^, and the seed's colour on the graph, which is what these
      chips make. (Teal until v8.7.0; it sat too close to glass blue.) */
   --seed-ref: #e8b44a;
-  /* The wordmark (.rail-brand): the visor rim's glass blue, in both themes.
-     The visor glass (#12314a) was tried on light and reverted; the title is
-     due a real redesign, which should start here. */
+  /* The wordmark (.rail-brand): the visor rim's glass blue on dark (7.5:1 on
+     the rail), a deeper glass on light (below). */
   --brand: #6fb6ce;
+  /* The sidebar helmet's shell outline: none on dark, where the ivory shell
+     stands out by itself. */
+  --helmet-outline: transparent;
   /* Chat bubbles. On dark the answer sits on the page colour and the question
      on --chip, and both read; light needs its own pair (below). */
   --question-bg: var(--chip);
@@ -107,7 +109,12 @@
   --accent: #2a7896;
   --accent-strong: #2f7f9c;
   --seed-ref: #8c600b;
-  --brand: #6fb6ce;
+  /* Deeper glass, 7.1:1 on the white rail (the rim blue was ~2.3:1). The
+     visor glass itself (#12314a) was tried here in v8.7.0 and reverted. */
+  --brand: #1d5f7a;
+  /* The rim's glass blue around the whole helmet, so it holds its shape on
+     white. */
+  --helmet-outline: #6fb6ce;
   /* On an off-white page the dark theme's bubbles vanish: the answer *was*
      the page colour and the question one shade off it. So the answer is a
      white card lifted by the same faint shadow as the composer, and the

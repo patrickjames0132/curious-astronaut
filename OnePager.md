@@ -273,8 +273,8 @@ than deleted so the plan doesn't get re-proposed.
       home tour, which auto-runs on first launch, the exact moment and
       audience; (2) a muted "What is this?" link under the bar that opens
       it in a popover (and could later hold example queries); (3) a
-      one-line tagline under the rail wordmark, which ties into "Redesign
-      the title"; (4) not the placeholder, which already teaches `@`. 1+2
+      one-line tagline under the rail wordmark (now helmet + Fredoka,
+      v8.12.0 — a tagline would sit under it); (4) not the placeholder, which already teaches `@`. 1+2
       pair well. Copy from the attempt: **"A map of any research field,
       with a guide who knows its history."** Curious Astronaut draws the
       citation graph around a paper from Semantic Scholar or OpenAlex. Its
@@ -775,21 +775,6 @@ than deleted so the plan doesn't get re-proposed.
       Palette is settled and should not change (ivory `#F7F5F0`, glass
       `#12314A`/`#6FB6CE`, gold `#E8B44A`, ground `#0B1524`). *(Filed
       2026-09-23.)*
-
-- [ ] **Redesign the title** — the rail's "Curious Astronaut" wordmark is
-      plain bold text in one colour, and Patrick finds it boring in both
-      themes. v8.7.0 parked it in the visor rim's glass blue (`--brand`,
-      `#6fb6ce`) everywhere, which is fine on dark (8:1) and pale on white
-      (~2.2:1) — a placeholder, not a decision. **Tried and reverted during
-      v8.7.0's browser round, so don't re-propose them as-is:** splitting
-      the words into glass blue and the ^_^ gold, and the visor glass
-      `#12314a` on light (dark mode can't use it at all; it is ~1.3:1 on the
-      navy rail). Open directions: a wordmark with the helmet mark beside it
-      (the rail already has the space when expanded), a typeface rather
-      than a colour as the distinguishing move, or treatment that differs by
-      theme on purpose. Start from `--brand` in `frontend/src/index.css` and
-      `.rail-brand` in `shell/shell.css`. *(Patrick, 2026-10-06, while
-      approving v8.7.0.)*
 
 - [ ] **Animate the rest of the UI — panels and the graph's find bar** —
       the sibling of "Animate the arrival of the graph" (below) and of the
