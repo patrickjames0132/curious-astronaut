@@ -976,6 +976,14 @@ than deleted so the plan doesn't get re-proposed.
       continuous move that says the conversation became the map, rather than
       two surfaces swapping places.
 
+      **Parked 2026-10-06.** A first cut lives on the local branch
+      `feature/motion-graph-arrival` (one WIP commit, not pushed): the camera
+      eases in from 0.55× to the fit over 900ms, the composer glides to its
+      dock by FLIP over 700ms, and a temporary `?arrival=overlap` switch
+      compares "hide until the layout settles, then zoom" against "zoom while
+      it settles". Patrick wasn't sold on the look, so it's on hold — revisit
+      the feel before choosing a mode.
+
       **What makes it feasible.** The Teacher element deliberately stays at a
       single position in the tree across the switch (v6.13.0) — only its class
       changes, `.teacher.landing` → docked — precisely so entering graph mode
