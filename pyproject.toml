@@ -1,6 +1,6 @@
 [project]
 name = "curious-astronaut"
-version = "8.12.0"
+version = "8.12.1"
 description = "Curious Astronaut — an interactive citation/similarity graph explorer with an AI teacher that narrates a field's history over the graph."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -47,7 +47,7 @@ dependencies = [
     # per-user directory when running from an installed wheel. Already present
     # transitively, so this adds nothing to the install size.
     "platformdirs>=4.0",
-    "pydantic-ai-slim[anthropic,openai,google]>=2.5.0",
+    "pydantic-ai-slim[anthropic,openai,google]>=2.28.0",
     # Stays core although only the `sources` feature uses it: it is ~2 MB, and
     # `services/sources/` imports it from several call sites that would each
     # need a not-installed guard for no practical saving.
