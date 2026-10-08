@@ -14,7 +14,7 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
 ├─ left rail (collapsible)         shell/SideBar.tsx
 │  ├─ brand row (the whole row collapses the rail): "Curious Astronaut"
 │  ├─ ✎ New Exploration
-│  ├─ threads (General + graphs)   shell/ThreadList.tsx
+│  ├─ threads (General + papers)   shell/ThreadList.tsx
 │  ├─ explorations (⋮ → rename / delete)  shell/useSessions.ts
 │  │                       autosaved by  shell/useExplorations.ts
 │  └─ data source · 📚 Library · ⚙ Settings · theme · ? tour
@@ -23,18 +23,24 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
 │                                   the chat bar is the app's only text input
 ├─ Library modal (📚)              library/Sources.tsx
 ├─ Settings modal (⚙)             settings/SettingsModal.tsx (config-file editor)
-├─ guided tour overlay (?)         tour/Tour.tsx (two phases in tour/steps.ts —
-│                                   search on first launch, graph tools on the
-│                                   first graph; each auto-runs once)
-└─ body                            two states: with no graph the assistant IS
+├─ guided tour overlay (?)         tour/Tour.tsx (three phases in tour/steps.ts —
+│                                   search on first launch, a paper's cards on
+│                                   the first one, graph tools on the first
+│                                   graph; each auto-runs once)
+└─ body                            three states: in General the assistant IS
    │                                 the body (a centred landing chat) and the
-   │                                 overlays get their own layer; with a graph
-   │                                 the explorer takes it and the assistant
-   │                                 docks. Teacher stays at one position in the
-   │                                 tree across both, so the switch never
+   │                                 overlays get their own layer; a paper
+   │                                 thread shows its card home or the tool a
+   │                                 card opened, and the assistant docks.
+   │                                 Teacher stays at one position in the tree
+   │                                 across all three, so the switch never
    │                                 remounts it — see teacher/README.md.
+   ├─ card home (paper threads)    tools/ToolCards.tsx — the paper, then a
+   │                                 card per tool (Graph; Knowledge network
+   │                                 coming in Phase 5b)
    ├─ graph area                   graph/GraphExplorer.tsx
-   │  ├─ overlays (from the shell): loading / error  (App.tsx)
+   │  ├─ overlays (from the shell): loading / error, and the ‹ pill back to
+   │  │                              the paper's cards  (App.tsx)
    │  ├─ controls panel (folded)   graph/controls/GraphControls.tsx
    │  ├─ find control (🔍 → pill)  graph/controls/FindBar.tsx
    │  ├─ the canvas                graph/canvas/GraphCanvas.tsx

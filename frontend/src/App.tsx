@@ -7,12 +7,14 @@
  * three render sites — the header form, the hit-list overlay, the submit
  * routing — all live here), and the loading/error overlays.
  *
- * **The body has two states, and the seam matters.** With no graph the
- * assistant is the landing surface (a centred chat, the app's front door) and
- * the overlays get their own layer over the body; with a graph it's the
- * explorer, and the assistant docks beside it. The `Teacher` element stays at
- * one position in the tree across both. Thread navigation remounts the
- * graph and chat with distinct keys; their durable state lives in the store.
+ * **The body has three states, and the seams matter.** In General (no seed)
+ * the assistant is the landing surface (a centred chat, the app's front door)
+ * and the overlays get their own layer over the body. A paper thread shows
+ * either its **card home** (`tools/ToolCards`) or the tool a card opened —
+ * today the graph explorer — and in both the assistant docks beside it. The
+ * `Teacher` element stays at one position in the tree across all three.
+ * Thread navigation remounts the graph and chat with distinct keys; their
+ * durable state lives in the store.
  *
  * Everything cross-cutting lives in the store (see `store/README.md`):
  * the workspace (graph + discoveries + layout), the transcript, and the
@@ -28,7 +30,8 @@ import { getSettings } from './api'
 import { getBuildShape, sameBuild, useBuildShape } from './graph/buildShape'
 import { applyConfiguredDefault, setTheme, useTheme } from './ui/theme'
 import { useAppDispatch, useAppSelector } from './store'
-import { errorSet, loadGraph, providerSet, switchProvider } from './store/workspace'
+import { errorSet, loadGraph, openTool, providerSet, switchProvider } from './store/workspace'
+import { threadTool } from './store/explorations'
 import SideBar from './shell/SideBar'
 import { useExplorations } from './shell/useExplorations'
 import './shell/shell.css'
@@ -40,7 +43,8 @@ import Teacher from './teacher/Teacher'
 import Sources from './library/Sources'
 import SettingsModal from './settings/SettingsModal'
 import Tour from './tour/Tour'
-import { GRAPH_TOUR, HOME_TOUR, TOUR_KEYS } from './tour/steps'
+import { CARDS_TOUR, GRAPH_TOUR, HOME_TOUR, TOUR_KEYS } from './tour/steps'
+import ToolCards from './tools/ToolCards'
 import './app.css'
 
 /**
@@ -52,9 +56,17 @@ export default function App() {
   const dispatch = useAppDispatch()
   // Which conversation is on screen, and which explorations still have a
   // stream running (the rail marks those as working).
-  const { graph, epoch, loading, buildProgress, error, provider, seedRef } = useAppSelector(
-    (state) => state.workspace,
-  )
+  const { graph, epoch, loading, buildProgress, error, provider, seedRef, openRequestId } =
+    useAppSelector((state) => state.workspace)
+  // The thread on screen, and which of its surfaces is up: null in General
+  // (no seed, so no cards), else its card home or the tool a card opened.
+  const activeThread = useAppSelector((state) => {
+    const record = state.explorations.byId[state.explorations.activeId]
+    return record?.threads.find((thread) => thread.id === record.activeThreadId)
+  })
+  const tool = threadTool(activeThread)
+  const paperThread = tool !== null
+  const showGraph = !!graph && tool === 'graph'
 
   // Modal visibility + the assistant toggle — shell-local UI. Both modals sit
   // over a workspace that stays MOUNTED — the graph and the conversation are
@@ -98,10 +110,12 @@ export default function App() {
    * it misses the old snapshot on its own, and switching back is a cache hit.
    */
   const rebuildIfShapeChanged = useCallback(() => {
-    if (!seedRef || sameBuild(shapeOnOpen.current, getBuildShape())) return
+    // Only a graph on screen is rebuilt; a thread on its cards builds fresh,
+    // with the new shape, whenever its graph card is opened.
+    if (!graph || !seedRef || sameBuild(shapeOnOpen.current, getBuildShape())) return
     dispatch(loadGraph({ seed: seedRef }))
     shapeOnOpen.current = getBuildShape()
-  }, [dispatch, seedRef])
+  }, [dispatch, graph, seedRef])
 
   // The adaptive switch rebuilds immediately. Watched here rather than wired
   // through the modal so the modal stays a settings editor that knows nothing
@@ -114,7 +128,7 @@ export default function App() {
     // Keep the close-time comparison honest: this rebuild already applied the
     // switch, so closing the modal mustn't rebuild a second time for it.
     shapeOnOpen.current = getBuildShape()
-    if (seedRef) dispatch(loadGraph({ seed: seedRef }))
+    if (seedRef && graphRef.current) dispatch(loadGraph({ seed: seedRef }))
   }, [adaptive, seedRef, dispatch])
 
   // Seed browser-level defaults from config: the header's data-source
@@ -150,27 +164,28 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [epoch])
 
-  // The guided tour, in two phases keyed by whether a graph is up: the HOME
-  // tour (the search surface) auto-runs once on first launch, the GRAPH tour
-  // (the graph tools) once on the first graph. Each phase auto-runs once ever
-  // (its own localStorage flag); the header's "?" re-runs the current phase
-  // any time.
-  const hasGraph = !!graph && graph.nodes.length > 0
+  // The guided tour, in three phases keyed by what's on screen: the HOME
+  // tour (the search surface) auto-runs once on first launch, the CARDS tour
+  // on the first card home, the GRAPH tour (the graph tools) on the first
+  // graph. Each phase auto-runs once ever (its own localStorage flag); the
+  // header's "?" re-runs the current phase any time.
+  const hasGraph = showGraph && graph.nodes.length > 0
+  const tourPhase = hasGraph ? 'graph' : tool === 'cards' ? 'cards' : 'home'
+  const tourSteps = { graph: GRAPH_TOUR, cards: CARDS_TOUR, home: HOME_TOUR }[tourPhase]
   const [tourOpen, setTourOpen] = useState(false)
   const [tourStage, setTourStage] = useState<string | undefined>(undefined)
   useEffect(() => {
-    const seenKey = graph ? TOUR_KEYS.graph : TOUR_KEYS.home
-    if (!localStorage.getItem(seenKey)) setTourOpen(true)
-  }, [graph])
+    if (!localStorage.getItem(TOUR_KEYS[tourPhase])) setTourOpen(true)
+  }, [tourPhase])
   const closeTour = useCallback(() => {
     // Done, Skip, ✕, and Esc all count as "seen" — the auto-run never nags
     // twice; a re-run is a deliberate "?" click. Drawers a step staged open
     // are put away (the assistant panel stays — it invites use).
-    localStorage.setItem(hasGraph ? TOUR_KEYS.graph : TOUR_KEYS.home, '1')
+    localStorage.setItem(TOUR_KEYS[tourPhase], '1')
     setShowLibrary(false)
     setTourStage(undefined)
     setTourOpen(false)
-  }, [hasGraph])
+  }, [tourPhase])
   /** Stage what a tour step asks for: open the named drawer/panel; a step
    *  wanting nothing (undefined) puts the drawers away as the walk moves on.
    *  The assistant only ever opens — collapsing it mid-walk would hide the
@@ -215,7 +230,7 @@ export default function App() {
           the top-right of the CANVAS. Not the pane: the detail panel is a
           sibling of the canvas, so a pane-anchored button sat on top of that
           panel's own ✕ and trapped the reader inside it. */}
-      {hasGraph && !assistantOpen && (
+      {paperThread && !assistantOpen && (
         <button
           type="button"
           className="pane-assistant"
@@ -230,7 +245,28 @@ export default function App() {
       {/* Dim whatever is behind — a graph mid-re-seed, or the chat you were
           reading. The card alone was only ever legible against an empty canvas;
           over live content it has to push that content back to read at all. */}
-      {(loading || error) && <div className="canvas-scrim" />}
+      {/* The way back from a tool to its paper's cards. Rendered for the tool
+          rather than the graph, so a build that failed still has an exit. */}
+      {paperThread && tool !== 'cards' && (
+        <button
+          type="button"
+          className="tool-back"
+          data-tour="tool-back"
+          onClick={() => void dispatch(openTool('cards'))}
+          title="Back to this paper’s cards"
+        >
+          <span aria-hidden="true">‹</span>
+          <span className="tool-back-title">{activeThread?.title}</span>
+        </button>
+      )}
+      {(loading || openRequestId || error) && <div className="canvas-scrim" />}
+      {openRequestId && !loading && (
+        <div className="overlay overlay-card">
+          <div className="overlay-loading">
+            <span className="spin" /> Opening paper…
+          </div>
+        </div>
+      )}
       {loading && (
         <div className="overlay overlay-card">
           <div className="overlay-loading">
@@ -299,13 +335,7 @@ export default function App() {
       />
 
       <div className="shell-main">
-        {tourOpen && (
-          <Tour
-            steps={hasGraph ? GRAPH_TOUR : HOME_TOUR}
-            onClose={closeTour}
-            onStage={onTourStage}
-          />
-        )}
+        {tourOpen && <Tour steps={tourSteps} onClose={closeTour} onStage={onTourStage} />}
 
         <SettingsModal
           open={showSettings}
@@ -319,11 +349,23 @@ export default function App() {
 
         <div className="shell-body">
           {/* The overlays belong to whichever surface is up: over the canvas in
-              graph mode, over the landing chat before one exists. */}
-          {graph ? (
+              graph mode, over the card home, over the landing chat in General.
+              A graph tool still building has nothing to draw yet, so the
+              overlays get an empty pane of their own. */}
+          {showGraph ? (
             <GraphExplorer key={`graph:${epoch}`} tourStage={tourOpen ? tourStage : undefined}>
               {overlays}
             </GraphExplorer>
+          ) : tool === 'cards' && activeThread ? (
+            <ToolCards
+              key={`cards:${epoch}`}
+              thread={activeThread}
+              onOpen={(next) => void dispatch(openTool(next))}
+            >
+              {overlays}
+            </ToolCards>
+          ) : paperThread ? (
+            <div className="tool-pending">{overlays}</div>
           ) : (
             <div className="landing-overlays">{overlays}</div>
           )}
@@ -332,9 +374,9 @@ export default function App() {
               navigation while their durable state stays with the thread. */}
           <Teacher
             key={`teacher:${epoch}`}
-            landing={!graph}
-            collapsed={!!graph && !assistantOpen}
-            onClose={graph ? () => setAssistantOpen(false) : undefined}
+            landing={!paperThread}
+            collapsed={paperThread && !assistantOpen}
+            onClose={paperThread ? () => setAssistantOpen(false) : undefined}
           />
         </div>
       </div>

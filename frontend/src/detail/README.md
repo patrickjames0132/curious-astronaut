@@ -125,5 +125,7 @@ its abstract should now appear).
 ## Citation navigation
 
 Inline paper citations highlight nodes on the current canvas. Graph icons open
-or resume a graph thread directly, without fetching paper details first. The
+or resume that paper's thread directly. From the graph they land on its graph;
+from anywhere else they land on its cards, after one `/api/paper` lookup that
+resolves the thread's id (`store/workspace.ts`'s `seedPaper`). The
 canvas's existing detail panel remains available by selecting a graph node.

@@ -19,6 +19,7 @@ import { createAsyncThunk, createSelector, createSlice, nanoid } from '@reduxjs/
 import type { PayloadAction } from '@reduxjs/toolkit'
 import {
   fetchGraphStream,
+  fetchPaperDetail,
   getSession,
   saveSession,
   type Beat,
@@ -35,7 +36,13 @@ import {
 } from '../api'
 import { cleanNode, countRels, foldRetiredEdgeTypes, foldRetiredNodeRels } from '../graph/model'
 import type { VNode } from '../graph/model'
-import { explorationOpened, threadActivated } from './explorations'
+import {
+  explorationOpened,
+  threadActivated,
+  threadTool,
+  threadToolSet,
+  type ThreadTool,
+} from './explorations'
 import { resolveScope } from '../scope/resolve'
 import type { ResolvedScope } from '../scope/resolve'
 import type { ExplorationsState, ThreadRecord } from './explorations'
@@ -102,6 +109,13 @@ export interface WorkspaceState {
    */
   epoch: number
   loadRequestId?: string
+  /**
+   * The request id of an in-flight `openPaper` — the seed lookup that creates
+   * a paper thread before any graph exists. Set while the lookup runs (the
+   * shell shows "Opening paper…"); anything that replaces the workspace in the
+   * meantime drops it, which is how a late lookup knows it was superseded.
+   */
+  openRequestId?: string
   loading: boolean
   /**
    * The current graph-build stage while `loading`, streamed from the SSE build
@@ -181,12 +195,18 @@ export const loadGraph = createAsyncThunk<
         throw new Error('Graph load superseded by exploration navigation')
       const record = current.explorations.byId[owner.id]
       const identity = `${backend}:${graph.seed.id}`
-      const existing = record.threads.find((thread) => thread.identity === identity)
-      const thread: ThreadRecord = existing ?? {
+      // A card-home thread was keyed by the paper lookup's id, not the graph
+      // build's; if the two ever disagree, the thread the seed already
+      // belongs to still owns the graph rather than spawning a twin.
+      const existing =
+        record.threads.find((thread) => thread.identity === identity) ??
+        (known && record.threads.find((thread) => thread.id === known.id))
+      const thread: ThreadRecord = existing || {
         id: nanoid(),
         title: graph.seed.title,
         identity,
         origin: record.activeThreadId,
+        tool: 'graph',
         data: {
           chat: [],
           layout: 'timeline',
@@ -209,8 +229,129 @@ export const loadGraph = createAsyncThunk<
         dispatch(discoveryMerged(pending))
         dispatch({ type: 'transcript/pendingDiscoveriesDrained', payload: thread.id })
       }
+      // A graph load is always a request to look at the graph, so a thread
+      // resting on its cards switches to the graph tool with it.
+      dispatch(threadToolSet('graph'))
     }
     return graph
+  },
+)
+
+/** The state the thread-navigation thunks read. */
+type NavigationState = {
+  workspace: WorkspaceState
+  explorations: ExplorationsState
+  transcript: TranscriptState
+}
+
+/**
+ * Open a paper as a thread on its **card home**, without building its graph.
+ *
+ * A thread is keyed by provider + resolved seed id, and only the graph build
+ * used to resolve the id — so before v8.13.0 a thread could not exist without
+ * its graph. One `/api/paper` lookup resolves it instead (and supplies the
+ * card home's header), so the graph waits until its card is opened. A seed
+ * that already has a thread here just resumes it, on whatever tool it last
+ * showed.
+ *
+ * @param seed     The paper reference: arXiv id, pasted URL, or provider id.
+ * @param provider Look it up under this backend instead of the selected one.
+ */
+export const openPaper = createAsyncThunk<
+  void,
+  { seed: string; provider?: Provider },
+  { state: NavigationState }
+>('workspace/openPaper', async ({ seed, provider }, { dispatch, getState, requestId }) => {
+  const before = getState()
+  const backend = provider ?? before.workspace.provider
+  const owner = before.explorations.byId[before.explorations.activeId]
+  const findThread = (identity: string) =>
+    owner.threads.find(
+      (thread) =>
+        thread.identity === identity ||
+        (thread.data.graph_ref?.seed_ref === seed && thread.data.provider === backend),
+    )
+  const known = findThread(`${backend}:${seed}`)
+  if (known) {
+    await dispatch(activateThread(known.id))
+    return
+  }
+  const paper = await fetchPaperDetail(seed, backend)
+  const current = getState()
+  if (
+    current.explorations.activeId !== owner.id ||
+    current.transcript.activeKey !== before.transcript.activeKey ||
+    current.workspace.openRequestId !== requestId
+  )
+    throw new Error('Paper open superseded by navigation')
+  const record = current.explorations.byId[owner.id]
+  const identity = `${backend}:${paper.id}`
+  const existing = record.threads.find((thread) => thread.identity === identity)
+  if (existing) {
+    await dispatch(activateThread(existing.id))
+    return
+  }
+  const thread: ThreadRecord = {
+    id: nanoid(),
+    title: paper.title,
+    identity,
+    origin: record.activeThreadId,
+    tool: 'cards',
+    paper,
+    data: {
+      chat: [],
+      layout: 'timeline',
+      provider: backend,
+      graph_ref: {
+        seed: { id: paper.id, arxiv_id: paper.arxiv_id, title: paper.title },
+        seed_ref: seed,
+      },
+    },
+  }
+  dispatch(
+    threadActivated({
+      explorationId: owner.id,
+      thread,
+      outgoingId: record.activeThreadId,
+      outgoing: current.workspace,
+    }),
+  )
+})
+
+/**
+ * Open a paper from wherever the reader is: into its graph when they are
+ * already using the graph tool (wandering the map should stay on the map),
+ * onto its card home from General, the chat, or another card home.
+ *
+ * @param seed     The paper reference.
+ * @param provider The backend the reference belongs to, if not the selected one.
+ */
+export const seedPaper = createAsyncThunk<
+  void,
+  { seed: string; provider?: Provider },
+  { state: NavigationState }
+>('workspace/seedPaper', async (arg, { dispatch, getState }) => {
+  const state = getState()
+  const record = state.explorations.byId[state.explorations.activeId]
+  const active = record?.threads.find((thread) => thread.id === record.activeThreadId)
+  if (state.workspace.graph && threadTool(active) === 'graph') await dispatch(loadGraph(arg))
+  else await dispatch(openPaper(arg))
+})
+
+/**
+ * Show one of the active paper thread's surfaces — its cards, or a tool. The
+ * graph tool builds the graph on first open; going back to the cards keeps
+ * it in memory, so returning to the graph costs nothing.
+ *
+ * @param tool The surface to show.
+ */
+export const openTool = createAsyncThunk<void, ThreadTool, { state: NavigationState }>(
+  'workspace/openTool',
+  async (tool, { dispatch, getState }) => {
+    dispatch(threadToolSet(tool))
+    const { workspace } = getState()
+    if (tool === 'graph' && !workspace.graph && workspace.seedRef && !workspace.loading)
+      await dispatch(loadGraph({ seed: workspace.seedRef, provider: workspace.provider }))
   },
 )
 
@@ -271,7 +412,9 @@ export const activateThread = createAsyncThunk<
     dispatch(discoveryMerged(pending))
     dispatch({ type: 'transcript/pendingDiscoveriesDrained', payload: threadId })
   }
-  if (thread.identity && !thread.workspace?.graph && thread.data.graph_ref) {
+  // Only a thread resting on its graph rebuilds; one on its cards waits for
+  // the reader to open the graph card.
+  if (threadTool(thread) === 'graph' && !thread.workspace?.graph && thread.data.graph_ref) {
     await dispatch(
       loadGraph({ seed: thread.data.graph_ref.seed_ref, provider: thread.data.provider }),
     ).unwrap()
@@ -291,17 +434,25 @@ export const activateThread = createAsyncThunk<
  *
  * @param provider The backend to switch to ('s2' / 'openalex').
  */
-export const switchProvider = createAsyncThunk<
-  void,
-  Provider,
-  { state: { workspace: WorkspaceState } }
->('workspace/switchProvider', (provider, { dispatch, getState }) => {
-  const { provider: current, seedRef, graph } = getState().workspace
-  if (provider === current) return
-  const seed = graph?.seed.arxiv_id || seedRef
-  if (seed) dispatch(loadGraph({ seed, provider }))
-  else dispatch(providerSet(provider))
-})
+export const switchProvider = createAsyncThunk<void, Provider, { state: NavigationState }>(
+  'workspace/switchProvider',
+  (provider, { dispatch, getState }) => {
+    const state = getState()
+    const { provider: current, seedRef, graph } = state.workspace
+    if (provider === current) return
+    // A paper thread on its cards has a seed but no graph: switching opens the
+    // same paper's cards under the other backend, without building anything.
+    if (!graph && seedRef) {
+      const record = state.explorations.byId[state.explorations.activeId]
+      const active = record?.threads.find((thread) => thread.id === record.activeThreadId)
+      dispatch(openPaper({ seed: active?.paper?.arxiv_id || seedRef, provider }))
+      return
+    }
+    const seed = graph?.seed.arxiv_id || seedRef
+    if (seed) dispatch(loadGraph({ seed, provider }))
+    else dispatch(providerSet(provider))
+  },
+)
 
 /** A saved chat turn or lecture beat as it may appear on disk: `graphRefs` /
  *  `graph_refs` on anything saved from v6.12.0 on, the older bare `refs` on
@@ -628,7 +779,17 @@ export function buildSaveBody(
  * @returns Workspace belonging only to this thread.
  */
 function workspaceForThread(thread: ThreadRecord, epoch: number): WorkspaceState {
-  if (thread.workspace) return { ...thread.workspace, epoch, loading: false, error: null }
+  // A parked workspace was captured mid-navigation — often by the very
+  // `openPaper` that is leaving it — so its in-flight markers belong to the
+  // moment it was parked, never to its return.
+  if (thread.workspace)
+    return {
+      ...thread.workspace,
+      epoch,
+      loading: false,
+      openRequestId: undefined,
+      error: null,
+    }
   const data = thread.data
   const graph =
     data.nodes?.length && data.seed
@@ -783,6 +944,7 @@ const workspaceSlice = createSlice({
      *   slice — this reducer only needs to know that it happened.
      */
     workspaceCleared(state, _action: PayloadAction<{ conversationKey: string }>) {
+      state.openRequestId = undefined
       state.graph = null
       state.seedRef = null
       state.discoveredNodes = []
@@ -815,7 +977,21 @@ const workspaceSlice = createSlice({
         ...workspaceForThread(action.payload.thread, state.epoch + 1),
         loadRequestId: action.payload.requestId,
       }))
+      .addCase(openPaper.pending, (state, action) => {
+        state.openRequestId = action.meta.requestId
+        state.error = null
+      })
+      .addCase(openPaper.fulfilled, (state, action) => {
+        if (state.openRequestId === action.meta.requestId) state.openRequestId = undefined
+      })
+      .addCase(openPaper.rejected, (state, action) => {
+        if (state.openRequestId !== action.meta.requestId) return
+        state.openRequestId = undefined
+        state.error = action.error.message ?? 'Could not open that paper'
+      })
       .addCase(loadGraph.pending, (state, action) => {
+        // A graph build started after a paper lookup is the newer choice.
+        state.openRequestId = undefined
         state.loadRequestId = action.meta.requestId
         state.loading = true
         state.buildProgress = null

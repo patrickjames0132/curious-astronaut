@@ -5,8 +5,14 @@
  */
 import { createAction, createSlice, nanoid } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
-import type { SessionData } from '../api'
+import type { PaperDetails, SessionData } from '../api'
 import type { WorkspaceState } from './workspace'
+
+/**
+ * Which surface a paper thread shows: its card home, or one of the tools the
+ * cards open. General has no seed, so it has no cards and no tool.
+ */
+export type ThreadTool = 'cards' | 'graph' | 'knowledge'
 
 export interface ThreadRecord {
   id: string
@@ -17,6 +23,14 @@ export interface ThreadRecord {
   summary?: string
   summarizedThrough?: number
   origin?: string
+  /**
+   * The tool last used in this paper thread, so a revisit reopens it. Absent
+   * on threads saved before the card home (v8.13.0): those were always on
+   * their graph, so `threadTool` reads absence as `'graph'`.
+   */
+  tool?: ThreadTool
+  /** The seed's hydrated details, for the card home's header. Fetched once. */
+  paper?: PaperDetails
 }
 export interface ExplorationRecord {
   id: string
@@ -45,6 +59,15 @@ export function newExploration(id = nanoid()): ExplorationRecord {
       { id: threadId, title: 'General', identity: null, data: { chat: [], layout: 'timeline' } },
     ],
   }
+}
+
+/** The surface a thread shows, or null for General (which has no cards).
+ * @param thread The thread, if any.
+ * @returns Its current tool.
+ */
+export function threadTool(thread: ThreadRecord | undefined): ThreadTool | null {
+  if (!thread?.identity) return null
+  return thread.tool ?? 'graph'
 }
 
 export const explorationOpened = createAction<ExplorationRecord>('explorations/opened')
@@ -112,6 +135,31 @@ const slice = createSlice({
         record.revision++
       }
     },
+    /** Switch the active thread between its card home and its tools.
+     * @param state Exploration state.
+     * @param action The tool to show.
+     */
+    threadToolSet(state, action: PayloadAction<ThreadTool>) {
+      const record = state.byId[state.activeId]
+      const thread = record?.threads.find((item) => item.id === record.activeThreadId)
+      if (thread?.identity && thread.tool !== action.payload) {
+        thread.tool = action.payload
+        record.revision++
+      }
+    },
+    /** Keep the seed's hydrated details for the card home's header.
+     * @param state Exploration state.
+     * @param action Thread and its paper.
+     */
+    threadPaperSet(state, action: PayloadAction<{ id: string; paper: PaperDetails }>) {
+      for (const record of Object.values(state.byId)) {
+        const thread = record.threads.find((item) => item.id === action.payload.id)
+        if (thread) {
+          thread.paper = action.payload.paper
+          record.revision++
+        }
+      }
+    },
     /** Store a summary only for the revision the summarizer actually read.
      * @param state Exploration state.
      * @param action Summary with its owning thread and revision.
@@ -175,5 +223,7 @@ export const {
   explorationRemoved,
   threadRenamed,
   threadSummarized,
+  threadToolSet,
+  threadPaperSet,
 } = slice.actions
 export default slice.reducer

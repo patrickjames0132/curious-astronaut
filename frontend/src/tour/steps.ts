@@ -8,10 +8,12 @@
  * `graph/controls/GraphControls.tsx`, `detail/DetailPanel.tsx`,
  * `teacher/Teacher.tsx`).
  *
- * Two phases, because the app has two first-times: {@link HOME_TOUR} covers
- * the search surface and auto-runs on first launch, before any graph exists;
- * {@link GRAPH_TOUR} covers the graph tools and auto-runs on the first graph.
- * `App.tsx` picks the list (and the seen-flag) by whether a graph is up.
+ * Three phases, because the app has three first-times: {@link HOME_TOUR}
+ * covers the search surface and auto-runs on first launch, before any paper
+ * is open; {@link CARDS_TOUR} covers a paper thread's card home and auto-runs
+ * on the first one; {@link GRAPH_TOUR} covers the graph tools and auto-runs
+ * on the first graph. `App.tsx` picks the list (and the seen-flag) by which
+ * of the three is on screen.
  * A third list, {@link SETTINGS_TOUR}, belongs to the settings modal, which
  * mounts it itself (the ? beside its ✕): its steps *stage* the section or
  * sub-page they point at, so the walk drives the modal's own nav.
@@ -30,6 +32,8 @@ import type { TourStep } from './Tour'
 export const TOUR_KEYS = {
   /** The pre-graph search tour — first launch. */
   home: 'curious_astronaut.tour.home',
+  /** A paper thread's card home — the first paper opened. */
+  cards: 'curious_astronaut.tour.cards',
   /** The graph-tools tour — first graph. */
   graph: 'curious_astronaut.tour.graph',
   /** The settings modal's tour — first time it is opened. */
@@ -44,7 +48,7 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'One box for everything. Ask a research question and the assistant goes looking — ' +
       'through the literature, and through your own uploaded sources if you have any. ' +
-      'Or paste an arXiv id or URL to jump straight to that paper’s map. No graph or ' +
+      'Or paste an arXiv id or URL to open that paper straight away. No graph or ' +
       'library needed to begin; just saying hello stays a conversation.',
   },
   {
@@ -55,7 +59,7 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'Start any word with @ and suggestions appear as you type: this exploration’s ' +
       'other discussions first, then papers. Arrow onto a paper (or hover it) and Enter ' +
-      'opens it on the map; put one inside a question ("what does @… say about X?") and ' +
+      'opens it in its own thread; put one inside a question ("what does @… say about X?") and ' +
       'Enter completes the title, then it answers from that paper without disturbing the ' +
       'graph you are looking at. Nothing is picked for you — press Enter with no row ' +
       'chosen and Curious Astronaut searches properly for what you typed and lists what it found.',
@@ -99,8 +103,9 @@ export const HOME_TOUR: TourStep[] = [
     title: 'Every answer is a way in',
     body:
       'Click a paper citation to highlight it on the current graph. A graph icon opens ' +
-      'that paper’s graph thread directly. General stays available for searches and broad questions; ' +
-      'each graph thread keeps its own conversation. Type @ and pick another discussion to bring it ' +
+      'that paper in its own thread — onto its graph if you are already on one, onto its ' +
+      'cards otherwise. General stays available for searches and broad questions; ' +
+      'each paper thread keeps its own conversation. Type @ and pick another discussion to bring it ' +
       'into the one you are in.',
   },
   {
@@ -110,7 +115,7 @@ export const HOME_TOUR: TourStep[] = [
       'Every exploration saves itself — there is no Save button. Ask a question or open ' +
       'a paper and a row appears here, named after what you were asking about and kept ' +
       'up to date as you work. Threads nest underneath: General for broad questions and ' +
-      'one discussion per graph. Use the caret to collapse them, and each ⋮ menu to rename or delete a graph thread. Click a thread to resume it. ✎ starts a new ' +
+      'one discussion per paper. Use the caret to collapse them, and each ⋮ menu to rename or delete a paper thread. Click a thread to resume it where you left it. ✎ starts a new ' +
       'exploration; the one you leave is already saved. Hover a row for ⋮ to rename or ' +
       'delete it, and collapse the whole rail when the map wants the room — click the ' +
       'helmet at the top, or drag its right edge; the drag folds it away and pulls it back open.',
@@ -121,6 +126,38 @@ export const HOME_TOUR: TourStep[] = [
     body:
       "The app's configuration — data providers, API keys, the citations corpus — " +
       'editable in place. Changes are validated and applied live, no restart.',
+  },
+]
+
+/**
+ * A paper thread's card home: the paper, its tools, and the way back to the
+ * cards once a tool is open. Short on purpose — the graph's own tour takes
+ * over the moment its card is opened.
+ */
+export const CARDS_TOUR: TourStep[] = [
+  {
+    target: '[data-tour="tool-home"]',
+    title: 'One paper, several ways in',
+    body:
+      'Every paper you open gets a thread of its own, and lands here first: the paper ' +
+      'at the top, and a card for each tool that works on it. Nothing is built until ' +
+      'you open a card, so looking costs nothing.',
+  },
+  {
+    target: '[data-tour="tool-cards"]',
+    title: 'Pick a tool',
+    body:
+      'The Graph maps the papers this one built on, the ones it spawned, and its ' +
+      'nearest neighbours. The Knowledge network — a short course on what you need to ' +
+      'know first — is on its way. The thread remembers the tool you were using, and a ' +
+      'pill at the top of each tool brings you back to these cards.',
+  },
+  {
+    target: '[data-tour="assistant-panel"]',
+    title: 'The assistant comes along',
+    body:
+      'This paper’s conversation sits beside the cards and follows you into every tool — ' +
+      'one thread, one conversation, whichever tool is open.',
   },
 ]
 
@@ -250,6 +287,14 @@ export const GRAPH_TOUR: TourStep[] = [
       'Enter (or “select” in the find bar) adds every match to the assistant’s ' +
       'scope. Esc or ✕ clears the find and tucks it away. This only searches what is ' +
       'already drawn — to pull NEW papers in, use the chat bar in the assistant panel.',
+  },
+  {
+    target: '[data-tour="tool-back"]',
+    title: 'Back to the paper’s cards',
+    body:
+      'The pill at the top names the paper this thread belongs to. Click it to return to ' +
+      'the paper’s cards and its other tools; the graph stays as you left it. Double-click ' +
+      'a node to open that paper — it gets its own thread and lands straight on its graph.',
   },
   {
     target: '[data-tour="details"]',

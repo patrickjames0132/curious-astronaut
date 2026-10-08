@@ -14,6 +14,34 @@ its name. A graph thread's identity is provider + resolved seed id, so returning
 to the same paper reuses its thread, while identical ids from different providers
 cannot collide. The seed title supplies the initial thread name; users can rename it.
 
+## Paper threads, their cards and their tools (v8.13.0)
+
+A thread with a seed is a **paper thread**, and it shows one surface at a time:
+its card home or a tool a card opened. `ThreadRecord.tool` remembers which
+(`'cards' | 'graph' | 'knowledge'`), so a revisit reopens it; `threadTool()`
+reads it, returning null for General and `'graph'` for a thread saved before
+the field existed, since those always showed their graph. `ThreadRecord.paper`
+holds the seed's hydrated details for the card home's header. Both are thread
+metadata, so `explorationBody` saves them with no extra wiring.
+
+Before v8.13.0 only a graph build could resolve a seed's id, so a thread could
+not exist without its graph. `openPaper` resolves the id with one
+`/api/paper` lookup instead and creates the thread **on its cards, with no
+graph**. The graph is built when its card is opened (`openTool('graph')`) and
+then stays in memory when the reader goes back to the cards. The lookup's id
+and the build's id can disagree. For that case, `loadGraph` falls back to the
+thread the seed reference already belongs to rather than creating a second
+thread for it. `workspace.openRequestId` marks a lookup in flight; anything
+that replaces the workspace meanwhile drops it, and that is how a late lookup
+knows it was superseded.
+
+`seedPaper` is the router for "open this paper": into `loadGraph` when the
+reader is on the graph tool (wandering the map stays on the map), otherwise
+into `openPaper`. `activateThread` and the exploration reopen in
+`shell/useExplorations.ts` rebuild a graph only for a thread on its graph
+tool. `loadGraph` itself always means "show me the graph", so it sets the
+target thread's tool to `'graph'`.
+
 `workspace.ts` holds the active graph, discoveries, selections, layout and view
 filters. `threadActivated` parks the outgoing state and restores the incoming
 state in one action, also handled by `transcript.ts` and `highlight.ts`.
