@@ -5,15 +5,37 @@
  */
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it, vi } from 'vitest'
-import workspace, { activateThread, loadGraph, nodeSelectionSet } from '../../src/store/workspace'
+import workspace, {
+  activateThread,
+  loadGraph,
+  nodeSelectionSet,
+  openPaper,
+  openTool,
+  seedPaper,
+} from '../../src/store/workspace'
+import * as api from '../../src/api'
 import transcript, { tokenAppended, turnStarted } from '../../src/store/transcript'
-import explorations, { explorationOpened, newExploration } from '../../src/store/explorations'
+import explorations, {
+  explorationOpened,
+  newExploration,
+  threadTool,
+} from '../../src/store/explorations'
 import { migrateExploration, explorationBody } from '../../src/store/threadPersistence'
 import type { GraphResponse, SavedSession } from '../../src/api'
 
 vi.mock('../../src/api', async (original) => ({
   ...(await original<typeof import('../../src/api')>()),
   fetchGraphStream: vi.fn(async (seed: string) => graph(seed)),
+  // The lookup resolves an arXiv-style alias to the provider id, as S2 does.
+  fetchPaperDetail: vi.fn(async (seed: string) => ({
+    id: seed.replace(/^arxiv:/, ''),
+    title: `Paper ${seed}`,
+    arxiv_id: null,
+    year: 2013,
+    citation_count: 1,
+    url: null,
+    tldr: 'A short summary.',
+  })),
 }))
 
 function graph(id: string): GraphResponse {
@@ -26,6 +48,15 @@ function graph(id: string): GraphResponse {
 }
 function makeStore() {
   return configureStore({ reducer: { workspace, transcript, explorations } })
+}
+/** The thread on screen in a test store.
+ * @param store The store.
+ * @returns The active thread record.
+ */
+function activeThread(store: ReturnType<typeof makeStore>) {
+  const state = store.getState()
+  const record = state.explorations.byId[state.explorations.activeId]
+  return record.threads.find((thread) => thread.id === record.activeThreadId)!
 }
 
 describe('thread ownership', () => {
@@ -63,6 +94,112 @@ describe('thread ownership', () => {
     expect(store.getState().transcript.activeKey).toBe(first)
     const record = store.getState().explorations.byId[store.getState().explorations.activeId]
     expect(record.threads).toHaveLength(3)
+  })
+})
+
+describe('card home', () => {
+  it('opens a paper thread on its cards without building a graph, then builds it in place', async () => {
+    const store = makeStore()
+    vi.mocked(api.fetchGraphStream).mockClear()
+    await store.dispatch(openPaper({ seed: 'arxiv:DQN' }))
+    const thread = activeThread(store)
+    expect(thread.identity).toBe('s2:DQN')
+    expect(threadTool(thread)).toBe('cards')
+    expect(thread.paper?.tldr).toBe('A short summary.')
+    expect(store.getState().workspace.graph).toBeNull()
+    expect(api.fetchGraphStream).not.toHaveBeenCalled()
+
+    await store.dispatch(openTool('graph'))
+    expect(api.fetchGraphStream).toHaveBeenCalledWith('arxiv:DQN', 's2', false, expect.anything())
+    // The mock build keeps the alias as its seed id ('arxiv:DQN') while the
+    // lookup resolved 'DQN': the disagreement case. The same thread still
+    // owns the graph — no twin keyed by the build's id.
+    expect(activeThread(store).id).toBe(thread.id)
+    expect(threadTool(activeThread(store))).toBe('graph')
+    const record = store.getState().explorations.byId[store.getState().explorations.activeId]
+    expect(record.threads).toHaveLength(2)
+
+    // Back to the cards keeps the graph in memory; reopening costs nothing.
+    store.dispatch(openTool('cards'))
+    vi.mocked(api.fetchGraphStream).mockClear()
+    await store.dispatch(openTool('graph'))
+    expect(api.fetchGraphStream).not.toHaveBeenCalled()
+    expect(store.getState().workspace.graph?.seed.id).toBe('arxiv:DQN')
+  })
+  it('lands on the graph from the graph tool, and on the cards from anywhere else', async () => {
+    const store = makeStore()
+    await store.dispatch(seedPaper({ seed: 'DQN' }))
+    expect(threadTool(activeThread(store))).toBe('cards')
+    await store.dispatch(openTool('graph'))
+    await store.dispatch(seedPaper({ seed: 'PPO' }))
+    expect(activeThread(store).identity).toBe('s2:PPO')
+    expect(threadTool(activeThread(store))).toBe('graph')
+    expect(store.getState().workspace.graph?.seed.id).toBe('PPO')
+  })
+  it('resumes a thread on the tool it last showed, building only a graph-tool thread', async () => {
+    const store = makeStore()
+    const general = activeThread(store).id
+    await store.dispatch(openPaper({ seed: 'DQN' }))
+    const cards = activeThread(store).id
+    await store.dispatch(loadGraph({ seed: 'PPO' }))
+    const graphThread = activeThread(store).id
+    await store.dispatch(activateThread(general))
+    vi.mocked(api.fetchGraphStream).mockClear()
+    await store.dispatch(activateThread(cards))
+    expect(store.getState().workspace.graph).toBeNull()
+    expect(api.fetchGraphStream).not.toHaveBeenCalled()
+    await store.dispatch(activateThread(graphThread))
+    expect(store.getState().workspace.graph?.seed.id).toBe('PPO')
+    // Re-opening an already-open paper resumes its thread instead of a lookup.
+    vi.mocked(api.fetchPaperDetail).mockClear()
+    await store.dispatch(openPaper({ seed: 'DQN' }))
+    expect(activeThread(store).id).toBe(cards)
+    expect(api.fetchPaperDetail).not.toHaveBeenCalled()
+  })
+  it('never parks an in-flight paper open with the thread it left', async () => {
+    // The lookup is still running when the new thread takes over, so the
+    // outgoing General's workspace is parked with its request id — and used
+    // to come back showing "Opening paper…" forever.
+    const store = makeStore()
+    const general = activeThread(store).id
+    await store.dispatch(openPaper({ seed: 'DQN' }))
+    expect(store.getState().workspace.openRequestId).toBeUndefined()
+    await store.dispatch(activateThread(general))
+    expect(store.getState().workspace.openRequestId).toBeUndefined()
+  })
+  it('reads a thread saved before the card home as resting on its graph', () => {
+    expect(
+      threadTool({
+        id: 'old',
+        title: 'Old',
+        identity: 's2:X',
+        data: { chat: [], layout: 'timeline' },
+      }),
+    ).toBe('graph')
+    expect(
+      threadTool({
+        id: 'general',
+        title: 'General',
+        identity: null,
+        data: { chat: [], layout: 'timeline' },
+      }),
+    ).toBeNull()
+  })
+  it('saves the tool and the paper with the thread', async () => {
+    const store = makeStore()
+    await store.dispatch(openPaper({ seed: 'DQN' }))
+    const state = store.getState()
+    const record = state.explorations.byId[state.explorations.activeId]
+    const body = explorationBody(state, record)
+    const restored = migrateExploration({
+      id: body.id,
+      name: body.name,
+      data: body,
+    } as SavedSession)
+    const thread = restored.threads.find((item) => item.identity === 's2:DQN')!
+    expect(thread.tool).toBe('cards')
+    expect(thread.paper?.title).toBe('Paper DQN')
+    expect(thread.data.graph_ref?.seed_ref).toBe('DQN')
   })
 })
 

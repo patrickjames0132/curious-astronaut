@@ -14,23 +14,26 @@ only through the controls' one-line hint.
 tour/
   Tour.tsx  — the generic overlay: resolves targets, spotlights, positions
               the bubble, walks the steps (arrow keys / Esc wired)
-  steps.ts  — HOME_TOUR (the search surface) + GRAPH_TOUR (the graph tools)
+  steps.ts  — HOME_TOUR (the search surface) + CARDS_TOUR (a paper's card
+              home) + GRAPH_TOUR (the graph tools)
               + SETTINGS_TOUR (the settings modal's own walk),
               and TOUR_KEYS, one seen-flag per phase
   tour.css  — backdrop (z 60) < spotlight (61) < bubble (62); the dimming is
               the spotlight's 200vmax box-shadow, so there's exactly one hole
 ```
 
-## Two phases
+## Three phases
 
-The app has two first-times, so the tour has two phases, each with its own
-localStorage seen-flag: **HOME_TOUR** (the chat bar, its two toggles, the
+The app has three first-times, so the tour has three phases, each with its
+own localStorage seen-flag: **HOME_TOUR** (the chat bar, its two toggles, the
 data-source dropdown, and the three header drawers — Library, Assistant,
-Sessions) auto-runs on first launch, before any graph exists; **GRAPH_TOUR**
-(the graph tools, the detail panel, the lectures, the Q&A researcher)
-auto-runs when the first graph lands. `App.tsx` picks the list by whether a
-graph is up — the same "?" click tours whatever the user is actually looking
-at. Swapping the `steps` prop mid-run restarts the walk from the new list's
+Sessions) auto-runs on first launch, before any paper is open;
+**CARDS_TOUR** (a paper thread's card home: the paper, its tool cards, the
+assistant that follows the thread) auto-runs on the first card home, since
+v8.13.0; **GRAPH_TOUR** (the graph tools, the ‹ pill back to the cards, the
+detail panel, the lectures, the Q&A researcher) auto-runs when the first
+graph lands. `App.tsx` picks the list by which of the three is on screen —
+the same "?" click tours whatever the user is actually looking at. Swapping the `steps` prop mid-run restarts the walk from the new list's
 first stop.
 
 ## The third list: the settings modal (v7.29.0)

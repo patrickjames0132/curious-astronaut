@@ -43,6 +43,9 @@ test/
     library.test.ts           — one shared copy of the uploaded sources
     transcript.test.ts        — the exploration lecture's show/hide/drop, and a
                                 routed lecture landing on its own chat turn
+    threads.test.ts           — thread ownership, legacy migration, and the
+                                card home: a paper opens on its cards with no
+                                graph, which builds in place when opened
     workspace.test.ts         — hand-picked selection, and the default scope
                                 (selection outranks filters)
   scope/
@@ -66,6 +69,9 @@ test/
     transcript/remarkCite.test.ts — [n] markers → citeref nodes, on mdast
     transcript/AnswerMarkdown.test.tsx — clickable `[n]` chips, end to end
     transcript/provenance.test.ts — the grounding line's honest cases
+  tools/
+    ToolCards.test.tsx        — the card home's paper header, the coming-soon
+                                card, and the one-time paper fetch
   tour/
     Tour.test.tsx             — step walking, absent-target skipping, the
                                 three ways out

@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.11.0 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.13.0 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -1545,25 +1545,13 @@ than deleted so the plan doesn't get re-proposed.
       prerequisites**. Ships as two tickets, each its own minor version, in
       this order:
 
-      **5a — Thread card home (the shell redesign).** A graph thread becomes
-      a *paper* thread that opens onto a card home styled after Google AI
-      Studio's agent gallery (a grid of icon + title + one-line description
-      cards). Two cards for now: **Graph** (today's explorer, unchanged) and
-      **Knowledge network** (5b; a placeholder until it lands). Decided:
-      - *Explore* on a search result creates the thread and lands on the
-        cards, not straight on the graph. The graph then loads **only when
-        its card is opened**, so a reader who only wants the course never
-        spends S2 requests on a graph.
-      - **Revisiting a thread reopens the tool last used**, with a way back
-        to the cards from the thread header.
-      - **One assistant transcript per thread, shared by both tools** — the
-        thread owns the transcript (v7.22.0); the teacher grounds in
-        whichever tool is open.
-      - **General gets no cards** — it has no seed; it stays the search and
-        chat space.
-      Lands alone because it reworks thread creation, navigation and saving
-      — the same ground as the open "deleting a running thread resurrects
-      it" bug under Enhancements & tech debt; read that first.
+      **5a — Thread card home ✓, shipped in v8.13.0** — paper threads open
+      on a card home (Graph + a "Coming soon" Knowledge network card), and
+      the graph builds only when its card is opened. The full story is in
+      [docs/history.md](docs/history.md). One limit carried into 5b: **on
+      the cards, the assistant answers seedless, as General does**, because
+      there is no graph to ground in yet. 5b should make it aware of the
+      thread's paper.
 
       **5b — Knowledge network v1.** The seed paper is the root of a tree.
       Expanding a node is **one LLM call returning typed children** — *paper*

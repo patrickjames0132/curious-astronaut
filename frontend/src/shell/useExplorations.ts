@@ -12,6 +12,7 @@ import {
   explorationRenamed,
   newExploration,
   threadSummarized,
+  threadTool,
 } from '../store/explorations'
 import { explorationBody, migrateExploration } from '../store/threadPersistence'
 import { loadGraph, errorSet, discoveryMerged } from '../store/workspace'
@@ -230,7 +231,8 @@ export function useExplorations() {
           dispatch(discoveryMerged(pending))
           dispatch(pendingDiscoveriesDrained(thread.id))
         }
-        if (thread.identity && !thread.workspace?.graph && thread.data.graph_ref) {
+        // A paper thread saved on its cards reopens there, unbuilt.
+        if (threadTool(thread) === 'graph' && !thread.workspace?.graph && thread.data.graph_ref) {
           await dispatch(
             loadGraph({ seed: thread.data.graph_ref.seed_ref, provider: thread.data.provider }),
           )

@@ -3374,6 +3374,80 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **Thread card home — Phase 5a** *(v8.13.0)* — a graph thread becomes a
+      **paper thread** that opens on a **card home** styled after Google AI
+      Studio's agent gallery: the paper at the top (title, authors, year,
+      TL;DR), then a card per tool. There are two cards for now: **Graph**
+      (the existing explorer) and **Knowledge network** (disabled, "Coming
+      soon", until Phase 5b). Workshopped with Patrick 2026-10-06 and built
+      2026-10-08. His framing: the knowledge network should feel like *a short
+      course on the paper's dependencies and prerequisites*, and these cards
+      are where it will live.
+
+      **Decided (2026-10-06/08):**
+      - Opening a paper from General or the chat lands on its cards. **The
+        graph builds only when its card is opened**, so a reader who only
+        wants the course never spends S2 requests on a graph. Opening a
+        paper *from the graph* (double-clicking a node, or a citation's graph
+        icon while on a graph) lands straight on the new paper's graph.
+        Wandering the map stays on the map.
+      - **Revisiting a thread reopens the tool last used.** A ‹ pill with the
+        paper's title at the top-centre of a tool goes back to the cards. It
+        renders even when a build failed, so the reader always has an exit.
+      - **One assistant transcript per thread**, docked beside the cards and
+        kept when a tool opens. **General has no cards**: it has no seed.
+      - The card header shows the paper itself (Patrick's pick over a bare
+        heading), because the lookup that creates the thread supplies it at
+        no extra cost.
+
+      **How it works.** Until now only a graph build could resolve a seed's
+      id, so a thread could not exist without its graph. `openPaper` resolves
+      the id with one `/api/paper` lookup instead and creates the thread on
+      its cards. `openTool('graph')` builds the graph in place. If the
+      lookup's id and the build's id ever disagree, `loadGraph` falls back to
+      the thread the seed reference already belongs to rather than creating a
+      second thread for the same paper. `seedPaper` routes "open this paper" by
+      where the reader is. `ThreadRecord.tool` and `ThreadRecord.paper` save
+      with the thread. A thread saved before this release reads as `'graph'`
+      and reopens on its graph, as it always did. Switching the data source on
+      the cards opens the same paper's cards under the other provider, without
+      building anything.
+
+      **Help surfaces.** There is a new **CARDS_TOUR** phase (three stops:
+      the page, the cards, the assistant that follows the thread). The graph
+      tour has a stop for the ‹ pill, and the home tour's wording no longer
+      promises that a pasted id "jumps to the map". A new `tools/` package has
+      its README, and the store, teacher, detail, tour and render-tree READMEs
+      are revised.
+
+      **Known limit, carried into 5b:** on the cards the assistant answers
+      seedless, as General does, because there is no graph to ground in yet.
+
+      **Found in Patrick's browser round:** General could stick on "Opening
+      paper…" forever. See [docs/bugs.md](bugs.md).
+
+      The ticket as filed:
+
+      **5a — Thread card home (the shell redesign).** A graph thread becomes
+      a *paper* thread that opens onto a card home styled after Google AI
+      Studio's agent gallery (a grid of icon + title + one-line description
+      cards). Two cards for now: **Graph** (today's explorer, unchanged) and
+      **Knowledge network** (5b; a placeholder until it lands). Decided:
+      - *Explore* on a search result creates the thread and lands on the
+        cards, not straight on the graph. The graph then loads **only when
+        its card is opened**, so a reader who only wants the course never
+        spends S2 requests on a graph.
+      - **Revisiting a thread reopens the tool last used**, with a way back
+        to the cards from the thread header.
+      - **One assistant transcript per thread, shared by both tools** — the
+        thread owns the transcript (v7.22.0); the teacher grounds in
+        whichever tool is open.
+      - **General gets no cards** — it has no seed; it stays the search and
+        chat space.
+      Lands alone because it reworks thread creation, navigation and saving
+      — the same ground as the open "deleting a running thread resurrects
+      it" bug under Enhancements & tech debt; read that first.
+
 - [x] **Threads — one thread, one graph** *(v7.22.0)* — the conversation model gets a
       second level: an **exploration** holds **threads**, and a thread owns
       exactly one graph (or none). This replaces the cross-graph band-aids

@@ -1,0 +1,181 @@
+/* A paper thread's card home (Phase 5a): the paper, then a grid of tool
+   cards — styled after a gallery of launchers, icon tile + title + blurb. */
+
+.tool-home {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  animation: fade var(--motion-switch) ease-out both;
+}
+.tool-home-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: clamp(32px, 12vh, 120px) 32px 48px;
+  box-sizing: border-box;
+}
+
+.tool-home-paper h1 {
+  margin: 0 0 10px;
+  color: var(--text-strong);
+  font-size: clamp(26px, 3.2vw, 38px);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.tool-home-meta {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.tool-home-summary {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+  /* An abstract stands in when there is no TL;DR; keep it a teaser. */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tool-home-label {
+  margin-right: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.tool-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 36px;
+}
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--motion-pop) var(--ease-rise),
+    transform var(--motion-pop) var(--ease-rise),
+    box-shadow var(--motion-pop) var(--ease-rise);
+  animation: rise var(--motion-switch) var(--ease-rise) both;
+}
+.tool-card:nth-child(2) {
+  animation-delay: 60ms;
+}
+.tool-card:hover:not(:disabled),
+.tool-card:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 6px 20px var(--shadow);
+  transform: translateY(-1px);
+  outline: none;
+}
+.tool-card:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+.tool-card-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.tool-card-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.tool-card-knowledge .tool-card-icon {
+  color: var(--seed-ref);
+  background: color-mix(in srgb, var(--seed-ref) 16%, transparent);
+}
+.tool-card-title {
+  color: var(--text-strong);
+  font-size: 17px;
+  font-weight: 500;
+}
+.tool-card-soon {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.tool-card-blurb {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* The way back from a tool to its paper's cards: a pill at the top-centre of
+   the canvas — the one edge the graph's own controls leave free (controls
+   top-left, the assistant toggle top-right, find and legend along the
+   bottom). */
+.tool-back {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(420px, calc(100% - 140px));
+  padding: 6px 12px 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-float);
+  box-shadow: 0 4px 14px var(--shadow);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transform: translateX(-50%);
+}
+.tool-back:hover {
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
+.tool-back-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .tool-home-inner {
+    padding: 28px 16px 40px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tool-home,
+  .tool-card {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* A paper thread's graph tool before its graph exists (building, or the
+   build failed): an empty pane, so the overlays have somewhere to sit. */
+.tool-pending {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}

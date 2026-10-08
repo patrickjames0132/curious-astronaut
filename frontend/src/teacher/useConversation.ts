@@ -70,9 +70,9 @@ import {
 } from '../store/transcript'
 import {
   discoveryMerged,
-  loadGraph,
   nodeSelectionCleared,
   nodeSelectionSet,
+  seedPaper,
   selectScope,
   selectSeedNode,
 } from '../store/workspace'
@@ -360,11 +360,12 @@ export function useConversation() {
     [activeRef, highlight],
   )
 
-  /** Open a graph citation directly in its own thread, resuming the existing
-   * thread when this provider and seed already belong to the exploration. */
+  /** Open a cited paper in its own thread, resuming the existing thread when
+   * this provider and seed already belong to the exploration. From the graph
+   * tool it lands on the new paper's graph; from anywhere else, on its cards. */
   const onPaperSeed = useCallback(
     (nodeId: string, refProvider?: Provider) => {
-      dispatch(loadGraph({ seed: nodeId, provider: refProvider }))
+      void dispatch(seedPaper({ seed: nodeId, provider: refProvider }))
     },
     [dispatch],
   )

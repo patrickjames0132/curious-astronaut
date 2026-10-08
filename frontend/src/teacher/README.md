@@ -1,10 +1,13 @@
 # `src/teacher`
 
-One composer serves General and graph threads. General is graphless: searches,
-broad questions and comparisons can live there. A graph thread's composer names
-its subject and scoped paper count. Questions and lectures belong to the active
-thread; opening another graph switches to its discussion rather than carrying
-this transcript onto a different canvas.
+One composer serves General and paper threads. General is graphless: searches,
+broad questions and comparisons can live there. A paper thread keeps **one
+transcript across its card home and its tools**. The panel docks beside
+whichever is open. With the graph up, the composer names its subject and scoped
+paper count; on the cards there is no graph yet, so it answers seedless, as
+General does. Questions and lectures belong to the active thread; opening
+another paper switches to its discussion rather than carrying this transcript
+onto a different canvas.
 
 ## Sending and streaming
 
@@ -51,7 +54,9 @@ the same state as clicking the bubble — rather than the last beat alone,
 which read as the lecture pointing at its ending rather than at what it
 covered.
 
-Bare paper mentions and pasted paper ids open graph threads. Paper mentions
+Bare paper mentions and pasted paper ids open paper threads, through
+`seedPaper`: onto the paper's graph when the reader is on the graph tool, onto
+its cards otherwise. Paper mentions
 inside questions attach those papers without changing the graph. The same `@`
 dropdown lists this exploration's other discussions above the paper results;
 choosing one inserts `@thread[Title]`, which `readMessage` keeps away from the
@@ -96,7 +101,8 @@ changes do not invalidate earlier answers; each turn keeps its own stamp.
 
 Paper citations highlight their node on the current graph, toggling off on a
 second click. Graph icons on search references open or resume that paper's
-provider-specific graph thread directly. There is no intermediate paper modal.
+provider-specific thread directly, on the same rule (graph from the graph,
+cards from anywhere else). There is no intermediate paper modal.
 Whole-answer and beat clicks highlight their cited papers — for a lecture
 turn, the bubble lights every beat's papers at once (the lecture's whole
 scope), a beat lights its own. `ChatMsg.graph`

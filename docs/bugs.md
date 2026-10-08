@@ -22,6 +22,30 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### General stuck on "Opening paper…" after a paper opened from it (v8.13.0, pre-release)
+
+- **Symptom.** Open a paper from General (it lands on its new card home),
+  then click back to General: the landing chat sits under an "Opening
+  paper…" spinner that never clears, though no paper is being opened.
+  Patrick: *"there should never be a paper opening for this thread."*
+- **Root cause.** `openPaper` marks its lookup in flight with
+  `workspace.openRequestId`, and creates the new thread with
+  `threadActivated` *while the thunk is still pending*. Thread activation
+  **parks the outgoing workspace whole**, so General was parked with the
+  live request id in it. The thunk's `fulfilled` cleared the marker on the
+  *new* thread's workspace. On the way back, `workspaceForThread` restored
+  General's parked copy, request id and all, and nothing was left running
+  to clear it.
+- **Fix.** `workspaceForThread` drops in-flight markers when it restores a
+  parked workspace (`openRequestId: undefined`, next to the existing
+  `loading: false`) — `frontend/src/store/workspace.ts`.
+- **Lesson / guard.** A parked workspace is a snapshot of a moment, often
+  taken *by* the navigation that is leaving it, so request-scoped state
+  must never come back with it. Any new in-flight field on `WorkspaceState`
+  needs the same reset. Guarded by `threads.test.ts`'s "never parks an
+  in-flight paper open with the thread it left", which failed before the
+  fix.
+
 ### The data-source picker needed two clicks to open (v8.8.0)
 
 - **Symptom.** With the rail expanded, the first click on the data-source row
