@@ -155,14 +155,6 @@ export const CARDS_TOUR: TourStep[] = [
       'know first. The thread remembers the tool you were using, and the ↑ at the top ' +
       'of each tool brings you back up to these cards.',
   },
-  {
-    target: '[data-tour="assistant-btn"]',
-    title: 'The assistant, when you want it',
-    body:
-      'The 🎓 opens this paper’s conversation beside the cards; ✕ tucks it away again, and ' +
-      'it stays the way you leave it. It follows you into every tool — one thread, one ' +
-      'conversation, whichever tool is open.',
-  },
 ]
 
 /**
@@ -213,7 +205,9 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
  * (re-sequenced with Patrick, v5.22.0): the top-left controls panel walked
  * top-to-bottom through its last row ("Open a paper"), then the
  * bottom-right find control, then the detail panel (a whole-panel overview
- * stop, then its sections), then the teacher — the source scope under the ask
+ * stop, then its sections), then the teacher — the 🎓 that opens it (only
+ * while it is tucked away; it lives on the Paper Graph alone, so this is the
+ * one tour that introduces it), the source scope under the ask
  * bar, then the bar itself, which carries two stops: what the researcher does
  * with a question, and how asking for a lecture reaches the other assistant.
  * The walk follows the eye down the panel and ends where the reader types.
@@ -395,6 +389,14 @@ export const GRAPH_TOUR: TourStep[] = [
       'enlarge). Journal papers get theirs mined straight from the open-access PDF — ' +
       'tables and algorithm boxes included. The teacher can pull these same figures ' +
       'into its answers.',
+  },
+  {
+    target: '[data-tour="assistant-btn"]',
+    title: 'The assistant, when you want it',
+    body:
+      'The 🎓 opens this paper’s conversation beside the graph; ✕ tucks it away again, and ' +
+      'it stays the way you leave it. It lives on the Paper Graph: the cards and the ' +
+      'Knowledge Graph have no assistant docked.',
   },
   {
     target: '[data-tour="source-scope"]',

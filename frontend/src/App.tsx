@@ -11,8 +11,9 @@
  * the assistant is the landing surface (a centred chat, the app's front door)
  * and the overlays get their own layer over the body. A paper thread shows
  * either its **card home** (`tools/ToolCards`) or the tool a card opened —
- * the graph explorer or the knowledge network — and the assistant docks
- * beside whichever is up. The
+ * the graph explorer or the knowledge network. The assistant docks beside the
+ * **Paper Graph only**: each tool keeps its own voice, and the cards and the
+ * Knowledge Graph have none docked. The
  * `Teacher` element stays at one position in the tree across all three.
  * Thread navigation remounts the graph and chat with distinct keys; their
  * durable state lives in the store.
@@ -71,6 +72,12 @@ export default function App() {
   const tool = threadTool(activeThread)
   const paperThread = tool !== null
   const showGraph = !!graph && tool === 'graph'
+  // The assistant belongs to the Paper Graph alone (Patrick, 2026-10-09):
+  // assistants are encapsulated per tool, and until there's a design for how
+  // `@thread` borrowing reads a thread made of several tools, the graph is the
+  // only tool with one. Elsewhere in a paper thread Teacher stays mounted but
+  // hidden, so a running answer keeps streaming.
+  const assistantDocks = tool === 'graph'
 
   // Moving between a paper's cards and one of its tools reads as a scroll:
   // the cards come down from above, a tool comes up from below. Only within
@@ -95,7 +102,7 @@ export default function App() {
   const [railOpen, setRailOpen] = useState(() => localStorage.getItem(RAIL_KEY) !== '0')
   const [showSettings, setShowSettings] = useState(false)
   const theme = useTheme()
-  // Whether the assistant docks open beside a paper thread's cards and tools.
+  // Whether the assistant docks open beside the Paper Graph.
   // **Closed by default, and remembered** like the rail (Patrick, 2026-10-09:
   // it should stay hidden until asked for — a docked chat beside a canvas is
   // clutter until it is wanted). It used to default open, back when entering
@@ -261,7 +268,7 @@ export default function App() {
           the top-right of the CANVAS. Not the pane: the detail panel is a
           sibling of the canvas, so a pane-anchored button sat on top of that
           panel's own ✕ and trapped the reader inside it. */}
-      {paperThread && !assistantOpen && (
+      {assistantDocks && !assistantOpen && (
         <button
           type="button"
           className="pane-assistant"
@@ -430,8 +437,8 @@ export default function App() {
           <Teacher
             key={`teacher:${epoch}`}
             landing={!paperThread}
-            collapsed={paperThread && !assistantOpen}
-            onClose={paperThread ? () => setAssistantOpen(false) : undefined}
+            collapsed={paperThread && !(assistantDocks && assistantOpen)}
+            onClose={assistantDocks ? () => setAssistantOpen(false) : undefined}
           />
         </div>
       </div>

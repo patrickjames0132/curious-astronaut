@@ -113,8 +113,9 @@ lesson is grounded in its abstract.
 ## Not yet (later Phase 5 stages, see the OnePager)
 
 There is no challenger agent, no memory of known concepts across papers, no
-verified external resources, and no interactive visuals. The assistant
-beside the tool still answers seedless (a follow-up).
+verified external resources, and no interactive visuals. There is no
+assistant docked here: since v8.15.0 it lives on the Paper Graph alone (see
+`teacher/README.md`).
 
 ## Verified by
 
