@@ -123,6 +123,14 @@
         "extras": {
           "max_uses": 2
         }
+      },
+      {
+        "id": "tutor",
+        "model": "anthropic:claude-sonnet-4-6",
+        "extras": {
+          "children": 6,
+          "lesson_words": 350
+        }
       }
     ]
   },

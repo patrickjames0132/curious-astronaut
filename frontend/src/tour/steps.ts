@@ -8,13 +8,14 @@
  * `graph/controls/GraphControls.tsx`, `detail/DetailPanel.tsx`,
  * `teacher/Teacher.tsx`).
  *
- * Three phases, because the app has three first-times: {@link HOME_TOUR}
+ * Four phases, because the app has four first-times: {@link HOME_TOUR}
  * covers the search surface and auto-runs on first launch, before any paper
  * is open; {@link CARDS_TOUR} covers a paper thread's card home and auto-runs
  * on the first one; {@link GRAPH_TOUR} covers the graph tools and auto-runs
- * on the first graph. `App.tsx` picks the list (and the seen-flag) by which
- * of the three is on screen.
- * A third list, {@link SETTINGS_TOUR}, belongs to the settings modal, which
+ * on the first graph; {@link KNOWLEDGE_TOUR} covers the knowledge network and
+ * auto-runs on the first course. `App.tsx` picks the list (and the seen-flag)
+ * by which of the four is on screen.
+ * One more list, {@link SETTINGS_TOUR}, belongs to the settings modal, which
  * mounts it itself (the ? beside its ✕): its steps *stage* the section or
  * sub-page they point at, so the walk drives the modal's own nav.
  * Within a list, steps whose control isn't on screen skip themselves (the
@@ -34,6 +35,8 @@ export const TOUR_KEYS = {
   home: 'curious_astronaut.tour.home',
   /** A paper thread's card home — the first paper opened. */
   cards: 'curious_astronaut.tour.cards',
+  /** The knowledge network — the first course opened. */
+  knowledge: 'curious_astronaut.tour.knowledge',
   /** The graph-tools tour — first graph. */
   graph: 'curious_astronaut.tour.graph',
   /** The settings modal's tour — first time it is opened. */
@@ -147,17 +150,61 @@ export const CARDS_TOUR: TourStep[] = [
     target: '[data-tour="tool-cards"]',
     title: 'Pick a tool',
     body:
-      'The Graph maps the papers this one built on, the ones it spawned, and its ' +
-      'nearest neighbours. The Knowledge network — a short course on what you need to ' +
-      'know first — is on its way. The thread remembers the tool you were using, and a ' +
-      'pill at the top of each tool brings you back to these cards.',
+      'The Paper Graph maps the papers this one built on and the ones it spawned. The ' +
+      'Knowledge Graph is a short course on the ideas you need to ' +
+      'know first. The thread remembers the tool you were using, and the ↑ at the top ' +
+      'of each tool brings you back up to these cards.',
   },
   {
-    target: '[data-tour="assistant-panel"]',
-    title: 'The assistant comes along',
+    target: '[data-tour="assistant-btn"]',
+    title: 'The assistant, when you want it',
     body:
-      'This paper’s conversation sits beside the cards and follows you into every tool — ' +
-      'one thread, one conversation, whichever tool is open.',
+      'The 🎓 opens this paper’s conversation beside the cards; ✕ tucks it away again, and ' +
+      'it stays the way you leave it. It follows you into every tool — one thread, one ' +
+      'conversation, whichever tool is open.',
+  },
+]
+
+/**
+ * The knowledge network: the graph (click, double-click), the course bar
+ * (progress, next lesson, 2D/3D), and the lesson panel.
+ */
+export const KNOWLEDGE_TOUR: TourStep[] = [
+  {
+    target: '[data-tour="knowledge"]',
+    title: 'Everything this paper rests on',
+    body:
+      'The paper sits in gold; every violet node is a concept it needs, and arrows point ' +
+      'from an item to what it needs. A dashed ring means there is more beneath it: ' +
+      'double-click to break it down, as deep as you like. A concept two items both need ' +
+      'is one node with two arrows into it.',
+  },
+  {
+    target: '[data-tour="knowledge-legend"]',
+    title: 'Reading the graph',
+    body:
+      'The legend names it all: the paper, concepts, the “needs” arrow, and the three ' +
+      'states — grey once you have opened a lesson, a ✓ once you know it, a dashed ring ' +
+      'while there is more to break down. Only the neighbourhood you are looking at is ' +
+      'named; point at any node for its name.',
+  },
+  {
+    target: '[data-tour="knowledge-controls"]',
+    title: 'The course controls',
+    body:
+      'The graph is also a short course, ordered so each item comes after what it needs — ' +
+      'the deepest concepts first, the paper itself last. Open these controls for how much ' +
+      'is left and the next lesson, to name every node, to fit it all in view, or to fly ' +
+      'through it in 3D.',
+  },
+  {
+    target: '[data-tour="knowledge"]',
+    title: 'Click a node for its lesson',
+    body:
+      'A panel opens with what it is, why the course needs it, and its lesson — written ' +
+      'for this course the first time you open it and kept after that. Numbers like [3] ' +
+      'cite the paper’s real references: click one to open that paper in its own thread. ' +
+      'Tick “I know this” and the course skips it, with everything beneath it.',
   },
 ]
 
@@ -290,11 +337,11 @@ export const GRAPH_TOUR: TourStep[] = [
   },
   {
     target: '[data-tour="tool-back"]',
-    title: 'Back to the paper’s cards',
+    title: 'Back up to the paper’s cards',
     body:
-      'The pill at the top names the paper this thread belongs to. Click it to return to ' +
-      'the paper’s cards and its other tools; the graph stays as you left it. Double-click ' +
-      'a node to open that paper — it gets its own thread and lands straight on its graph.',
+      'The ↑ at the top takes you back up to this paper’s cards and its other tools; the ' +
+      'graph stays as you left it. Double-click a node to open that paper — it gets its ' +
+      'own thread and lands straight on its graph.',
   },
   {
     target: '[data-tour="details"]',

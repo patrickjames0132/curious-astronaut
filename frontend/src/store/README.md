@@ -42,6 +42,16 @@ into `openPaper`. `activateThread` and the exploration reopen in
 tool. `loadGraph` itself always means "show me the graph", so it sets the
 target thread's tool to `'graph'`.
 
+**The knowledge network's course lives on its thread** too
+(`ThreadRecord.knowledge`, v8.14.0), so it saves with the exploration like
+`tool` and `paper`. Its reducers (`knowledgeStarted`, `knowledgeExpanded`,
+`knowledgeLessonWritten`, `knowledgeKnownToggled`, `knowledgeOpened`) take an
+explicit `threadId` rather than acting on the active thread. A tutor call that finishes after the reader has moved on
+still lands on the course that asked for it, the same rule streamed answers
+follow in `transcript.ts`. The graph rules themselves are pure functions in
+`knowledge/model.ts`. A course saved in another shape (`version` ≠ 2) is
+ignored by the reducers and replaced by `knowledgeStarted`.
+
 `workspace.ts` holds the active graph, discoveries, selections, layout and view
 filters. `threadActivated` parks the outgoing state and restores the incoming
 state in one action, also handled by `transcript.ts` and `highlight.ts`.

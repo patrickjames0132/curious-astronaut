@@ -93,7 +93,7 @@ const SECTIONS = [
     icon: '🎓',
     label: 'Agents',
     blurb:
-      'The AI teacher: the crew that writes lectures, answers questions, and scouts papers and the web. Two halves — which vendors Curious Astronaut can reach, and which model each agent runs on. Every agent picks its own, so running the lecturer on a free local model while the web scout stays on a cloud one is a normal setup.',
+      'The AI teacher: the crew that writes lectures, answers questions, teaches the Knowledge Graph, and scouts papers and the web. Two halves — which vendors Curious Astronaut can reach, and which model each agent runs on. Every agent picks its own, so running the lecturer on a free local model while the web scout stays on a cloud one is a normal setup.',
     pages: [
       { id: 'providers', label: 'Model Providers' },
       { id: 'agents', label: 'Agent Settings' },
@@ -463,7 +463,7 @@ function VendorField({
  *  run — and so get a vendor's *advanced* pick; every other agent (the
  *  summarizer, the scouts) makes short structured calls a *light* model does
  *  as well and far cheaper. Mirrors `config.example.json`'s own split. */
-const ADVANCED_AGENTS: ReadonlySet<string> = new Set(['lecturer', 'researcher'])
+const ADVANCED_AGENTS: ReadonlySet<string> = new Set(['lecturer', 'researcher', 'tutor'])
 
 /**
  * Point the whole crew at one vendor: lecturer and researcher on its advanced
@@ -518,7 +518,7 @@ function VendorApply({
   const why = !configured
     ? `Enter ${vendor === 'ollama' ? 'the server URL' : 'an API key'} above, then Save, to pick its models.`
     : tier
-      ? `${tier.advanced} for the lecturer and researcher; ${tier.light} for the summarizer and scouts.`
+      ? `${tier.advanced} for the lecturer, researcher and tutor; ${tier.light} for the summarizer and scouts.`
       : models.vendors.includes(vendor)
         ? 'No models listed — is the key valid and the server reachable?'
         : 'Save the key first, then reopen Settings to pick its models.'
@@ -1259,6 +1259,45 @@ const ROW_DEFS: RowDef[] = [
         agentId="web_scout"
         extrasKey="max_uses"
         fallback={4}
+      />
+    ),
+  },
+  {
+    key: 'tutor-model',
+    section: 'agents',
+    page: 'agents',
+    group: 'Tutor',
+    label: 'Model',
+    hint: 'The LLM behind the Knowledge Graph: it breaks a paper into the ideas you need to know first, and writes each lesson. Teaching quality shows here, so it sits on the same tier as the lecturer.',
+    control: (draft, edit, models) => (
+      <ModelInput draft={draft} edit={edit} agentId="tutor" models={models} />
+    ),
+  },
+  {
+    key: 'tutor-children',
+    section: 'agents',
+    page: 'agents',
+    group: 'Tutor',
+    label: 'Prerequisites per step',
+    hint: 'The most prerequisites one expansion may list (up to 12). The tutor lists fewer when fewer are really needed; wider trees make a longer course. Empty = the code default.',
+    control: (draft, edit) => (
+      <ExtrasNumber draft={draft} edit={edit} agentId="tutor" extrasKey="children" fallback={6} />
+    ),
+  },
+  {
+    key: 'tutor-lesson-words',
+    section: 'agents',
+    page: 'agents',
+    group: 'Tutor',
+    label: 'Lesson length',
+    hint: 'Roughly how long a lesson runs, in words (100–1500). Longer lessons cost more and take longer to write. Lessons already written stay as they are; new ones use the new length. Empty = the code default.',
+    control: (draft, edit) => (
+      <ExtrasNumber
+        draft={draft}
+        edit={edit}
+        agentId="tutor"
+        extrasKey="lesson_words"
+        fallback={350}
       />
     ),
   },

@@ -12,6 +12,9 @@ ui/
                          animation (below)
   Fold.tsx             — a section that opens and closes by animating its
                          height (below)
+  SlidersGlyph.tsx     — the folded-controls icon, shared by the paper graph
+                         and the knowledge graph (v8.14.0) so the two corner
+                         buttons are one button
 ```
 
 ## `useResizablePanel`

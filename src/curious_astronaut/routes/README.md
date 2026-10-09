@@ -213,6 +213,35 @@ returns and PUT accepts, so values round-trip byte-for-byte. The location
 endpoint validates the target file before switching the `.config-location`
 sidecar (see `config.py`).
 
+## `knowledge.py` — the knowledge network (v8.14.0)
+
+| Endpoint | Job |
+| --- | --- |
+| `POST /api/knowledge/expand` | break one course item into the concepts it needs (JSON) |
+| `POST /api/knowledge/lesson` | stream one item's lesson: SSE `token` frames, then `paper_refs` |
+
+Both are thin over `agents/orchestrators/tutor`. What lives here is the
+grounding and the cache:
+
+- **The paper's real reference list grounds both.** The routes fetch up to
+  40 references through `traversal.neighbors` (day-cached, provider-aware).
+  The paper's own expansion reads them to judge which ideas it builds on.
+  Every lesson is handed them numbered and may cite a paper only by its
+  number; its `paper_refs` frame resolves the numbers it used. The graph
+  itself holds only concepts. A failed fetch degrades quietly (no references,
+  no citations) rather than failing the request, and a concept's expansion
+  never fetches references.
+- **Both results are cached permanently**, like generated TL;DRs, because a
+  course re-opened tomorrow should not be paid for twice. The keys include the
+  tutor's `children`/`lesson_words` knobs, so a settings change misses the old
+  entries. The reader's "already in the course" list is deliberately not in
+  the key: it only nudges naming, and the frontend merges repeats either way.
+  A lesson is cached with its citations (`{text, refs}`), and only once its
+  stream finishes cleanly; a dropped stream writes nothing. Both keys carry a
+  version (`tutor:expand:v2`, `tutor:lesson:v2`), bumped when 5b dropped paper
+  nodes. An old entry would otherwise serve a paper as a concept, or a lesson
+  with no citations.
+
 ## `sessions.py` — explorations
 
 | Endpoint | Job |

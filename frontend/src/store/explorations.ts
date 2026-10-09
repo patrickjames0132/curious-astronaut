@@ -5,7 +5,8 @@
  */
 import { createAction, createSlice, nanoid } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
-import type { PaperDetails, SessionData } from '../api'
+import type { KnowledgeChild, PaperDetails, PaperRef, SessionData } from '../api'
+import { isCurrentMap, withChildren, type KnowledgeMap } from '../knowledge/model'
 import type { WorkspaceState } from './workspace'
 
 /**
@@ -31,6 +32,45 @@ export interface ThreadRecord {
   tool?: ThreadTool
   /** The seed's hydrated details, for the card home's header. Fetched once. */
   paper?: PaperDetails
+  /** The knowledge network's course (v8.14.0), once its card has been opened. */
+  knowledge?: KnowledgeMap
+}
+
+/**
+ * Find a thread anywhere, by id — knowledge updates land on the thread that
+ * asked, even after the reader has moved to another one.
+ *
+ * @param state Exploration state.
+ * @param threadId The thread.
+ * @returns The thread and its exploration, or undefined.
+ */
+function findThread(
+  state: ExplorationsState,
+  threadId: string,
+): { record: ExplorationRecord; thread: ThreadRecord } | undefined {
+  for (const record of Object.values(state.byId)) {
+    const thread = record.threads.find((item) => item.id === threadId)
+    if (thread) return { record, thread }
+  }
+  return undefined
+}
+
+/**
+ * Apply a change to a thread's course and mark the exploration for autosave.
+ *
+ * @param state Exploration state.
+ * @param threadId The thread.
+ * @param change Returns the new tree from the old one.
+ */
+function updateKnowledge(
+  state: ExplorationsState,
+  threadId: string,
+  change: (map: KnowledgeMap) => KnowledgeMap,
+): void {
+  const found = findThread(state, threadId)
+  if (!isCurrentMap(found?.thread.knowledge)) return
+  found.thread.knowledge = change(found.thread.knowledge)
+  found.record.revision++
 }
 export interface ExplorationRecord {
   id: string
@@ -160,6 +200,86 @@ const slice = createSlice({
         }
       }
     },
+    /** Start a thread's course (its first open of the knowledge network).
+     * A course saved in an older shape is replaced.
+     * @param state Exploration state.
+     * @param action The thread and its one-node map.
+     */
+    knowledgeStarted(state, action: PayloadAction<{ threadId: string; map: KnowledgeMap }>) {
+      const found = findThread(state, action.payload.threadId)
+      if (!found || isCurrentMap(found.thread.knowledge)) return
+      found.thread.knowledge = action.payload.map
+      found.record.revision++
+    },
+    /** Attach an item's prerequisites, as the tutor listed them.
+     * @param state Exploration state.
+     * @param action The thread, the expanded item, and its children.
+     */
+    knowledgeExpanded(
+      state,
+      action: PayloadAction<{ threadId: string; nodeId: string; children: KnowledgeChild[] }>,
+    ) {
+      const { threadId, nodeId, children } = action.payload
+      updateKnowledge(state, threadId, (map) => withChildren(map, nodeId, children))
+    },
+    /** Keep a finished lesson and its citations, so reopening it costs nothing.
+     * @param state Exploration state.
+     * @param action The thread, the item, the lesson's Markdown and its cited papers.
+     */
+    knowledgeLessonWritten(
+      state,
+      action: PayloadAction<{
+        threadId: string
+        nodeId: string
+        text: string
+        refs?: Record<string, PaperRef>
+      }>,
+    ) {
+      const { threadId, nodeId, text, refs } = action.payload
+      updateKnowledge(state, threadId, (map) =>
+        map.nodes[nodeId]
+          ? {
+              ...map,
+              nodes: {
+                ...map.nodes,
+                [nodeId]: { ...map.nodes[nodeId], lesson: text, ...(refs ? { refs } : {}) },
+              },
+            }
+          : map,
+      )
+    },
+    /** Check an item off as known, or un-check it.
+     * @param state Exploration state.
+     * @param action The thread and the item.
+     */
+    knowledgeKnownToggled(state, action: PayloadAction<{ threadId: string; nodeId: string }>) {
+      const { threadId, nodeId } = action.payload
+      updateKnowledge(state, threadId, (map) => ({
+        ...map,
+        known: map.known.includes(nodeId)
+          ? map.known.filter((other) => other !== nodeId)
+          : [...map.known, nodeId],
+      }))
+    },
+    /** Open an item's lesson (marking it visited), or close the panel with null.
+     * @param state Exploration state.
+     * @param action The thread and the item, or null.
+     */
+    knowledgeOpened(state, action: PayloadAction<{ threadId: string; nodeId: string | null }>) {
+      const { threadId, nodeId } = action.payload
+      updateKnowledge(state, threadId, (map) => {
+        const node = nodeId ? map.nodes[nodeId] : undefined
+        if (nodeId && !node) return map
+        return {
+          ...map,
+          openId: nodeId,
+          nodes:
+            node && !node.visited
+              ? { ...map.nodes, [node.id]: { ...node, visited: true } }
+              : map.nodes,
+        }
+      })
+    },
     /** Store a summary only for the revision the summarizer actually read.
      * @param state Exploration state.
      * @param action Summary with its owning thread and revision.
@@ -225,5 +345,10 @@ export const {
   threadSummarized,
   threadToolSet,
   threadPaperSet,
+  knowledgeStarted,
+  knowledgeExpanded,
+  knowledgeLessonWritten,
+  knowledgeKnownToggled,
+  knowledgeOpened,
 } = slice.actions
 export default slice.reducer

@@ -155,8 +155,8 @@ export default function AnswerMarkdown({
               className="cite-ref cite-ref-seed"
               title={
                 elsewhere
-                  ? `Open graph thread using ${PROVIDER_LABEL[elsewhere]} — ${paper.title}`
-                  : `Open graph thread — ${paper.title}`
+                  ? `Open this paper’s thread using ${PROVIDER_LABEL[elsewhere]} — ${paper.title}`
+                  : `Open this paper’s thread — ${paper.title}`
               }
               onClick={(event) => {
                 event.stopPropagation() // don't also trigger the whole-answer re-light

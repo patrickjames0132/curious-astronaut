@@ -168,7 +168,7 @@ export interface AgentModels {
    *  offers, so the free ones are discoverable before they are set up. */
   known: string[]
   /** Per listed vendor, the backend's one-click crew: the model for the
-   *  lecturer and researcher (`advanced`) and for the summarizer and scouts
+   *  lecturer, researcher and tutor (`advanced`) and for the summarizer and scouts
    *  (`light`). Absent for a vendor with nothing listed. */
   tiers: Record<string, { advanced: string; light: string }>
 }

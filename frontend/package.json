@@ -22,11 +22,13 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-force-graph-2d": "^1.29.1",
+    "react-force-graph-3d": "^1.29.2",
     "react-markdown": "^10.1.0",
     "react-redux": "^9.3.0",
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
+    "three-spritetext": "^1.10.0",
     "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {

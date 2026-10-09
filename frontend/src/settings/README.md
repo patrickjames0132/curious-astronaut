@@ -91,7 +91,7 @@ overlays).
   a saved model/device edit applies live (see `services/sources/README.md`).
 - **Every vendor group ends in an "Apply Default Models" button** (v7.29.0,
   `VendorApply`, a `bare` row — no label column, the control alone where a
-  label would start) that puts the **lecturer and researcher** on the
+  label would start) that puts the **lecturer, researcher and tutor** on the
   vendor's *advanced* model and the **summarizer and both scouts** on its
   *light* one (`ADVANCED_AGENTS`), the same split `config.example.json`
   ships with, leaving the knobs alone — and then **moves the modal to Agent

@@ -1,0 +1,278 @@
+/* The knowledge network (Phase 5b): the graph fills the middle, the course
+   controls fold into a sliders button top-left and the legend sits
+   bottom-left, and the lesson panel docks on the right — the same shape as
+   the paper graph, its controls and its detail panel. */
+
+.knowledge {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  animation: fade var(--motion-switch) ease-out both;
+}
+.knowledge-canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.knowledge-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* --- the controls (graph/graph.css's .ctrl-icon / .controls) and legend --- */
+.course-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: var(--text);
+  font-size: 13px;
+}
+.course-next {
+  flex: none;
+  padding: 4px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.course-next:hover {
+  background: var(--accent);
+}
+.ctrl-label {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.course-fit {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.course-fit:hover {
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
+.knowledge-legend {
+  flex-wrap: wrap;
+  max-width: calc(100% - 28px);
+}
+.legend .legend-arrow {
+  color: var(--muted);
+  font-weight: 600;
+}
+.legend i.legend-known {
+  display: inline-grid;
+  place-items: center;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+}
+.knowledge-failed button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* --- the lesson panel --- */
+.knowledge-panel {
+  position: relative;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  padding: 20px 22px 24px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  animation: panel-in var(--motion-panel) var(--ease-rise) both;
+}
+.knowledge-panel.closing {
+  animation: panel-out var(--motion-panel) var(--ease-fade) both;
+  pointer-events: none;
+}
+.knowledge-panel .close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+}
+.lesson-kicker {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.lesson-title {
+  margin: 0 28px 6px 0;
+  color: var(--text-strong);
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.lesson-meta {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.lesson-reasons {
+  margin: 10px 0 0;
+  padding: 0 0 0 12px;
+  border-left: 3px solid var(--accent);
+  list-style: none;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.lesson-reasons li + li {
+  margin-top: 6px;
+}
+.lesson-reasons button,
+.lesson-error button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.lesson-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.lesson-action {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.lesson-action:hover {
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
+.lesson-needs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+.lesson-needs-label {
+  margin-right: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.lesson-chip {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.lesson-chip:hover {
+  border-color: var(--accent);
+}
+.lesson-chip.known {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.lesson-status,
+.lesson-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.lesson-body {
+  margin-top: 18px;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.lesson-foot {
+  position: sticky;
+  bottom: -24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 24px -22px -24px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+.lesson-known {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+.lesson-known input {
+  /* Green like the graph's ✓ (look.ts KNOWLEDGE_COLOR.known). */
+  accent-color: #22c55e;
+}
+.lesson-next {
+  padding: 7px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: #fff;
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.lesson-next:hover {
+  background: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .knowledge {
+    flex-direction: column;
+  }
+  .knowledge-panel {
+    width: auto !important;
+    max-height: 55%;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .knowledge,
+  .knowledge-panel {
+    animation: none;
+  }
+}

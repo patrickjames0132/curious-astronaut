@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
- * Description: A paper thread's card home — header, cards, and the one-time paper fetch.
+ * Description: A paper thread's card home — header, both cards, and the one-time paper fetch.
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { configureStore } from '@reduxjs/toolkit'
@@ -79,18 +79,16 @@ it('heads the page with the paper and opens the graph card', () => {
   expect(screen.getByRole('heading', { name: /Playing Atari/ })).toBeTruthy()
   expect(screen.getByText('Mnih, Kavukcuoglu, Silver · 2013')).toBeTruthy()
   expect(screen.getByText('Q-learning from pixels.')).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: /Graph/ }))
+  fireEvent.click(screen.getByRole('button', { name: /Paper Graph/ }))
   expect(onOpen).toHaveBeenCalledWith('graph')
   expect(fetch).not.toHaveBeenCalled()
 })
 
-it('shows the knowledge network as coming soon, not openable', () => {
+it('opens the Knowledge Graph card', () => {
   const { onOpen } = mount(paperThread(true))
-  const card = screen.getByRole('button', { name: /Knowledge network/ }) as HTMLButtonElement
-  expect(card.disabled).toBe(true)
-  expect(screen.getByText('Coming soon')).toBeTruthy()
-  fireEvent.click(card)
-  expect(onOpen).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: /Knowledge Graph/ }))
+  expect(onOpen).toHaveBeenCalledWith('knowledge')
+  expect(screen.queryByText('Coming soon')).toBeNull()
 })
 
 it('fetches a missing paper once and keeps it on the thread', async () => {

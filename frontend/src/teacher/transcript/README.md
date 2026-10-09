@@ -76,7 +76,12 @@ transcript/
   line comes from `message.graph.nodes` instead: *"narrated 14 papers"*, in the
   same `.chat-cited` class, because what a lecture covered is the honest
   equivalent of what an answer cited and the two should read alike.
-- **`AnswerMarkdown`** — the researcher replies in Markdown
+- **`AnswerMarkdown`** — **two consumers since v8.14.0**: the transcript, and
+  the knowledge network's lessons (`knowledge/LessonPane.tsx`, `text` only,
+  no citation props). By the hybrid rule in `src/README.md` that is a case for
+  promoting it to a root folder. It stays here for now because it brings
+  `remarkCite` and the citation chips with it; promote it if a third consumer
+  arrives. The researcher replies in Markdown
   with `$…$` math and inline citations; this renders all three for
   real: remark-gfm for structure, remark-math + rehype-katex for math (the
   same KaTeX the rest of the app reaches through `MathText` — beats, the

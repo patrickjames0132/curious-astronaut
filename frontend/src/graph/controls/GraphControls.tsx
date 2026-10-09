@@ -24,28 +24,8 @@ import type { CSSProperties } from 'react'
 import { CHIP_TYPES, REL_COLOR, REL_LABEL } from '../theme'
 import { CITE_SLIDER_STEPS, citationThreshold } from '../model'
 import '../graph.css'
+import SlidersGlyph from '../../ui/SlidersGlyph'
 import { usePresence } from '../../ui/usePresence'
-
-/**
- * The collapsed controls' icon: three slider tracks, each knob at a different
- * point — "settings you can tune", in the shape every app uses for it.
- *
- * @returns The inline SVG, drawn in currentColor.
- */
-function SlidersGlyph() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-        <path d="M2 4h12M2 8h12M2 12h12" />
-      </g>
-      <g stroke="currentColor" strokeWidth="1.5" fill="var(--panel)">
-        <circle cx="6" cy="4" r="1.9" />
-        <circle cx="10.5" cy="8" r="1.9" />
-        <circle cx="4.5" cy="12" r="1.9" />
-      </g>
-    </svg>
-  )
-}
 
 /** Props for {@link GraphControls}. */
 export interface GraphControlsProps {

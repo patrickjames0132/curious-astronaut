@@ -72,6 +72,9 @@
   --motion-panel: 280ms;
   /* A whole view changing — switching thread or exploration. */
   --motion-switch: 320ms;
+  /* A paper's cards and a tool scrolling past each other (tools/tools.css):
+     a full-height move, so a little longer than a switch. */
+  --motion-scroll: 460ms;
   /* A modal card rising over its dimmed backdrop. */
   --motion-modal: 220ms;
   /* A control changing shape in place (the find bar unfolding). */
