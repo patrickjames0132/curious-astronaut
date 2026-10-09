@@ -1,13 +1,21 @@
 # `src/teacher`
 
 One composer serves General and paper threads. General is graphless: searches,
-broad questions and comparisons can live there. A paper thread keeps **one
-transcript across its card home and its tools**. The panel docks beside
-whichever is open. With the graph up, the composer names its subject and scoped
-paper count; on the cards there is no graph yet, so it answers seedless, as
-General does. Questions and lectures belong to the active thread; opening
+broad questions and comparisons can live there. In a paper thread the panel
+**docks beside the Paper Graph only** (since v8.15.0): assistants are
+encapsulated per tool, so the card home and the Knowledge Graph have none, and
+there Teacher stays mounted but hidden, so a running answer keeps streaming
+into the thread. With the graph up, the composer names its subject and scoped
+paper count. Questions and lectures belong to the active thread; opening
 another paper switches to its discussion rather than carrying this transcript
 onto a different canvas.
+
+**Why the graph alone** (Patrick, 2026-10-09). Beside the cards and the
+Knowledge Graph the assistant could only answer seedless, and `@thread`
+borrowing assumes a thread *is* its graph conversation. Now that a thread is
+several tools, how one tool's assistant should read another thread is an open
+design question (OnePager, "Cross-tool thread references"); until it is
+answered, the assistant stays with the one tool it was built for.
 
 ## Sending and streaming
 

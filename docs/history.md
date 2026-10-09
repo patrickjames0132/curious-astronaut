@@ -3374,6 +3374,58 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **The assistant lives on the Paper Graph alone** *(v8.15.0)* — a
+      paper thread's assistant now docks beside the **Paper Graph only**; the
+      card home and the Knowledge Graph have no 🎓 and no panel. This closes
+      the "Rethink the chat surfaces and threads" ticket that Patrick raised at
+      the v8.14.0 ship. A first design pass proposed renaming "thread" to
+      "paper", giving each paper one tool-aware assistant, and adding "Ask
+      about this" on lessons. On a second look Patrick decided the setup was
+      fine as it stood, with one exception (2026-10-09): *"these assistants
+      should be encapsulated per tool."* The only loose end is `@thread`
+      borrowing. It assumes a thread is its graph conversation, which stopped
+      being true when a thread became several tools. That question is parked
+      in the OnePager as "Cross-tool thread references".
+
+      **How it works.** `App.tsx` docks the assistant only when the open tool
+      is `'graph'`. Elsewhere in a paper thread `Teacher` stays mounted but
+      collapsed, so an answer still streaming keeps writing into the thread,
+      and the remembered open/closed state comes back with the graph. General
+      is untouched. Shipping this also removed the old 5b follow-up "the
+      assistant on the cards and the Knowledge Graph still answers seedless":
+      no assistant is docked there any more.
+
+      **Help surfaces.** The cards tour loses its assistant stop. The graph
+      tour gains one for the 🎓 (shown while the assistant is tucked away),
+      since that is now the only place the button appears. The teacher,
+      tools, knowledge, tour and `src/` READMEs are revised, and
+      `test/App.test.tsx` covers where the assistant docks.
+
+      The ticket as filed:
+
+      **Rethink the chat surfaces and threads: is "threads" the right
+      design?** — raised by Patrick at the v8.14.0 ship (2026-10-09):
+      *"we need to think about how to reorganize all these different chat
+      interfaces. It's kind of messy along with the threads."* **A design
+      question first, not a ticket to build.** Workshop it before touching
+      code. What exists today, which the workshop should start from:
+      - **Explorations → threads** (v7.22.0): each exploration has a
+        permanent General thread plus one thread per paper, and a thread owns
+        one transcript and one graph.
+      - **A paper thread has a card home and tools** (v8.13.0/v8.14.0): the
+        Paper Graph and the Knowledge Graph. The assistant docks beside
+        whichever is open, closed by default since v8.14.0.
+      - **Several conversational surfaces now overlap**: the General landing
+        chat, the docked assistant (Q&A, lectures, `@thread[…]` borrowing),
+        and the Knowledge Graph's lesson panel, which is a one-way chat with
+        the tutor. Lectures also live inside the transcript.
+      Questions to settle: is a thread per paper the right unit, now that a
+      paper has a home of its own? Should General and the paper threads stay
+      siblings in the rail? Should lessons and the assistant converge? Where
+      should a new chat start? Read `docs/history.md`'s v7.22.0 threads entry
+      first: it records why the "one thread, one graph" rule exists, and that
+      the softer alternatives recreated the same problem one level down.
+
 - [x] **Knowledge Graph — Phase 5b** *(v8.14.0)* — the second card on a
       paper's home: **a short course on the ideas a paper rests on, drawn as a
       graph**. The paper sits in gold at the centre; double-clicking any node

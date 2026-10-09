@@ -59,8 +59,10 @@ mounted through the move would cost more than the effect is worth.
   fetched again. Until then the thread's own title heads the page.
 - **General has no cards.** It has no seed, so there is nothing for a tool to
   work on. It stays the search and chat surface.
-- **One conversation per thread.** The assistant docks beside the cards and
-  stays docked when a tool opens. It is the same transcript either way.
+- **No assistant on the cards.** Since v8.15.0 the assistant docks beside
+  the Paper Graph alone (each tool keeps its own voice; see
+  `teacher/README.md`). Until then it docked beside the cards and followed
+  into every tool, where it could only answer seedless.
 
 ## Verified by
 

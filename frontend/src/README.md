@@ -32,7 +32,8 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 the body (a centred landing chat) and the
    │                                 overlays get their own layer; a paper
    │                                 thread shows its card home or the tool a
-   │                                 card opened, and the assistant docks.
+   │                                 card opened; the assistant docks beside
+   │                                 the Paper Graph only (hidden elsewhere).
    │                                 Teacher stays at one position in the tree
    │                                 across all three, so the switch never
    │                                 remounts it — see teacher/README.md.

@@ -759,28 +759,20 @@ than deleted so the plan doesn't get re-proposed.
 
 ### UI & rendering polish
 
-- [ ] **Rethink the chat surfaces and threads: is "threads" the right
-      design?** — raised by Patrick at the v8.14.0 ship (2026-10-09):
-      *"we need to think about how to reorganize all these different chat
-      interfaces. It's kind of messy along with the threads."* **A design
-      question first, not a ticket to build.** Workshop it before touching
-      code. What exists today, which the workshop should start from:
-      - **Explorations → threads** (v7.22.0): each exploration has a
-        permanent General thread plus one thread per paper, and a thread owns
-        one transcript and one graph.
-      - **A paper thread has a card home and tools** (v8.13.0/v8.14.0): the
-        Paper Graph and the Knowledge Graph. The assistant docks beside
-        whichever is open, closed by default since v8.14.0.
-      - **Several conversational surfaces now overlap**: the General landing
-        chat, the docked assistant (Q&A, lectures, `@thread[…]` borrowing),
-        and the Knowledge Graph's lesson panel, which is a one-way chat with
-        the tutor. Lectures also live inside the transcript.
-      Questions to settle: is a thread per paper the right unit, now that a
-      paper has a home of its own? Should General and the paper threads stay
-      siblings in the rail? Should lessons and the assistant converge? Where
-      should a new chat start? Read `docs/history.md`'s v7.22.0 threads entry
-      first: it records why the "one thread, one graph" rule exists, and that
-      the softer alternatives recreated the same problem one level down.
+- [ ] **Cross-tool thread references: how should `@thread` read a thread
+      made of several tools?** — parked by Patrick 2026-10-09, when the
+      broader "rethink the chat surfaces and threads" ticket was put to rest
+      (he's happy with the exploration → thread → tool setup as it stands).
+      What survived is one open question. `@thread` borrowing and the sibling
+      index were built when a thread *was* its graph conversation. Since 5a a
+      thread is a paper with several tools (the Paper Graph, the Knowledge
+      Graph, and whatever comes next), so it isn't clear what borrowing
+      "another thread" should mean: its graph conversation, its course
+      progress, or both. **Settled meanwhile (v8.15.0): assistants are
+      encapsulated per tool, and only the Paper Graph has one.** The cards and
+      the Knowledge Graph dock nothing. Revisit when a second tool wants its
+      own assistant, or when `@thread` starts to read wrong. Read
+      `docs/history.md`'s v7.22.0 threads entry and the v8.15.0 entry first.
 
 - [ ] **Draw the Curious Astronaut full-figure mascot properly** — the
       **helmet mark is done and usable** (favicon, app tile, dock) and nothing
@@ -1581,10 +1573,6 @@ than deleted so the plan doesn't get re-proposed.
       the full story is in [docs/history.md](docs/history.md).
 
       **Follow-ups from 5b:**
-      - **The assistant on the cards and the Knowledge Graph still answers
-        seedless.** Make it aware of the thread's paper (and, in the
-        Knowledge Graph, of the open lesson). Carried from 5a; Patrick
-        confirmed it as a follow-up, 2026-10-09.
       - **The lessons' paper citations "feel a bit weird"** (Patrick,
         2026-10-09, at ship). Since paper nodes were dropped, a lesson cites
         the paper's real references as `[n]` markers that open that paper's
