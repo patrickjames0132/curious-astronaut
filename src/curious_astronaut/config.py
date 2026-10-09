@@ -498,6 +498,30 @@ class WebScoutExtras(ConfigModel):
     )
 
 
+class TutorExtras(ConfigModel):
+    """The tutor's knobs: how wide one expansion is, and how long a lesson runs.
+
+    The tutor writes the knowledge network (Phase 5b): it breaks a paper or a
+    concept into the prerequisites needed to understand it, and writes the
+    lesson for each one. Both knobs trade depth against the reader's time.
+    """
+
+    children: PositiveInt = Field(
+        default=6,
+        le=12,
+        description="Most prerequisites one expansion may list. The tutor names fewer "
+        "when fewer are genuinely needed. Wider trees are harder to work through as a "
+        "course, which is why this is capped at 12.",
+    )
+    lesson_words: PositiveInt = Field(
+        default=350,
+        ge=100,
+        le=1500,
+        description="Roughly how long a lesson runs, in words. A target the prompt "
+        "asks for, not a hard cap. Longer lessons cost more and take longer to stream.",
+    )
+
+
 #: Which typed knob model validates each agent's ``extras`` — the registry
 #: ``AgentConfig`` looks itself up in. An agent absent from here has no
 #: tunable knobs and must leave ``extras`` empty. Adding a knob means adding
@@ -508,6 +532,7 @@ AGENT_EXTRAS: dict[str, type[ConfigModel]] = {
     "researcher": ResearcherExtras,
     "paper_scout": PaperScoutExtras,
     "web_scout": WebScoutExtras,
+    "tutor": TutorExtras,
 }
 
 
@@ -911,7 +936,47 @@ def load_settings(path: Path | None = None) -> Config:
         raw = path.read_text()
     except FileNotFoundError:
         raise FileNotFoundError(f"config file {path} not found") from None
-    return Config.model_validate_json(raw)
+    settings = Config.model_validate_json(raw)
+    if path != EXAMPLE_CONFIG_PATH:
+        _add_missing_agents(settings)
+    return settings
+
+
+def _add_missing_agents(settings: Config) -> None:
+    """Give a config file every agent the template defines, in memory.
+
+    A ``config.json`` is copied from the template once and is never updated
+    after that, so an agent added in a later release (the tutor, v8.14.0) is
+    missing from every existing install. Without this, the feature using that
+    agent fails with "no agent in config.llm.agents" until the user edits a
+    file by hand, and an install from PyPI has no template diff to compare
+    against. The file itself is left untouched; the next save from the
+    settings modal writes the added entry out.
+
+    An added agent takes the **model the user already chose for its tier**:
+    the user's model for the first agent that shares the new agent's
+    template model. For the tutor that is the lecturer. A user who moved the
+    whole crew to Ollama therefore doesn't get one agent pointing at a vendor
+    they never configured.
+
+    Args:
+        settings: The freshly validated config; extended in place.
+    """
+    template = Config.model_validate_json(EXAMPLE_CONFIG_PATH.read_text(encoding="utf-8"))
+    have = {agent.id: agent for agent in settings.llm.agents}
+    for entry in template.llm.agents:
+        if entry.id in have:
+            continue
+        sibling = next(
+            (
+                have[other.id]
+                for other in template.llm.agents
+                if other.model == entry.model and other.id in have
+            ),
+            None,
+        )
+        model = sibling.model if sibling else entry.model
+        settings.llm.agents.append(entry.model_copy(update={"model": model}))
 
 
 config = load_settings()

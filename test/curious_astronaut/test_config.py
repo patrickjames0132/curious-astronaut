@@ -209,3 +209,51 @@ class TestAgentExtras:
     def test_knobs_on_an_agent_that_has_none_are_rejected(self):
         with pytest.raises(ValidationError, match="no tunable knobs"):
             Config.model_validate(self._with_extras("summarizer", {"max_steps": 3}))
+
+
+class TestMissingAgentsFromTemplate:
+    """An install's config.json predates agents added later (the tutor,
+    v8.14.0): loading fills them in from the template, on the user's tier."""
+
+    def _without_tutor(self, tmp_path, model: str):
+        """Write a config lacking the tutor, its whole crew on ``model``."""
+        cfg = example_config()
+        cfg["llm"]["agents"] = [entry for entry in cfg["llm"]["agents"] if entry["id"] != "tutor"]
+        for entry in cfg["llm"]["agents"]:
+            if entry["id"] == "lecturer":
+                entry["model"] = model
+        path = tmp_path / "user-config.json"
+        path.write_text(json.dumps(cfg))
+        return path
+
+    def test_tutor_is_added_on_the_lecturers_model(self, tmp_path):
+        from curious_astronaut.config import load_settings
+
+        loaded = load_settings(self._without_tutor(tmp_path, "anthropic:claude-opus-4-1"))
+        tutor = next(entry for entry in loaded.llm.agents if entry.id == "tutor")
+        # The template gives the tutor the lecturer's model, so it follows the
+        # user's choice for that tier rather than the template's default.
+        assert tutor.model == "anthropic:claude-opus-4-1"
+        assert tutor.extras == {"children": 6, "lesson_words": 350}
+
+    def test_the_file_itself_is_not_rewritten(self, tmp_path):
+        from curious_astronaut.config import load_settings
+
+        path = self._without_tutor(tmp_path, "anthropic:claude-sonnet-4-6")
+        before = path.read_text()
+        load_settings(path)
+        assert path.read_text() == before
+
+    def test_an_agent_already_present_is_left_alone(self, tmp_path):
+        from curious_astronaut.config import load_settings
+
+        cfg = example_config()
+        for entry in cfg["llm"]["agents"]:
+            if entry["id"] == "tutor":
+                entry["extras"] = {"children": 3, "lesson_words": 200}
+        path = tmp_path / "user-config.json"
+        path.write_text(json.dumps(cfg))
+        loaded = load_settings(path)
+        tutors = [entry for entry in loaded.llm.agents if entry.id == "tutor"]
+        assert len(tutors) == 1
+        assert tutors[0].extras == {"children": 3, "lesson_words": 200}

@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.13.0 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.14.0 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -93,16 +93,16 @@ optional, behind a key.
    to the map. Conversational, so you can go back and forth; questions that reach
    past the neighborhood expand the graph or pull that paper from S2 on demand.
 
-4. **Knowledge network — a short course on a paper's prerequisites** `[core]`
-   — a second tool beside the graph, on the same seed paper. The paper is the
-   root of a tree you expand one level at a time into **what you need to know
-   to understand it**: prerequisite *papers* (resolved against the seed's real
-   references, not invented) and *concepts*, each breakable further — DQN →
-   Q-learning → Bellman equations → … → eigenvectors, as deep as you care to
-   go. Check off what you already know and that branch is pruned; the
+4. **Knowledge Graph — a short course on a paper's prerequisites** `[core]`
+   — a second tool beside the Paper Graph, on the same seed paper. The paper
+   sits at the centre of a graph you grow one item at a time into **the ideas
+   you need to know to understand it**. Each concept can be broken down
+   further — DQN → Q-learning → Bellman equations → … → eigenvectors, as deep
+   as you care to go — and a concept two items need is one node. Check off
+   what you already know and that part of the course is skipped. The
    unchecked nodes, ordered prerequisites-first, are **the course**, with a
-   teacher-written lesson at each stop and, later, interactive visuals built
-   on the fly. *(Replaced the plain concept mindmap, 2026-10-06 — a mindmap
+   lesson at each stop that cites the paper's real references and, later,
+   interactive visuals built on the fly. *(Replaced the plain concept mindmap, 2026-10-06 — a mindmap
    over your own sources is NotebookLM's feature; this one answers a
    different question: not "what does the paper say" but "what do I need
    first".)*
@@ -758,6 +758,29 @@ than deleted so the plan doesn't get re-proposed.
       `CURRENT` has to move aside for the duration.
 
 ### UI & rendering polish
+
+- [ ] **Rethink the chat surfaces and threads: is "threads" the right
+      design?** — raised by Patrick at the v8.14.0 ship (2026-10-09):
+      *"we need to think about how to reorganize all these different chat
+      interfaces. It's kind of messy along with the threads."* **A design
+      question first, not a ticket to build.** Workshop it before touching
+      code. What exists today, which the workshop should start from:
+      - **Explorations → threads** (v7.22.0): each exploration has a
+        permanent General thread plus one thread per paper, and a thread owns
+        one transcript and one graph.
+      - **A paper thread has a card home and tools** (v8.13.0/v8.14.0): the
+        Paper Graph and the Knowledge Graph. The assistant docks beside
+        whichever is open, closed by default since v8.14.0.
+      - **Several conversational surfaces now overlap**: the General landing
+        chat, the docked assistant (Q&A, lectures, `@thread[…]` borrowing),
+        and the Knowledge Graph's lesson panel, which is a one-way chat with
+        the tutor. Lectures also live inside the transcript.
+      Questions to settle: is a thread per paper the right unit, now that a
+      paper has a home of its own? Should General and the paper threads stay
+      siblings in the rail? Should lessons and the assistant converge? Where
+      should a new chat start? Read `docs/history.md`'s v7.22.0 threads entry
+      first: it records why the "one thread, one graph" rule exists, and that
+      the softer alternatives recreated the same problem one level down.
 
 - [ ] **Draw the Curious Astronaut full-figure mascot properly** — the
       **helmet mark is done and usable** (favicon, app tile, dock) and nothing
@@ -1546,30 +1569,34 @@ than deleted so the plan doesn't get re-proposed.
       this order:
 
       **5a — Thread card home ✓, shipped in v8.13.0** — paper threads open
-      on a card home (Graph + a "Coming soon" Knowledge network card), and
-      the graph builds only when its card is opened. The full story is in
-      [docs/history.md](docs/history.md). One limit carried into 5b: **on
-      the cards, the assistant answers seedless, as General does**, because
-      there is no graph to ground in yet. 5b should make it aware of the
-      thread's paper.
+      on a card home (Paper Graph + Knowledge Graph cards, as since
+      renamed), and the graph builds only when its card is opened. The full
+      story is in [docs/history.md](docs/history.md).
 
-      **5b — Knowledge network v1.** The seed paper is the root of a tree.
-      Expanding a node is **one LLM call returning typed children** — *paper*
-      or *concept* — fetched lazily, a level at a time; paper children are
-      **resolved against the seed's real references** on the provider (DQN's
-      references already hold much of its chain: Q-learning, TD learning,
-      experience replay), concepts fill the gaps between. Opening a node
-      gives a teacher-written lesson in a detail panel. **"What you know" is
-      UI check-offs**: checking a node prunes its branch. The unchecked
-      nodes, ordered prerequisites-first, are **the course** — a "next
-      lesson" walk through them. Check-offs persist **per thread**, in the
-      saved thread record. Two design problems to solve inside the ticket:
-      prerequisites are a **DAG, not a tree** (eigenvectors sit under PCA
-      *and* policy iteration — render a tree but give a concept one
-      identity, so a repeat shows "covered above" and a check-off prunes it
-      everywhere; canonicalizing names is the real work), and **where
-      decomposition stops** (an LLM will happily recurse to set theory — the
-      check-offs are the floor).
+      **5b — Knowledge Graph ✓, shipped in v8.14.0** — a graph of the
+      *ideas* the paper rests on: the paper in gold, concepts in violet, one
+      "needs" arrow, double-click to break down, a lesson per node in a
+      side panel, check-offs, a course order and a 3D mode. It went through
+      three shapes in review (tree → graph with paper nodes → concepts only);
+      the full story is in [docs/history.md](docs/history.md).
+
+      **Follow-ups from 5b:**
+      - **The assistant on the cards and the Knowledge Graph still answers
+        seedless.** Make it aware of the thread's paper (and, in the
+        Knowledge Graph, of the open lesson). Carried from 5a; Patrick
+        confirmed it as a follow-up, 2026-10-09.
+      - **The lessons' paper citations "feel a bit weird"** (Patrick,
+        2026-10-09, at ship). Since paper nodes were dropped, a lesson cites
+        the paper's real references as `[n]` markers that open that paper's
+        thread. It is grounded, but the feel is off. Not yet diagnosed, so
+        workshop it before changing anything. Candidates: the bare numbers
+        read as footnotes to a reader who never saw a list; every lesson,
+        however deep, cites from the *root* paper's list, so a citation can
+        sit oddly far from the concept; and a click leaving the course for
+        another thread is a big jump. Options include named citations
+        ("Watkins & Dayan, 1992"), a "Further reading" footer instead of
+        inline markers, citing only where a reference is *about* the concept,
+        or no citations at all.
 
       **Later stages, deliberately out of v1:**
       - **A challenger agent** that asks probe questions to learn what the
@@ -1608,7 +1635,9 @@ than deleted so the plan doesn't get re-proposed.
       analysis. Nobody found combines **paper-grounded prerequisite nodes**,
       **a reader-shaped tree**, and **a citation graph beside it**. Patrick's
       framing: the end state may read as *MyLens + SpatialRead*, grounded in
-      the literature.
+      the literature. *(As shipped in v8.14.0 the nodes are concepts and the
+      paper grounding sits in the lessons' citations, but the combination
+      still holds.)*
 - [ ] **Phase 6 — Slides from the lecture** — a deck built by the existing
       agent crew from lecture beats + already-mined paper figures.
       *(Renumbered from the retired audio phase, 2026-08-16. Patrick,

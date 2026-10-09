@@ -67,20 +67,19 @@ function NetworkIcon() {
 const CARDS: ToolCard[] = [
   {
     tool: 'graph',
-    title: 'Graph',
+    title: 'Paper Graph',
     blurb:
-      'The papers it built on, the papers it spawned, and its nearest neighbours by ' +
-      'meaning — with a teacher to narrate how the field got here.',
+      'The papers it built on and the papers it spawned, with a teacher to narrate ' +
+      'how the field got here.',
     icon: <GraphIcon />,
   },
   {
     tool: 'knowledge',
-    title: 'Knowledge network',
+    title: 'Knowledge Graph',
     blurb:
-      'A short course on what you need to know first: the papers and concepts this one ' +
-      'rests on, broken down as far as you want to go.',
+      'A short course on what you need to know first: the ideas this paper rests on, ' +
+      'broken down as far as you want to go.',
     icon: <NetworkIcon />,
-    soon: true,
   },
 ]
 

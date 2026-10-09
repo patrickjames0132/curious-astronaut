@@ -67,6 +67,11 @@ function makeConfig(): AppConfig {
         // per configured agent, so a short fixture would under-test it.
         { id: 'paper_scout', model: 'anthropic:claude-haiku-4-5', extras: { searches: 4 } },
         { id: 'web_scout', model: 'anthropic:claude-haiku-4-5', extras: { max_uses: 2 } },
+        {
+          id: 'tutor',
+          model: 'anthropic:claude-sonnet-4-6',
+          extras: { children: 6, lesson_words: 350 },
+        },
       ],
     },
     untouched_section: { keep: 'me' },
@@ -365,7 +370,14 @@ describe('SettingsModal', () => {
   it('lists every configured agent, not just the ones with knobs', async () => {
     await renderOpen()
     openAgentTuning()
-    for (const agent of ['Summarizer', 'Lecturer', 'Researcher', 'Paper scout', 'Web scout']) {
+    for (const agent of [
+      'Summarizer',
+      'Lecturer',
+      'Researcher',
+      'Paper scout',
+      'Web scout',
+      'Tutor',
+    ]) {
       expect(await screen.findByText(agent)).toBeTruthy()
     }
   })
@@ -374,13 +386,13 @@ describe('SettingsModal', () => {
     await renderOpen()
     openAgentTuning()
     // Every configured agent shows a vendor select without any unfolding.
-    expect((await screen.findAllByLabelText('Vendor')).length).toBe(5)
+    expect((await screen.findAllByLabelText('Vendor')).length).toBe(6)
     expect(screen.getByDisplayValue('20')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /Researcher/ }))
     expect(screen.queryByDisplayValue('20')).toBeNull()
     // The other agents are untouched — folding is per group.
-    expect(screen.getAllByLabelText('Vendor').length).toBe(4)
+    expect(screen.getAllByLabelText('Vendor').length).toBe(5)
   })
 
   it('the Anthropic key edits llm.providers', async () => {
@@ -420,13 +432,13 @@ describe('SettingsModal', () => {
     fireEvent.change(keyField, { target: { value: 'sk-test' } })
     // The picks are spelled out in the tooltip before pressing.
     expect(buttons[3].getAttribute('title')).toMatch(
-      /qwen3:8b for the lecturer and researcher; llama3.2:1b for/,
+      /qwen3:8b for the lecturer, researcher and tutor; llama3.2:1b for/,
     )
     fireEvent.click(buttons[3]) // Ollama's — the groups follow VENDOR_LABELS order
     // The modal moves to Agent Settings — the per-agent Vendor selects only
     // render there — where every agent now shows the new vendor.
     const vendors = (await screen.findAllByLabelText('Vendor')) as HTMLSelectElement[]
-    expect(vendors.length).toBe(5)
+    expect(vendors.length).toBe(6)
     expect(new Set(vendors.map((select) => select.value))).toEqual(new Set(['ollama']))
     fireEvent.click(await screen.findByText('Save'))
     await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
@@ -434,6 +446,7 @@ describe('SettingsModal', () => {
     const model = (id: string) => body.config.llm.agents.find((agent) => agent.id === id)?.model
     expect(model('lecturer')).toBe('ollama:qwen3:8b')
     expect(model('researcher')).toBe('ollama:qwen3:8b')
+    expect(model('tutor')).toBe('ollama:qwen3:8b')
     expect(model('summarizer')).toBe('ollama:llama3.2:1b')
     expect(model('paper_scout')).toBe('ollama:llama3.2:1b')
     expect(model('web_scout')).toBe('ollama:llama3.2:1b')

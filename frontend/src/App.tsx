@@ -11,7 +11,8 @@
  * the assistant is the landing surface (a centred chat, the app's front door)
  * and the overlays get their own layer over the body. A paper thread shows
  * either its **card home** (`tools/ToolCards`) or the tool a card opened —
- * today the graph explorer — and in both the assistant docks beside it. The
+ * the graph explorer or the knowledge network — and the assistant docks
+ * beside whichever is up. The
  * `Teacher` element stays at one position in the tree across all three.
  * Thread navigation remounts the graph and chat with distinct keys; their
  * durable state lives in the store.
@@ -38,13 +39,16 @@ import './shell/shell.css'
 
 /** localStorage key remembering whether the left rail is expanded. */
 const RAIL_KEY = 'ca.railOpen'
+/** localStorage key remembering whether the docked assistant is open. */
+const ASSISTANT_KEY = 'ca.assistantOpen'
 import GraphExplorer from './graph/GraphExplorer'
 import Teacher from './teacher/Teacher'
 import Sources from './library/Sources'
 import SettingsModal from './settings/SettingsModal'
 import Tour from './tour/Tour'
-import { CARDS_TOUR, GRAPH_TOUR, HOME_TOUR, TOUR_KEYS } from './tour/steps'
+import { CARDS_TOUR, GRAPH_TOUR, HOME_TOUR, KNOWLEDGE_TOUR, TOUR_KEYS } from './tour/steps'
 import ToolCards from './tools/ToolCards'
+import KnowledgeNetwork from './knowledge/KnowledgeNetwork'
 import './app.css'
 
 /**
@@ -68,6 +72,19 @@ export default function App() {
   const paperThread = tool !== null
   const showGraph = !!graph && tool === 'graph'
 
+  // Moving between a paper's cards and one of its tools reads as a scroll:
+  // the cards come down from above, a tool comes up from below. Only within
+  // one thread — arriving at a thread from the rail keeps its plain fade.
+  // Derived during render (the previous surface held in state), so the class
+  // is on the very first frame of the new surface.
+  const [lastSurface, setLastSurface] = useState({ threadId: activeThread?.id, tool })
+  const [scroll, setScroll] = useState<'up' | 'down' | null>(null)
+  if (lastSurface.threadId !== activeThread?.id || lastSurface.tool !== tool) {
+    const sameThread = lastSurface.threadId === activeThread?.id
+    setLastSurface({ threadId: activeThread?.id, tool })
+    setScroll(sameThread && lastSurface.tool && tool ? (tool === 'cards' ? 'up' : 'down') : null)
+  }
+
   // Modal visibility + the assistant toggle — shell-local UI. Both modals sit
   // over a workspace that stays MOUNTED — the graph and the conversation are
   // expensive, live state, and a visit to either is a detour, not a teardown
@@ -78,12 +95,15 @@ export default function App() {
   const [railOpen, setRailOpen] = useState(() => localStorage.getItem(RAIL_KEY) !== '0')
   const [showSettings, setShowSettings] = useState(false)
   const theme = useTheme()
-  // Open by default, because the assistant is now where you start: the
-  // landing chat is always on screen, and entering graph mode should dock the
-  // conversation beside the map rather than hide it. (It can't be derived from
-  // `epoch` any more — that stopped bumping on graph loads in v6.11.0 so the
-  // panel survives a chat-seeded jump, which would leave this stuck closed.)
-  const [assistantOpen, setAssistantOpen] = useState(true)
+  // Whether the assistant docks open beside a paper thread's cards and tools.
+  // **Closed by default, and remembered** like the rail (Patrick, 2026-10-09:
+  // it should stay hidden until asked for — a docked chat beside a canvas is
+  // clutter until it is wanted). It used to default open, back when entering
+  // graph mode was the only way past the landing chat. General is unaffected:
+  // there the assistant is the landing surface and never collapses.
+  const [assistantOpen, setAssistantOpen] = useState(
+    () => localStorage.getItem(ASSISTANT_KEY) === '1',
+  )
   // Latest graph, readable from the mount-only effect below without making it
   // a dependency (that would re-fire the settings fetch on every graph load).
   const graphRef = useRef(graph)
@@ -156,22 +176,30 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
   }, [])
 
-  // Re-surface the teacher on a session restore, in case it was collapsed
-  // before. A graph *load* no longer bumps the epoch (v6.11.0), which is fine:
-  // the panel defaults open and a load never closes it.
-  useEffect(() => {
-    if (epoch > 0 && graph) setAssistantOpen(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [epoch])
+  // The assistant stays as the reader left it across thread and exploration
+  // switches. Until v8.14.0 every switch (each bumps the epoch) re-opened a
+  // collapsed panel, so clicking a thread in the rail kept popping it back
+  // open (Patrick, 2026-10-09). It opens only on its own button or a tour stop.
 
-  // The guided tour, in three phases keyed by what's on screen: the HOME
+  // The guided tour, in four phases keyed by what's on screen: the HOME
   // tour (the search surface) auto-runs once on first launch, the CARDS tour
   // on the first card home, the GRAPH tour (the graph tools) on the first
-  // graph. Each phase auto-runs once ever (its own localStorage flag); the
+  // graph, the KNOWLEDGE tour on the first course. Each phase auto-runs once ever (its own localStorage flag); the
   // header's "?" re-runs the current phase any time.
   const hasGraph = showGraph && graph.nodes.length > 0
-  const tourPhase = hasGraph ? 'graph' : tool === 'cards' ? 'cards' : 'home'
-  const tourSteps = { graph: GRAPH_TOUR, cards: CARDS_TOUR, home: HOME_TOUR }[tourPhase]
+  const tourPhase = hasGraph
+    ? 'graph'
+    : tool === 'cards'
+      ? 'cards'
+      : tool === 'knowledge'
+        ? 'knowledge'
+        : 'home'
+  const tourSteps = {
+    graph: GRAPH_TOUR,
+    cards: CARDS_TOUR,
+    knowledge: KNOWLEDGE_TOUR,
+    home: HOME_TOUR,
+  }[tourPhase]
   const [tourOpen, setTourOpen] = useState(false)
   const [tourStage, setTourStage] = useState<string | undefined>(undefined)
   useEffect(() => {
@@ -204,6 +232,9 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(RAIL_KEY, railOpen ? '1' : '0')
   }, [railOpen])
+  useEffect(() => {
+    localStorage.setItem(ASSISTANT_KEY, assistantOpen ? '1' : '0')
+  }, [assistantOpen])
 
   // The saved-graph list in the rail, and which of them is on screen. The id
   // is tracked here rather than in the store because it is a fact about this
@@ -253,10 +284,18 @@ export default function App() {
           className="tool-back"
           data-tour="tool-back"
           onClick={() => void dispatch(openTool('cards'))}
-          title="Back to this paper’s cards"
+          title={`Back up to the cards for ${activeThread?.title ?? 'this paper'}`}
+          aria-label="Back to this paper’s cards"
         >
-          <span aria-hidden="true">‹</span>
-          <span className="tool-back-title">{activeThread?.title}</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M8 13V3M3.5 7.5 8 3l4.5 4.5"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
       )}
       {(loading || openRequestId || error) && <div className="canvas-scrim" />}
@@ -352,20 +391,36 @@ export default function App() {
               graph mode, over the card home, over the landing chat in General.
               A graph tool still building has nothing to draw yet, so the
               overlays get an empty pane of their own. */}
-          {showGraph ? (
-            <GraphExplorer key={`graph:${epoch}`} tourStage={tourOpen ? tourStage : undefined}>
-              {overlays}
-            </GraphExplorer>
-          ) : tool === 'cards' && activeThread ? (
-            <ToolCards
-              key={`cards:${epoch}`}
-              thread={activeThread}
-              onOpen={(next) => void dispatch(openTool(next))}
+          {paperThread ? (
+            <div
+              key={`surface:${activeThread?.id}:${tool}`}
+              className={`tool-surface${scroll ? ` scroll-${scroll}` : ''}`}
+              // Played once: a surface that later swaps its own content (a
+              // graph arriving after its build) mustn't scroll in again.
+              onAnimationEnd={(event) => {
+                if (event.target === event.currentTarget) setScroll(null)
+              }}
             >
-              {overlays}
-            </ToolCards>
-          ) : paperThread ? (
-            <div className="tool-pending">{overlays}</div>
+              {showGraph ? (
+                <GraphExplorer key={`graph:${epoch}`} tourStage={tourOpen ? tourStage : undefined}>
+                  {overlays}
+                </GraphExplorer>
+              ) : tool === 'cards' && activeThread ? (
+                <ToolCards
+                  key={`cards:${epoch}`}
+                  thread={activeThread}
+                  onOpen={(next) => void dispatch(openTool(next))}
+                >
+                  {overlays}
+                </ToolCards>
+              ) : tool === 'knowledge' && activeThread ? (
+                <KnowledgeNetwork key={`knowledge:${epoch}`} thread={activeThread}>
+                  {overlays}
+                </KnowledgeNetwork>
+              ) : (
+                <div className="tool-pending">{overlays}</div>
+              )}
+            </div>
           ) : (
             <div className="landing-overlays">{overlays}</div>
           )}

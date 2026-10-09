@@ -32,9 +32,10 @@
   display: flex;
   min-height: 0;
   /* A docked panel sliding out goes past the right edge (panel-out, in
-     index.css). `clip`, not `hidden`, and on x only: it is not a scroll
-     container, and nothing that overflows vertically is affected. */
-  overflow-x: clip;
+     index.css), and a paper's tool surface scrolls in from above or below
+     (.tool-surface, tools/tools.css). `clip`, not `hidden`: it is not a
+     scroll container, so nothing inside can scroll it by accident. */
+  overflow: clip;
 }
 /* Before a graph exists there's no canvas to float the search hits and build
    progress over, so they get their own layer across the body. Zero-width and

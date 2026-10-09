@@ -23,10 +23,11 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
 │                                   the chat bar is the app's only text input
 ├─ Library modal (📚)              library/Sources.tsx
 ├─ Settings modal (⚙)             settings/SettingsModal.tsx (config-file editor)
-├─ guided tour overlay (?)         tour/Tour.tsx (three phases in tour/steps.ts —
+├─ guided tour overlay (?)         tour/Tour.tsx (four phases in tour/steps.ts —
 │                                   search on first launch, a paper's cards on
 │                                   the first one, graph tools on the first
-│                                   graph; each auto-runs once)
+│                                   graph, the course on the first one; each
+│                                   auto-runs once)
 └─ body                            three states: in General the assistant IS
    │                                 the body (a centred landing chat) and the
    │                                 overlays get their own layer; a paper
@@ -36,10 +37,17 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 across all three, so the switch never
    │                                 remounts it — see teacher/README.md.
    ├─ card home (paper threads)    tools/ToolCards.tsx — the paper, then a
-   │                                 card per tool (Graph; Knowledge network
-   │                                 coming in Phase 5b)
+   │                                 card per tool (Paper Graph, Knowledge Graph)
+   ├─ knowledge network            knowledge/KnowledgeNetwork.tsx — a short
+   │  │                              course on the paper's prerequisites
+   │  ├─ controls (folded)         knowledge/KnowledgeControls.tsx (progress,
+   │  │                              next lesson, 2D / 3D, labels, fit)
+   │  ├─ the graph                 knowledge/KnowledgeGraph.tsx, or
+   │  │                              KnowledgeGraph3D.tsx (lazy-loaded)
+   │  ├─ legend                    knowledge/KnowledgeLegend.tsx
+   │  └─ lesson panel (on click)   knowledge/KnowledgePanel.tsx
    ├─ graph area                   graph/GraphExplorer.tsx
-   │  ├─ overlays (from the shell): loading / error, and the ‹ pill back to
+   │  ├─ overlays (from the shell): loading / error, and the ↑ back up to
    │  │                              the paper's cards  (App.tsx)
    │  ├─ controls panel (folded)   graph/controls/GraphControls.tsx
    │  ├─ find control (🔍 → pill)  graph/controls/FindBar.tsx

@@ -325,6 +325,7 @@ agents/
     lecturer/          ← an agent: main.py, config.py, README.md
     researcher/        ← an agent: main.py, tools.py, config.py, README.md
     summarizer/        ← an agent: main.py, config.py, README.md
+    tutor/             ← an agent: main.py, config.py, README.md
   workers/           ← tier 2: one source each, one question each
     search/            ← workers that go and look something up (README.md)
       papers/            ← an agent: main.py, config.py (the provider search)

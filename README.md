@@ -11,11 +11,14 @@ the graph on it and keep exploring.
 
 Each **exploration** contains a permanent **General** discussion and a thread
 for each paper. A paper thread opens on its **card home**: the paper (title,
-authors, TL;DR) and a card for each tool that works on it. Today that is the
-**Graph**, with a **Knowledge network** on the way. The graph builds only when
-you open its card, and the thread remembers the tool you were using, so
-switching threads brings back that view and its conversation. Paper citations
-highlight the current graph; graph icons open or resume that paper's thread
+authors, TL;DR) and a card for each tool that works on it: the **Paper Graph**
+and the **Knowledge Graph**. The Paper Graph builds only when you open its card, and the thread remembers the tool you were using, so
+switching threads brings back that view and its conversation. The
+**Knowledge Graph** is a short course on the ideas a paper rests on: the paper
+at the centre, the concepts it needs around it. Double-click any concept to
+break it down further, click one for a lesson written for this course (citing
+the paper's real references), and tick off what you already know. There's a
+3D mode too. Paper citations highlight the current graph; graph icons open or resume that paper's thread
 directly (onto its graph if you're on one, onto its cards otherwise). Type **@** and pick another discussion from the suggestions to
 bring it into the agent's context. Lectures remain part of their thread's history, including follow-up
 questions after a reload. Existing saved sessions migrate lazily when opened.

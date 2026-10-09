@@ -3374,6 +3374,106 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **Knowledge Graph — Phase 5b** *(v8.14.0)* — the second card on a
+      paper's home: **a short course on the ideas a paper rests on, drawn as a
+      graph**. The paper sits in gold at the centre; double-clicking any node
+      breaks it down into the **concepts** it needs (violet), and a concept
+      two items need is one node with two "needs" arrows into it. Clicking a
+      node opens a side panel with why the course needs it, what it needs in
+      turn, and a **lesson** written by a new **tutor** agent. The lesson
+      streams the first time and is kept after that, citing the paper's real
+      references as `[n]` links that open that paper's thread. "I know this"
+      check-offs prune the course, **Next lesson** walks it
+      prerequisites-first with the paper last, and a **3D mode** flies
+      through it "just for kicks" (Patrick). Built 2026-10-08/09.
+
+      **It took three shapes, each set by Patrick's browser review:**
+      1. **A syllabus tree**, as the ticket was filed: an indented outline with
+         a lesson pane, paper and concept children, and a "covered above" stub
+         for a repeat. Patrick: *"I was hoping for a bit more of a visual and
+         interactive knowledge graph network instead of a tree … there would
+         be no hierarchy … all edges would simply point to that node."*
+      2. **A force graph with paper and concept nodes** (react-force-graph-2d,
+         as the Paper Graph uses), with the lesson in a side panel and 3D
+         added on request. It was cluttered: a course bar overlapping the way
+         back, labels everywhere, and a long title pill.
+      3. **Concepts only, cleaned up.** Asked whether the graph needs paper
+         nodes at all, Patrick and Claude agreed it doesn't. A paper bundles
+         several ideas and sits at a different level from "Bellman
+         equations", and the model knows foundational concepts well; where it
+         goes wrong is inventing *papers*. So the paper's real reference list
+         now **informs the paper's own breakdown** and is the **only thing a
+         lesson may cite, by number**. Citations resolve server-side to the
+         real paper, in range only, so an unknown paper can't appear. Patrick
+         chose the simplest type set: the paper, concept, one "needs" edge.
+
+      **How it works.** The `tutor` agent (`agents/orchestrators/tutor`) has
+      two jobs on one agent id. `expand` is one structured call returning
+      `{name, why}` concepts, with cycles and repeats dropped and capped at
+      the `children` knob. `lesson` streams `Token`s and then `PaperRefs`.
+      `routes/knowledge.py` fetches up to 40 references through the day-cached
+      traversal and caches expansions and lessons **permanently**, keyed on
+      the path and the knobs, so re-opening a course costs nothing. The
+      frontend (`src/knowledge/`) keeps the course on the thread
+      (`ThreadRecord.knowledge`, versioned): node id = normalised name, edges
+      carry the tutor's `why`, a loop-closing edge is dropped, the context for
+      a node is its shortest route from the paper, and teaching order is a
+      post-order walk where a known node prunes what it needs. Lessons are
+      never aborted by moving on and are tracked app-wide, so a remount
+      doesn't start one twice. 3D is `React.lazy`, so three.js (347 KB gzip)
+      only downloads when the switch is flipped.
+
+      **Settings and upgrades.** Agent Settings gains a **Tutor** group
+      (model, "Prerequisites per step", "Lesson length"); the tutor sits on
+      the lecturer's tier for "Apply Default Models". Because an installed
+      `config.json` is copied from the template once and never updated,
+      `load_settings` now **adds any agent the template defines but the file
+      lacks**, in memory, on the model the user already chose for that tier.
+      Without this, the feature would fail on every existing PyPI install.
+
+      **Shipped alongside, from the same review:**
+      - The cards are renamed **Paper Graph** and **Knowledge Graph**, and the
+        Paper Graph card no longer claims "nearest neighbours" (similarity
+        edges went in v7.5.0).
+      - The way back to the cards is an **↑ button**, not a title pill, and a
+        paper's cards and tools **scroll** past each other (the cards from
+        above, a tool from below) within a thread. `.shell-body` now clips on
+        both axes.
+      - The Knowledge Graph's controls fold into the **same sliders button as
+        the Paper Graph's** (`ui/SlidersGlyph`). It has a **legend**, labels
+        default to the neighbourhood in focus, and known nodes wear a
+        **green ✓**.
+      - **The docked assistant is closed by default and remembered**, and no
+        longer reopens on every thread switch: it was clutter beside a canvas
+        until asked for (Patrick).
+      - A KNOWLEDGE_TOUR phase, and revised cards and graph tour stops.
+
+      **Left open:** the assistant still answers seedless beside the cards and
+      the Knowledge Graph, and the lessons' citations "feel a bit weird"
+      (Patrick, at ship). Both are filed under Phase 5's follow-ups. Patrick
+      also raised rethinking the chat surfaces and threads as a whole (UI &
+      rendering polish).
+
+      The ticket as filed:
+
+      **5b — Knowledge network v1.** The seed paper is the root of a tree.
+      Expanding a node is **one LLM call returning typed children** — *paper*
+      or *concept* — fetched lazily, a level at a time; paper children are
+      **resolved against the seed's real references** on the provider (DQN's
+      references already hold much of its chain: Q-learning, TD learning,
+      experience replay), concepts fill the gaps between. Opening a node
+      gives a teacher-written lesson in a detail panel. **"What you know" is
+      UI check-offs**: checking a node prunes its branch. The unchecked
+      nodes, ordered prerequisites-first, are **the course** — a "next
+      lesson" walk through them. Check-offs persist **per thread**, in the
+      saved thread record. Two design problems to solve inside the ticket:
+      prerequisites are a **DAG, not a tree** (eigenvectors sit under PCA
+      *and* policy iteration — render a tree but give a concept one
+      identity, so a repeat shows "covered above" and a check-off prunes it
+      everywhere; canonicalizing names is the real work), and **where
+      decomposition stops** (an LLM will happily recurse to set theory — the
+      check-offs are the floor).
+
 - [x] **Thread card home — Phase 5a** *(v8.13.0)* — a graph thread becomes a
       **paper thread** that opens on a **card home** styled after Google AI
       Studio's agent gallery: the paper at the top (title, authors, year,

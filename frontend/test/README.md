@@ -69,9 +69,16 @@ test/
     transcript/remarkCite.test.ts — [n] markers → citeref nodes, on mdast
     transcript/AnswerMarkdown.test.tsx — clickable `[n]` chips, end to end
     transcript/provenance.test.ts — the grounding line's honest cases
+  knowledge/
+    model.test.ts             — the course rules: identity, shared
+                                prerequisites, loops, routes, teaching
+                                order, pruning, next lesson
+    KnowledgeNetwork.test.tsx — the tool end to end over a real store, with
+                                the tutor's calls stubbed and the canvas
+                                swapped for node buttons
   tools/
-    ToolCards.test.tsx        — the card home's paper header, the coming-soon
-                                card, and the one-time paper fetch
+    ToolCards.test.tsx        — the card home's paper header, both cards,
+                                and the one-time paper fetch
   tour/
     Tour.test.tsx             — step walking, absent-target skipping, the
                                 three ways out

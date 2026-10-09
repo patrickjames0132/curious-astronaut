@@ -9,23 +9,45 @@ gallery of launchers: an icon tile, a title and a one-line description.
 ```
 tools/
   ToolCards.tsx — the home: paper header + cards; fetches a missing paper once
-  tools.css     — the home, the cards, and `.tool-back`, the ‹ pill a tool
-                  shows to get back here (rendered by App.tsx's overlays)
+  tools.css     — the home, the cards, `.tool-back` (the ↑ a tool shows to
+                  get back here, rendered by App.tsx's overlays), and
+                  `.tool-surface`'s scroll between the cards and a tool
 ```
 
 ## The cards
 
-- **Graph** opens today's explorer.
-- **Knowledge network** is shown disabled with a "Coming soon" badge until
-  Phase 5b lands it: a short course on the paper's prerequisites (see the
-  OnePager).
+Named **Paper Graph** and **Knowledge Graph** since 5b's review (Patrick,
+2026-10-09): papers on one card, ideas on the other. The code keeps its
+internal names (`GraphExplorer`, `knowledge/KnowledgeNetwork`).
+
+- **Paper Graph** opens today's explorer.
+- **Knowledge Graph** opens `knowledge/KnowledgeNetwork`, a short course
+  on the paper's prerequisites (Phase 5b, v8.14.0). Until then it was shown
+  disabled under a "Coming soon" badge; the `soon` flag on `ToolCard` is still
+  there for the next tool.
 
 Opening a card dispatches `openTool` (`store/workspace.ts`). The thread then
 remembers its tool, so revisiting the thread reopens the tool rather than these
-cards. The ‹ pill at the top of a tool returns here, and the graph stays built
-in memory, so going back to it is free. **Nothing is built until a card is
+cards. The ↑ at the top of a tool returns here, and the graph stays built in
+memory, so going back to it is free. It was a pill bearing the paper's title
+until 5b's review: titles run long, and "up" is where the cards are. **Nothing is built until a card is
 opened.** The page exists so that opening a paper costs one lookup, not a graph
 build.
+
+## The scroll between the cards and a tool
+
+The cards sit "above" the tools. Going back up, the cards come down from the
+top; opening a tool, it comes up from below (`.tool-surface.scroll-up` /
+`scroll-down`, `--motion-scroll`). `App.tsx` wraps a paper thread's surface in
+a `.tool-surface` keyed by thread and tool. It works out the direction during
+render by comparing with the previous surface, so the class is there on the
+first frame, and only **within one thread**: arriving at a thread from the
+rail keeps the plain fade. The class clears on its own `animationend`, so a
+surface that swaps its content later (a graph arriving after its build) doesn't
+scroll in twice. `.shell-body` is `overflow: clip` on both axes so the
+off-screen half of the move never shows a scrollbar. Only the arriving surface
+moves; the leaving one is already unmounted, because keeping a live graph
+mounted through the move would cost more than the effect is worth.
 
 ## Decisions worth knowing
 
@@ -42,7 +64,7 @@ build.
 
 ## Verified by
 
-`test/tools/ToolCards.test.tsx` covers the header, the disabled card and the
+`test/tools/ToolCards.test.tsx` covers the header, both cards and the
 one-time fetch. `test/store/threads.test.ts` ("card home") covers the
 navigation underneath: opening onto cards without a build, building in place
 without a twin thread, resuming on the last tool, and saving `tool`/`paper`.

@@ -125,27 +125,26 @@
   line-height: 1.55;
 }
 
-/* The way back from a tool to its paper's cards: a pill at the top-centre of
-   the canvas — the one edge the graph's own controls leave free (controls
-   top-left, the assistant toggle top-right, find and legend along the
-   bottom). */
+/* The way back from a tool to its paper's cards: an up arrow at the
+   top-centre of the canvas — the one edge the canvases' own controls leave
+   free (controls top-left, the assistant toggle top-right, find and legend
+   along the bottom). An arrow rather than the paper's title: titles run
+   long, and "up" is where the cards are (the surfaces scroll, below). */
 .tool-back {
   position: absolute;
   top: 14px;
   left: 50%;
   z-index: 5;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: min(420px, calc(100% - 140px));
-  padding: 6px 12px 6px 9px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--panel-float);
   box-shadow: 0 4px 14px var(--shadow);
   color: var(--text);
-  font: inherit;
-  font-size: 13px;
   cursor: pointer;
   transform: translateX(-50%);
 }
@@ -153,10 +152,38 @@
   border-color: var(--accent);
   color: var(--text-strong);
 }
-.tool-back-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+
+/* A paper thread's surface — its cards or a tool — and the scroll between
+   them. The cards sit "above" the tools: going back up brings them down from
+   the top, opening a tool brings it up from below. Within one thread only
+   (App.tsx); .shell-body clips the overflow. */
+.tool-surface {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+.tool-surface.scroll-up {
+  animation: surface-from-above var(--motion-scroll) var(--ease-rise) both;
+}
+.tool-surface.scroll-down {
+  animation: surface-from-below var(--motion-scroll) var(--ease-rise) both;
+}
+@keyframes surface-from-above {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes surface-from-below {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
 }
 
 @media (max-width: 640px) {
@@ -166,7 +193,9 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .tool-home,
-  .tool-card {
+  .tool-card,
+  .tool-surface.scroll-up,
+  .tool-surface.scroll-down {
     animation: none;
     transition: none;
   }

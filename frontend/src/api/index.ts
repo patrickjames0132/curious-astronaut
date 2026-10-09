@@ -22,6 +22,7 @@
 export * from './search'
 export * from './mentions'
 export * from './graph'
+export * from './knowledge'
 export * from './agents'
 export * from './sources'
 export * from './sessions'
