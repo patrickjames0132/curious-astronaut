@@ -4,7 +4,7 @@
  * Description:
  * The folded controls' icon: three slider tracks, each knob at a different
  * point — "settings you can tune", in the shape every app uses for it. Shared
- * by the paper graph's controls and the knowledge graph's (v8.14.0), so the
+ * by the citation graph's controls and the knowledge graph's (v8.14.0), so the
  * two corner buttons that unfold a canvas's controls are the same button.
  *
  * Authors:

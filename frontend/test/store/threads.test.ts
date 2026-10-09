@@ -10,6 +10,7 @@ import workspace, {
   loadGraph,
   nodeSelectionSet,
   openPaper,
+  openThread,
   openTool,
   seedPaper,
 } from '../../src/store/workspace'
@@ -155,6 +156,29 @@ describe('card home', () => {
     await store.dispatch(openPaper({ seed: 'DQN' }))
     expect(activeThread(store).id).toBe(cards)
     expect(api.fetchPaperDetail).not.toHaveBeenCalled()
+  })
+  it('opens a thread from the rail onto its cards, without rebuilding its graph', async () => {
+    const store = makeStore()
+    const general = activeThread(store).id
+    await store.dispatch(loadGraph({ seed: 'PPO' }))
+    const graphThread = activeThread(store).id
+    expect(threadTool(activeThread(store))).toBe('graph')
+    await store.dispatch(activateThread(general))
+    vi.mocked(api.fetchGraphStream).mockClear()
+    await store.dispatch(openThread(graphThread))
+    expect(activeThread(store).id).toBe(graphThread)
+    expect(threadTool(activeThread(store))).toBe('cards')
+    expect(api.fetchGraphStream).not.toHaveBeenCalled()
+    // The graph it rested on is still in memory: its card reopens it as it was.
+    await store.dispatch(openTool('graph'))
+    expect(store.getState().workspace.graph?.seed.id).toBe('PPO')
+    expect(api.fetchGraphStream).not.toHaveBeenCalled()
+    // Clicking the thread already on screen goes back up to its cards too.
+    await store.dispatch(openThread(graphThread))
+    expect(threadTool(activeThread(store))).toBe('cards')
+    // General has no cards; opening it is a plain switch.
+    await store.dispatch(openThread(general))
+    expect(threadTool(activeThread(store))).toBeNull()
   })
   it('never parks an in-flight paper open with the thread it left', async () => {
     // The lookup is still running when the new thread takes over, so the

@@ -79,7 +79,7 @@ it('heads the page with the paper and opens the graph card', () => {
   expect(screen.getByRole('heading', { name: /Playing Atari/ })).toBeTruthy()
   expect(screen.getByText('Mnih, Kavukcuoglu, Silver · 2013')).toBeTruthy()
   expect(screen.getByText('Q-learning from pixels.')).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: /Paper Graph/ }))
+  fireEvent.click(screen.getByRole('button', { name: /Citation Graph/ }))
   expect(onOpen).toHaveBeenCalledWith('graph')
   expect(fetch).not.toHaveBeenCalled()
 })

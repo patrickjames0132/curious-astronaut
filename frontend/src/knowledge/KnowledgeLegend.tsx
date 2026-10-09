@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The knowledge graph's legend, bottom-left like the paper graph's (and on
+ * The knowledge graph's legend, bottom-left like the citation graph's (and on
  * its `.legend` styles): the two kinds of node, the one kind of edge, and
  * the three states a node can be in.
  *

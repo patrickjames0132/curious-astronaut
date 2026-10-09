@@ -98,6 +98,34 @@ describe('exploration persistence', () => {
     expect(saved.every((body) => body.id === id)).toBe(true)
     expect(api.titleForConversation).toHaveBeenCalledTimes(1)
   })
+  it('re-summarizes a title from every question asked, and keeps the name on a null', async () => {
+    vi.spyOn(api, 'renameSession').mockResolvedValue(true as never)
+    const { result, store } = setup()
+    act(() => {
+      store.dispatch(turnStarted('Why attention?'))
+      store.dispatch(turnCompleted())
+      store.dispatch(turnStarted('And why multiple heads?'))
+      store.dispatch(turnCompleted())
+    })
+    await tick()
+    const id = store.getState().explorations.activeId
+    vi.mocked(api.titleForConversation).mockResolvedValueOnce('Attention heads')
+    await act(async () => {
+      await result.current.resummarize(id)
+    })
+    expect(api.titleForConversation).toHaveBeenLastCalledWith([
+      'Why attention?',
+      'And why multiple heads?',
+    ])
+    expect(store.getState().explorations.byId[id].title).toBe('Attention heads')
+    expect(api.renameSession).toHaveBeenCalledWith(id, 'Attention heads')
+
+    vi.mocked(api.titleForConversation).mockResolvedValueOnce(null)
+    await act(async () => {
+      await result.current.resummarize(id)
+    })
+    expect(store.getState().explorations.byId[id].title).toBe('Attention heads')
+  })
   it('saves without awaiting a stalled titler, including at pagehide', async () => {
     vi.mocked(api.titleForConversation).mockImplementation(() => new Promise(() => {}))
     const { store } = setup()

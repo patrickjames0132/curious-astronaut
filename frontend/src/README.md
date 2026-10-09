@@ -33,12 +33,12 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 overlays get their own layer; a paper
    │                                 thread shows its card home or the tool a
    │                                 card opened; the assistant docks beside
-   │                                 the Paper Graph only (hidden elsewhere).
+   │                                 the Citation Graph only (hidden elsewhere).
    │                                 Teacher stays at one position in the tree
    │                                 across all three, so the switch never
    │                                 remounts it — see teacher/README.md.
    ├─ card home (paper threads)    tools/ToolCards.tsx — the paper, then a
-   │                                 card per tool (Paper Graph, Knowledge Graph)
+   │                                 card per tool (Citation Graph, Knowledge Graph)
    ├─ knowledge network            knowledge/KnowledgeNetwork.tsx — a short
    │  │                              course on the paper's prerequisites
    │  ├─ controls (folded)         knowledge/KnowledgeControls.tsx (progress,

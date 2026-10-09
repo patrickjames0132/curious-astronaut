@@ -45,6 +45,15 @@ overlays).
   this component: `App.tsx` watches the store (the switch via a `useBuildShape`
   effect, the numbers via a `sameBuild` comparison on close), so the modal stays
   a settings editor that knows nothing about the graph.
+- **API keys are masked like passwords** (`SecretInput`, v8.16.0): the S2,
+  OpenAlex, Anthropic, OpenAI and Google key fields are `type="password"`
+  with `autocomplete="new-password"`, so a key isn't on show during a
+  screenshare and the browser neither autofills a saved login into one nor
+  offers to save the key. An **eye button** flush inside the field's right
+  edge reveals it in plain text (to check a paste) and hides it again; it
+  isn't remembered, so a key is masked whenever the modal opens. It is display-only: the draft, the PUT and
+  `config.json` all hold the plain value. Ollama's base URL is not a secret
+  and stays plain text.
 - **`adaptive` is a switch, not a checkbox** (`.settings-switch`) — a real
   checkbox stays in the markup for keyboard and screen readers, visually hidden,
   with the track and knob painted from `:checked` / `:focus-visible`.

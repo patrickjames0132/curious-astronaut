@@ -435,7 +435,6 @@ than deleted so the plan doesn't get re-proposed.
       rather than model recall. Probably wants the result grounded as
       highlightable node lists too. *(From the `todos.md` inbox, 2026-07-18.)*
 
-
 - [ ] **Scope a thread to its own set of library sources** — today the
       source scope is one global set, and the scope filter will get unwieldy
       as the library grows. Let a thread pin a subset of sources, picked from
@@ -1232,36 +1231,18 @@ than deleted so the plan doesn't get re-proposed.
       are navigation labels — they have to read well out of context, in a
       list, not just above their own card.
 
-- [ ] **Rename the Paper Graph to the "Citation Graph"** — on the card, the
-      tour, the tooltips and the READMEs; the internal tool id `'graph'` can
-      stay. *(From the `todos.md` inbox, 2026-10-09.)*
-- [ ] **Clicking a thread in the rail always opens its cards** — reverses
-      v8.13.0's "revisiting a thread reopens the tool last used". The ↑ back
-      to the cards stays. Check the places that open a thread *for* a tool
-      (double-clicking a node, a citation's graph icon) still land on that
-      tool. *(From the `todos.md` inbox, 2026-10-09.)*
 - [ ] **Show the paper inline on the card home** — needs clarifying with
       Patrick before building: the card header already shows the title,
       authors, year and TL;DR. *(From the `todos.md` inbox, 2026-10-09.)*
 - [ ] **A new loading screen for the Paper Graph** — today a build is a
       spinner card with a progress bar over an empty canvas. Shape not yet
       decided. *(From the `todos.md` inbox, 2026-10-09.)*
-- [ ] **Black outlines on the Paper Graph's nodes.** *(From the `todos.md` inbox, 2026-10-09.)*
-- [ ] **A "re-summarize" option for an exploration's title** — the title is
-      generated once, on first save. Add a rail menu item (beside Rename and
-      Delete) that asks the summarizer again from the conversation as it
-      stands now. *(From the `todos.md` inbox, 2026-10-09.)*
-- [ ] **Knowledge Graph: a new course zooms in too deep on first load** — it
-      should open fitted to the graph. *(From the `todos.md` inbox, 2026-10-09.)*
 - [ ] **Knowledge Graph: select several nodes to check them off at once** —
       drag a box and shift-click to select, as the Paper Graph does
       (alt-drag / shift-click), then one "I know these". *(From the `todos.md` inbox, 2026-10-09.)*
 - [ ] **Knowledge Graph: in 3D, draw the ✓ inside the node** — a 3D check
       mark or a check texture on the sphere, rather than the flat 2D
       badge. *(From the `todos.md` inbox, 2026-10-09.)*
-- [ ] **Knowledge Graph: the lesson panel slides in from the side** — opening
-      a course with a concept already selected pops the panel up from the
-      bottom. *(From the `todos.md` inbox, 2026-10-09.)*
 
 ### Enhancements & tech debt
 
@@ -1604,9 +1585,6 @@ than deleted so the plan doesn't get re-proposed.
       and a writable `data/`, so it isn't a static host. *(From the `todos.md`
       inbox, 2026-07-20; narrowed 2026-08-09 when CI shipped, and again
       2026-09-27 when publishing did — leaving only deploy.)*
-
-- [ ] **The Settings help tour is broken** — not yet diagnosed; repro
-      first. *(From the `todos.md` inbox, 2026-10-09.)*
 
 ### Larger phases
 

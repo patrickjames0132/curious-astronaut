@@ -16,6 +16,13 @@ paints, the shell decides.
 
 ## The ring vocabulary
 
+Every disc has a **thin black outline** (`--node-outline` via
+`useCanvasInk`, 1px on screen at any zoom; faded on a dimmed disc), so papers
+read as separate shapes (v8.16.0). It is black in both themes: a light-only
+version was tried and Patrick preferred it on dark too. The colour stays a
+theme variable so either theme can change it. The rings below stroke the same
+arc on top of it.
+
 - **Gold glow + gold ring** — the teacher is talking about this paper
   (`highlightIds`).
 - **Cyan ring** — in the teacher's scope (`selectedIds`: the alt-drag

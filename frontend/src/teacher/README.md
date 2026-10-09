@@ -2,7 +2,7 @@
 
 One composer serves General and paper threads. General is graphless: searches,
 broad questions and comparisons can live there. In a paper thread the panel
-**docks beside the Paper Graph only** (since v8.15.0): assistants are
+**docks beside the Citation Graph only** (since v8.15.0): assistants are
 encapsulated per tool, so the card home and the Knowledge Graph have none, and
 there Teacher stays mounted but hidden, so a running answer keeps streaming
 into the thread. With the graph up, the composer names its subject and scoped

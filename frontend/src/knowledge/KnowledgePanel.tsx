@@ -7,7 +7,7 @@
  * streamed the first time, kept after, with `[n]` citations of the paper's
  * real references that open the cited paper in its own thread — and the ways
  * forward: break it down, check it off, or go to the next lesson. Docked right of the canvas, like the
- * paper graph's detail panel, and resizable the same way.
+ * citation graph's detail panel, and resizable the same way.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>

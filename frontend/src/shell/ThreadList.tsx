@@ -4,7 +4,7 @@
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { useAppDispatch, useAppSelector } from '../store'
-import { activateThread, deleteThread } from '../store/workspace'
+import { deleteThread, openThread } from '../store/workspace'
 import { threadRenamed } from '../store/explorations'
 import SessionRow from './SessionRow'
 
@@ -27,7 +27,7 @@ export default function ThreadList({ explorationId }: { explorationId: string })
           active={thread.id === record.activeThreadId}
           editable={!!thread.identity}
           working={!!conversations[thread.id]?.running.length}
-          onOpen={() => void dispatch(activateThread(thread.id))}
+          onOpen={() => void dispatch(openThread(thread.id))}
           onRename={(title) => dispatch(threadRenamed({ id: thread.id, title }))}
           onDelete={() => void dispatch(deleteThread(thread.id))}
         />

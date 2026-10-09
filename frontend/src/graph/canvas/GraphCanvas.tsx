@@ -165,6 +165,14 @@ export default function GraphCanvas({
         ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
         ctx.fillStyle = dim ? DIM_NODE : REL_COLOR[primaryRel(node)]
         ctx.fill()
+        // A thin black outline on every disc (v8.16.0), so overlapping papers
+        // read as separate shapes. Its colour is the theme's `--node-outline`
+        // (black in both today). Constant on screen at any zoom,
+        // and it strokes the fill's own arc, so the rings below still find
+        // it as the current path.
+        ctx.lineWidth = 1 / globalScale
+        ctx.strokeStyle = dim ? canvasInk.outlineDim : canvasInk.outline
+        ctx.stroke()
         if (node.discovered && !dim) {
           // Dashed ring marks a paper the AI teacher pulled in mid-chat. Its
           // own path, just outside the fill: stroking the fill's arc buried

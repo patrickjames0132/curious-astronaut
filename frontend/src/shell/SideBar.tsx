@@ -59,6 +59,8 @@ export interface SideBarProps {
   workingSessionIds?: string[]
   onOpenSession: (id: string) => void
   onRenameSession: (id: string, name: string) => void
+  /** Ask the summarizer to name an exploration again. */
+  onResummarizeSession: (id: string) => void
   onDeleteSession: (id: string) => void
   onOpenSettings: () => void
   onStartTour: () => void
@@ -238,6 +240,7 @@ export default function SideBar({
   workingSessionIds = [],
   onOpenSession,
   onRenameSession,
+  onResummarizeSession,
   onDeleteSession,
   onOpenSettings,
   onStartTour,
@@ -332,6 +335,7 @@ export default function SideBar({
                 working={workingSessionIds.includes(session.id)}
                 onOpen={() => onOpenSession(session.id)}
                 onRename={(name) => onRenameSession(session.id, name)}
+                onResummarize={() => onResummarizeSession(session.id)}
                 onDelete={() => onDeleteSession(session.id)}
               />
               {session.id === openSessionId && expandedId === session.id && (

@@ -17,6 +17,8 @@ interface SessionRowProps {
   onToggle?: () => void
   onOpen: () => void
   onRename: (name: string) => void
+  /** Ask for a fresh title; the item only shows when this is given. */
+  onResummarize?: () => void
   onDelete: () => void
 }
 
@@ -37,6 +39,7 @@ interface SessionRowProps {
  * @param onToggle Toggle child threads.
  * @param onOpen  Restore this exploration.
  * @param onRename Commit a new name.
+ * @param onResummarize Ask the summarizer for a fresh title (explorations only).
  * @param onDelete Remove it.
  * @returns The rendered row.
  */
@@ -49,6 +52,7 @@ export default function SessionRow({
   onToggle,
   onOpen,
   onRename,
+  onResummarize,
   onDelete,
 }: SessionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -162,6 +166,19 @@ export default function SessionRow({
             >
               ✎ Rename
             </button>
+            {onResummarize && (
+              <button
+                type="button"
+                role="menuitem"
+                title="Name it again from the papers and questions it holds now"
+                onClick={() => {
+                  setMenuOpen(false)
+                  onResummarize()
+                }}
+              >
+                ↻ Re-summarize
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"

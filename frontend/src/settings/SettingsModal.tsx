@@ -427,6 +427,59 @@ function ModelInput({
 }
 
 /**
+ * An API-key input, masked like a password (Patrick, v8.16.0) so a key isn't
+ * on show during a screenshare, with an eye button inside its right edge to
+ * reveal it, say to check a paste. It only hides the key on screen: the draft
+ * and `config.json` hold the plain value. `new-password` keeps browsers from
+ * autofilling a saved login into it or offering to save the key as one.
+ *
+ * @param props The input's value and change handler.
+ * @param props.value The key.
+ * @param props.onChange Called with the edited key.
+ * @returns The field and its reveal button.
+ */
+function SecretInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [shown, setShown] = useState(false)
+  return (
+    <span className="settings-secret settings-wide">
+      <input
+        type={shown ? 'text' : 'password'}
+        autoComplete="new-password"
+        spellCheck={false}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <button
+        type="button"
+        className="settings-secret-eye"
+        onClick={() => setShown((prev) => !prev)}
+        title={shown ? 'Hide the key' : 'Show the key'}
+        aria-label={shown ? 'Hide the key' : 'Show the key'}
+        aria-pressed={shown}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path
+            d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinejoin="round"
+          />
+          <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" />
+          {shown && (
+            <path
+              d="M2.5 13.5 13.5 2.5"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+          )}
+        </svg>
+      </button>
+    </span>
+  )
+}
+
+/**
  * One credential field for one vendor, creating the vendor's config block on
  * first keystroke if the file predates it.
  *
@@ -444,17 +497,20 @@ function VendorField({
   field: string
 }) {
   const block = (draft.llm.providers[vendor] ?? {}) as Record<string, unknown>
+  const value = (block[field] as string) ?? ''
+  const write = (next: string) =>
+    edit((draftNext) => {
+      const existing = (draftNext.llm.providers[vendor] ?? {}) as Record<string, unknown>
+      draftNext.llm.providers[vendor] = { ...existing, [field]: next }
+    })
+  // A key is a secret; Ollama's base URL is not.
+  if (field === 'api_key') return <SecretInput value={value} onChange={write} />
   return (
     <input
       type="text"
       className="settings-wide"
-      value={(block[field] as string) ?? ''}
-      onChange={(event) =>
-        edit((next) => {
-          const existing = (next.llm.providers[vendor] ?? {}) as Record<string, unknown>
-          next.llm.providers[vendor] = { ...existing, [field]: event.target.value }
-        })
-      }
+      value={value}
+      onChange={(event) => write(event.target.value)}
     />
   )
 }
@@ -848,13 +904,11 @@ const ROW_DEFS: RowDef[] = [
     label: 'API key',
     hint: 'Optional — keyless works, just rate-limited harder.',
     control: (draft, edit) => (
-      <input
-        type="text"
-        className="settings-wide"
+      <SecretInput
         value={draft.providers.s2.api_key}
-        onChange={(event) =>
+        onChange={(value) =>
           edit((next) => {
-            next.providers.s2.api_key = event.target.value
+            next.providers.s2.api_key = value
           })
         }
       />
@@ -906,13 +960,11 @@ const ROW_DEFS: RowDef[] = [
     label: 'API key',
     hint: 'Optional — grants $1/day of metered usage vs $0.10 keyless.',
     control: (draft, edit) => (
-      <input
-        type="text"
-        className="settings-wide"
+      <SecretInput
         value={draft.providers.openalex.api_key}
-        onChange={(event) =>
+        onChange={(value) =>
           edit((next) => {
-            next.providers.openalex.api_key = event.target.value
+            next.providers.openalex.api_key = value
           })
         }
       />

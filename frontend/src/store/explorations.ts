@@ -25,7 +25,8 @@ export interface ThreadRecord {
   summarizedThrough?: number
   origin?: string
   /**
-   * The tool last used in this paper thread, so a revisit reopens it. Absent
+   * The tool last used in this paper thread, so a reload reopens it (a rail
+   * click lands on the cards instead: `openThread`, v8.16.0). Absent
    * on threads saved before the card home (v8.13.0): those were always on
    * their graph, so `threadTool` reads absence as `'graph'`.
    */
@@ -187,6 +188,19 @@ const slice = createSlice({
         record.revision++
       }
     },
+    /** Rest a paper thread on its card home, whether or not it is active.
+     * @param state Exploration state.
+     * @param action The thread's id.
+     */
+    threadCardsShown(state, action: PayloadAction<string>) {
+      for (const record of Object.values(state.byId)) {
+        const thread = record.threads.find((item) => item.id === action.payload)
+        if (thread?.identity && thread.tool !== 'cards') {
+          thread.tool = 'cards'
+          record.revision++
+        }
+      }
+    },
     /** Keep the seed's hydrated details for the card home's header.
      * @param state Exploration state.
      * @param action Thread and its paper.
@@ -344,6 +358,7 @@ export const {
   threadRenamed,
   threadSummarized,
   threadToolSet,
+  threadCardsShown,
   threadPaperSet,
   knowledgeStarted,
   knowledgeExpanded,

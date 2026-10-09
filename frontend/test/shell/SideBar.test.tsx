@@ -48,6 +48,7 @@ async function setup() {
         openSessionId={activeId}
         onOpenSession={() => {}}
         onRenameSession={() => {}}
+        onResummarizeSession={() => {}}
         onDeleteSession={() => {}}
         onOpenSettings={() => {}}
         onStartTour={() => {}}

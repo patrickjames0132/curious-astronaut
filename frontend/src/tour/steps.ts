@@ -150,10 +150,10 @@ export const CARDS_TOUR: TourStep[] = [
     target: '[data-tour="tool-cards"]',
     title: 'Pick a tool',
     body:
-      'The Paper Graph maps the papers this one built on and the ones it spawned. The ' +
+      'The Citation Graph maps the papers this one built on and the ones it spawned. The ' +
       'Knowledge Graph is a short course on the ideas you need to ' +
-      'know first. The thread remembers the tool you were using, and the ↑ at the top ' +
-      'of each tool brings you back up to these cards.',
+      'know first. Clicking the thread in the sidebar always brings you back to these ' +
+      'cards, and so does the ↑ at the top of each tool.',
   },
 ]
 
@@ -206,7 +206,7 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
  * top-to-bottom through its last row ("Open a paper"), then the
  * bottom-right find control, then the detail panel (a whole-panel overview
  * stop, then its sections), then the teacher — the 🎓 that opens it (only
- * while it is tucked away; it lives on the Paper Graph alone, so this is the
+ * while it is tucked away; it lives on the Citation Graph alone, so this is the
  * one tour that introduces it), the source scope under the ask
  * bar, then the bar itself, which carries two stops: what the researcher does
  * with a question, and how asking for a lecture reaches the other assistant.
@@ -395,7 +395,7 @@ export const GRAPH_TOUR: TourStep[] = [
     title: 'The assistant, when you want it',
     body:
       'The 🎓 opens this paper’s conversation beside the graph; ✕ tucks it away again, and ' +
-      'it stays the way you leave it. It lives on the Paper Graph: the cards and the ' +
+      'it stays the way you leave it. It lives on the Citation Graph: the cards and the ' +
       'Knowledge Graph have no assistant docked.',
   },
   {

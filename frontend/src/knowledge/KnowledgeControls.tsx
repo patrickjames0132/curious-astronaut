@@ -3,7 +3,7 @@
  *
  * Description:
  * The knowledge graph's controls, folded into a sliders button in the
- * top-left corner exactly as the paper graph's are (and styled by the same
+ * top-left corner exactly as the citation graph's are (and styled by the same
  * `.ctrl-icon` / `.controls` rules, so the two canvases share one corner
  * button): the course's progress and next lesson, 2D / 3D, label density,
  * fit to view, and the gesture hints. Folded by default, so the canvas is

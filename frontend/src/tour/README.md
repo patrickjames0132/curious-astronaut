@@ -19,7 +19,7 @@ tour/
               course)
               + SETTINGS_TOUR (the settings modal's own walk),
               and TOUR_KEYS, one seen-flag per phase
-  tour.css  — backdrop (z 60) < spotlight (61) < bubble (62); the dimming is
+  tour.css  — backdrop (z 70) < spotlight (71) < bubble (72); the dimming is
               the spotlight's 200vmax box-shadow, so there's exactly one hole
 ```
 
@@ -32,7 +32,7 @@ Sessions) auto-runs on first launch, before any paper is open;
 **CARDS_TOUR** (a paper thread's card home: the paper and its tool cards)
 auto-runs on the first card home, since v8.13.0; **GRAPH_TOUR** (the graph
 tools, the ↑ back up to the cards, the detail panel, the 🎓 that opens the
-assistant — which docks on the Paper Graph alone — the lectures, the Q&A
+assistant — which docks on the Citation Graph alone — the lectures, the Q&A
 researcher) auto-runs when the first
 graph lands; **KNOWLEDGE_TOUR** (the graph's colours and gestures, the
 legend, the folding course controls with 2D/3D, the lesson panel and its
@@ -44,13 +44,20 @@ first stop.
 ## The third list: the settings modal (v7.29.0)
 
 `SETTINGS_TOUR` is not driven by `App.tsx` at all: `SettingsModal` mounts
-`Tour` itself, inside the modal so it stacks above it, and launches it from
+`Tour` itself and launches it from
 the ringed **?** beside its ✕ (auto-run once on the first open, under
 `TOUR_KEYS.settings`). Its steps stage `<section>` or `<section>/<page>`,
 which the modal turns into a nav click — the same staging contract, with a
 nav in place of drawers. Every staged step uses the nav itself as its
 `presentIf` proxy, since the nav is always there and the rows only render
 once their section is.
+
+**`Tour` renders into `document.body`** (a portal) wherever it is mounted,
+and its layers sit at z 70–72, above the modal's 60. Until v8.16.0 it
+rendered inside the modal, whose `modal-in` entrance (v8.11.0) animates
+`transform` with fill `both`. That makes the modal a containing block for
+`position: fixed` descendants, so the spotlight was placed relative to the
+modal's corner rather than the viewport and missed every target.
 
 ## Staged steps — the tour opens panels
 

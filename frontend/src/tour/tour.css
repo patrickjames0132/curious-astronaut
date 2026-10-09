@@ -1,18 +1,21 @@
 /* The coach-mark tour overlay (see tour/README.md).
-   Layering: above everything interactive — drawers sit at 40, so the tour
-   claims 60–62 (backdrop < spotlight < bubble). The dimming is the
+   Layering: above everything interactive — drawers sit at 40 and the
+   settings modal at 60, so the tour claims 70–72 (backdrop < spotlight <
+   bubble). It renders into document.body (Tour.tsx), so these compete with
+   the modal directly; until v8.16.0 the settings tour lived inside the
+   modal's own stacking context and 60 was enough. The dimming is the
    spotlight's giant box-shadow, so the backdrop itself stays transparent
    (it exists to swallow clicks while the tour is up). */
 
 .tour-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 70;
 }
 
 .tour-spotlight {
   position: fixed;
-  z-index: 61;
+  z-index: 71;
   border-radius: 10px;
   /* The dimmer: one halo shadow covering the rest of the viewport. */
   box-shadow: 0 0 0 200vmax rgba(5, 11, 20, 0.62);
@@ -27,7 +30,7 @@
 
 .tour-bubble {
   position: fixed;
-  z-index: 62;
+  z-index: 72;
   width: 300px;
   background: var(--panel);
   border: 1px solid var(--border);

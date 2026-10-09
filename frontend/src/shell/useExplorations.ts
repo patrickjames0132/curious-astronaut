@@ -280,6 +280,36 @@ export function useExplorations() {
     },
     [renameRow, dispatch],
   )
+  /**
+   * Name an exploration again from what it holds now (v8.16.0). The first-save
+   * title only sees the opening turns, so it goes stale as an exploration
+   * wanders. This one sends the papers opened and every question asked, in
+   * thread order (the route keeps the head of it). An exploration that isn't
+   * loaded is read from its save. A null title leaves the name alone.
+   * @param id The exploration to rename.
+   * @returns The new title, or null when none could be written.
+   */
+  const resummarize = useCallback(
+    async (id: string) => {
+      const state = store.getState()
+      const loaded = state.explorations.byId[id]
+      const threads = loaded
+        ? (explorationBody(state, loaded).exploration?.threads ?? [])
+        : migrateExploration(await getSession(id)).threads
+      const papers = threads.filter((thread) => thread.identity).map((thread) => thread.title)
+      const questions = threads
+        .flatMap((thread) => thread.data.chat)
+        .filter((turn) => turn.role === 'user')
+        .map((turn) => turn.text)
+      const title = await titleForConversation([
+        ...(papers.length ? [`Papers opened: ${papers.join('; ')}`] : []),
+        ...questions,
+      ])
+      if (title) await rename(id, title)
+      return title
+    },
+    [rename, store],
+  )
   const working = Object.values(records.byId)
     .filter((record) =>
       record.threads.some((thread) => transcript.byKey[thread.id]?.running.length),
@@ -292,6 +322,7 @@ export function useExplorations() {
     create,
     remove,
     rename,
+    resummarize,
     working,
   }
 }
