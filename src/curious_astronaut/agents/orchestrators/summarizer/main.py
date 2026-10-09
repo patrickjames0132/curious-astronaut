@@ -26,7 +26,7 @@ import logging
 from pydantic import BaseModel, ConfigDict
 from pydantic_ai import Agent
 
-from ... import factory, prompts
+from ... import factory, prompts, streams
 from .config import (
     AGENT_ID,
     PAPER_NAME_SYSTEM_PROMPT,
@@ -79,7 +79,7 @@ def summarize(title: str, abstract: str) -> str | None:
         return None
     prompt = f"Title: {(title or '').strip() or '(untitled)'}\n\nAbstract: {abstract}"
     try:
-        result = agent.run_sync(prompt, model=factory.model_for(AGENT_ID))
+        result = streams.run(agent.run(prompt, model=factory.model_for(AGENT_ID)))
     except Exception:
         log.warning("TL;DR generation failed", exc_info=True)
         return None
@@ -137,9 +137,9 @@ def title_for_conversation(turns: list[str]) -> str | None:
     if not joined:
         return None
     try:
-        result = title_agent.run_sync(
+        result = streams.run(title_agent.run(
             joined[:_TITLE_MAX_CHARS], model=factory.model_for(AGENT_ID)
-        )
+        ))
     except Exception:
         log.warning("exploration title generation failed", exc_info=True)
         return None
@@ -198,9 +198,9 @@ def title_for_paper_name(name: str) -> str | None:
     if not name:
         return None
     try:
-        result = paper_name_agent.run_sync(
+        result = streams.run(paper_name_agent.run(
             name[:_NAME_MAX_CHARS], model=factory.model_for(AGENT_ID)
-        )
+        ))
     except Exception:
         log.warning("paper-name resolution failed for %r", name, exc_info=True)
         return None
@@ -235,7 +235,7 @@ def summary_for_thread(previous: str, turns: list[str]) -> str | None:
         return None
     source = f"Previous summary:\n{previous[:1500]}\n\nNew conversation:\n" + "\n\n".join(turns)
     try:
-        result = thread_summary_agent.run_sync(source[-24000:], model=factory.model_for(AGENT_ID))
+        result = streams.run(thread_summary_agent.run(source[-24000:], model=factory.model_for(AGENT_ID)))
         return result.output.strip()[:1500] or None
     except Exception:
         log.warning("thread summary generation failed", exc_info=True)

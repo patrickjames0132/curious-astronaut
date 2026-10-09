@@ -204,6 +204,15 @@ Anthropic client) are singletons, so several streams at once (concurrent
 lectures) each ran on their own loop over the one httpx pool, and the first
 loop to close surfaced `Event loop is closed` in the others. One persistent
 loop fixes it: httpx multiplexes concurrent requests on a single loop safely.
+
+**Every agent call goes through that loop, streamed or not.** A one-shot
+result uses `streams.run(agent.run(...))`, never `agent.run_sync(...)`.
+`run_sync` spins up its own loop, and since the anthropic 1.x upgrade
+(v8.14.1) a connection the shared client opened there can't be reused on the
+shared loop: any streamed answer after a TL;DR, a title or a tutor expansion
+died with `bound to a different event loop`. A test in
+`test/agents/test_streams.py` fails on any `.run_sync(` under `agents/`; see
+`docs/bugs.md`.
 Three hard-won lessons live around it, the streaming two frame-timestamped
 against the live API: the sync convenience wrapper
 (`run_stream_sync().stream_output()`) delivers structured output in one

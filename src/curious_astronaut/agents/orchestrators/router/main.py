@@ -31,7 +31,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 from pydantic_ai import Agent
 
-from ... import factory
+from ... import factory, streams
 from ..lecturer.config import Framing
 from .config import AGENT_ID, DEICTIC_TAIL, OBVIOUS_LECTURE, RESOLVE_SYSTEM_PROMPT, SYSTEM_PROMPT
 
@@ -148,7 +148,7 @@ def route(message: str) -> MessageRoute:
     # long message cannot push it out.
     prompt = f"{message[:_MAX_CHARS]}\n\n(Today's date: {date.today().isoformat()})"
     try:
-        result = agent.run_sync(prompt, model=factory.model_for(AGENT_ID))
+        result = streams.run(agent.run(prompt, model=factory.model_for(AGENT_ID)))
     except Exception:
         log.warning("message routing failed, answering instead", exc_info=True)
         return ANSWER
@@ -230,7 +230,7 @@ def resolve_papers(message: str, papers: Sequence[RoutePaper]) -> list[str]:
         + "\n".join(_paper_line(number, paper) for number, paper in enumerate(shown, start=1))
     )
     try:
-        result = resolve_agent.run_sync(prompt, model=factory.model_for(AGENT_ID))
+        result = streams.run(resolve_agent.run(prompt, model=factory.model_for(AGENT_ID)))
     except Exception:
         log.warning("named-paper resolution failed, matching nothing", exc_info=True)
         return []

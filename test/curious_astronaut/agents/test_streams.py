@@ -82,3 +82,23 @@ def test_drive_handles_many_concurrent_streams():
 
     assert not errors
     assert results == {index: _Out(value=f"v{index}") for index in range(8)}
+
+
+def test_no_agent_runs_off_the_shared_loop():
+    """Every agent call goes through the shared loop: ``drive`` for streams,
+    ``run`` for one-shot results. ``Agent.run_sync`` spins its own event loop,
+    and since the v8.14.1 SDK upgrade (anthropic 1.x) a connection the shared
+    client opened on that loop can't be reused on the shared one: a TL;DR or a
+    tutor expansion followed by any streamed answer died with "bound to a
+    different event loop" (docs/bugs.md)."""
+    from pathlib import Path
+
+    from curious_astronaut import agents
+
+    offenders = [
+        f"{source.relative_to(Path(agents.__file__).parents[1])}:{number}"
+        for source in sorted(Path(agents.__file__).parents[1].rglob("*.py"))
+        for number, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1)
+        if ".run_sync(" in line
+    ]
+    assert offenders == [], f"use streams.run(agent.run(...)) instead: {offenders}"
