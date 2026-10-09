@@ -22,6 +22,36 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### Every streamed answer after a one-shot agent call died once the SDK was upgraded (v8.14.1, pre-release)
+
+- **Symptom.** Found by the live check before releasing the `pydantic-ai-slim`
+  2.53 upgrade (for CVE-2026-107286). A tutor expansion worked, but the lesson
+  streamed right after it raised `RuntimeError: <asyncio.locks.Event …> is
+  bound to a different event loop`. The same sequence on the previous
+  versions worked. The gate was green throughout: every test fakes the model,
+  so no test ran two real calls on one HTTP client.
+- **Root cause.** Two ways of running an agent were in use. Streams went
+  through `streams.drive` on the one shared background loop. Seven one-shot
+  calls (the tutor's expansion, the summarizer's TL;DR, titles, paper names
+  and thread summaries, and both router calls) used `Agent.run_sync`, which
+  runs on a loop of its own. All of them share one Anthropic `AsyncClient`.
+  The pinned SDK (anthropic 0.x) tolerated its connection pool being touched
+  from two loops. The upgrade (anthropic 1.x, which the CVE fix requires)
+  doesn't: a connection opened under `run_sync`'s loop holds locks bound to
+  that loop, and the next stream on the shared loop trips over them. In the
+  app that meant every Knowledge Graph lesson after its expansion, and any
+  lecture or answer after a TL;DR or the router's call.
+- **Fix.** All seven calls became `streams.run(agent.run(...))`, which is the
+  documented way to get a one-shot result on the shared loop; its docstring
+  already said a second loop "gets a pool it cannot reuse". Checked against
+  the live API: expansion, lesson with a citation, TL;DR, title, another
+  lesson, and the router, interleaved in one process.
+- **Lesson / guard.** `test/curious_astronaut/agents/test_streams.py`'s
+  `test_no_agent_runs_off_the_shared_loop` fails on any `.run_sync(` under
+  `agents/`. More broadly, a dependency upgrade that crosses a **major
+  version of the HTTP SDK** needs a live check of two real calls in one
+  process. A green gate can't see this, because no test shares a real client.
+
 ### General stuck on "Opening paper…" after a paper opened from it (v8.13.0, pre-release)
 
 - **Symptom.** Open a paper from General (it lands on its new card home),

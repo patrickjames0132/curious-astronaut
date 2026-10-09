@@ -206,7 +206,7 @@ def expand(
     if existing:
         parts.append("ALREADY IN THE COURSE:\n" + "\n".join(existing) + "\n\n")
     parts.append(f"List at most {limit} prerequisites.")
-    result = expand_agent.run_sync("".join(parts), model=factory.model_for(AGENT_ID))
+    result = streams.run(expand_agent.run("".join(parts), model=factory.model_for(AGENT_ID)))
 
     # Never the item itself or anything above it: that would be a cycle.
     banned = {_key(item.title), *(_key(step.title) for step in path)}
