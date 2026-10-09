@@ -116,14 +116,17 @@ bill for tokens that cannot improve a six-word phrase."""
 def title_for_conversation(turns: list[str]) -> str | None:
     """Name an exploration after the conversation held in it.
 
-    Runs **once per exploration**, when it first has enough content to be
-    worth naming, and never again — the caller stores the result, and the
+    Runs **once per exploration** on its own, when it first has enough
+    content to be worth naming — the caller stores the result, and the
     reader can rename it in place afterwards. That is what keeps automatic
-    saving from billing a model call on every keystroke.
+    saving from billing a model call on every keystroke. Since v8.16.0 the
+    reader can also ask for it again from the rail (Re-summarize), which
+    sends the papers opened and every question asked rather than the
+    opening turns.
 
     Args:
-        turns: The conversation's opening turns, oldest first, already
-            flattened to plain text by the caller. An empty list (or one
+        turns: The conversation's turns, oldest first, already flattened
+            to plain text by the caller; only the head is read. An empty list (or one
             holding only blanks) means there is nothing to name yet.
 
     Returns:

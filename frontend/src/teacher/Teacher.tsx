@@ -1,4 +1,4 @@
-import { activateThread, selectScope } from '../store/workspace'
+import { openThread, selectScope } from '../store/workspace'
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
@@ -670,7 +670,7 @@ export default function Teacher({
       <ChatMessage
         key={`c${index}`}
         message={message}
-        onThreadOpen={(id) => void dispatch(activateThread(id))}
+        onThreadOpen={(id) => void dispatch(openThread(id))}
         active={activeChat === index}
         streaming={asking || searching}
         // Only the LAST turn can be the one being generated, so only it gets

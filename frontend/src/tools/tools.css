@@ -186,6 +186,23 @@
   }
 }
 
+/* A side panel already open when its tool arrives (a lesson, a paper's
+   details) would ride the surface up from below, so it read as popping up
+   from the bottom (Patrick, v8.16.0). It waits, folded away, until the
+   surface lands. App.tsx drops .scroll-down on the surface's animationend,
+   and that switches the panel from no animation back to its own panel-in,
+   which starts fresh and slides it in from the side. Motion-only: with
+   reduced motion the surface never animates, so it never ends and the
+   panel would stay hidden. */
+@media (prefers-reduced-motion: no-preference) {
+  .tool-surface.scroll-down .knowledge-panel,
+  .tool-surface.scroll-down .detail {
+    animation: none;
+    margin-right: calc(-1 * var(--panel-width, 340px));
+    opacity: 0;
+  }
+}
+
 @media (max-width: 640px) {
   .tool-home-inner {
     padding: 28px 16px 40px;

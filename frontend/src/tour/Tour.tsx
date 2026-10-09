@@ -14,11 +14,20 @@
  * (a slider that only renders on multi-year graphs, a panel that may be
  * collapsed) without the tour ever pointing at a blank spot.
  *
+ * **It renders into `document.body`** (a portal), wherever it is mounted.
+ * Its spotlight and bubble are `position: fixed` and placed from viewport
+ * rects, which only holds while no ancestor is a containing block for fixed
+ * descendants. The settings modal mounts its tour inside itself, and its
+ * `modal-in` entrance animates `transform` with fill `both` (v8.11.0), which
+ * makes the modal exactly such an ancestor: the spotlight landed offset by
+ * the modal's own position and missed every target (fixed in v8.16.0).
+ *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import './tour.css'
 
 /** One stop on a tour. */
@@ -234,7 +243,7 @@ export default function Tour({ steps, onClose, onStage }: TourProps) {
     bubbleTop = Math.min(Math.max(bubbleTop, 8), window.innerHeight - bubbleHeight - 8)
   }
 
-  return (
+  return createPortal(
     <div className="tour-backdrop" role="dialog" aria-label="Guided tour">
       {spot && <div className="tour-spotlight" style={spot} />}
       <div className="tour-bubble" ref={bubbleRef} style={{ top: bubbleTop, left: bubbleLeft }}>
@@ -281,6 +290,7 @@ export default function Tour({ steps, onClose, onStage }: TourProps) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

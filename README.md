@@ -11,10 +11,10 @@ the graph on it and keep exploring.
 
 Each **exploration** contains a permanent **General** discussion and a thread
 for each paper. A paper thread opens on its **card home**: the paper (title,
-authors, TL;DR) and a card for each tool that works on it: the **Paper Graph**
-and the **Knowledge Graph**. The Paper Graph builds only when you open its card, and the thread remembers the tool you were using, so
-switching threads brings back that view and its conversation. The AI
-assistant (🎓) docks beside the Paper Graph; the cards and the Knowledge Graph
+authors, TL;DR) and a card for each tool that works on it: the **Citation Graph**
+and the **Knowledge Graph**. The Citation Graph builds only when you open its card, and clicking a thread in the sidebar always
+brings you back to its cards; the graph you left is kept in memory, conversation and all. The AI
+assistant (🎓) docks beside the Citation Graph; the cards and the Knowledge Graph
 have none. The
 **Knowledge Graph** is a short course on the ideas a paper rests on: the paper
 at the centre, the concepts it needs around it. Double-click any concept to

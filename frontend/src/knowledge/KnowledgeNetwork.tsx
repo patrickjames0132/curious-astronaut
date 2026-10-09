@@ -8,7 +8,7 @@
  * as new nodes, and a concept two items share is one node with two arrows
  * into it. A click opens the item's lesson in a side panel; a double-click
  * breaks it down. The course controls (progress, next lesson, 2D / 3D,
- * labels) fold into a sliders button like the paper graph's, and a legend
+ * labels) fold into a sliders button like the citation graph's, and a legend
  * sits bottom-left.
  *
  * This component owns the in-flight state (which items are being broken

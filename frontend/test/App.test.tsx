@@ -81,7 +81,7 @@ it('replaces the explorer rather than accumulating sibling panels when threads c
   }
 })
 
-it('docks the assistant beside the Paper Graph and nowhere else in a paper thread', async () => {
+it('docks the assistant beside the Citation Graph and nowhere else in a paper thread', async () => {
   const store = configureStore({ reducer: { workspace, transcript, explorations } })
   render(
     <Provider store={store}>

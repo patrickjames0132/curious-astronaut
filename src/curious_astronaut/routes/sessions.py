@@ -137,13 +137,15 @@ def api_sessions_title() -> ResponseReturnValue:
     Deliberately its **own** route rather than a step inside ``POST
     /api/sessions``: the save is an autosave on a 2-second debounce, and
     folding a model call into it would put provider latency on the path that
-    has to be cheap enough to run all afternoon. The frontend calls this once,
-    when an exploration first has content worth naming, and sends the result
-    with subsequent saves like any other name.
+    has to be cheap enough to run all afternoon. The frontend calls this once
+    on its own, when an exploration first has content worth naming, and sends
+    the result with subsequent saves like any other name; the rail's
+    Re-summarize (v8.16.0) calls it again on request.
 
     Body:
-        ``{turns: [str, ...]}`` — the conversation's opening turns, oldest
-        first, already flattened to plain text.
+        ``{turns: [str, ...]}`` — the conversation's turns, oldest first,
+        already flattened to plain text (the opening turns on first save;
+        the papers opened plus every question on a Re-summarize).
 
     Returns:
         JSON ``{title: str}`` on success. ``{title: null}`` with HTTP 200

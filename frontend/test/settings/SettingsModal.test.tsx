@@ -399,6 +399,14 @@ describe('SettingsModal', () => {
     await renderOpen()
     openModelProviders()
     const keyInput = await screen.findByDisplayValue('sk-test')
+    // Masked on screen like a password, and kept out of the browser's autofill.
+    expect(keyInput.getAttribute('type')).toBe('password')
+    expect(keyInput.getAttribute('autocomplete')).toBe('new-password')
+    // The eye reveals it in plain text, and hides it again.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Show the key' })[0])
+    expect(keyInput.getAttribute('type')).toBe('text')
+    fireEvent.click(screen.getByRole('button', { name: 'Hide the key' }))
+    expect(keyInput.getAttribute('type')).toBe('password')
     fireEvent.change(keyInput, { target: { value: 'sk-new' } })
     fireEvent.click(await screen.findByText('Save'))
     await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())

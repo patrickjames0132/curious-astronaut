@@ -3,7 +3,7 @@
  *
  * Description:
  * The knowledge graph in 2D, on the same react-force-graph-2d engine as the
- * paper graph. Every item is a disc; an arrow points from an item to each
+ * citation graph. Every item is a disc; an arrow points from an item to each
  * concept it needs. Visited and known items are greyed (a known one carries a
  * green ✓), an item not yet broken down wears a dashed ring — there is more beneath
  * it — and the open lesson's item gets the selection ring. Only the
@@ -32,7 +32,7 @@ import {
 import type { KnowledgeMap } from './model'
 
 // The lib's generic prop typings fight our accessor signatures, as on the
-// paper graph (graph/canvas/GraphCanvas.tsx); render via an untyped alias.
+// citation graph (graph/canvas/GraphCanvas.tsx); render via an untyped alias.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ForceGraph2D = ForceGraph2DImport as any
 
@@ -79,7 +79,8 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
   }, [])
 
   useEffect(() => {
-    if (fitSignal) fgRef.current?.zoomToFit(400, 80)
+    if (fitSignal && data.nodes.length > 1) fgRef.current?.zoomToFit(400, 80)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on the button only
   }, [fitSignal])
 
   useEffect(() => {
@@ -108,7 +109,13 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
       onBackgroundClick={onBackground}
       cooldownTicks={140}
       onEngineStop={() => {
-        if (fitted.current) return
+        // Not on a lone node: a new course shows only the paper while its
+        // first breakdown is written, and fitting one disc zooms in as far
+        // as the engine allows. That used up the one-shot fit, so the course
+        // then grew around a camera parked deep inside the paper (fixed in
+        // v8.16.0). The concepts' arrival reheats the sim, which stops again
+        // and fits then.
+        if (fitted.current || data.nodes.length < 2) return
         fitted.current = true
         fgRef.current?.zoomToFit(400, 80)
       }}

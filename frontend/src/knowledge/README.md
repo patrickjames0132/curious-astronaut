@@ -114,7 +114,7 @@ lesson is grounded in its abstract.
 
 There is no challenger agent, no memory of known concepts across papers, no
 verified external resources, and no interactive visuals. There is no
-assistant docked here: since v8.15.0 it lives on the Paper Graph alone (see
+assistant docked here: since v8.15.0 it lives on the Citation Graph alone (see
 `teacher/README.md`).
 
 ## Verified by

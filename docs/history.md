@@ -3813,6 +3813,75 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Quick polish: the Citation Graph, cards from the rail, outlines, and
+      masked keys** *(v8.16.0)* — seven Backlog items from the 2026-10-09
+      `todos.md` inbox, plus three asks from Patrick's browser round, shipped
+      together because each is small.
+
+      - **The Paper Graph is the Citation Graph** on its card, in the tour,
+        comments and READMEs; the internal `'graph'` tool id stays.
+      - **A rail click always opens the thread's cards**, even for the thread
+        on screen, and so does a chat "Context from" thread link. This reverses
+        v8.13.0's "revisiting a thread reopens the tool last used". The new
+        `openThread` thunk rests the thread on its cards (`threadCardsShown`)
+        *before* activating it, so a thread left on its graph never rebuilds
+        it; the graph comes back from memory when its card is opened. Opening
+        a paper *for* a tool (a node's double-click, a citation's graph icon)
+        still lands on that tool, and a reload still reopens the saved tool.
+      - **A thin black outline on every Citation Graph node**, 1px on screen at
+        any zoom and faded on dimmed nodes. It was briefly light-mode only;
+        Patrick preferred it on dark too. The colour is a theme variable
+        (`--node-outline`, read through `useCanvasInk`).
+      - **↻ Re-summarize** in an exploration's ⋮ menu names it again from the
+        papers opened plus every question asked (the first-save title sees
+        only the opening turns). It works on an exploration that isn't loaded
+        by reading its save, and a null title leaves the name alone.
+      - **The Knowledge Graph opens fitted to its course.** A new course shows
+        only the paper while its first breakdown is written; the one-shot fit
+        landed on that lone node and zoomed in as far as the engine allows,
+        then never ran again. See [bugs.md](bugs.md).
+      - **Side panels slide in from the side when their tool arrives.** The
+        lesson panel (and the Citation Graph's detail panel) rode the whole
+        surface's scroll up from the cards; they now wait, hidden, until the
+        surface lands, then play their own slide-in (`tools/tools.css`).
+      - **The Settings tour lands on its targets again**: `Tour` renders into
+        `document.body` and sits above the modal. See [bugs.md](bugs.md).
+      - **From the browser round:** the legend's dashed "More to break down" /
+        "Discovered" swatch takes the canvas's ring colour, so it shows in
+        light mode; and **API key fields are masked like passwords**
+        (`SecretInput`: `type="password"`, `autocomplete="new-password"`) with
+        an eye button inside the field to reveal a key. Display-only:
+        `config.json` holds the plain value.
+
+      Tests: rail clicks onto the cards without a rebuild
+      (`test/store/threads.test.ts`), the Knowledge Graph's first fit
+      (`test/knowledge/KnowledgeGraph.test.tsx`, new), Re-summarize
+      (`test/shell/useExplorations.test.ts`), and the masked, revealable key
+      (`test/settings/SettingsModal.test.tsx`).
+
+      The tickets as filed:
+
+      - **Rename the Paper Graph to the "Citation Graph"** — on the card, the
+        tour, the tooltips and the READMEs; the internal tool id `'graph'` can
+        stay. *(From the `todos.md` inbox, 2026-10-09.)*
+      - **Clicking a thread in the rail always opens its cards** — reverses
+        v8.13.0's "revisiting a thread reopens the tool last used". The ↑ back
+        to the cards stays. Check the places that open a thread *for* a tool
+        (double-clicking a node, a citation's graph icon) still land on that
+        tool. *(From the `todos.md` inbox, 2026-10-09.)*
+      - **Black outlines on the Paper Graph's nodes.** *(From the `todos.md` inbox, 2026-10-09.)*
+      - **A "re-summarize" option for an exploration's title** — the title is
+        generated once, on first save. Add a rail menu item (beside Rename and
+        Delete) that asks the summarizer again from the conversation as it
+        stands now. *(From the `todos.md` inbox, 2026-10-09.)*
+      - **Knowledge Graph: a new course zooms in too deep on first load** — it
+        should open fitted to the graph. *(From the `todos.md` inbox, 2026-10-09.)*
+      - **Knowledge Graph: the lesson panel slides in from the side** — opening
+        a course with a concept already selected pops the panel up from the
+        bottom. *(From the `todos.md` inbox, 2026-10-09.)*
+      - **The Settings help tour is broken** — not yet diagnosed; repro
+        first. *(From the `todos.md` inbox, 2026-10-09.)*
+
 - [x] **Redesign the title** *(v8.12.0)* — the rail's "Curious Astronaut" wordmark is
       plain bold text in one colour, and Patrick finds it boring in both
       themes. v8.7.0 parked it in the visor rim's glass blue (`--brand`,

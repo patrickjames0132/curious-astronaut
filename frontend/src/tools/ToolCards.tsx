@@ -4,8 +4,8 @@
  * Description:
  * A paper thread's card home: the paper at the top, then one card per tool
  * that works on it — the citation graph, and (Phase 5b) the knowledge
- * network. Opening a card switches the thread to that tool; the thread
- * remembers it, so a revisit reopens the tool rather than these cards.
+ * network. Opening a card switches the thread to that tool; clicking the
+ * thread in the rail always comes back here (`openThread`).
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -67,7 +67,7 @@ function NetworkIcon() {
 const CARDS: ToolCard[] = [
   {
     tool: 'graph',
-    title: 'Paper Graph',
+    title: 'Citation Graph',
     blurb:
       'The papers it built on and the papers it spawned, with a teacher to narrate ' +
       'how the field got here.',

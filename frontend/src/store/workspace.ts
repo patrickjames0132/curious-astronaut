@@ -40,6 +40,7 @@ import {
   explorationOpened,
   threadActivated,
   threadTool,
+  threadCardsShown,
   threadToolSet,
   type ThreadTool,
 } from './explorations'
@@ -380,6 +381,22 @@ export const deleteThread = createAsyncThunk<
   dispatch({ type: 'explorations/threadRemoved', payload: threadId })
   dispatch({ type: 'transcript/conversationDropped', payload: threadId })
 })
+
+/** Open a thread the way the rail does: a paper thread always lands on its
+ * cards, even the one already on screen (Patrick, 2026-10-09). Since v8.16.0;
+ * before that a rail click reopened the tool last used. Opening a paper *for*
+ * a tool (a node's double-click, a citation's graph icon) goes through
+ * `seedPaper`/`openPaper` instead and keeps landing on that tool. Setting the
+ * tool first means a thread that rested on its graph never rebuilds it here.
+ * @param threadId The thread to show.
+ */
+export const openThread = createAsyncThunk<void, string, { state: NavigationState }>(
+  'workspace/openThread',
+  async (threadId, { dispatch }) => {
+    dispatch(threadCardsShown(threadId))
+    await dispatch(activateThread(threadId))
+  },
+)
 
 /** Activate a sibling, rebuilding only when its graph is not in memory.
  * @param threadId The thread to show.

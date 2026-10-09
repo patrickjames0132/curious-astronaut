@@ -228,6 +228,42 @@
   width: 300px;
 }
 
+/* An API key with its reveal button flush inside the right edge (SecretInput):
+   the input fills the wrapper and leaves room for the eye. */
+.settings-secret {
+  position: relative;
+  display: inline-flex;
+}
+.settings-row-control .settings-secret input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 32px;
+}
+.settings-secret-eye {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.settings-secret-eye:hover,
+.settings-secret-eye[aria-pressed='true'] {
+  color: var(--text);
+}
+.settings-secret-eye:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .settings-path {
   color: var(--accent);
   word-break: break-all;

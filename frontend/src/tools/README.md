@@ -16,19 +16,24 @@ tools/
 
 ## The cards
 
-Named **Paper Graph** and **Knowledge Graph** since 5b's review (Patrick,
-2026-10-09): papers on one card, ideas on the other. The code keeps its
-internal names (`GraphExplorer`, `knowledge/KnowledgeNetwork`).
+Named **Paper Graph** and **Knowledge Graph** at 5b's review (Patrick,
+2026-10-09): papers on one card, ideas on the other. The Paper Graph became
+the **Citation Graph** in v8.16.0, which says what its edges are. The code
+keeps its internal names (the `'graph'` tool id, `GraphExplorer`,
+`knowledge/KnowledgeNetwork`).
 
-- **Paper Graph** opens today's explorer.
+- **Citation Graph** opens today's explorer.
 - **Knowledge Graph** opens `knowledge/KnowledgeNetwork`, a short course
   on the paper's prerequisites (Phase 5b, v8.14.0). Until then it was shown
   disabled under a "Coming soon" badge; the `soon` flag on `ToolCard` is still
   there for the next tool.
 
-Opening a card dispatches `openTool` (`store/workspace.ts`). The thread then
-remembers its tool, so revisiting the thread reopens the tool rather than these
-cards. The ↑ at the top of a tool returns here, and the graph stays built in
+Opening a card dispatches `openTool` (`store/workspace.ts`). **Clicking a
+thread in the rail always lands here** (`openThread`, since v8.16.0), even
+the thread already on screen; until then a revisit reopened the tool last
+used. Opening a paper *for* a tool still lands on that tool: a node's
+double-click on the graph, or a citation's graph icon. A thread saved or
+reloaded on a tool reopens there too. The ↑ at the top of a tool returns here, and the graph stays built in
 memory, so going back to it is free. It was a pill bearing the paper's title
 until 5b's review: titles run long, and "up" is where the cards are. **Nothing is built until a card is
 opened.** The page exists so that opening a paper costs one lookup, not a graph
@@ -60,7 +65,7 @@ mounted through the move would cost more than the effect is worth.
 - **General has no cards.** It has no seed, so there is nothing for a tool to
   work on. It stays the search and chat surface.
 - **No assistant on the cards.** Since v8.15.0 the assistant docks beside
-  the Paper Graph alone (each tool keeps its own voice; see
+  the Citation Graph alone (each tool keeps its own voice; see
   `teacher/README.md`). Until then it docked beside the cards and followed
   into every tool, where it could only answer seedless.
 
@@ -69,4 +74,5 @@ mounted through the move would cost more than the effect is worth.
 `test/tools/ToolCards.test.tsx` covers the header, both cards and the
 one-time fetch. `test/store/threads.test.ts` ("card home") covers the
 navigation underneath: opening onto cards without a build, building in place
-without a twin thread, resuming on the last tool, and saving `tool`/`paper`.
+without a twin thread, resuming on the last tool, opening from the rail onto
+the cards without a rebuild, and saving `tool`/`paper`.

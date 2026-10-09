@@ -25,6 +25,10 @@ export interface CanvasInk {
   hard: string
   /** The canvas backdrop — force-graph paints it itself, so it can't be CSS. */
   background: string
+  /** The outline round every paper's disc (black in both themes today). */
+  outline: string
+  /** The same outline on a dimmed disc. */
+  outlineDim: string
 }
 
 /**
@@ -50,6 +54,8 @@ export function useCanvasInk(): CanvasInk {
     soft: read('--canvas-ink-soft', 'rgba(242,244,248,0.55)'),
     hard: read('--canvas-ink-hard', '#f2f4f8'),
     background: read('--bg', '#0b1524'),
+    outline: read('--node-outline', 'transparent'),
+    outlineDim: read('--node-outline-dim', 'transparent'),
   }
 }
 

@@ -22,6 +22,46 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The Settings tour's spotlight missed every target (v8.16.0)
+
+- **Symptom.** In Settings → ?, the bubble and spotlight pointed beside the
+  controls they described rather than at them. Every target and stage still
+  existed, so nothing had been renamed out from under the tour.
+- **Root cause.** The settings modal mounts its `Tour` *inside* itself. Since
+  v8.11.0 the modal enters with `modal-in`, which animates `transform` with
+  fill mode `both`. An element in that state is a containing block for
+  `position: fixed` descendants. The tour measures targets with
+  `getBoundingClientRect` (viewport coordinates) but its fixed spotlight and
+  bubble were then placed relative to the modal's corner, so everything
+  landed offset by the modal's own position. The app's main tour renders
+  outside any such ancestor, which is why only Settings broke.
+- **Fix.** `Tour` renders through `createPortal(…, document.body)` wherever it
+  is mounted, and its layers moved from z 60–62 to 70–72 so they sit above the
+  modal (60) now that they share a stacking context with it.
+- **Lesson / guard.** Anything `position: fixed` that places itself from
+  viewport rects belongs in a portal: any ancestor animation that touches
+  `transform` (or a `filter`, or `will-change`) silently re-anchors it. The
+  motion pass that added `modal-in` couldn't have seen this from the modal's
+  side.
+
+### A new Knowledge Graph opened zoomed deep into its paper (v8.16.0)
+
+- **Symptom.** Opening a fresh course, the camera sat far inside the gold
+  paper node; the concepts arrived around a view nobody could read until a
+  manual Fit.
+- **Root cause.** A new course starts as one node and expands its paper
+  automatically. The force simulation settles (140 ticks) long before the
+  tutor's breakdown returns, and `onEngineStop`'s one-shot `zoomToFit` fit a
+  bounding box of a single disc, which zooms to the engine's maximum. The
+  latch was then spent, so the course grew around that camera.
+- **Fix.** The one-shot fit (and the Fit button) skip a graph with fewer than
+  two nodes; the concepts' arrival reheats the simulation, which stops again
+  and fits then (`knowledge/KnowledgeGraph.tsx`).
+- **Lesson / guard.** A "fit once when the layout settles" latch must not fire
+  on a placeholder state. `test/knowledge/KnowledgeGraph.test.tsx` stops the
+  engine on the lone paper and expects no fit, then one fit after the
+  concepts.
+
 ### Every streamed answer after a one-shot agent call died once the SDK was upgraded (v8.14.1, pre-release)
 
 - **Symptom.** Found by the live check before releasing the `pydantic-ai-slim`

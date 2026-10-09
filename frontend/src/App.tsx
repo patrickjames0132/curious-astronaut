@@ -12,7 +12,7 @@
  * and the overlays get their own layer over the body. A paper thread shows
  * either its **card home** (`tools/ToolCards`) or the tool a card opened —
  * the graph explorer or the knowledge network. The assistant docks beside the
- * **Paper Graph only**: each tool keeps its own voice, and the cards and the
+ * **Citation Graph only**: each tool keeps its own voice, and the cards and the
  * Knowledge Graph have none docked. The
  * `Teacher` element stays at one position in the tree across all three.
  * Thread navigation remounts the graph and chat with distinct keys; their
@@ -72,7 +72,7 @@ export default function App() {
   const tool = threadTool(activeThread)
   const paperThread = tool !== null
   const showGraph = !!graph && tool === 'graph'
-  // The assistant belongs to the Paper Graph alone (Patrick, 2026-10-09):
+  // The assistant belongs to the Citation Graph alone (Patrick, 2026-10-09):
   // assistants are encapsulated per tool, and until there's a design for how
   // `@thread` borrowing reads a thread made of several tools, the graph is the
   // only tool with one. Elsewhere in a paper thread Teacher stays mounted but
@@ -102,7 +102,7 @@ export default function App() {
   const [railOpen, setRailOpen] = useState(() => localStorage.getItem(RAIL_KEY) !== '0')
   const [showSettings, setShowSettings] = useState(false)
   const theme = useTheme()
-  // Whether the assistant docks open beside the Paper Graph.
+  // Whether the assistant docks open beside the Citation Graph.
   // **Closed by default, and remembered** like the rail (Patrick, 2026-10-09:
   // it should stay hidden until asked for — a docked chat beside a canvas is
   // clutter until it is wanted). It used to default open, back when entering
@@ -253,6 +253,7 @@ export default function App() {
     open: openExploration,
     create: goHome,
     rename: renameSessionRow,
+    resummarize: resummarizeSessionRow,
     remove: removeSessionRow,
     working: workingSessionIds,
   } = useExplorations()
@@ -370,6 +371,7 @@ export default function App() {
           void openExploration(id)
         }}
         onRenameSession={(id, name) => void renameSessionRow(id, name)}
+        onResummarizeSession={(id) => void resummarizeSessionRow(id).catch(() => {})}
         onDeleteSession={(id) => void removeSessionRow(id)}
         onOpenSettings={() => setShowSettings(true)}
         onStartTour={() => setTourOpen(true)}

@@ -45,6 +45,10 @@
   --canvas-ink: rgba(247, 245, 240, 0.9);
   --canvas-ink-soft: rgba(247, 245, 240, 0.55);
   --canvas-ink-hard: #f7f5f0;
+  /* A black outline round every node, in both themes (Patrick, v8.16.0:
+     tried light-only, and it looked better with them on dark too). */
+  --node-outline: #000;
+  --node-outline-dim: rgba(0, 0, 0, 0.25);
   --shadow: rgba(0, 0, 0, 0.45);
   --hover: rgba(255, 255, 255, 0.05);
   /* Translucent surfaces that float over the canvas (controls, legend) —
@@ -132,6 +136,8 @@
   --canvas-ink: rgba(27, 42, 61, 0.82);
   --canvas-ink-soft: rgba(27, 42, 61, 0.4);
   --canvas-ink-hard: #1b2a3d;
+  --node-outline: #000;
+  --node-outline-dim: rgba(0, 0, 0, 0.25);
   /* Softer on light — a 0.45 black shadow reads as grime on white. */
   --shadow: rgba(11, 21, 36, 0.12);
   --hover: rgba(11, 21, 36, 0.05);

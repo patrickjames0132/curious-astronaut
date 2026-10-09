@@ -14,13 +14,13 @@ import { useCallback, useMemo, useRef } from 'react'
 import { REL_COLOR } from '../graph/theme'
 import type { KnowledgeMap, KnowledgeNode } from './model'
 
-/** Fill per role: the paper in gold (as on the paper graph), concepts in violet. */
+/** Fill per role: the paper in gold (as on the citation graph), concepts in violet. */
 export const KNOWLEDGE_COLOR = {
   root: REL_COLOR.seed,
   concept: '#b197fc',
   /** Visited and known items fade to this. */
   done: '#8b93a7',
-  /** The ✓ on a known item — the paper graph's citation green. */
+  /** The ✓ on a known item — the citation graph's citation green. */
   known: REL_COLOR.citation,
 } as const
 
@@ -153,7 +153,7 @@ const DOUBLE_CLICK_MS = 350
 /**
  * Click and double-click on a node, which the force engine doesn't tell apart:
  * a click opens the lesson, a quick second click on the same node breaks it
- * down — the same gesture the paper graph uses to re-seed on a node.
+ * down — the same gesture the citation graph uses to re-seed on a node.
  *
  * @param onOpen Open an item's lesson.
  * @param onExpand Break an item down.
