@@ -436,6 +436,14 @@ than deleted so the plan doesn't get re-proposed.
       highlightable node lists too. *(From the `todos.md` inbox, 2026-07-18.)*
 
 
+- [ ] **Scope a thread to its own set of library sources** — today the
+      source scope is one global set, and the scope filter will get unwieldy
+      as the library grows. Let a thread pin a subset of sources, picked from
+      the Library modal (a tab or section for it) or from the thread itself,
+      so each thread's assistant only reaches the sources that matter to it.
+      Decide what a new thread inherits (everything, or its exploration's
+      choice). *(From the `todos.md` inbox, 2026-10-09.)*
+
 ### Citations & graph data
 
 - [ ] **A real switch between the corpus and the live S2 API** — today the
@@ -756,6 +764,22 @@ than deleted so the plan doesn't get re-proposed.
       warns about. Decide whether an incremental release copies-then-updates
       (cheap on a filesystem with reflinks, expensive otherwise) or whether
       `CURRENT` has to move aside for the duration.
+
+- [ ] **Expand any paper on the Paper Graph, not just the seed** — a button
+      (in the detail panel, probably) that pulls a non-seed paper's
+      references and citations onto the **same graph**, without opening a new
+      thread for it. The reader can then compare two papers' neighbourhoods
+      side by side without asking the agent, which saves tokens; the agent's
+      `expand_node` stays available. Reuse what `expand_node` already does
+      server-side, and keep v7.5.0's rule: only real edges. *(From the `todos.md` inbox, 2026-10-09.)*
+- [ ] **Show the citation edges between non-seed papers** — a toggle that
+      draws the edges among the papers already on the graph (one reference
+      citing another), not just the edges to the seed. Today finding these
+      costs an agent run or a manual expand. The data is one batch of
+      reference lookups for the papers on screen. Watch the cost on a big
+      graph, and how many lines the canvas can take before it turns into a
+      hairball. Related: "A precise overlapping references/citations skill"
+      (Teacher & agent reach). *(From the `todos.md` inbox, 2026-10-09.)*
 
 ### UI & rendering polish
 
@@ -1208,6 +1232,37 @@ than deleted so the plan doesn't get re-proposed.
       are navigation labels — they have to read well out of context, in a
       list, not just above their own card.
 
+- [ ] **Rename the Paper Graph to the "Citation Graph"** — on the card, the
+      tour, the tooltips and the READMEs; the internal tool id `'graph'` can
+      stay. *(From the `todos.md` inbox, 2026-10-09.)*
+- [ ] **Clicking a thread in the rail always opens its cards** — reverses
+      v8.13.0's "revisiting a thread reopens the tool last used". The ↑ back
+      to the cards stays. Check the places that open a thread *for* a tool
+      (double-clicking a node, a citation's graph icon) still land on that
+      tool. *(From the `todos.md` inbox, 2026-10-09.)*
+- [ ] **Show the paper inline on the card home** — needs clarifying with
+      Patrick before building: the card header already shows the title,
+      authors, year and TL;DR. *(From the `todos.md` inbox, 2026-10-09.)*
+- [ ] **A new loading screen for the Paper Graph** — today a build is a
+      spinner card with a progress bar over an empty canvas. Shape not yet
+      decided. *(From the `todos.md` inbox, 2026-10-09.)*
+- [ ] **Black outlines on the Paper Graph's nodes.** *(From the `todos.md` inbox, 2026-10-09.)*
+- [ ] **A "re-summarize" option for an exploration's title** — the title is
+      generated once, on first save. Add a rail menu item (beside Rename and
+      Delete) that asks the summarizer again from the conversation as it
+      stands now. *(From the `todos.md` inbox, 2026-10-09.)*
+- [ ] **Knowledge Graph: a new course zooms in too deep on first load** — it
+      should open fitted to the graph. *(From the `todos.md` inbox, 2026-10-09.)*
+- [ ] **Knowledge Graph: select several nodes to check them off at once** —
+      drag a box and shift-click to select, as the Paper Graph does
+      (alt-drag / shift-click), then one "I know these". *(From the `todos.md` inbox, 2026-10-09.)*
+- [ ] **Knowledge Graph: in 3D, draw the ✓ inside the node** — a 3D check
+      mark or a check texture on the sphere, rather than the flat 2D
+      badge. *(From the `todos.md` inbox, 2026-10-09.)*
+- [ ] **Knowledge Graph: the lesson panel slides in from the side** — opening
+      a course with a concept already selected pops the panel up from the
+      bottom. *(From the `todos.md` inbox, 2026-10-09.)*
+
 ### Enhancements & tech debt
 
 - [ ] **Deleting a running thread or exploration resurrects it; a search in
@@ -1550,6 +1605,9 @@ than deleted so the plan doesn't get re-proposed.
       inbox, 2026-07-20; narrowed 2026-08-09 when CI shipped, and again
       2026-09-27 when publishing did — leaving only deploy.)*
 
+- [ ] **The Settings help tour is broken** — not yet diagnosed; repro
+      first. *(From the `todos.md` inbox, 2026-10-09.)*
+
 ### Larger phases
 
 - [ ] **Phase 5 — Knowledge network: a short course on a paper's
@@ -1573,18 +1631,17 @@ than deleted so the plan doesn't get re-proposed.
       the full story is in [docs/history.md](docs/history.md).
 
       **Follow-ups from 5b:**
-      - **The lessons' paper citations "feel a bit weird"** (Patrick,
-        2026-10-09, at ship). Since paper nodes were dropped, a lesson cites
-        the paper's real references as `[n]` markers that open that paper's
-        thread. It is grounded, but the feel is off. Not yet diagnosed, so
-        workshop it before changing anything. Candidates: the bare numbers
-        read as footnotes to a reader who never saw a list; every lesson,
-        however deep, cites from the *root* paper's list, so a citation can
-        sit oddly far from the concept; and a click leaving the course for
-        another thread is a big jump. Options include named citations
-        ("Watkins & Dayan, 1992"), a "Further reading" footer instead of
-        inline markers, citing only where a reference is *about* the concept,
-        or no citations at all.
+      - **Remove the paper citations from lessons, for now** (Patrick,
+        2026-10-09, settling the "citations feel a bit weird" follow-up from
+        the ship). A lesson stops citing `[n]` references. What replaces them
+        later is a **suggestions section** (blogs, YouTube videos, papers,
+        code), which is the "Verified resources" stage below, so it inherits
+        that stage's rule: no URL taken straight from the model. Decide
+        whether the reference list still informs the paper's breakdown (it
+        does useful grounding there). *(From the `todos.md` inbox, 2026-10-09.)*
+      - **Let the tutor draw on the reader's library**, not only the paper's
+        references, when it writes a lesson: the researcher's
+        `search_sources` already does this for answers. *(From the `todos.md` inbox, 2026-10-09.)*
 
       **Later stages, deliberately out of v1:**
       - **A challenger agent** that asks probe questions to learn what the
