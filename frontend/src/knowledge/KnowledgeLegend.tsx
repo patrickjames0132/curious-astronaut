@@ -3,8 +3,10 @@
  *
  * Description:
  * The knowledge graph's legend, bottom-left like the citation graph's (and on
- * its `.legend` styles): the two kinds of node, the one kind of edge, and
- * the three states a node can be in.
+ * its `.legend` styles): the paper and a concept, the one kind of edge, and a
+ * concept's states (v8.17.0): known (green) and new (grey, never opened or
+ * broken down; it turns violet once you do). Outlines follow the citation
+ * graph and need no entry.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -22,34 +24,25 @@ export default function KnowledgeLegend() {
     <div className="legend knowledge-legend" data-tour="knowledge-legend">
       <span>
         <i style={{ background: KNOWLEDGE_COLOR.root }} />
-        The paper
+        Paper
       </span>
       <span>
         <i style={{ background: KNOWLEDGE_COLOR.concept }} />
         Concept
       </span>
-      <span title="An arrow from A to B: understanding A needs B">
+      <span title="An arrow from A to B: understanding A depends on B">
         <b className="legend-arrow" aria-hidden="true">
           →
         </b>
-        needs
+        Depends on
       </span>
       <span>
-        <i style={{ background: KNOWLEDGE_COLOR.done, opacity: 0.55 }} />
-        Visited
-      </span>
-      <span>
-        <i
-          className="legend-known"
-          style={{ background: KNOWLEDGE_COLOR.done, color: KNOWLEDGE_COLOR.known }}
-        >
-          ✓
-        </i>
+        <i style={{ background: KNOWLEDGE_COLOR.known }} />
         Known
       </span>
-      <span>
-        <i className="ring" />
-        More to break down
+      <span title="Not opened or broken down yet: it turns violet once you do">
+        <i style={{ background: KNOWLEDGE_COLOR.fresh }} />
+        New
       </span>
     </div>
   )

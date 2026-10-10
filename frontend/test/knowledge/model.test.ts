@@ -4,12 +4,14 @@
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { describe, expect, it } from 'vitest'
+import { LABEL_ZOOM, labelled } from '../../src/knowledge/look'
 import type { KnowledgeChild } from '../../src/api'
 import {
   courseNames,
   courseOrder,
   createMap,
   isCurrentMap,
+  lessonText,
   nameKey,
   neededBy,
   needs,
@@ -17,8 +19,8 @@ import {
   progress,
   routeWhy,
   tutorPath,
-  withChildren,
   type KnowledgeMap,
+  withChildren,
 } from '../../src/knowledge/model'
 
 /** A concept child.
@@ -131,5 +133,45 @@ describe('the course', () => {
     expect(nextLesson(map, 'bellman equations')).toBe('q learning')
     expect(nextLesson(map, 'playing atari')).toBe('bellman equations')
     expect(nextLesson({ ...map, known: courseOrder(map) }, 'playing atari')).toBeNull()
+  })
+})
+
+describe('lessonText', () => {
+  const ref = { node_id: 'ql', title: 'Q-learning', url: '', provider: 's2' as const }
+  it('hides the resolved citation markers of a lesson saved before v8.17.0', () => {
+    const node = {
+      id: 'q',
+      title: 'Q-learning',
+      kind: 'concept' as const,
+      lesson: 'Q-learning [1] learns values [1, 2] in [0, 1] and [9].',
+      refs: { '1': ref, '2': ref },
+    }
+    // [0, 1] and [9] were never resolved citations, so they stay.
+    expect(lessonText(node)).toBe('Q-learning learns values in [0, 1] and [9].')
+  })
+  it('leaves a lesson with no citations untouched', () => {
+    const node = { id: 'q', title: 'Q', kind: 'concept' as const, lesson: 'In [0, 1].' }
+    expect(lessonText(node)).toBe('In [0, 1].')
+  })
+})
+
+describe('labelled', () => {
+  const course = withChildren(createMap({ id: 'dqn', title: 'DQN' }), 'dqn', [
+    { name: 'Q-learning', why: 'w' },
+    { name: 'TD learning', why: 'w' },
+  ])
+  it('names every node past the citation graph’s zoom, and in 3D', () => {
+    expect(labelled(course, 'td learning', null, false, LABEL_ZOOM + 0.1)).toBe(true)
+    expect(labelled(course, 'td learning', null, false)).toBe(true)
+  })
+  it('zoomed out, keeps only the paper, the open, picked and hovered names', () => {
+    const zoom = LABEL_ZOOM - 0.5
+    expect(labelled(course, 'dqn', null, false, zoom)).toBe(true)
+    expect(labelled(course, 'td learning', null, false, zoom)).toBe(false)
+    expect(labelled(course, 'td learning', 'td learning', false, zoom)).toBe(true)
+    expect(labelled(course, 'td learning', null, true, zoom)).toBe(true)
+    expect(labelled({ ...course, openId: 'td learning' }, 'td learning', null, false, zoom)).toBe(
+      true,
+    )
   })
 })

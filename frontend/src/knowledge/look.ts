@@ -10,7 +10,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { REL_COLOR } from '../graph/theme'
 import type { KnowledgeMap, KnowledgeNode } from './model'
 
@@ -18,9 +18,11 @@ import type { KnowledgeMap, KnowledgeNode } from './model'
 export const KNOWLEDGE_COLOR = {
   root: REL_COLOR.seed,
   concept: '#b197fc',
-  /** Visited and known items fade to this. */
-  done: '#8b93a7',
-  /** The ✓ on a known item — the citation graph's citation green. */
+  /** A concept not yet explored (never opened or broken down): it turns
+   *  violet once explored (v8.17.0). */
+  fresh: '#a7afbd',
+  /** A known item's fill — the citation graph's citation green. Until v8.17.0
+   *  a known item was grey with a ✓ on it. */
   known: REL_COLOR.citation,
 } as const
 
@@ -33,6 +35,34 @@ export interface CanvasNode {
   y?: number
   // oxlint-disable-next-line id-length
   z?: number
+  /** The engine's fixed position: set by a drag to pin a node, cleared by Release. */
+  fx?: number
+  fy?: number
+  fz?: number
+}
+
+/**
+ * Pin a dragged node where it was dropped, as the citation graph does.
+ *
+ * @param node The node, as the engine holds it.
+ */
+export function pinNode(node: CanvasNode): void {
+  node.fx = node.x
+  node.fy = node.y
+  if (node.z !== undefined) node.fz = node.z
+}
+
+/**
+ * Unpin every node.
+ *
+ * @param nodes The view's nodes.
+ */
+export function releaseNodes(nodes: CanvasNode[]): void {
+  for (const node of nodes) {
+    node.fx = undefined
+    node.fy = undefined
+    node.fz = undefined
+  }
 }
 
 /** A "needs" edge as the engine holds it (ids until the engine resolves them). */
@@ -42,50 +72,61 @@ export interface CanvasLink {
 }
 
 /**
- * A node's state for painting.
+ * A node's fill (v8.17.0, Patrick). A known item is **green**. A concept is
+ * **grey** until it has been explored (its lesson opened, or broken down) and
+ * **violet** after; the paper is always gold. Outlines follow the citation
+ * graph and are the views' business: black on every node, the canvas's hard
+ * ink on the open one, the selection blue on picked ones. Until
+ * v8.17.0 an opened item was grey and a known one grey with a ✓, and a
+ * dashed ring marked "more to break down", which was nearly always true,
+ * since the tutor can keep breaking anything down.
  *
  * @param map The course.
  * @param node The item.
- * @returns Its colour and whether it is greyed out.
+ * @returns Its fill colour.
  */
-export function nodeLook(
-  map: KnowledgeMap,
-  node: KnowledgeNode,
-): { color: string; faded: boolean } {
-  const known = map.known.includes(node.id)
-  const faded = known || !!node.visited
-  const base = node.id === map.rootId ? KNOWLEDGE_COLOR.root : KNOWLEDGE_COLOR.concept
-  return { color: faded ? KNOWLEDGE_COLOR.done : base, faded }
+export function nodeLook(map: KnowledgeMap, node: KnowledgeNode): { color: string } {
+  const explored = !!node.visited || !!node.expanded
+  const base =
+    node.id === map.rootId
+      ? KNOWLEDGE_COLOR.root
+      : explored
+        ? KNOWLEDGE_COLOR.concept
+        : KNOWLEDGE_COLOR.fresh
+  return {
+    color: map.known.includes(node.id) ? KNOWLEDGE_COLOR.known : base,
+  }
 }
 
-/** Which nodes are named on the canvas: the neighbourhood in focus, or all of them. */
-export type LabelMode = 'nearby' | 'all'
+/** Zoom past which the 2D view names every node. Lower than the citation
+ *  graph's 1.6 (`graph/canvas/GraphCanvas.tsx`): a course is smaller and
+ *  sparser, so its names can stay on further out (Patrick, v8.17.0). */
+export const LABEL_ZOOM = 0.6
 
 /**
- * Whether a node's label is drawn. "Nearby" (the default, to keep a growing
- * course readable) names the paper, the item in focus — the open lesson, or
- * the paper when none is open — everything joined to it, and the node under
- * the pointer.
+ * Whether a node's label is drawn, by the citation graph's rule (v8.17.0),
+ * with its own threshold: zoomed in past `LABEL_ZOOM`, every node is named; zoomed out, only the
+ * paper, the open item, picked items and the node under the pointer keep
+ * their names. The 3D view passes no zoom and names everything: its labels
+ * shrink with distance, which does the same job. (Until v8.17.0 a Nearby /
+ * All toggle chose between naming the neighbourhood in focus and every node.)
  *
  * @param map The course.
  * @param nodeId The node.
- * @param mode Nearby or all.
  * @param hoverId The node under the pointer, if any.
+ * @param picked Whether the node is picked to check off.
+ * @param zoom The 2D canvas's zoom; omitted in 3D.
  * @returns True to draw its label.
  */
 export function labelled(
   map: KnowledgeMap,
   nodeId: string,
-  mode: LabelMode,
   hoverId: string | null,
+  picked: boolean,
+  zoom?: number,
 ): boolean {
-  if (mode === 'all' || nodeId === map.rootId || nodeId === hoverId) return true
-  const focus = map.openId ?? map.rootId
-  if (nodeId === focus) return true
-  return map.edges.some(
-    (edge) =>
-      (edge.from === focus && edge.to === nodeId) || (edge.to === focus && edge.from === nodeId),
-  )
+  if (zoom === undefined || zoom > LABEL_ZOOM) return true
+  return nodeId === map.rootId || nodeId === map.openId || nodeId === hoverId || picked
 }
 
 /**
@@ -153,19 +194,28 @@ const DOUBLE_CLICK_MS = 350
 /**
  * Click and double-click on a node, which the force engine doesn't tell apart:
  * a click opens the lesson, a quick second click on the same node breaks it
- * down — the same gesture the citation graph uses to re-seed on a node.
+ * down — the same gesture the citation graph uses to re-seed on a node. A
+ * shift-click adds the node to, or takes it out of, the selection (v8.17.0),
+ * again as on the citation graph, and never opens or breaks anything down.
  *
  * @param onOpen Open an item's lesson.
  * @param onExpand Break an item down.
+ * @param onSelect Toggle an item in the selection.
  * @returns The engine's `onNodeClick` handler.
  */
 export function useNodeClicks(
   onOpen: (nodeId: string) => void,
   onExpand: (nodeId: string) => void,
-): (node: CanvasNode) => void {
+  onSelect: (nodeId: string) => void,
+): (node: CanvasNode, event?: MouseEvent) => void {
   const last = useRef({ id: '', time: 0 })
   return useCallback(
-    (node: CanvasNode) => {
+    (node: CanvasNode, event?: MouseEvent) => {
+      if (event?.shiftKey) {
+        last.current = { id: '', time: 0 }
+        onSelect(node.id)
+        return
+      }
       const now = performance.now()
       if (last.current.id === node.id && now - last.current.time < DOUBLE_CLICK_MS) {
         last.current = { id: '', time: 0 }
@@ -175,6 +225,28 @@ export function useNodeClicks(
       last.current = { id: node.id, time: now }
       onOpen(node.id)
     },
-    [onOpen, onExpand],
+    [onOpen, onExpand, onSelect],
   )
+}
+
+/**
+ * Run `fit` when the Fit button's signal changes, and only then: never for the
+ * value the view mounted with. The signal lives in `KnowledgeNetwork` and so
+ * outlives a 2D/3D switch. Firing it on mount fitted the camera to a course
+ * whose nodes had only their starting positions, bunched at the centre, and
+ * the course then spread out around a camera parked inside it: the 3D view
+ * came up blank whenever Fit had been pressed before the switch (v8.17.0).
+ *
+ * @param signal The Fit button's counter.
+ * @param fit Frame the course.
+ */
+export function useFitButton(signal: number, fit: () => void): void {
+  const seen = useRef(signal)
+  const latest = useRef(fit)
+  latest.current = fit
+  useEffect(() => {
+    if (signal === seen.current) return
+    seen.current = signal
+    latest.current()
+  }, [signal])
 }

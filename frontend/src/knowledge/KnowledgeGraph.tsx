@@ -18,18 +18,20 @@ import { useEffect, useRef, useState } from 'react'
 import ForceGraph2DImport from 'react-force-graph-2d'
 import { SELECTION_RING, UNKNOWN_EDGE, useCanvasInk } from '../graph/theme'
 import {
-  KNOWLEDGE_COLOR,
   labelled,
   nodeLook,
   nodeRadius,
   shortLabel,
   useGraphData,
+  pinNode,
+  releaseNodes,
+  useFitButton,
   useNodeClicks,
   type CanvasLink,
   type CanvasNode,
-  type LabelMode,
 } from './look'
 import type { KnowledgeMap } from './model'
+import { inBox, type BoxBounds } from '../ui/useBoxSelect'
 
 // The lib's generic prop typings fight our accessor signatures, as on the
 // citation graph (graph/canvas/GraphCanvas.tsx); render via an untyped alias.
@@ -43,16 +45,33 @@ export interface KnowledgeGraphProps {
   height: number
   /** Items whose breakdown is in flight. */
   expanding: ReadonlySet<string>
-  /** Center the view on this item when it changes (Next lesson, a panel link). */
-  focusId: string | null
-  /** Which nodes are named. */
-  labels: LabelMode
+  /**
+   * Centre the view on this item: a click on a node, Next lesson, a panel
+   * link. `seq` changes on every request, so the same item can be centred
+   * again after the reader has panned away from it.
+   */
+  focus: { id: string; seq: number } | null
   /** Bumped to fit the whole course in view. */
   fitSignal: number
+  /** Items picked to check off together (shift-click, alt-drag). */
+  selected: ReadonlySet<string>
   onOpen: (nodeId: string) => void
   onExpand: (nodeId: string) => void
+  /** Shift-click: add an item to the selection, or take it out. */
+  onSelect: (nodeId: string) => void
   /** A click on empty canvas closes the lesson. */
   onBackground: () => void
+  /** Filled in by the view so the alt-drag box can hit-test its nodes. */
+  engineRef?: { current: KnowledgeEngine | null }
+  /** How many nodes are pinned, whenever a drag or a Release changes it. */
+  onPinned: (count: number) => void
+}
+
+/** What a view offers the network: the nodes inside a box on screen, and Release. */
+export interface KnowledgeEngine {
+  nodesIn: (box: BoxBounds) => string[]
+  /** Unpin every node and let the layout settle again. */
+  release: () => void
 }
 
 /**
@@ -62,15 +81,39 @@ export interface KnowledgeGraphProps {
  * @returns The force-graph canvas.
  */
 export default function KnowledgeGraph(props: KnowledgeGraphProps) {
-  const { map, width, height, expanding, focusId, labels, fitSignal } = props
-  const { onOpen, onExpand, onBackground } = props
+  const { map, width, height, expanding, focus, fitSignal } = props
+  const { selected, onOpen, onExpand, onSelect, onBackground, engineRef, onPinned } = props
   const ink = useCanvasInk()
   const [hoverId, setHoverId] = useState<string | null>(null)
   const data = useGraphData(map)
-  const onNodeClick = useNodeClicks(onOpen, onExpand)
+  const onNodeClick = useNodeClicks(onOpen, onExpand, onSelect)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null)
   const fitted = useRef(false)
+
+  // The alt-drag box reads the nodes on screen through this.
+  useEffect(() => {
+    if (!engineRef) return undefined
+    engineRef.current = {
+      nodesIn: (box) =>
+        data.nodes
+          .filter(
+            (node) =>
+              node.x !== undefined &&
+              node.y !== undefined &&
+              inBox(fgRef.current?.graph2ScreenCoords(node.x, node.y) ?? { x: -1, y: -1 }, box),
+          )
+          .map((node) => node.id),
+      release: () => {
+        releaseNodes(data.nodes)
+        onPinned(0)
+        fgRef.current?.d3ReheatSimulation()
+      },
+    }
+    return () => {
+      engineRef.current = null
+    }
+  }, [engineRef, data, onPinned])
 
   // A little more room than the engine's default: labels sit under the discs.
   useEffect(() => {
@@ -78,17 +121,17 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
     fgRef.current?.d3Force('link')?.distance(48)
   }, [])
 
-  useEffect(() => {
-    if (fitSignal && data.nodes.length > 1) fgRef.current?.zoomToFit(400, 80)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- on the button only
-  }, [fitSignal])
+  useFitButton(fitSignal, () => {
+    if (data.nodes.length > 1) fgRef.current?.zoomToFit(400, 80)
+  })
 
+  // Pan (no zoom change) so the focused item sits in the middle of the canvas.
   useEffect(() => {
-    if (!focusId) return
-    const node = data.nodes.find((item) => item.id === focusId)
+    if (!focus) return
+    const node = data.nodes.find((item) => item.id === focus.id)
     if (node?.x !== undefined) fgRef.current?.centerAt(node.x, node.y, 600)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- on a new focus only
-  }, [focusId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on a new focus request only
+  }, [focus])
 
   return (
     <ForceGraph2D
@@ -107,6 +150,11 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
       onNodeClick={onNodeClick}
       onNodeHover={(node: CanvasNode | null) => setHoverId(node ? node.id : null)}
       onBackgroundClick={onBackground}
+      // A drag pins the node where it is dropped; Release unpins them all.
+      onNodeDragEnd={(node: CanvasNode) => {
+        pinNode(node)
+        onPinned(data.nodes.filter((item) => item.fx !== undefined).length)
+      }}
       cooldownTicks={140}
       onEngineStop={() => {
         // Not on a lone node: a new course shows only the paper while its
@@ -140,53 +188,40 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
         const item = map.nodes[node.id]
         if (!item || node.x === undefined || node.y === undefined) return
         const radius = nodeRadius(map, item)
-        const { color, faded } = nodeLook(map, item)
+        const { color } = nodeLook(map, item)
         const nodeX = node.x
         const nodeY = node.y
+        const picked = selected.has(item.id)
 
         ctx.beginPath()
         ctx.arc(nodeX, nodeY, radius, 0, 2 * Math.PI)
-        ctx.globalAlpha = faded ? 0.55 : 1
         ctx.fillStyle = color
         ctx.fill()
-        ctx.globalAlpha = 1
 
-        if (map.known.includes(item.id)) {
-          ctx.fillStyle = KNOWLEDGE_COLOR.known
-          ctx.font = `bold ${radius * 1.5}px sans-serif`
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'middle'
-          ctx.fillText('✓', nodeX, nodeY + 0.5)
-        }
-        // More beneath it: a dashed ring, turning while it is being fetched.
+        // One outline, on the disc's own edge, as on the citation graph:
+        // black on every node, the canvas's hard ink (white on dark, near
+        // black on light) on the open one, the selection blue on picked ones.
+        // While its breakdown is in flight the edge turns into moving blue
+        // dashes.
         const busy = expanding.has(item.id)
-        if (busy || !item.expanded) {
-          ctx.beginPath()
-          ctx.arc(nodeX, nodeY, radius + 2.5, 0, 2 * Math.PI)
-          ctx.lineWidth = 1.2 / scale
-          ctx.strokeStyle = busy ? SELECTION_RING : ink.soft
+        const open = map.openId === item.id
+        ctx.lineWidth = (open || picked || busy ? 2 : 1) / scale
+        ctx.strokeStyle = picked || busy ? SELECTION_RING : open ? ink.hard : ink.outline
+        if (busy) {
           ctx.setLineDash([3 / scale, 2.5 / scale])
-          ctx.lineDashOffset = busy ? -performance.now() / 60 / scale : 0
-          ctx.stroke()
-          ctx.setLineDash([])
+          ctx.lineDashOffset = -performance.now() / 60 / scale
         }
-        if (map.openId === item.id) {
-          ctx.beginPath()
-          ctx.arc(nodeX, nodeY, radius + (busy || !item.expanded ? 5 : 2.5), 0, 2 * Math.PI)
-          ctx.lineWidth = 2 / scale
-          ctx.strokeStyle = SELECTION_RING
-          ctx.stroke()
-        }
+        ctx.stroke()
+        ctx.setLineDash([])
 
-        // Names for the neighbourhood in focus (or all, by choice); zoomed far
-        // out, only the paper keeps its name.
-        if (!labelled(map, item.id, labels, hoverId)) return
-        if (scale < 0.55 && item.id !== map.rootId && item.id !== hoverId) return
+        // Every name once zoomed in, as on the citation graph; zoomed out,
+        // only the paper, the open item, picked items and the hovered one.
+        if (!labelled(map, item.id, hoverId, picked, scale)) return
         const fontSize = Math.max(11 / scale, 2.4)
         ctx.font = `${item.id === map.rootId ? '600 ' : ''}${fontSize}px sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
-        ctx.fillStyle = faded ? ink.soft : ink.ink
+        ctx.fillStyle = ink.ink
         ctx.fillText(shortLabel(item.title), nodeX, nodeY + radius + 3)
       }}
       nodePointerAreaPaint={(node: CanvasNode, color: string, ctx: CanvasRenderingContext2D) => {

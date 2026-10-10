@@ -3,7 +3,7 @@
 Description:
 The tutor's words: its agent id, skills, and the two prompts — one that
 breaks the paper or a concept into the concepts it needs, one that teaches a
-single concept as a lesson (citing the paper's real references). Model choice
+single concept as a lesson (no citations since v8.17.0). Model choice
 and the two knobs (``children``, ``lesson_words``) live in its
 ``config.llm.agents`` entry, validated at load against ``config.TutorExtras``;
 ``main`` reads them per call, so a settings edit applies to the next expansion
@@ -57,11 +57,9 @@ LESSON_PROMPT = (
     "LaTeX between $…$ or $$…$$ where an equation helps; keep notation "
     "light. When the subject is the paper itself, explain what it did and "
     "why it matters, grounded in its abstract — never invent results.\n\n"
-    "Citations: when a REFERENCES list is given and an idea in the lesson "
-    "comes from a paper on it, cite that paper with its number in square "
-    "brackets, like [3], where the idea is introduced. Cite ONLY from that "
-    "list, and never name a paper that is not on it — a lesson with no "
-    "citation is fine.\n\n"
+    "No citations: no numbered markers like [3] and no reference list. "
+    "Mention a paper or author only where the idea is commonly known by it "
+    "(\"Watkins' Q-learning\"), and never invent one.\n\n"
     "No title heading (the page shows the subject), no lead-in about what "
     "you are about to do, and no closing quiz."
 )

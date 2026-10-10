@@ -167,36 +167,35 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
     title: 'Everything this paper rests on',
     body:
       'The paper sits in gold; every violet node is a concept it needs, and arrows point ' +
-      'from an item to what it needs. A dashed ring means there is more beneath it: ' +
-      'double-click to break it down, as deep as you like. A concept two items both need ' +
+      'from an item to what it needs. Double-click any node to break it down into what ' +
+      'it needs in turn, as deep as you like. A concept two items both need ' +
       'is one node with two arrows into it.',
   },
   {
     target: '[data-tour="knowledge-legend"]',
     title: 'Reading the graph',
     body:
-      'The legend names it all: the paper, concepts, the “needs” arrow, and the three ' +
-      'states — grey once you have opened a lesson, a ✓ once you know it, a dashed ring ' +
-      'while there is more to break down. Only the neighbourhood you are looking at is ' +
+      'The legend names it all: the paper, concepts, the “depends on” arrow, and a ' +
+      'concept’s states — grey and new until you open or break it down, then violet, and ' +
+      'green once you know it. Only the neighbourhood you are looking at is ' +
       'named; point at any node for its name.',
   },
   {
     target: '[data-tour="knowledge-controls"]',
     title: 'The course controls',
     body:
-      'The graph is also a short course, ordered so each item comes after what it needs — ' +
-      'the deepest concepts first, the paper itself last. Open these controls for how much ' +
-      'is left and the next lesson, to name every node, to fit it all in view, or to fly ' +
-      'through it in 3D.',
+      'Open these controls to fly through the course in 3D, or for ' +
+      'Release (unpin the nodes you dragged), Fit (the whole course in view) and Clear ' +
+      '(drop a selection).',
   },
   {
     target: '[data-tour="knowledge"]',
     title: 'Click a node for its lesson',
     body:
       'A panel opens with what it is, why the course needs it, and its lesson — written ' +
-      'for this course the first time you open it and kept after that. Numbers like [3] ' +
-      'cite the paper’s real references: click one to open that paper in its own thread. ' +
-      'Tick “I know this” and the course skips it, with everything beneath it.',
+      'for this course the first time you open it and kept after that. Switch on “I know ' +
+      'this” and the course skips it, with everything beneath it. Already know several? ' +
+      'Shift-click them, or hold Alt and drag a box around them, then “✓ I know these”.',
   },
 ]
 

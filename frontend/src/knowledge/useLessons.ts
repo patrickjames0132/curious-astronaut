@@ -14,15 +14,14 @@
  */
 
 import { useCallback, useState } from 'react'
-import { streamLesson, type PaperRef, type Provider } from '../api'
+import { streamLesson } from '../api'
 import { useAppDispatch } from '../store'
 import { knowledgeLessonWritten } from '../store/explorations'
 import { routeWhy, tutorPath, type KnowledgeMap } from './model'
 
-/** A lesson being written: the text so far, its citations once known, or why it failed. */
+/** A lesson being written: the text so far, or why it failed. */
 export interface LessonDraft {
   text: string
-  refs?: Record<string, PaperRef>
   error?: string
 }
 
@@ -38,11 +37,10 @@ const IN_FLIGHT = new Set<string>()
  * Stream lessons for one thread's course.
  *
  * @param threadId The thread the course belongs to.
- * @param provider The backend the course's paper (and so its references) belongs to.
  * @returns The drafts in flight by node id, `write` to start one, and
  *   `writing` — true for a lesson still streaming from an earlier mount.
  */
-export function useLessons(threadId: string, provider: Provider) {
+export function useLessons(threadId: string) {
   const dispatch = useAppDispatch()
   const [drafts, setDrafts] = useState<Record<string, LessonDraft>>({})
 
@@ -53,7 +51,6 @@ export function useLessons(threadId: string, provider: Provider) {
       if (!node || node.lesson || IN_FLIGHT.has(flightKey)) return
       IN_FLIGHT.add(flightKey)
       let text = ''
-      let refs: Record<string, PaperRef> | undefined
       const update = (draft: LessonDraft | null) =>
         setDrafts((previous) => {
           const next = { ...previous }
@@ -69,20 +66,15 @@ export function useLessons(threadId: string, provider: Provider) {
           path: tutorPath(map, nodeId),
           abstract: node.paper?.abstract ?? '',
           paper_id: map.nodes[map.rootId]?.paper?.id,
-          provider,
         },
         {
           onToken: (chunk) => {
             text += chunk
-            update({ text, refs })
-          },
-          onRefs: (found) => {
-            refs = found
-            update({ text, refs })
+            update({ text })
           },
           onDone: () => {
             IN_FLIGHT.delete(flightKey)
-            if (text) dispatch(knowledgeLessonWritten({ threadId, nodeId, text, refs }))
+            if (text) dispatch(knowledgeLessonWritten({ threadId, nodeId, text }))
             update(null)
           },
           onError: (message) => {
@@ -95,7 +87,7 @@ export function useLessons(threadId: string, provider: Provider) {
         update({ text, error: error instanceof Error ? error.message : 'The lesson failed' })
       })
     },
-    [dispatch, threadId, provider],
+    [dispatch, threadId],
   )
 
   const writing = useCallback(

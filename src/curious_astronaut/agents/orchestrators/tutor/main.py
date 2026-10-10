@@ -10,20 +10,21 @@ Two jobs, one agent id (and so one configured model):
   One structured call, returned whole: the frontend shows a turning ring on
   the node and then the new nodes at once.
 * ``lesson`` teaches one item, streamed as ``Token`` events the way the
-  researcher streams an answer, then a ``PaperRefs`` event for the papers it
-  cited.
+  researcher streams an answer.
 
 **The graph holds ideas; papers live in the lessons** (Patrick, 2026-10-09).
 The graph started with paper nodes too, grounded in the reference list.
 They were dropped because a paper bundles several ideas and so sits at a
 different level from "Bellman equations", and the reader needs the ideas.
-The real reference list still grounds the course in two places. The
-expansion of the paper sees it, to judge which ideas the paper builds on.
-Every lesson sees it, numbered, and may cite a paper **only by its number**.
-``PaperRefs`` resolves the numbers the text actually used, in range, so a
-paper the provider doesn't know can never appear as a citation. This keeps
-the course tied to the actual literature, which is what sets it apart from
-expand-a-term tools (see the OnePager's Phase 5).
+The real reference list still grounds the course where it matters most:
+the expansion of the paper sees it, to judge which ideas the paper actually
+builds on, so the course is tied to the literature rather than to whatever
+a term suggests. **Lessons no longer cite** (Patrick, v8.17.0). From v8.14.0
+they cited the reference list by number (``[3]``), resolved server-side to
+the real papers; it was grounded, but it read oddly ("bare numbers read as
+footnotes", and every lesson cited the *root* paper's list however deep it
+sat). A suggestions section of vetted resources is the planned replacement
+(the OnePager's "Verified resources").
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
@@ -32,7 +33,6 @@ Charles Patrick James <charles.patrick.james@gmail.com>
 from __future__ import annotations
 
 import logging
-import re
 from typing import Iterator, Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -136,40 +136,6 @@ def _references_block(references: list[dict]) -> str:
     return "REFERENCES:\n" + "\n".join(numbered) + "\n\n"
 
 
-_MARKER = re.compile(r"\[(\d+(?:[\s,]+\d+)*)\]")
-"""A ``[3]`` or ``[3, 7]`` citation marker — the same shape the researcher's
-prose uses and the frontend's ``remarkCite`` renders."""
-
-
-def cited_references(
-    text: str, references: list[dict], provider: str
-) -> dict[str, events.PaperRef]:
-    """Resolve the markers a lesson actually used to the real papers.
-
-    Args:
-        text: The finished lesson.
-        references: The numbered list the lesson was shown.
-        provider: The backend the reference ids belong to.
-
-    Returns:
-        ``{"3": PaperRef, ...}`` for in-range markers only — a number the
-        list doesn't hold resolves to nothing and renders as plain text.
-    """
-    refs: dict[str, events.PaperRef] = {}
-    for match in _MARKER.finditer(text):
-        for token in re.split(r"[\s,]+", match.group(1)):
-            index = int(token)
-            if 1 <= index <= len(references) and token not in refs:
-                paper = references[index - 1]
-                refs[token] = events.PaperRef(
-                    node_id=str(paper.get("id") or ""),
-                    title=str(paper.get("title") or ""),
-                    url=str(paper.get("url") or ""),
-                    provider="openalex" if provider == "openalex" else "s2",
-                )
-    return refs
-
-
 def _key(name: str) -> str:
     """Compare names the way the course's concept identity does: case- and space-blind.
 
@@ -222,14 +188,7 @@ def expand(
     return children
 
 
-def lesson(
-    item: Step,
-    why: str,
-    path: list[Step],
-    abstract: str,
-    references: list[dict],
-    provider: str,
-) -> Iterator[events.Event]:
+def lesson(item: Step, why: str, path: list[Step], abstract: str) -> Iterator[events.Event]:
     """Teach one course item, streamed.
 
     Args:
@@ -237,13 +196,10 @@ def lesson(
         why: What the item above it needs it for ('' at the root).
         path: The course path above it, root first.
         abstract: The paper's abstract when the item is the paper ('' otherwise).
-        references: The paper's real reference list — the only papers the
-            lesson may cite, by number.
-        provider: The backend the references' ids belong to.
 
     Yields:
-        ``Token`` events carrying the lesson's Markdown as it is written, then
-        one ``PaperRefs`` when it cited anything. The caller wraps this in
+        ``Token`` events carrying the lesson's Markdown as it is written. The
+        caller wraps this in
         ``streams.terminated`` for the closing ``Done``/``Error``.
 
     Raises:
@@ -255,7 +211,6 @@ def lesson(
         parts.append(f"WHY THE COURSE NEEDS IT: {why}\n\n")
     if abstract:
         parts.append(f"ABSTRACT: {abstract}\n\n")
-    parts.append(_references_block(references))
     parts.append(f"Aim for about {words} words.")
 
     output_part: int | None = None
@@ -290,6 +245,3 @@ def lesson(
     remainder = final.text[len(emitted) :]
     if remainder:
         yield events.Token(text=remainder)
-    refs = cited_references(final.text, references, provider)
-    if refs:
-        yield events.PaperRefs(refs=refs)

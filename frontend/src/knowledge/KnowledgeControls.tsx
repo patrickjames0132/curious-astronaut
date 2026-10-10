@@ -5,9 +5,11 @@
  * The knowledge graph's controls, folded into a sliders button in the
  * top-left corner exactly as the citation graph's are (and styled by the same
  * `.ctrl-icon` / `.controls` rules, so the two canvases share one corner
- * button): the course's progress and next lesson, 2D / 3D, label density,
- * fit to view, and the gesture hints. Folded by default, so the canvas is
- * the reader's.
+ * button): 2D / 3D, the citation graph's action row
+ * (Release · Fit · Clear; no Refresh, since nothing here is refetched), and
+ * the gesture hints. Folded by default, so the canvas is the reader's. Until
+ * v8.17.0 it also showed the course's progress and a Next lesson button; the
+ * lesson panel's footer keeps Next lesson.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -16,46 +18,36 @@
 import { useState } from 'react'
 import SlidersGlyph from '../ui/SlidersGlyph'
 import { usePresence } from '../ui/usePresence'
-import type { LabelMode } from './look'
 
 /**
  * Render the folding controls.
  *
  * @param props Component props.
- * @param props.total Lessons in the course.
- * @param props.left Lessons still unchecked.
- * @param props.nextTitle The next lesson's title, when there is one to go to.
- * @param props.started True once any lesson has been opened.
- * @param props.onNext Go to the next lesson.
  * @param props.threeD Whether the 3D view is on.
  * @param props.onThreeD Switch between 2D and 3D.
- * @param props.labels Which nodes are named.
- * @param props.onLabels Change label density.
  * @param props.onFit Fit the whole course in view.
+ * @param props.pinnedCount Nodes pinned by dragging.
+ * @param props.onRelease Unpin them all.
+ * @param props.selectedCount Nodes picked to check off.
+ * @param props.onClear Drop the selection.
  * @returns The button, or the open panel.
  */
 export default function KnowledgeControls({
-  total,
-  left,
-  nextTitle,
-  started,
-  onNext,
   threeD,
   onThreeD,
-  labels,
-  onLabels,
   onFit,
+  pinnedCount,
+  onRelease,
+  selectedCount,
+  onClear,
 }: {
-  total: number
-  left: number
-  nextTitle: string | null
-  started: boolean
-  onNext: () => void
   threeD: boolean
   onThreeD: (on: boolean) => void
-  labels: LabelMode
-  onLabels: (mode: LabelMode) => void
   onFit: () => void
+  pinnedCount: number
+  onRelease: () => void
+  selectedCount: number
+  onClear: () => void
 }) {
   const [collapsed, setCollapsed] = useState(true)
   const panel = usePresence(!collapsed)
@@ -69,7 +61,7 @@ export default function KnowledgeControls({
           data-tour="knowledge-controls"
           aria-expanded={false}
           onClick={() => setCollapsed(false)}
-          title="Open the course controls — progress, next lesson, 2D / 3D, labels"
+          title="Open the course controls — 2D / 3D, Release · Fit · Clear"
           aria-label="Open the course controls"
         >
           <SlidersGlyph />
@@ -95,24 +87,6 @@ export default function KnowledgeControls({
         </button>
 
         <div className="ctrl-body">
-          <div className="course-progress-row">
-            <span>
-              {left === 0
-                ? 'All done — every lesson checked off'
-                : `${left} of ${total} lesson${total === 1 ? '' : 's'} left`}
-            </span>
-            {nextTitle && (
-              <button
-                type="button"
-                className="course-next"
-                onClick={onNext}
-                title={`Next: ${nextTitle}`}
-              >
-                {started ? 'Next lesson ›' : 'Start ›'}
-              </button>
-            )}
-          </div>
-
           <div className="ctrl-label">View</div>
           <div className="layout-toggle">
             <button className={threeD ? '' : 'on'} onClick={() => onThreeD(false)}>
@@ -127,26 +101,40 @@ export default function KnowledgeControls({
             </button>
           </div>
 
-          <div className="ctrl-label">Labels</div>
-          <div className="layout-toggle">
+          {/* The citation graph's action row, less Refresh: nothing here is
+              fetched that a refetch would change. */}
+          <div className="ctrl-btns knowledge-actions">
             <button
-              className={labels === 'nearby' ? 'on' : ''}
-              onClick={() => onLabels('nearby')}
-              title="Name the paper, the open lesson and what joins it, and whatever you point at"
+              type="button"
+              className="mini-btn"
+              onClick={onRelease}
+              disabled={pinnedCount === 0}
+              title="Unpin every node you dragged and let the layout settle"
             >
-              Nearby
+              Release {pinnedCount || ''}
             </button>
-            <button className={labels === 'all' ? 'on' : ''} onClick={() => onLabels('all')}>
-              All
+            <button
+              type="button"
+              className="mini-btn"
+              onClick={onFit}
+              title="Fit the course in view"
+            >
+              Fit
+            </button>
+            <button
+              type="button"
+              className="mini-btn"
+              onClick={onClear}
+              disabled={selectedCount === 0}
+              title="Clear the selection (Esc does the same)"
+            >
+              Clear
             </button>
           </div>
 
-          <button type="button" className="course-fit" onClick={onFit}>
-            Fit the course in view
-          </button>
-
           <p className="ctrl-hint">
-            Click a node for its lesson · double-click to break it down
+            Click a node for its lesson · double-click to break it down · drag a node to pin it ·
+            shift-click or alt-drag to select several and check them off together
             {threeD ? ' · drag to orbit, scroll to zoom' : ' · drag to pan, scroll to zoom'}
           </p>
         </div>

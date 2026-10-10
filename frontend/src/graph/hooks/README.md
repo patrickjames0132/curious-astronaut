@@ -48,6 +48,11 @@ tools) into the live graph:
 
 ## `useMarquee` — hand-pick the teacher's scope
 
+Since v8.17.0 the gesture itself is `ui/useBoxSelect`, shared with the
+knowledge graph (which picks concepts to check off with it); `useMarquee`
+supplies the hit test over the visible view and the store dispatches. The
+design below is the gesture's, wherever it is used.
+
 A **modifier-drag, not a mode**: hold **Alt** and drag a rectangle to pick the
 nodes the AI teacher grounds in (its lectures and Q&A). The design choices that
 make it coexist with the sim's own drag-to-pan:

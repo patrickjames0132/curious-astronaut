@@ -22,6 +22,42 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The Knowledge Graph's 3D view crawled (v8.17.0, pre-release)
+
+- **Symptom.** 3D looked right but was "incredibly laggy" (Patrick), far
+  worse than react-force-graph's own demos with many more nodes.
+- **Root cause.** Two, both ours. (1) The outline ring round each sphere was
+  an empty `three-spritetext` sprite with a rounded border, and its text
+  height was set to 0.01 to hide the empty line. The library draws at
+  `fontSize / textHeight` canvas pixels per world unit, so that was 9,000 px
+  per unit: each node asked for a texture tens of thousands of pixels wide.
+  (2) The node objects depended on the hovered node, so every hover rebuilt
+  every label and ring in the scene.
+- **Fix.** The ring's text height is half its diameter (about a 180 px
+  texture, same look), and 3D keeps no hover state: it names every node
+  anyway (`knowledge/KnowledgeGraph3D.tsx`).
+- **Lesson / guard.** Any `SpriteText` sizing parameter is also a texture
+  resolution; a tiny text height is a huge canvas. And a `nodeThreeObject`
+  callback's dependencies decide how often the whole scene is rebuilt: keep
+  pointer state out of them.
+
+### The 3D view came up blank after switching from 2D (v8.17.0, pre-release)
+
+- **Symptom.** Sometimes switching the Knowledge Graph from 2D to 3D showed
+  an empty canvas.
+- **Root cause.** The Fit button's counter lives in `KnowledgeNetwork` and
+  survives the switch. Each view fitted whenever the counter was non-zero,
+  including on mount, so a freshly mounted 3D view fitted its camera to
+  nodes still bunched at their starting positions. The course then spread
+  out around a camera parked inside it. It happened only once Fit had been
+  pressed during the visit.
+- **Fix.** `useFitButton` (`knowledge/look.ts`) acts only on a press made
+  while the view is showing, never on the value it mounted with; 3D also
+  gained the 2D view's one-shot fit once the layout settles.
+- **Lesson / guard.** A counter used as a "do it now" signal must be
+  compared against the value at mount. `test/knowledge/KnowledgeGraph.test.tsx`
+  mounts with a non-zero signal and expects no fit until the next press.
+
 ### The Settings tour's spotlight missed every target (v8.16.0)
 
 - **Symptom.** In Settings → ?, the bubble and spotlight pointed beside the

@@ -3374,6 +3374,72 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **Knowledge Graph polish: no citations, multi-select check-offs, and
+      the Citation Graph's look** *(v8.17.0)* — three Backlog items from the
+      2026-10-09 inbox plus a long browser round with Patrick (2026-10-09/10),
+      who wanted the course to feel right before it shipped.
+
+      **Lessons don't cite papers.** The tutor no longer sees the reference
+      list for a lesson, and its prompt asks for no `[n]` markers and no
+      reference list (a paper may be named where an idea is commonly known by
+      it). The reference list still informs the paper's own breakdown. The
+      lesson cache key moved to `v3`, so no cached lesson with markers comes
+      back. Saved courses keep their old lessons: `lessonText` hides just the
+      markers their `refs` resolved, so a prose range like `[0, 1]` survives.
+
+      **Check off several at once**, with the Citation Graph's gestures:
+      shift-click toggles a node, an alt-drag box adds the nodes inside it.
+      The box is now `ui/useBoxSelect`, shared with the Citation Graph's
+      `useMarquee`. A bar offers "✓ I know these" (or "Not known" when all
+      are known); Clear and Esc drop the selection.
+
+      **The look, as reviewed:**
+      - Nodes: **green** once known; a concept is **grey** until explored (its
+        lesson opened, or broken down) and violet after. No ✓, no greying
+        out, and the dashed "more to break down" ring is gone (nearly always
+        true).
+      - Outlines follow the Citation Graph, on the node's own edge: black on
+        every node, the canvas's hard ink on the open one, blue on picked
+        ones, moving blue dashes while a breakdown runs. 3D draws them as a
+        camera-facing ring on the sphere's silhouette.
+      - Legend: Paper · Concept · Depends on · Known · New.
+      - Labels follow the Citation Graph's zoom rule with a lower threshold
+        (0.6): everything named zoomed in; zoomed out only the paper, the open,
+        picked and hovered nodes. 3D names everything. The Nearby / All toggle
+        is gone.
+      - The controls: View (2D / 3D) and **Release · Fit · Clear**. A drag now
+        pins a node; Release unpins. The progress line and its Next lesson
+        button are gone (the panel's footer keeps Next lesson).
+      - The lesson panel: a "where it fits" card (each item that needs this
+        one, its name over its reason, replacing "*X* needs it: …"); no
+        "Needs" chip list; the kicker in its node's colour ("Paper" gold,
+        "Concept" violet), becoming a green "Known concept" with an animated
+        "Known" that makes room and rises in; the footer holds the "I know
+        this" switch (the settings switch, now `ui/Switch`, labelled "Known"),
+        "+ Break it down" and "Next lesson ›".
+      - A click on a node centres it: a pan in 2D; in 3D the camera slides
+        without turning, keeping the reader's angle and distance.
+
+      **Fixed along the way:** 3D could come up blank after a 2D/3D switch,
+      and 3D was very laggy. Both are in [bugs.md](bugs.md).
+
+      The tickets as filed:
+
+      - **Knowledge Graph: select several nodes to check them off at once** —
+        drag a box and shift-click to select, as the Paper Graph does
+        (alt-drag / shift-click), then one "I know these". *(From the `todos.md` inbox, 2026-10-09.)*
+      - **Knowledge Graph: in 3D, draw the ✓ inside the node** — a 3D check
+        mark or a check texture on the sphere, rather than the flat 2D
+        badge. *(From the `todos.md` inbox, 2026-10-09.)*
+      - **Remove the paper citations from lessons, for now** (Patrick,
+        2026-10-09, settling the "citations feel a bit weird" follow-up from
+        the ship). A lesson stops citing `[n]` references. What replaces them
+        later is a **suggestions section** (blogs, YouTube videos, papers,
+        code), which is the "Verified resources" stage below, so it inherits
+        that stage's rule: no URL taken straight from the model. Decide
+        whether the reference list still informs the paper's breakdown (it
+        does useful grounding there). *(From the `todos.md` inbox, 2026-10-09.)*
+
 - [x] **The assistant lives on the Paper Graph alone** *(v8.15.0)* — a
       paper thread's assistant now docks beside the **Paper Graph only**; the
       card home and the Knowledge Graph have no 🎓 and no panel. This closes

@@ -48,6 +48,7 @@ import {
 import { DEFAULT_SHAPE, setBuildShape, useBuildShape } from '../graph/buildShape'
 import { usePresence } from '../ui/usePresence'
 import Fold from '../ui/Fold'
+import Switch from '../ui/Switch'
 import './settings.css'
 
 /** Bounds for the band-shape inputs, mirroring the backend's own clamps. */
@@ -619,38 +620,6 @@ const VENDOR_LABELS: Record<string, string> = {
   openai: 'OpenAI',
   google: 'Google',
   ollama: 'Ollama',
-}
-
-/**
- * A boolean as a switch (`.settings-switch`): a real checkbox stays in the
- * markup for keyboard and screen readers, visually hidden, with the track and
- * knob painted from `:checked` / `:focus-visible`.
- *
- * @returns The labelled checkbox.
- */
-function Switch({
-  checked,
-  label,
-  onChange,
-}: {
-  checked: boolean
-  /** The accessible name — what a screen reader calls the switch. */
-  label: string
-  onChange: (checked: boolean) => void
-}) {
-  return (
-    <label className="settings-switch">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        aria-label={label}
-      />
-      <span className="settings-switch-track" aria-hidden="true">
-        <span className="settings-switch-knob" />
-      </span>
-    </label>
-  )
 }
 
 /**

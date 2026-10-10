@@ -12,10 +12,28 @@ ui/
                          animation (below)
   Fold.tsx             — a section that opens and closes by animating its
                          height (below)
-  SlidersGlyph.tsx     — the folded-controls icon, shared by the paper graph
-                         and the knowledge graph (v8.14.0) so the two corner
-                         buttons are one button
+  SlidersGlyph.tsx     — the folded-controls icon, shared by the citation
+                         graph and the knowledge graph (v8.14.0) so the two
+                         corner buttons are one button
+  useBoxSelect.ts      — the alt-drag box over a graph canvas (below)
+  Switch.tsx           — the on/off switch (a hidden real checkbox under a
+                         painted track and knob), from the settings modal;
+                         the knowledge panel's "I know this" uses it too.
+                         `--switch-on` on an ancestor recolours "on";
+                         visible text is `.switch-label`, after the input
 ```
+
+## `useBoxSelect`
+
+The alt-drag box, shared by both graphs since v8.17.0: the citation graph's
+`graph/hooks/useMarquee` picks the teacher's scope with it, and the knowledge
+graph picks concepts to check off. It owns only the gesture: Alt arms a
+transparent overlay (so the force engine never sees the drag and plain drag
+still pans), the drag paints a rectangle, and release hands the caller the
+ids its `hitTest` finds inside, in canvas-local screen pixels. A negligible
+drag is an alt-click on empty canvas and calls `onClear`. `inBox` is the
+point-in-box test both callers' hit tests use. The full design story is in
+`graph/hooks/README.md` under `useMarquee`.
 
 ## `useResizablePanel`
 
