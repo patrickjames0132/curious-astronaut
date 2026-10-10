@@ -5,8 +5,8 @@
  * The knowledge network's data and the pure rules over it. The course is a
  * **graph** of ideas: the paper, and one node per concept, with an edge from
  * an item to each concept it needs. A concept two items share is one node
- * with two edges pointing at it. Papers appear only as citations inside
- * lessons (`KnowledgeNode.refs`), never as nodes. No React, no store — the explorations
+ * with two edges pointing at it. Papers are never nodes, and since v8.17.0
+ * lessons don't cite them either (see `lessonText`). No React, no store — the explorations
  * slice calls these from its reducers, and the tests call them directly.
  *
  * Authors:
@@ -29,8 +29,29 @@ export interface KnowledgeNode {
   visited?: boolean
   /** The finished lesson's Markdown, once written. */
   lesson?: string
-  /** The real papers the lesson's `[n]` markers cite, from the paper's reference list. */
+  /**
+   * Legacy: the papers a lesson written before v8.17.0 cited with `[n]`
+   * markers. Kept only so `lessonText` can take those markers out; nothing
+   * writes it any more.
+   */
   refs?: Record<string, PaperRef>
+}
+
+/**
+ * A finished lesson as it is shown. Lessons stopped citing in v8.17.0, but a
+ * course saved before then keeps lessons with `[3]` / `[3, 7]` markers. Only a
+ * marker whose every number the lesson's own `refs` resolved is removed, so a
+ * bracketed range like `[0, 1]` in the prose is left alone.
+ *
+ * @param node The item.
+ * @returns Its lesson's Markdown without citation markers, or undefined.
+ */
+export function lessonText(node: KnowledgeNode): string | undefined {
+  const cited = node.refs
+  if (!node.lesson || !cited || !Object.keys(cited).length) return node.lesson
+  return node.lesson.replace(/ ?\[(\d+(?:[\s,]+\d+)*)\]/g, (marker, numbers: string) =>
+    numbers.split(/[\s,]+/).every((number) => number in cited) ? '' : marker,
+  )
 }
 
 /** "`from` needs `to`", and what for. */

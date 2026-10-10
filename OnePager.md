@@ -1237,12 +1237,6 @@ than deleted so the plan doesn't get re-proposed.
 - [ ] **A new loading screen for the Paper Graph** — today a build is a
       spinner card with a progress bar over an empty canvas. Shape not yet
       decided. *(From the `todos.md` inbox, 2026-10-09.)*
-- [ ] **Knowledge Graph: select several nodes to check them off at once** —
-      drag a box and shift-click to select, as the Paper Graph does
-      (alt-drag / shift-click), then one "I know these". *(From the `todos.md` inbox, 2026-10-09.)*
-- [ ] **Knowledge Graph: in 3D, draw the ✓ inside the node** — a 3D check
-      mark or a check texture on the sphere, rather than the flat 2D
-      badge. *(From the `todos.md` inbox, 2026-10-09.)*
 
 ### Enhancements & tech debt
 
@@ -1609,14 +1603,6 @@ than deleted so the plan doesn't get re-proposed.
       the full story is in [docs/history.md](docs/history.md).
 
       **Follow-ups from 5b:**
-      - **Remove the paper citations from lessons, for now** (Patrick,
-        2026-10-09, settling the "citations feel a bit weird" follow-up from
-        the ship). A lesson stops citing `[n]` references. What replaces them
-        later is a **suggestions section** (blogs, YouTube videos, papers,
-        code), which is the "Verified resources" stage below, so it inherits
-        that stage's rule: no URL taken straight from the model. Decide
-        whether the reference list still informs the paper's breakdown (it
-        does useful grounding there). *(From the `todos.md` inbox, 2026-10-09.)*
       - **Let the tutor draw on the reader's library**, not only the paper's
         references, when it writes a lesson: the researcher's
         `search_sources` already does this for answers. *(From the `todos.md` inbox, 2026-10-09.)*

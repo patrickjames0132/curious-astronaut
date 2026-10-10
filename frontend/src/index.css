@@ -49,6 +49,11 @@
      tried light-only, and it looked better with them on dark too). */
   --node-outline: #000;
   --node-outline-dim: rgba(0, 0, 0, 0.25);
+  /* The knowledge panel's kicker in its node's colour (look.ts
+     KNOWLEDGE_COLOR): the fills themselves read fine on the dark panel. */
+  --knowledge-paper-ink: #ffd166;
+  --knowledge-concept-ink: #b197fc;
+  --knowledge-known-ink: #22c55e;
   --shadow: rgba(0, 0, 0, 0.45);
   --hover: rgba(255, 255, 255, 0.05);
   /* Translucent surfaces that float over the canvas (controls, legend) —
@@ -138,6 +143,10 @@
   --canvas-ink-hard: #1b2a3d;
   --node-outline: #000;
   --node-outline-dim: rgba(0, 0, 0, 0.25);
+  /* Deeper gold and violet: the canvas fills are too pale as text on white. */
+  --knowledge-paper-ink: #a86f00;
+  --knowledge-concept-ink: #7048d4;
+  --knowledge-known-ink: #15803d;
   /* Softer on light — a 0.45 black shadow reads as grime on white. */
   --shadow: rgba(11, 21, 36, 0.12);
   --hover: rgba(11, 21, 36, 0.05);

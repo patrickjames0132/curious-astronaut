@@ -7,8 +7,9 @@
  * paper sits in the middle; breaking an item down adds the concepts it needs
  * as new nodes, and a concept two items share is one node with two arrows
  * into it. A click opens the item's lesson in a side panel; a double-click
- * breaks it down. The course controls (progress, next lesson, 2D / 3D,
- * labels) fold into a sliders button like the citation graph's, and a legend
+ * breaks it down. The course controls (2D / 3D and the citation
+ * graph's Release · Fit · Clear row) fold into a sliders button like the
+ * citation graph's, and a legend
  * sits bottom-left.
  *
  * This component owns the in-flight state (which items are being broken
@@ -25,19 +26,19 @@ import { expandKnowledge, type KnowledgePaper } from '../api'
 import { useAppDispatch } from '../store'
 import {
   knowledgeExpanded,
+  knowledgeKnownSet,
   knowledgeKnownToggled,
   knowledgeOpened,
   knowledgeStarted,
   type ThreadRecord,
 } from '../store/explorations'
-import { openPaper } from '../store/workspace'
 import { usePresence } from '../ui/usePresence'
+import { useBoxSelect } from '../ui/useBoxSelect'
 import KnowledgeControls from './KnowledgeControls'
-import KnowledgeGraph from './KnowledgeGraph'
+import KnowledgeGraph, { type KnowledgeEngine } from './KnowledgeGraph'
 import KnowledgeLegend from './KnowledgeLegend'
 import KnowledgePanel from './KnowledgePanel'
-import type { LabelMode } from './look'
-import { courseNames, createMap, isCurrentMap, nextLesson, progress, tutorPath } from './model'
+import { courseNames, createMap, isCurrentMap, tutorPath } from './model'
 import { useLessons } from './useLessons'
 import './knowledge.css'
 
@@ -46,7 +47,6 @@ const KnowledgeGraph3D = lazy(() => import('./KnowledgeGraph3D'))
 
 /** localStorage keys for the per-browser view preferences. */
 const MODE_KEY = 'ca.knowledge3d'
-const LABELS_KEY = 'ca.knowledgeLabels'
 
 /**
  * The paper at the root of a thread's course.
@@ -119,16 +119,45 @@ export default function KnowledgeNetwork({
   const map = isCurrentMap(thread.knowledge) ? thread.knowledge : undefined
   const [expanding, setExpanding] = useState<ReadonlySet<string>>(new Set())
   const [failed, setFailed] = useState<Record<string, string>>({})
-  const [focusId, setFocusId] = useState<string | null>(null)
+  const [focus, setFocus] = useState<{ id: string; seq: number } | null>(null)
   const [threeD, setThreeD] = useState(() => readPreference(MODE_KEY) === '1')
-  const [labels, setLabels] = useState<LabelMode>(() =>
-    readPreference(LABELS_KEY) === 'all' ? 'all' : 'nearby',
-  )
   const [fitSignal, setFitSignal] = useState(0)
-  const { drafts, write, writing } = useLessons(threadId, provider)
+  const { drafts, write, writing } = useLessons(threadId)
+  // Items picked to check off together (v8.17.0): shift-click toggles one,
+  // an alt-drag box adds the nodes inside it, as on the citation graph. Not
+  // saved: a selection is a moment's gesture, not part of the course.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  const engineRef = useRef<KnowledgeEngine | null>(null)
+  // Nodes pinned by dragging, for the controls' Release count. The pins live
+  // on the view's own node objects, so switching 2D/3D starts unpinned.
+  const [pinned, setPinned] = useState(0)
 
   // The canvas fills whatever the panel leaves it.
   const wrapRef = useRef<HTMLDivElement>(null)
+  const clearSelection = useCallback(() => setSelected(new Set()), [])
+  const toggleSelected = useCallback(
+    (nodeId: string) =>
+      setSelected((previous) => {
+        const next = new Set(previous)
+        if (!next.delete(nodeId)) next.add(nodeId)
+        return next
+      }),
+    [],
+  )
+  const box = useBoxSelect({
+    wrapRef,
+    hitTest: (bounds) => engineRef.current?.nodesIn(bounds) ?? [],
+    onPick: (ids) => setSelected((previous) => new Set([...previous, ...ids])),
+    onClear: clearSelection,
+  })
+  // Esc drops the selection, the way it drops the citation graph's highlights.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') clearSelection()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [clearSelection])
   const [size, setSize] = useState({ width: 800, height: 600 })
   useEffect(() => {
     const element = wrapRef.current
@@ -204,11 +233,12 @@ export default function KnowledgeNetwork({
     (nodeId: string) => dispatch(knowledgeOpened({ threadId, nodeId })),
     [dispatch, threadId],
   )
-  // Moving through the course (or following a panel link) brings the item into view.
+  // Opening an item, by a click on its node, Next lesson or a panel link,
+  // centres it in view (a click only opened the lesson until v8.17.0).
   const openAndFocus = useCallback(
     (nodeId: string) => {
       open(nodeId)
-      setFocusId(nodeId)
+      setFocus((previous) => ({ id: nodeId, seq: (previous?.seq ?? 0) + 1 }))
     },
     [open],
   )
@@ -233,20 +263,25 @@ export default function KnowledgeNetwork({
         </div>
       </div>
     )
-  const { total, left } = progress(map)
-  const next = nextLesson(map, openId)
   const graphProps = {
     map,
     width: size.width,
     height: size.height,
     expanding,
-    focusId,
-    labels,
+    focus,
     fitSignal,
-    onOpen: open,
+    selected,
+    onOpen: openAndFocus,
     onExpand: expand,
+    onSelect: toggleSelected,
     onBackground: close,
+    engineRef,
+    onPinned: setPinned,
   }
+  // The selection's one action marks them all known, or, when every one is
+  // already known, takes them all back.
+  const picked = [...selected].filter((nodeId) => map.nodes[nodeId])
+  const allKnown = picked.length > 0 && picked.every((nodeId) => map.known.includes(nodeId))
 
   return (
     <div className="knowledge" data-tour="knowledge">
@@ -266,23 +301,59 @@ export default function KnowledgeNetwork({
         )}
 
         <KnowledgeControls
-          total={total}
-          left={left}
-          nextTitle={next && next !== openId ? map.nodes[next].title : null}
-          started={Object.values(map.nodes).some((node) => node.visited)}
-          onNext={() => next && openAndFocus(next)}
           threeD={threeD}
           onThreeD={(on) => {
             setThreeD(on)
+            setPinned(0)
             writePreference(MODE_KEY, on ? '1' : '0')
           }}
-          labels={labels}
-          onLabels={(mode) => {
-            setLabels(mode)
-            writePreference(LABELS_KEY, mode)
-          }}
           onFit={() => setFitSignal((count) => count + 1)}
+          pinnedCount={pinned}
+          onRelease={() => engineRef.current?.release()}
+          selectedCount={picked.length}
+          onClear={clearSelection}
         />
+        {/* The alt-drag box: the arm overlay captures the drag (so the
+            engine never pans) and the outline paints the box. Shared CSS with
+            the citation graph's marquee. */}
+        <div
+          className={`marquee-arm${box.armed ? ' armed' : ''}`}
+          onMouseDown={box.onArmMouseDown}
+        />
+        {box.rect && (
+          <div
+            className="marquee-rect"
+            style={{
+              left: box.rect.left,
+              top: box.rect.top,
+              width: box.rect.width,
+              height: box.rect.height,
+            }}
+          />
+        )}
+        {picked.length > 0 && (
+          <div className="knowledge-selection" role="toolbar" aria-label="Selected items">
+            <span>{picked.length} selected</span>
+            <button
+              type="button"
+              className="knowledge-selection-mark"
+              onClick={() => {
+                dispatch(knowledgeKnownSet({ threadId, nodeIds: picked, known: !allKnown }))
+                clearSelection()
+              }}
+            >
+              {allKnown ? 'Not known' : '✓ I know these'}
+            </button>
+            <button
+              type="button"
+              className="link-btn"
+              onClick={clearSelection}
+              title="Clear the selection (Esc)"
+            >
+              Clear
+            </button>
+          </div>
+        )}
         <KnowledgeLegend />
         {failed[map.rootId] && (
           <div className="overlay overlay-card knowledge-failed">
@@ -309,9 +380,6 @@ export default function KnowledgeNetwork({
           onExpand={expand}
           onToggleKnown={(nodeId) => dispatch(knowledgeKnownToggled({ threadId, nodeId }))}
           onRetry={() => write(map, shownId)}
-          onOpenPaper={(paperId, refProvider) =>
-            void dispatch(openPaper({ seed: paperId, provider: refProvider ?? provider }))
-          }
           onClose={close}
         />
       )}

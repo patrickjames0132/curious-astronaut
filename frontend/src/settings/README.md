@@ -54,7 +54,8 @@ overlays).
   isn't remembered, so a key is masked whenever the modal opens. It is display-only: the draft, the PUT and
   `config.json` all hold the plain value. Ollama's base URL is not a secret
   and stays plain text.
-- **`adaptive` is a switch, not a checkbox** (`.settings-switch`) — a real
+- **`adaptive` is a switch, not a checkbox** (`ui/Switch`, shared with the
+  knowledge panel's "I know this" since v8.17.0) — a real
   checkbox stays in the markup for keyboard and screen readers, visually hidden,
   with the track and knob painted from `:checked` / `:focus-visible`.
 - **The band fields grey out — but keep showing their values — while automatic

@@ -8,7 +8,7 @@ course, into the concepts it needs, and teaches each one.
 ```
 tutor/
   config.py — AGENT_ID, the two prompts (EXPAND_PROMPT, LESSON_PROMPT), skills
-  main.py   — the two Agents, their output models, expand(), lesson(), cited_references()
+  main.py   — the two Agents, their output models, expand(), lesson()
 ```
 
 ## Two jobs, one agent id
@@ -17,11 +17,11 @@ tutor/
   and returns `Child`ren: a concept `name` and the `why` the item needs it.
   The result comes back whole, not streamed: an expansion is a short list,
   and the frontend shows a turning ring on the node until it arrives.
-- **`lesson(item, why, path, abstract, references, provider)`** streams
-  `Token` events, then one `PaperRefs` for the papers the lesson cited. It
-  uses the same structured-output streaming as the researcher (a `Lesson.text`
-  field read out of the output tool's partial JSON), so no preamble can leak
-  into the page.
+- **`lesson(item, why, path, abstract)`** streams `Token` events and
+  nothing else: lessons don't cite (v8.17.0). It uses the same
+  structured-output streaming as the researcher (a `Lesson.text` field read
+  out of the output tool's partial JSON), so no preamble can leak into the
+  page.
 
 Both read the tutor's `config.llm.agents` entry **per call**: the model
 through `factory.model_for` and the two knobs from `extras` (`children`, the
@@ -32,20 +32,24 @@ settings modal's "Apply Default Models" gives it the vendor's advanced model.
 
 ## Decisions worth knowing
 
-- **The graph holds ideas; papers live in the lessons** (Patrick, 2026-10-09).
+- **The graph holds ideas, not papers** (Patrick, 2026-10-09).
   5b's first build also had *paper* nodes, grounded in the reference list.
   They were dropped because a paper bundles several ideas and so sits at a
   different level from "Bellman equations", and the reader needs the ideas.
   The prompt asks for ideas and never papers or authors, so every child is a
   concept.
-- **The real reference list still grounds the course, in two places.** The
-  paper's own expansion sees it, to judge which ideas the paper really builds
-  on. Every lesson sees it numbered and may cite a paper **only by its
-  number**. `cited_references` then resolves just the markers the text used
-  that are in range, to the real paper (id, title, url, provider), so a paper
-  the provider doesn't know can never appear as a citation. A deeper concept's
-  lesson uses the same list (only the paper has one), and a lesson with no
-  citation is fine.
+- **The real reference list grounds the paper's breakdown.** The paper's
+  own expansion sees it, to judge which ideas the paper really builds on.
+- **Lessons don't cite** (Patrick, v8.17.0). From v8.14.0 to v8.16.0 every
+  lesson saw the reference list numbered and could cite a paper only by its
+  number, resolved server-side (`cited_references`) to the real paper, so an
+  unknown paper could never appear. It was grounded but read oddly: bare
+  numbers look like footnotes to a reader who never saw a list, and every
+  lesson, however deep, cited the *root* paper's list. The prompt now asks
+  for no markers and no reference list, and lets a lesson name a paper only
+  where an idea is commonly known by it. The planned replacement is a
+  suggestions section of vetted resources (the OnePager's "Verified
+  resources").
 - **The path is context.** Every call carries the path from the paper down to
   the item, because eigenvectors under PCA and eigenvectors under policy
   iteration are different lessons. That is also why the server's cache keys
@@ -63,6 +67,6 @@ settings modal's "Apply Default Models" gives it the vendor's advanced model.
 
 `test/curious_astronaut/agents/orchestrators/tutor/test_main.py` covers the
 concept children, cycle and repeat dropping, the width cap, the references
-and course list in the prompts, and a lesson's tokens adding up to its text
-with only its in-range citations resolved. The routes' grounding, caching and
-degradation are tested in `test/curious_astronaut/routes/test_knowledge.py`.
+and course list in the expansion prompt, and a lesson's prompt carrying no
+references and its tokens adding up to its text. The routes' grounding,
+caching and degradation are tested in `test/curious_astronaut/routes/test_knowledge.py`.

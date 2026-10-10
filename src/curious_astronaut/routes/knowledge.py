@@ -4,8 +4,8 @@ Description:
 The knowledge network's two routes (Phase 5b): expand one course item into
 the concepts it needs, and stream one item's lesson. Both are thin over the
 ``tutor`` agent. What lives here is the grounding (fetching the paper's real
-reference list, which informs the paper's expansion and is the only thing a
-lesson may cite) and the caching.
+reference list, which informs the paper's expansion; lessons stopped citing
+it in v8.17.0) and the caching.
 
 **Both results are cached permanently**, like generated TL;DRs: a lesson on
 Bellman equations under DQN is the same lesson tomorrow, and a reader
@@ -162,14 +162,13 @@ def api_lesson() -> ResponseReturnValue:
 
     Body:
         ``{item: {title, kind}, why?, path: [{title, kind}], abstract?,
-        paper_id?, provider?}``. ``paper_id`` is the course's paper: its
-        reference list is what the lesson may cite.
+        paper_id?}``. ``paper_id`` is the course's paper; it only keys the
+        cache. Lessons no longer cite the reference list (v8.17.0), so none is
+        fetched here.
 
     Returns:
-        An SSE stream of ``token`` frames, a ``paper_refs`` frame
-        (``{refs: {n: {node_id, title, url, provider}}}``) when the lesson
-        cited anything, then ``done`` or ``error``. A cached lesson arrives as
-        one ``token`` plus its ``paper_refs``. HTTP 400 for a malformed body.
+        An SSE stream of ``token`` frames, then ``done`` or ``error``. A
+        cached lesson arrives as one ``token``. HTTP 400 for a malformed body.
     """
     payload = request.get_json(silent=True) or {}
     raw_item = payload.get("item") or {}
@@ -183,39 +182,31 @@ def api_lesson() -> ResponseReturnValue:
     why = str(payload.get("why") or "")
     abstract = str(payload.get("abstract") or "")
     paper_id = payload.get("paper_id")
-    provider = payload.get("provider") or "s2"
 
     words = factory.agent_entry("tutor").extras["lesson_words"]
-    key = "tutor:lesson:v2:" + _digest(
-        [words, item.model_dump(), why, [step.model_dump() for step in path], paper_id, provider]
+    # v3: lessons without citations. A v2 entry still holds `[n]` markers.
+    key = "tutor:lesson:v3:" + _digest(
+        [words, item.model_dump(), why, [step.model_dump() for step in path], paper_id]
     )
     cached = cache.get(key)
 
     def stream() -> Iterator[str]:
-        """Relay the lesson and its citations, caching both once it finished cleanly.
+        """Relay the lesson, caching it once it finished cleanly.
 
         Yields:
             SSE frames.
         """
         if isinstance(cached, dict) and isinstance(cached.get("text"), str):
             yield sse("token", {"text": cached["text"]})
-            if cached.get("refs"):
-                yield sse("paper_refs", {"refs": cached["refs"]})
             yield sse("done", {})
             return
-        references = _references(str(paper_id), provider) if paper_id else []
         written: list[str] = []
-        refs: dict = {}
         try:
-            for event in streams.terminated(
-                tutor.lesson(item, why, path, abstract, references, provider)
-            ):
+            for event in streams.terminated(tutor.lesson(item, why, path, abstract)):
                 if isinstance(event, events.Token):
                     written.append(event.text)
-                elif isinstance(event, events.PaperRefs):
-                    refs = {marker: ref.model_dump() for marker, ref in event.refs.items()}
                 elif isinstance(event, events.Done) and written:
-                    cache.set(key, {"text": "".join(written), "refs": refs})
+                    cache.set(key, {"text": "".join(written)})
                 yield sse(event.type, event.model_dump(exclude={"type"}))
         except Exception:
             log.exception("lesson stream failed")

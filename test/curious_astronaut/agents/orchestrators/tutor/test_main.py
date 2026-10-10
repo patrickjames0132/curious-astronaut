@@ -96,9 +96,8 @@ def test_the_prompt_numbers_references_and_names_the_course_so_far():
     assert "ALREADY IN THE COURSE:\nQ-learning" in seen["prompt"]
 
 
-def test_a_lesson_streams_then_resolves_only_the_citations_it_used():
-    text = "Q-learning [2] learns the value of each action [2, 9].\n\n$$Q(s,a)$$"
-    refs = [{**REFERENCES[0], "url": "u1"}, {**REFERENCES[1], "url": "u2"}]
+def test_a_lesson_streams_its_text_and_cites_nothing():
+    text = "Q-learning learns the value of each action.\n\n$$Q(s,a)$$"
     seen = {}
 
     async def record(messages, info):
@@ -108,25 +107,14 @@ def test_a_lesson_streams_then_resolves_only_the_citations_it_used():
 
     with tutor_main.lesson_agent.override(model=FunctionModel(stream_function=record)):
         try:
-            list(tutor.lesson(DQN, "", [], "We present DQN.", refs, "s2"))
+            list(tutor.lesson(DQN, "", [], "We present DQN."))
         except RuntimeError:
             pass
-    assert "[2] Q-learning (1992)" in seen["prompt"]
+    # No reference list reaches a lesson, so there is nothing to cite by number.
+    assert "REFERENCES" not in seen["prompt"]
+    assert "ABSTRACT: We present DQN." in seen["prompt"]
 
     with tutor_main.lesson_agent.override(model=TestModel(custom_output_args={"text": text})):
-        streamed = list(tutor.lesson(DQN, "", [], "We present DQN.", refs, "s2"))
-    tokens = [event for event in streamed if isinstance(event, events.Token)]
-    assert "".join(event.text for event in tokens) == text
-    cited = streamed[-1]
-    assert isinstance(cited, events.PaperRefs)
-    # [9] is not on the list, so it resolves to nothing.
-    assert list(cited.refs) == ["2"]
-    assert cited.refs["2"].node_id == "ql"
-    assert cited.refs["2"].url == "u2"
-    assert cited.refs["2"].provider == "s2"
-
-
-def test_a_lesson_with_no_citations_sends_no_refs():
-    with tutor_main.lesson_agent.override(model=TestModel(custom_output_args={"text": "Plain."})):
-        streamed = list(tutor.lesson(DQN, "", [], "", REFERENCES, "openalex"))
-    assert not any(isinstance(event, events.PaperRefs) for event in streamed)
+        streamed = list(tutor.lesson(DQN, "", [], "We present DQN."))
+    assert all(isinstance(event, events.Token) for event in streamed)
+    assert "".join(event.text for event in streamed) == text

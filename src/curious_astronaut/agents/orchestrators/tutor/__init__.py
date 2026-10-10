@@ -23,7 +23,6 @@ from .main import (
     Prerequisite,
     Prerequisites,
     Step,
-    cited_references,
     expand,
     lesson,
 )
@@ -34,7 +33,6 @@ __all__ = [
     "Prerequisite",
     "Prerequisites",
     "Step",
-    "cited_references",
     "expand",
     "lesson",
 ]

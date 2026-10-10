@@ -29,29 +29,6 @@
 }
 
 /* --- the controls (graph/graph.css's .ctrl-icon / .controls) and legend --- */
-.course-progress-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 14px;
-  color: var(--text);
-  font-size: 13px;
-}
-.course-next {
-  flex: none;
-  padding: 4px 12px;
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  background: var(--accent-strong);
-  color: #fff;
-  font: inherit;
-  font-size: 12.5px;
-  cursor: pointer;
-}
-.course-next:hover {
-  background: var(--accent);
-}
 .ctrl-label {
   margin: 0 0 6px;
   color: var(--muted);
@@ -59,20 +36,9 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.course-fit {
-  width: 100%;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.course-fit:hover {
-  border-color: var(--accent);
-  color: var(--text-strong);
+/* The Release · Fit · Clear row, spaced like the toggles above it. */
+.knowledge-actions {
+  margin-top: 4px;
 }
 .knowledge-legend {
   flex-wrap: wrap;
@@ -82,13 +48,6 @@
   color: var(--muted);
   font-weight: 600;
 }
-.legend i.legend-known {
-  display: inline-grid;
-  place-items: center;
-  font-size: 9px;
-  font-style: normal;
-  font-weight: 700;
-}
 .knowledge-failed button {
   padding: 0;
   border: 0;
@@ -96,6 +55,47 @@
   color: var(--accent);
   font: inherit;
   cursor: pointer;
+}
+
+/* --- the selection bar (v8.17.0): items picked to check off together --- */
+.knowledge-selection {
+  position: absolute;
+  bottom: 14px;
+  /* Centred by margins, not a translate: the pop entrance animates transform. */
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin: 0 auto;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 8px 7px 14px;
+  background: var(--panel-float-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  animation: pop var(--motion-pop) var(--ease-rise) both;
+}
+.knowledge-selection-mark {
+  padding: 5px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.knowledge-selection-mark:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .knowledge-selection {
+    animation: none;
+  }
 }
 
 /* --- the lesson panel --- */
@@ -121,9 +121,59 @@
 .lesson-kicker {
   margin: 0 0 6px;
   color: var(--muted);
+  transition: color 220ms ease;
   font-size: 11.5px;
+  font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+/* The kicker in its node's colour (v8.17.0): gold for the paper, violet for a
+   concept. Theme tokens, because the canvas fills are too pale to read as
+   text on the light panel. */
+.lesson-kicker.paper {
+  color: var(--knowledge-paper-ink);
+}
+.lesson-kicker.concept {
+  color: var(--knowledge-concept-ink);
+}
+/* Known: "Known concept" / "Known paper", in the known green. */
+.lesson-kicker.known {
+  color: var(--knowledge-known-ink);
+}
+/* The "Known" word animates with the switch (Patrick, v8.17.0). On: it first
+   widens, pushing the noun right to make room, then rises in from below.
+   Off: it sinks out first, then narrows, so the noun slides back. Each
+   state's rule carries the timing for arriving at it, which is how one
+   element gets two different choreographies. max-width animates, so the
+   word is clipped while it opens. */
+.kicker-known {
+  display: inline-block;
+  max-width: 0;
+  overflow: hidden;
+  vertical-align: bottom;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(0.6em);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    max-width 220ms var(--ease-rise) 140ms;
+}
+.lesson-kicker.known .kicker-known {
+  max-width: 6em;
+  opacity: 1;
+  transform: none;
+  transition:
+    max-width 220ms var(--ease-rise),
+    opacity 180ms ease 200ms,
+    transform 180ms var(--ease-rise) 200ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lesson-kicker,
+  .kicker-known,
+  .lesson-kicker.known .kicker-known {
+    transition: none;
+  }
 }
 .lesson-title {
   margin: 0 28px 6px 0;
@@ -147,7 +197,13 @@
   line-height: 1.5;
 }
 .lesson-reasons li + li {
-  margin-top: 6px;
+  margin-top: 8px;
+}
+/* The item's name heads its reason, small and linked; the reason reads on. */
+.lesson-reasons button {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
 }
 .lesson-reasons button,
 .lesson-error button {
@@ -157,12 +213,6 @@
   color: var(--accent);
   font: inherit;
   cursor: pointer;
-}
-.lesson-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
 }
 .lesson-action {
   padding: 5px 12px;
@@ -177,35 +227,6 @@
 .lesson-action:hover {
   border-color: var(--accent);
   color: var(--text-strong);
-}
-.lesson-needs {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-top: 14px;
-}
-.lesson-needs-label {
-  margin-right: 2px;
-  color: var(--muted);
-  font-size: 12px;
-}
-.lesson-chip {
-  padding: 3px 9px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 12.5px;
-  cursor: pointer;
-}
-.lesson-chip:hover {
-  border-color: var(--accent);
-}
-.lesson-chip.known {
-  color: var(--muted);
-  text-decoration: line-through;
 }
 .lesson-status,
 .lesson-error {
@@ -226,24 +247,48 @@
   bottom: -24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   margin: 24px -22px -24px;
   padding: 12px 22px;
   border-top: 1px solid var(--border);
   background: var(--panel);
 }
+/* A status in the footer's row ("Breaking it down…", "That's the whole
+   course") sits on the row's centre line: the body's top margin pushed it
+   below the switch and the buttons. */
+.lesson-foot .lesson-status {
+  margin: 0;
+}
+.lesson-foot .spin {
+  flex-shrink: 0;
+}
+/* Pushes the lesson's actions to the right of the "I know this" switch. */
+.lesson-foot-gap {
+  flex: 1;
+}
 .lesson-known {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
   color: var(--text);
   font-size: 14px;
-  cursor: pointer;
+  /* On, the switch is green like a known node (look.ts KNOWLEDGE_COLOR.known). */
+  --switch-on: #22c55e;
 }
-.lesson-known input {
-  /* Green like the graph's ✓ (look.ts KNOWLEDGE_COLOR.known). */
-  accent-color: #22c55e;
+/* "Known" by the switch, in the kicker's small caps: muted while off, the
+   known green once on. */
+.lesson-known .switch-label {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 220ms ease;
+}
+.lesson-known .switch input:checked ~ .switch-label {
+  color: var(--knowledge-known-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lesson-known .switch-label {
+    transition: none;
+  }
 }
 .lesson-next {
   padding: 7px 14px;

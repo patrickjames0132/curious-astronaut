@@ -1,0 +1,47 @@
+/* The on/off switch (Switch.tsx) — the settings modal's boolean rows and the
+   knowledge panel's "I know this".
+   A real checkbox stays in the markup (keyboard + screen readers get the
+   native control); it's visually hidden and the track/knob are drawn from it,
+   so :checked and :focus-visible both drive the painted state. */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.switch-track {
+  display: block;
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 120ms ease;
+}
+.switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 35%);
+  transition: transform 120ms ease;
+}
+.switch input:checked + .switch-track {
+  background: var(--switch-on, var(--accent));
+}
+.switch input:checked + .switch-track .switch-knob {
+  transform: translateX(16px);
+}
+.switch input:focus-visible + .switch-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

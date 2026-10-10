@@ -10,7 +10,6 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import type { PaperRef } from './agents'
 import type { Provider } from './graph'
 import { readSSE } from './sse'
 
@@ -79,16 +78,14 @@ export async function expandKnowledge(
  *
  * @param body The lesson's subject, why the course needs it, the path above
  *             it, the paper's abstract (for the paper's own lesson), and the
- *             paper whose reference list the lesson may cite.
+ *             course's paper (it keys the server's cache).
  * @param body.item The subject.
  * @param body.why What the item above it needs it for.
  * @param body.path The course path above it, root first.
  * @param body.abstract The paper's abstract, when the item is the paper.
- * @param body.paper_id The course's paper, whose references may be cited.
- * @param body.provider The backend that paper's id belongs to.
- * @param handlers Token, citation, done and error callbacks, plus an abort signal.
+ * @param body.paper_id The course's paper.
+ * @param handlers Token, done and error callbacks, plus an abort signal.
  * @param handlers.onToken Called with each chunk of the lesson's Markdown.
- * @param handlers.onRefs Called with the papers its `[n]` markers cite.
  * @param handlers.onDone Called once the lesson is complete.
  * @param handlers.onError Called with the server's message on failure.
  * @param handlers.signal Abort the stream.
@@ -100,11 +97,9 @@ export async function streamLesson(
     path: KnowledgeStep[]
     abstract: string
     paper_id?: string
-    provider: Provider
   },
   handlers: {
     onToken: (text: string) => void
-    onRefs?: (refs: Record<string, PaperRef>) => void
     onDone: () => void
     onError: (message: string) => void
     signal?: AbortSignal
@@ -118,8 +113,6 @@ export async function streamLesson(
   })
   await readSSE(res, (event, data) => {
     if (event === 'token') handlers.onToken((data as { text: string }).text)
-    else if (event === 'paper_refs')
-      handlers.onRefs?.((data as { refs: Record<string, PaperRef> }).refs)
     else if (event === 'done') handlers.onDone()
     else if (event === 'error') handlers.onError((data as { message: string }).message)
   })

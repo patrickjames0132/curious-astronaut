@@ -2,10 +2,10 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The knowledge graph's side panel: what the clicked item is, why the course
- * needs it (every item that points at it), what it needs in turn, its lesson —
- * streamed the first time, kept after, with `[n]` citations of the paper's
- * real references that open the cited paper in its own thread — and the ways
+ * The knowledge graph's side panel: what the clicked item is, where it fits
+ * (each item that needs it, and what for), what it needs in turn, its lesson —
+ * streamed the first time and kept after, with no citations since v8.17.0
+ * (`lessonText` hides an older lesson's markers) — and the ways
  * forward: break it down, check it off, or go to the next lesson. Docked right of the canvas, like the
  * citation graph's detail panel, and resizable the same way.
  *
@@ -14,10 +14,10 @@
  */
 
 import type { AnimationEvent, CSSProperties } from 'react'
-import type { Provider } from '../api'
 import AnswerMarkdown from '../teacher/transcript/AnswerMarkdown'
 import { useResizablePanel } from '../ui/useResizablePanel'
-import { needs, neededBy, nextLesson, type KnowledgeMap } from './model'
+import Switch from '../ui/Switch'
+import { lessonText, neededBy, needs, nextLesson, type KnowledgeMap } from './model'
 import type { LessonDraft } from './useLessons'
 
 /**
@@ -36,7 +36,6 @@ import type { LessonDraft } from './useLessons'
  * @param props.onExpand Break the item down.
  * @param props.onToggleKnown Check it off, or un-check it.
  * @param props.onRetry Write its lesson again after a failure.
- * @param props.onOpenPaper Open a cited paper in its own thread.
  * @param props.onClose Close the panel.
  * @returns The panel.
  */
@@ -53,7 +52,6 @@ export default function KnowledgePanel({
   onExpand,
   onToggleKnown,
   onRetry,
-  onOpenPaper,
   onClose,
 }: {
   map: KnowledgeMap
@@ -68,7 +66,6 @@ export default function KnowledgePanel({
   onExpand: (nodeId: string) => void
   onToggleKnown: (nodeId: string) => void
   onRetry: () => void
-  onOpenPaper: (paperId: string, provider?: Provider) => void
   onClose: () => void
 }) {
   const { width, onHandlePointerDown, dragging } = useResizablePanel('ca.knowledgeWidth', 400)
@@ -76,11 +73,9 @@ export default function KnowledgePanel({
   if (!node) return null
   const isRoot = node.id === map.rootId
   const reasons = neededBy(map, node.id)
-  const prerequisites = needs(map, node.id)
   const known = map.known.includes(node.id)
   const next = nextLesson(map, node.id)
-  const text = node.lesson ?? draft?.text ?? ''
-  const refs = node.lesson ? node.refs : draft?.refs
+  const text = lessonText(node) ?? draft?.text ?? ''
   const meta = node.paper ? [node.paper.authors, node.paper.year].filter(Boolean).join(' · ') : ''
 
   return (
@@ -101,39 +96,38 @@ export default function KnowledgePanel({
         ✕
       </button>
 
-      <p className="lesson-kicker">{isRoot ? 'The paper' : 'Concept'}</p>
+      <p className={`lesson-kicker ${known ? 'known' : isRoot ? 'paper' : 'concept'}`}>
+        {/* "Known" is always in the markup so the switch can animate it in:
+            the word makes room, then rises in (knowledge.css). Hidden from
+            screen readers while it isn't true. */}
+        <span className="kicker-known" aria-hidden={!known}>
+          Known{'\u00a0'}
+        </span>
+        {isRoot ? 'Paper' : 'Concept'}
+      </p>
       <h2 className="lesson-title">{node.title}</h2>
       {meta && <p className="lesson-meta">{meta}</p>}
 
+      {/* How it fits the course: each item that needs this one, and what for.
+          The item's name heads its reason; until v8.17.0 a line read
+          "<item> needs it: <why>", which Patrick found clunky. */}
       {reasons.length > 0 && (
-        <ul className="lesson-reasons">
+        <ul className="lesson-reasons" aria-label="Where this fits in the course">
           {reasons.map((edge) => (
             <li key={edge.from}>
-              <button type="button" onClick={() => onOpen(edge.from)}>
+              <button
+                type="button"
+                onClick={() => onOpen(edge.from)}
+                title={`Open ${map.nodes[edge.from]?.title ?? 'it'}`}
+              >
                 {map.nodes[edge.from]?.title}
-              </button>{' '}
-              needs it: {edge.why}
+              </button>
+              <span>{edge.why}</span>
             </li>
           ))}
         </ul>
       )}
 
-      <div className="lesson-actions">
-        {expanding ? (
-          <span className="lesson-status">
-            <span className="spin" /> Breaking it down…
-          </span>
-        ) : !node.expanded ? (
-          <button
-            type="button"
-            className="lesson-action"
-            onClick={() => onExpand(node.id)}
-            title="Add what this needs to the graph (or double-click the node)"
-          >
-            + Break it down
-          </button>
-        ) : null}
-      </div>
       {expandError && (
         <p className="lesson-error">
           {expandError}{' '}
@@ -142,29 +136,13 @@ export default function KnowledgePanel({
           </button>
         </p>
       )}
-      {prerequisites.length > 0 && (
-        <div className="lesson-needs">
-          <span className="lesson-needs-label">Needs</span>
-          {prerequisites.map((edge) => (
-            <button
-              key={edge.to}
-              type="button"
-              className={`lesson-chip${map.known.includes(edge.to) ? ' known' : ''}`}
-              onClick={() => onOpen(edge.to)}
-              title={edge.why}
-            >
-              {map.nodes[edge.to]?.title}
-            </button>
-          ))}
-        </div>
-      )}
-      {node.expanded && !prerequisites.length && (
+      {node.expanded && !needs(map, node.id).length && (
         <p className="lesson-status">Nothing further to break down — this one is a foundation.</p>
       )}
 
       <div className="lesson-body">
         {text ? (
-          <AnswerMarkdown text={text} paperRefs={refs} onPaperSeed={onOpenPaper} />
+          <AnswerMarkdown text={text} />
         ) : (
           !draft?.error &&
           (draft || writing) && (
@@ -184,10 +162,29 @@ export default function KnowledgePanel({
       </div>
 
       <footer className="lesson-foot" data-tour="lesson-foot">
-        <label className="lesson-known">
-          <input type="checkbox" checked={known} onChange={() => onToggleKnown(node.id)} />I know
-          this
-        </label>
+        {/* "Known" beside the switch, its fuller name in the tooltip. */}
+        <span className="lesson-known" title="I know this">
+          <Switch checked={known} label="I know this" onChange={() => onToggleKnown(node.id)}>
+            Known
+          </Switch>
+        </span>
+        <span className="lesson-foot-gap" />
+        {expanding ? (
+          <span className="lesson-status">
+            <span className="spin" /> Breaking it down…
+          </span>
+        ) : (
+          !node.expanded && (
+            <button
+              type="button"
+              className="lesson-action"
+              onClick={() => onExpand(node.id)}
+              title="Add what this needs to the graph (or double-click the node)"
+            >
+              + Break it down
+            </button>
+          )
+        )}
         {next && next !== node.id ? (
           <button
             type="button"

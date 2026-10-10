@@ -24,7 +24,7 @@ import * as api from '../../src/api'
 
 // The canvas stands in as one button per node: click opens, the "+" breaks down.
 vi.mock('../../src/knowledge/KnowledgeGraph', () => ({
-  default: ({ map, onOpen, onExpand }: KnowledgeGraphProps) => (
+  default: ({ map, selected, onOpen, onExpand, onSelect }: KnowledgeGraphProps) => (
     <div>
       {Object.values(map.nodes).map((node) => (
         <span key={node.id}>
@@ -34,6 +34,10 @@ vi.mock('../../src/knowledge/KnowledgeGraph', () => ({
           </button>
           <button type="button" onClick={() => onExpand(node.id)}>
             expand: {node.title}
+          </button>
+          <button type="button" onClick={() => onSelect(node.id)}>
+            select: {node.title}
+            {selected.has(node.id) ? ' (selected)' : ''}
           </button>
         </span>
       ))}
@@ -116,7 +120,6 @@ it('breaks the paper down on first open, grounding it in the paper id', async ()
     path: [],
     provider: 's2',
   })
-  expect(screen.getByText('3 of 3 lessons left')).toBeTruthy()
 })
 
 it('replaces a course saved in the old tree shape', async () => {
@@ -128,34 +131,32 @@ it('replaces a course saved in the old tree shape', async () => {
 
 it('opens a lesson in the panel, marks it visited, and saves the course', async () => {
   vi.spyOn(api, 'expandKnowledge').mockResolvedValue(ROOT_CHILDREN)
-  const ref = { node_id: 'ql', title: 'Q-learning (Watkins)', url: '', provider: 's2' as const }
   const lesson = vi.spyOn(api, 'streamLesson').mockImplementation(async (_body, handlers) => {
-    handlers.onToken('Q-learning [1] learns ')
+    handlers.onToken('Q-learning learns ')
     handlers.onToken('action values.')
-    handlers.onRefs?.({ '1': ref })
     handlers.onDone()
   })
   const store = mount()
   await screen.findByText('node: Q-learning')
 
   fireEvent.click(screen.getByText('node: Q-learning'))
-  // The [1] marker renders as a citation that opens the real paper's thread.
-  const citation = await screen.findByTitle('Open this paper’s thread — Q-learning (Watkins)')
-  expect(citation.textContent).toContain('1')
+  expect(await screen.findByText('Q-learning learns action values.')).toBeTruthy()
   expect(screen.getByText('node: Q-learning (visited)')).toBeTruthy()
   expect(lesson.mock.calls[0][0]).toMatchObject({
     item: { title: 'Q-learning', kind: 'concept' },
     why: 'DQN approximates Q.',
     path: [{ title: 'Playing Atari', kind: 'paper' }],
-    // The paper whose reference list the lesson may cite.
     paper_id: 'DQN',
-    provider: 's2',
   })
-  // Why it is in the course: the item that needs it.
-  expect(screen.getByText(/needs it: DQN approximates Q\./)).toBeTruthy()
+  expect(lesson.mock.calls[0][0]).not.toHaveProperty('provider')
+  // Where it fits: the item that needs it heads the reason, without the old
+  // "… needs it:" wording (v8.17.0).
+  const fits = screen.getByRole('list', { name: 'Where this fits in the course' })
+  expect(fits.textContent).toContain('Playing Atari')
+  expect(fits.textContent).toContain('DQN approximates Q.')
+  expect(screen.queryByText(/needs it:/)).toBeNull()
 
   fireEvent.click(screen.getByLabelText('I know this'))
-  expect(screen.getByText('2 of 3 lessons left')).toBeTruthy()
 
   // Next skips the checked item and the order puts TD learning before the paper.
   fireEvent.click(screen.getAllByRole('button', { name: /Next lesson/ })[0])
@@ -173,9 +174,51 @@ it('opens a lesson in the panel, marks it visited, and saves the course', async 
   const restored = migrateExploration({ id: 'saved', name: 'x', data: body } as SavedSession)
   const knowledge = restored.threads.find((thread) => thread.id === 'dqn')!.knowledge!
   expect(knowledge.known).toEqual(['q learning'])
-  expect(knowledge.nodes['q learning'].lesson).toBe('Q-learning [1] learns action values.')
-  expect(knowledge.nodes['q learning'].refs).toEqual({ '1': ref })
+  expect(knowledge.nodes['q learning'].lesson).toBe('Q-learning learns action values.')
+  expect(knowledge.nodes['q learning'].refs).toBeUndefined()
   expect(knowledge.edges.map((edge) => edge.to)).toEqual(['q learning', 'td learning'])
+})
+
+it('checks off a selection at once, takes it back, and Esc clears it', async () => {
+  vi.spyOn(api, 'expandKnowledge').mockResolvedValue(ROOT_CHILDREN)
+  const store = mount()
+  await screen.findByText('node: Q-learning')
+  const known = () => store.getState().explorations.byId.saved.threads[1].knowledge!.known
+
+  fireEvent.click(screen.getByText('select: Q-learning'))
+  fireEvent.click(screen.getByText('select: TD learning'))
+  expect(screen.getByText('2 selected')).toBeTruthy()
+  // Selecting never opens a lesson.
+  expect(screen.queryByText(/node: Q-learning \(visited\)/)).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: '✓ I know these' }))
+  expect(known()).toEqual(['q learning', 'td learning'])
+  // The bar goes with the selection.
+  expect(screen.queryByText('2 selected')).toBeNull()
+
+  // Every one already known: the action takes them back.
+  fireEvent.click(screen.getByText('select: Q-learning'))
+  fireEvent.click(screen.getByText('select: TD learning'))
+  fireEvent.click(screen.getByRole('button', { name: 'Not known' }))
+  expect(known()).toEqual([])
+
+  // Shift-click toggles; Esc drops the lot.
+  fireEvent.click(screen.getByText('select: Q-learning'))
+  fireEvent.click(screen.getByText('select: Q-learning (selected)'))
+  expect(screen.queryByText(/selected$/)).toBeNull()
+  fireEvent.click(screen.getByText('select: TD learning'))
+  expect(screen.getByText('1 selected')).toBeTruthy()
+  fireEvent.keyDown(window, { key: 'Escape' })
+  expect(screen.queryByText('1 selected')).toBeNull()
+
+  // The controls' Clear does the same; Release waits for a pinned node.
+  fireEvent.click(screen.getByLabelText('Open the course controls'))
+  const clear = screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement
+  expect(clear.disabled).toBe(true)
+  expect((screen.getByRole('button', { name: /Release/ }) as HTMLButtonElement).disabled).toBe(true)
+  fireEvent.click(screen.getByText('select: TD learning'))
+  expect(clear.disabled).toBe(false)
+  fireEvent.click(clear)
+  expect(screen.queryByText('1 selected')).toBeNull()
 })
 
 it('a shared prerequisite becomes one node with two arrows into it', async () => {

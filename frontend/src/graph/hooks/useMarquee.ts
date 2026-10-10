@@ -16,7 +16,8 @@
  * is the OS keyboard-layout switch on Windows, which steals the modifier and
  * the window focus mid-drag.)
  *
- * Hit-testing runs in SCREEN space: `fgRef.graph2ScreenCoords` maps each
+ * The gesture itself lives in `ui/useBoxSelect` (v8.17.0), shared with the
+ * knowledge graph. Hit-testing runs in SCREEN space: `fgRef.graph2ScreenCoords` maps each
  * visible node's sim position to canvas-local pixels, compared against the
  * dragged rectangle (also canvas-local, measured off the wrap's bounding box —
  * the RFG canvas fills the wrap, so their top-lefts coincide).
@@ -25,19 +26,21 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { MouseEvent as ReactMouseEvent, RefObject } from 'react'
+import { useCallback, useRef } from 'react'
+import type { RefObject } from 'react'
 import { useAppDispatch } from '../../store'
 import { nodeSelectionAdded, nodeSelectionCleared } from '../../store/workspace'
+import {
+  inBox,
+  useBoxSelect,
+  type BoxBounds,
+  type BoxRect,
+  type BoxSelectApi,
+} from '../../ui/useBoxSelect'
 import type { VNode, VLink } from '../model'
 
 /** A drag rectangle in wrap-local pixels, for painting the marquee outline. */
-export interface MarqueeRect {
-  left: number
-  top: number
-  width: number
-  height: number
-}
+export type MarqueeRect = BoxRect
 
 /** Arguments for {@link useMarquee}. */
 export interface UseMarqueeArgs {
@@ -51,112 +54,41 @@ export interface UseMarqueeArgs {
 }
 
 /** What {@link useMarquee} returns for GraphExplorer to render. */
-export interface MarqueeApi {
-  /** True while Alt is held — the arm overlay is live and shows a crosshair. */
-  armed: boolean
-  /** The in-progress drag rectangle, or null when not dragging. */
-  rect: MarqueeRect | null
-  /** Mousedown handler for the arm overlay (starts an alt-drag). */
-  onArmMouseDown: (event: ReactMouseEvent) => void
-}
-
-/** A drag below this many pixels in both axes counts as a click, not a
- *  rectangle — an alt-click on empty canvas, which clears the selection. */
-const CLICK_SLOP = 3
+export type MarqueeApi = BoxSelectApi
 
 /**
- * Own the alt-drag marquee: track when Alt arms the overlay, run the drag, and
- * union the enclosed node ids onto the selection on release.
+ * Own the alt-drag marquee: the gesture is `ui/useBoxSelect` (shared with the
+ * knowledge graph since v8.17.0); this supplies the hit test over the visible
+ * view and unions the enclosed node ids onto the selection on release.
  *
  * @param args The live view, the ForceGraph ref, and the wrap element ref.
  * @returns The arm/rect state and the overlay mousedown handler.
  */
 export function useMarquee({ view, fgRef, wrapRef }: UseMarqueeArgs): MarqueeApi {
   const dispatch = useAppDispatch()
-  const [armed, setArmed] = useState(false)
-  const [rect, setRect] = useState<MarqueeRect | null>(null)
-  // The view is read at mouseup, so keep the latest in a ref rather than
-  // rebinding the (window-attached) drag handlers on every filter change.
   const viewRef = useRef(view)
   viewRef.current = view
-
-  // Alt arms the overlay. A window blur (alt-tab) can swallow the keyup, so
-  // reset on blur too, or the overlay would stay stuck capturing clicks.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Alt') setArmed(true)
-    }
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.key === 'Alt') setArmed(false)
-    }
-    const onBlur = () => setArmed(false)
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
-    window.addEventListener('blur', onBlur)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
-      window.removeEventListener('blur', onBlur)
-    }
-  }, [])
-
-  const onArmMouseDown = useCallback(
-    (event: ReactMouseEvent) => {
-      if (!event.altKey || !wrapRef.current) return
-      event.preventDefault()
-      // Snapshot the wrap's box once; the drag stays in this coordinate frame
-      // even if the layout shifts, and node hit-testing uses the same origin.
-      const bounds = wrapRef.current.getBoundingClientRect()
-      const startX = event.clientX - bounds.left
-      const startY = event.clientY - bounds.top
-      setRect({ left: startX, top: startY, width: 0, height: 0 })
-
-      const onMove = (moveEvent: globalThis.MouseEvent) => {
-        const currentX = moveEvent.clientX - bounds.left
-        const currentY = moveEvent.clientY - bounds.top
-        setRect({
-          left: Math.min(startX, currentX),
-          top: Math.min(startY, currentY),
-          width: Math.abs(currentX - startX),
-          height: Math.abs(currentY - startY),
-        })
-      }
-
-      const onUp = (upEvent: globalThis.MouseEvent) => {
-        window.removeEventListener('mousemove', onMove)
-        window.removeEventListener('mouseup', onUp)
-        setRect(null)
-        const endX = upEvent.clientX - bounds.left
-        const endY = upEvent.clientY - bounds.top
-        const xMin = Math.min(startX, endX)
-        const xMax = Math.max(startX, endX)
-        const yMin = Math.min(startY, endY)
-        const yMax = Math.max(startY, endY)
-        // A negligible drag is really an alt-click on empty space → deselect.
-        if (xMax - xMin < CLICK_SLOP && yMax - yMin < CLICK_SLOP) {
-          dispatch(nodeSelectionCleared())
-          return
-        }
-        const forceGraph = fgRef.current
-        if (!forceGraph?.graph2ScreenCoords) return
-        const caught: string[] = []
-        for (const node of viewRef.current.nodes) {
-          if (typeof node.x !== 'number' || typeof node.y !== 'number') continue
-          const screen = forceGraph.graph2ScreenCoords(node.x, node.y)
-          if (screen.x >= xMin && screen.x <= xMax && screen.y >= yMin && screen.y <= yMax) {
-            caught.push(node.id)
-          }
-        }
-        // Additive: union this rectangle onto the current pick so several
-        // sweeps build one scope. Reset is alt-click / Clear, not a fresh drag.
-        dispatch(nodeSelectionAdded(caught))
-      }
-
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
+  const hitTest = useCallback(
+    (box: BoxBounds) => {
+      const forceGraph = fgRef.current
+      if (!forceGraph?.graph2ScreenCoords) return []
+      return viewRef.current.nodes
+        .filter(
+          (node) =>
+            typeof node.x === 'number' &&
+            typeof node.y === 'number' &&
+            inBox(forceGraph.graph2ScreenCoords(node.x, node.y), box),
+        )
+        .map((node) => node.id)
     },
-    [dispatch, fgRef, wrapRef],
+    [fgRef],
   )
-
-  return { armed, rect, onArmMouseDown }
+  return useBoxSelect({
+    wrapRef,
+    hitTest,
+    // Additive: union this rectangle onto the current pick so several sweeps
+    // build one scope. Reset is alt-click / Clear, not a fresh drag.
+    onPick: (ids) => dispatch(nodeSelectionAdded(ids)),
+    onClear: () => dispatch(nodeSelectionCleared()),
+  })
 }

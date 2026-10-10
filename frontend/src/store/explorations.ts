@@ -5,7 +5,7 @@
  */
 import { createAction, createSlice, nanoid } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
-import type { KnowledgeChild, PaperDetails, PaperRef, SessionData } from '../api'
+import type { KnowledgeChild, PaperDetails, SessionData } from '../api'
 import { isCurrentMap, withChildren, type KnowledgeMap } from '../knowledge/model'
 import type { WorkspaceState } from './workspace'
 
@@ -246,17 +246,16 @@ const slice = createSlice({
         threadId: string
         nodeId: string
         text: string
-        refs?: Record<string, PaperRef>
       }>,
     ) {
-      const { threadId, nodeId, text, refs } = action.payload
+      const { threadId, nodeId, text } = action.payload
       updateKnowledge(state, threadId, (map) =>
         map.nodes[nodeId]
           ? {
               ...map,
               nodes: {
                 ...map.nodes,
-                [nodeId]: { ...map.nodes[nodeId], lesson: text, ...(refs ? { refs } : {}) },
+                [nodeId]: { ...map.nodes[nodeId], lesson: text },
               },
             }
           : map,
@@ -274,6 +273,25 @@ const slice = createSlice({
           ? map.known.filter((other) => other !== nodeId)
           : [...map.known, nodeId],
       }))
+    },
+    /** Mark several items known, or not known, at once (the selection, v8.17.0).
+     * @param state Exploration state.
+     * @param action The thread, the items, and whether they are known.
+     */
+    knowledgeKnownSet(
+      state,
+      action: PayloadAction<{ threadId: string; nodeIds: string[]; known: boolean }>,
+    ) {
+      const { threadId, nodeIds, known } = action.payload
+      updateKnowledge(state, threadId, (map) => {
+        const real = nodeIds.filter((nodeId) => map.nodes[nodeId])
+        return {
+          ...map,
+          known: known
+            ? [...map.known, ...real.filter((nodeId) => !map.known.includes(nodeId))]
+            : map.known.filter((nodeId) => !real.includes(nodeId)),
+        }
+      })
     },
     /** Open an item's lesson (marking it visited), or close the panel with null.
      * @param state Exploration state.
@@ -364,6 +382,7 @@ export const {
   knowledgeExpanded,
   knowledgeLessonWritten,
   knowledgeKnownToggled,
+  knowledgeKnownSet,
   knowledgeOpened,
 } = slice.actions
 export default slice.reducer

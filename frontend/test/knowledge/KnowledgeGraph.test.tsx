@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
- * Description: The knowledge graph's camera — the one-shot fit waits for more than the lone paper.
+ * Description: The knowledge graph's camera (the one-shot fit waits for more than the lone paper)
+ * and its clicks (a shift-click selects, never opens).
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { forwardRef, useImperativeHandle } from 'react'
@@ -14,10 +15,13 @@ import { createMap, withChildren } from '../../src/knowledge/model'
 // test can stop the "simulation" at will and watch the camera calls.
 const engine = vi.hoisted(() => ({
   zoomToFit: vi.fn(),
-  props: {} as { onEngineStop?: () => void },
+  props: {} as {
+    onEngineStop?: () => void
+    onNodeClick?: (node: { id: string }, event?: { shiftKey: boolean }) => void
+  },
 }))
 vi.mock('react-force-graph-2d', () => ({
-  default: forwardRef((props: { onEngineStop?: () => void }, ref) => {
+  default: forwardRef((props: typeof engine.props, ref) => {
     engine.props = props
     useImperativeHandle(ref, () => ({
       zoomToFit: engine.zoomToFit,
@@ -41,18 +45,24 @@ const PAPER = createMap({ id: 'dqn', title: 'Playing Atari with Deep Reinforceme
  * @param map The course to draw.
  * @returns The render result.
  */
-function renderGraph(map: KnowledgeGraphProps['map']) {
+function renderGraph(
+  map: KnowledgeGraphProps['map'],
+  overrides: Partial<KnowledgeGraphProps> = {},
+) {
   const props: KnowledgeGraphProps = {
     map,
     width: 800,
     height: 600,
     expanding: new Set(),
-    focusId: null,
-    labels: 'nearby',
+    focus: null,
     fitSignal: 0,
+    selected: new Set(),
     onOpen: () => {},
     onExpand: () => {},
+    onSelect: () => {},
     onBackground: () => {},
+    onPinned: () => {},
+    ...overrides,
   }
   const view = render(<KnowledgeGraph {...props} />)
   return {
@@ -79,5 +89,63 @@ it('waits for the concepts before its one-shot fit, instead of zooming into the 
 
   // Once only: later settles leave the reader's camera alone.
   act(() => engine.props.onEngineStop?.())
+  expect(engine.zoomToFit).toHaveBeenCalledTimes(1)
+})
+
+it('a shift-click selects the node and never opens or breaks it down', () => {
+  const onOpen = vi.fn()
+  const onExpand = vi.fn()
+  const onSelect = vi.fn()
+  renderGraph(PAPER, { onOpen, onExpand, onSelect })
+  const node = { id: PAPER.rootId }
+  act(() => engine.props.onNodeClick?.(node, { shiftKey: true }))
+  act(() => engine.props.onNodeClick?.(node, { shiftKey: true }))
+  expect(onSelect).toHaveBeenCalledTimes(2)
+  expect(onOpen).not.toHaveBeenCalled()
+  expect(onExpand).not.toHaveBeenCalled()
+  // A plain click still opens the lesson.
+  act(() => engine.props.onNodeClick?.(node, { shiftKey: false }))
+  expect(onOpen).toHaveBeenCalledWith(PAPER.rootId)
+})
+
+it('fits on a Fit press, never for the signal it mounted with (the blank 3D switch)', () => {
+  const course = withChildren(PAPER, PAPER.rootId, [
+    { name: 'Q-learning', why: 'w' },
+    { name: 'Experience replay', why: 'w' },
+  ])
+  // Fit was pressed twice before this view mounted (say, in the other mode).
+  const { rerender } = render(
+    <KnowledgeGraph
+      map={course}
+      width={800}
+      height={600}
+      expanding={new Set()}
+      focus={null}
+      fitSignal={2}
+      selected={new Set()}
+      onOpen={() => {}}
+      onExpand={() => {}}
+      onSelect={() => {}}
+      onBackground={() => {}}
+      onPinned={() => {}}
+    />,
+  )
+  expect(engine.zoomToFit).not.toHaveBeenCalled()
+  rerender(
+    <KnowledgeGraph
+      map={course}
+      width={800}
+      height={600}
+      expanding={new Set()}
+      focus={null}
+      fitSignal={3}
+      selected={new Set()}
+      onOpen={() => {}}
+      onExpand={() => {}}
+      onSelect={() => {}}
+      onBackground={() => {}}
+      onPinned={() => {}}
+    />,
+  )
   expect(engine.zoomToFit).toHaveBeenCalledTimes(1)
 })
