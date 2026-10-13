@@ -472,3 +472,17 @@ def test_expand_rejects_a_bad_request_and_maps_provider_failure(client, monkeypa
     monkeypatch.setattr(graph_routes.growth, "hop_hits", down)
     response = client.post("/api/graph/expand", json={"id": "p1", "hop": "references"})
     assert response.status_code == 502
+
+
+def test_links_returns_citing_to_cited_pairs(client, monkeypatch):
+    seen = {}
+
+    def fake_links(ids, provider):
+        seen.update(ids=ids, provider=provider)
+        return [("a", "b")]
+
+    monkeypatch.setattr(graph_routes.growth, "links_between", fake_links)
+    response = client.post("/api/graph/links", json={"ids": ["a", "b"], "provider": "s2"})
+    assert response.json == {"links": [{"source": "a", "target": "b"}]}
+    assert seen == {"ids": ["a", "b"], "provider": "s2"}
+    assert client.post("/api/graph/links", json={"ids": "a"}).status_code == 400

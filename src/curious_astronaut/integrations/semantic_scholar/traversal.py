@@ -110,6 +110,50 @@ def get_papers(paper_ids: list[str], fields: str = nodes.DETAIL_FIELDS) -> dict[
     return out
 
 
+def reference_ids(paper_ids: list[str]) -> dict[str, list[str]]:
+    """The reference lists of many papers, as node ids, in batch.
+
+    One ``POST /paper/batch`` per 500 papers with the nested
+    ``references.paperId,references.corpusId`` fields: the whole reference
+    list rides along with
+    each paper, so finding the citations *among* a graph's papers costs one or
+    two requests rather than a ``/references`` call per paper (verified live
+    2026-10-10: Attention returns all 41 of its references this way).
+
+    Args:
+        paper_ids: A graph's node ids. Falsy entries are dropped.
+
+    Returns:
+        A map of each requested id to the ids of the papers it cites, in the
+        node-id scheme (``nodes.canonical_id``), so they compare with the
+        graph's own. Ids S2 can't resolve are omitted; references S2 has no
+        id for are skipped.
+
+    Raises:
+        client.S2Error: When a batch request fails after retries.
+    """
+    paper_ids = [paper_id for paper_id in paper_ids if paper_id]
+    out: dict[str, list[str]] = {}
+    url = (
+        f"{config.providers.s2.graph_url}/paper/batch"
+        "?fields=references.paperId,references.corpusId"
+    )
+    for start in range(0, len(paper_ids), _BATCH_MAX):
+        chunk = paper_ids[start : start + _BATCH_MAX]
+        data = client.request(url, method="POST", body={"ids": chunk})
+        papers = data if isinstance(data, list) else []
+        for requested_id, paper in zip(chunk, papers):
+            if not isinstance(paper, dict):
+                continue
+            cited = paper.get("references") or []
+            out[requested_id] = [
+                ref_id
+                for ref in cited
+                if isinstance(ref, dict) and (ref_id := nodes.canonical_id(ref))
+            ]
+    return out
+
+
 def get_paper(paper_id: str) -> dict | None:
     """Fetch details for a single paper.
 

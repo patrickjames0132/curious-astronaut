@@ -13,6 +13,7 @@ hooks/
   useDiscovery.ts   — the sim-side discovery merge, in place
   useEscapeClear.ts — Esc = one "unhighlight everything" gesture
   useMarquee.ts     — alt-drag node selection (the teacher's scope)
+  usePaperLinks.ts  — the "Links between papers" lookup, re-asked as the graph grows
   usePinning.ts     — user pins (drag / toggle / release), timeline-aware
   useTimeline.ts    — BOTH layouts' physics (the one owner of the d3 force
                       slots): Timeline's year pinning/collide/axis painting
@@ -59,6 +60,34 @@ what comes back as `discoveryMerged`, just as a researcher discovery would.
 So an expanded paper is drawn, anchored, saved with the thread, and in the
 assistant's scope like any other, and it wears the same faint halo. The
 legend now says *"Added by expanding"*, since the reader expands too.
+
+## `usePaperLinks` — the citations among the papers on screen
+
+Owns the interconnected links' data (v8.18.0). While the links are
+wanted, it posts every node id to `/api/graph/links`, and it **asks again
+whenever `graphVersion` bumps**: an expansion or a discovery may have
+brought in papers that cite each other. The server caches each paper's
+reference list, so a re-ask costs only the new papers. It drops any pair the
+graph already draws as an edge, either way round, so no line is painted
+twice. Its `status` (`off` / `loading` / `ready` / `error`) feeds the
+button, and `attempt` (bumped by the button after a failure) re-asks.
+**The button stays busy until the graph has settled** (`GraphExplorer`'s
+`linksSettling`, cleared on the engine's stop): any change to the drawn
+links, shown, hidden or refreshed after an expansion, reheats the graph, and
+a switch that flipped at once while nothing seemed to happen, then made
+everything appear in one go, felt broken (Patrick).
+
+The links never enter `base.links`, so they are never saved and the
+relation chips never count them. `GraphExplorer` adds them to the *view* as
+`_between` links whenever both papers are drawn, so they are real links in
+the simulation and shape the layout the way Connected Papers' do. Each one is
+coloured by the citing paper's relation (`model.ts`'s `betweenLinkType`): a
+citer's citations draw green, a reference's blue. Hovering a paper lights
+the papers it is linked to.
+
+*(The first cut, before Patrick's browser pass, painted them as dashed
+violet lines that never touched the layout. It read as a hairball laid over
+the old clusters, not as a map of how the papers connect.)*
 
 ## `useMarquee` — hand-pick the teacher's scope
 
@@ -132,7 +161,8 @@ Pins are just `fx`/`fy`, but their *semantics* are layout-aware:
   the focus is worked out after the pins it depends on); and for the length
   of the drag every other paper is held still (pinned at its position, its
   own pins given back on the drop). The first cut did neither, and the
-  links towed every paper linked to the selection along behind it. After the drop the sim re-settles, so a
+  links, the links between papers above all, towed every paper linked to
+  the selection along behind it. After the drop the sim re-settles, so a
   paper strongly linked to the moved ones may still drift toward them.
 - **Timeline mode:** a node's x is ALWAYS its date column — dragging only
   sets height, unpinning restores the column pin, and `releaseAll` keeps
@@ -173,7 +203,37 @@ Pins are just `fx`/`fy`, but their *semantics* are layout-aware:
   it on every layout switch. A new graph re-applies whichever layout is
   active (one shared effect); discoveries re-balance the orbits for free via
   the force's own `initialize`, and the link accessors recompute their
-  groups at each link initialization (d3 asks for link 0 first).
+  groups and degrees at each link initialization (d3 asks for link 0 first).
+- **Connected Force (v8.18.0):** while the interconnected-links button is
+  on, `clusterForce(true)` drops the sectors and holds the seed at the
+  centre (unless the user pinned it), and the links between papers do the
+  clustering, with d3's own degree-scaled strength so a hub doesn't collapse
+  its neighbourhood. The seed's own edges go soft (0.05) at
+  `connectedRadius`, so the papers form a loose shell the links pull into
+  filaments, the burst around the seed Patrick asked for. **The spacing is
+  measured, not eyeballed** (Atari's 290 papers and 281 links, simulated
+  offline): the gap between linked papers tracks the collision margin,
+  about twice it, so the first cut's margin of 4 packed them 8 units apart
+  (median) against 44 for unlinked papers, a knot. A margin of 20
+  (`CONNECTED_COLLIDE_MARGIN`), links resting 80 past both papers' radii
+  (`BETWEEN_LINK_GAP`) and a charge of -60 open that to 40 against 54,
+  while linked papers still sit about a third as far apart as random pairs
+  and the graph grows ~10%. **Lone papers** (no link between papers reaches
+  them) have nothing to place them but their seed edge, and 194 of them on
+  Atari rang the whole graph. Each relation's lone papers now share a home
+  (`clusterForce`'s `layoutPlan`: citers east, references west, out past the
+  core by √count), pulled firmer (0.28), with a charge of -15 and a margin
+  of 8 (`LONE_CHARGE`, `LONE_COLLIDE_MARGIN`): at the linked papers' -60
+  and 20 the cluster repelled itself into a ring again; at these it holds a
+  wedge about ±30° wide (measured the same way). Who is lone depends on the
+  links, which reach the sim after its nodes, so the cluster force plans on
+  its first tick, and the link force's refresh re-sizes the collide and the
+  charge once the plan knows. The button re-registers the forces through
+  `configureForces` alone, never `applyLayoutPhysics`, so showing or hiding keeps
+  every pin. **Force only:** in Timeline the switch isn't offered and no
+  links are fetched or drawn (`GraphExplorer`'s `linksActive`); x is the
+  date there, so there's no room to pull linked papers together without
+  breaking the time series. The links keep their setting for the trip back.
 - **Expansion groups (v8.18.0; satellites since v5.24.0):** a discovery
   anchored on a non-seed node gets `_origin` stamped by `useDiscovery`'s
   merge. `clusterForce.expansionGroups` gathers each origin and its
@@ -228,6 +288,8 @@ Pins are just `fx`/`fy`, but their *semantics* are layout-aware:
 
 ## How it's verified
 
-`tsc --noEmit` strict + oxlint. The mutation-heavy behavior (pins surviving
+`tsc --noEmit` strict + oxlint. `test/graph/hooks/usePaperLinks.test.tsx`
+covers the links hook: no request while off, a re-ask on a version bump,
+already-drawn pairs dropped, and the error status. The mutation-heavy behavior (pins surviving
 filters, discoveries settling near anchors, timeline freezing) is exactly
 what the end-of-phase browser milestone exercises by hand.

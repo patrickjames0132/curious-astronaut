@@ -260,3 +260,73 @@ describe('per-chip count sliders', () => {
     expect(screen.queryByRole('slider', { name: /Citations shown/i })).toBeNull()
   })
 })
+
+describe('GraphControls interconnected links', () => {
+  it('is absent without a handler (Timeline), and asks for the links when present', () => {
+    renderPanel()
+    expect(screen.queryByRole('button', { name: 'Show interconnected links' })).toBeNull()
+    cleanup()
+
+    const onLinks = vi.fn()
+    renderPanel({ onLinks })
+    fireEvent.click(screen.getByRole('button', { name: 'Show interconnected links' }))
+    expect(onLinks).toHaveBeenCalledWith(true)
+  })
+
+  it('spins and holds while the links load or the graph settles', () => {
+    renderPanel({ onLinks: () => {}, linksOn: true, linksBusy: true, linksStatus: 'loading' })
+    const busy = screen.getByRole('button', {
+      name: 'Show interconnected links',
+    }) as HTMLButtonElement
+    expect(busy.disabled).toBe(true)
+    expect(busy.querySelector('.spin')).toBeTruthy()
+    expect(screen.getByText('Linking up the papers…')).toBeTruthy()
+  })
+
+  it('offers to hide them once they are on screen, with the count', () => {
+    const onLinks = vi.fn()
+    renderPanel({ onLinks, linksOn: true, linksStatus: 'ready', linksCount: 7 })
+    expect(screen.getByText('7 links between papers')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Hide interconnected links' }))
+    expect(onLinks).toHaveBeenCalledWith(false)
+  })
+
+  it('keeps the label it had while busy, and changes it once the graph has settled', () => {
+    const onLinks = () => {}
+    // Shown, then hidden: the label stays "Hide" while the graph re-settles.
+    const view = renderPanel({ onLinks, linksOn: true, linksStatus: 'ready', linksCount: 7 })
+    view.rerender(
+      <GraphControls {...makeProps({ onLinks, linksOn: false, linksBusy: true, linksCount: 0 })} />,
+    )
+    expect(screen.getByRole('button', { name: 'Hide interconnected links' })).toBeTruthy()
+    view.rerender(<GraphControls {...makeProps({ onLinks, linksOn: false, linksCount: 0 })} />)
+    expect(screen.getByRole('button', { name: 'Show interconnected links' })).toBeTruthy()
+    // Asked for, the links arrive before the graph settles: still "Show".
+    view.rerender(
+      <GraphControls
+        {...makeProps({
+          onLinks,
+          linksOn: true,
+          linksBusy: true,
+          linksStatus: 'ready',
+          linksCount: 7,
+        })}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Show interconnected links' })).toBeTruthy()
+    view.rerender(
+      <GraphControls
+        {...makeProps({ onLinks, linksOn: true, linksStatus: 'ready', linksCount: 7 })}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Hide interconnected links' })).toBeTruthy()
+  })
+
+  it('retries after a failed lookup', () => {
+    const onLinks = vi.fn()
+    renderPanel({ onLinks, linksOn: true, linksStatus: 'error' })
+    expect(screen.getByText('Couldn’t load the links. Click to try again.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Show interconnected links' }))
+    expect(onLinks).toHaveBeenCalledWith(true)
+  })
+})

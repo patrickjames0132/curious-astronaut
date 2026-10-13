@@ -7,6 +7,7 @@ detail hydration, and a paper's figures (proxied from ar5iv).
 GET /api/graph?seed=&refresh=      -> neighborhood graph for a seed paper
 GET /api/graph/stream?seed=&refresh= -> same, as SSE with coarse build progress
 POST /api/graph/expand             -> one hop of references/citations from any paper
+POST /api/graph/links              -> the citations among the papers on a graph
 GET /api/paper/<arxiv_id>          -> full details for one paper (panel hydrate)
 POST /api/paper/tldr               -> generate (or recall) a paper's TL;DR
 GET /api/paper/<ref>/figures       -> figures + captions (ar5iv, else mined OA PDF)
@@ -342,6 +343,33 @@ def api_graph_expand() -> ResponseReturnValue:
             "edges": [edge.model_dump() for edge in grown.edges],
         }
     )
+
+
+@bp.post("/api/graph/links")
+def api_graph_links() -> ResponseReturnValue:
+    """The citations among the papers on a graph, for its "Links between
+    papers" switch (v8.18.0).
+
+    JSON body:
+        ids: The papers on the graph.
+        provider: The graph's provider.
+
+    Returns:
+        JSON ``{links: [{source, target}]}``, each pointing from the citing
+        paper to the cited one. HTTP 400 when ``ids`` isn't a list, 502 when
+        the provider is unavailable.
+    """
+    payload = request.get_json(silent=True) or {}
+    ids = payload.get("ids")
+    if not isinstance(ids, list):
+        return jsonify({"error": "need 'ids', a list of paper ids"}), 400
+    provider = graph_service.resolve_provider(payload.get("provider"))
+    try:
+        pairs = growth.links_between([str(item) for item in ids], provider)
+    except _BUILD_ERRORS as exc:
+        current_app.logger.warning("links lookup failed (%s): %s", provider, exc)
+        return jsonify({"error": f"{_provider_name(provider)} is unavailable — try again."}), 502
+    return jsonify({"links": [{"source": source, "target": target} for source, target in pairs]})
 
 
 @bp.get("/api/paper/<path:paper_ref>")

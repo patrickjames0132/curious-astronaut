@@ -55,6 +55,7 @@ function timelineX(nodes: VNode[]) {
     useTimeline({
       base: base(nodes),
       layout: 'timeline',
+      connected: false,
       fgRef: { current: null },
       size: { width: 800, height: 600 },
       fitDone: { current: false },
@@ -132,6 +133,7 @@ describe('Timeline link pull', () => {
       useTimeline({
         base: base(nodes),
         layout: 'timeline',
+        connected: false,
         fgRef: { current: graph.fg },
         size: { width: 800, height: 600 },
         fitDone: { current: false },

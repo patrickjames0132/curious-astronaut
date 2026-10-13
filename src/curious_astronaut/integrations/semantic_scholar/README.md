@@ -48,7 +48,8 @@ A package (not a flat module) split by concern, four files instead of one
   this an S2 graph mixed two schemes: corpus-built citers wore `CorpusId:`
   ids while the seed, its references and every expansion wore hex ones. One
   paper could then have two ids. Expansions drew duplicates of citers already
-  on the graph, and a paper's id changed whenever a rebuild switched between the corpus and the live API,
+  on the graph, the links between papers never reached a citer, and a paper's
+  id changed whenever a rebuild switched between the corpus and the live API,
   which stranded expansions saved against it. S2 accepts `CorpusId:<n>`
   anywhere it takes a `paperId`. The node `url` still links the hex id.
 - **`traversal.py`** — "what's connected to this paper?": `references()`
@@ -59,7 +60,12 @@ A package (not a flat module) split by concern, four files instead of one
   expansion), `recommendations()` (SPECTER2 embedding similarity — now used
   **only** by the researcher's `expand_node`; the seed-graph *Similar* relation
   was retired in v5.0.0), plus `get_papers()`/`get_paper()` to hydrate full
-  details for known ids.
+  details for known ids. `reference_ids()` (v8.18.0) returns many papers'
+  reference lists, named by node id (`canonical_id`, so they match the
+  graph's), through one `POST /paper/batch` per 500 papers, with the nested
+  `references.paperId,references.corpusId` fields. Each paper's whole
+  list comes back with it, so finding the citations among a graph's papers
+  costs a request or two instead of a `/references` call per paper.
 - **`search.py`** — "search all of S2 for X," with no source paper at all.
   Exists specifically because citation/similarity traversal is
   *lineage-biased*: a brand-new paper citing a 2017 seed has no citations
@@ -278,6 +284,8 @@ paper; the ~65 anonymous dots of a graph don't need it).
   `recommendations()`/`search_papers()` behind its own day-long cache (see
   `storage/README.md`) — this *is* the mechanism behind the agentic Q&A
   tools `expand_node` and `search_papers`.
+- **`services/graph/growth.py`** — `links_between` calls `reference_ids()`
+  for the Paper Graph's "Links between papers" switch (v8.18.0).
 - **`teacher/tools.py`** — calls `get_paper()` to lazily hydrate a neighbor
   node's abstract/tldr on demand, only when the agent's `read_paper` tool
   needs detail that a light-field neighbor node doesn't carry.

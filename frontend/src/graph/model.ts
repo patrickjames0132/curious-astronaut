@@ -10,7 +10,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import type { GraphEdge, GraphNode, GraphResponse } from '../api'
+import type { EdgeType, GraphEdge, GraphNode, GraphResponse } from '../api'
 import { REL_TYPES } from './theme'
 
 /**
@@ -67,7 +67,15 @@ export type PositionedVNode = VNode & Required<Pick<VNode, 'x' | 'y'>>
  * object references, so `_s`/`_t` preserve the raw endpoint ids for filtering
  * and persistence.
  */
-export type VLink = GraphEdge & { _s: string; _t: string }
+export type VLink = GraphEdge & {
+  _s: string
+  _t: string
+  /** A link between two papers (v8.18.0): a citation among the papers on the
+   *  graph, from the "Links between papers" switch. View-only: it never
+   *  enters `base.links`, so it is never saved and never counts toward a
+   *  paper's relation. */
+  _between?: boolean
+}
 
 /**
  * The stable per-graph dataset behind the filtered view: the mutable node and
@@ -159,6 +167,24 @@ export function primaryRel(node: GraphNode): string {
   // point: a node whose relation the build has no meaning for still gets
   // drawn, in a colour that says so, rather than with an undefined fill.
   return 'unknown'
+}
+
+/**
+ * The colour a link between two papers takes (v8.18.0): the citing paper's
+ * relation, so a citer's citations draw green and a reference's draw blue,
+ * like the seed's own edges. When the citing paper has no relation colour of
+ * its own (the seed, or a relation this build doesn't know), the cited
+ * paper's is used instead.
+ *
+ * @param citing The paper whose reference list holds the link.
+ * @param cited The paper it cites.
+ * @returns The edge type to draw it as.
+ */
+export function betweenLinkType(citing: GraphNode, cited: GraphNode): EdgeType {
+  for (const rel of [primaryRel(citing), primaryRel(cited)]) {
+    if (rel === 'reference' || rel === 'citation') return rel
+  }
+  return 'reference'
 }
 
 /**

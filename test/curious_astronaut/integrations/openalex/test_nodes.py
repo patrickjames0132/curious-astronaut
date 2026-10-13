@@ -26,9 +26,9 @@ def test_reconstruct_abstract_empty_is_none():
 
 
 def test_bare_doi_strips_url_and_prefix():
-    assert nodes._bare_doi("https://doi.org/10.1038/248030a0") == "10.1038/248030a0"
-    assert nodes._bare_doi("doi:10.1/x") == "10.1/x"
-    assert nodes._bare_doi(None) is None
+    assert nodes.bare_doi("https://doi.org/10.1038/248030a0") == "10.1038/248030a0"
+    assert nodes.bare_doi("doi:10.1/x") == "10.1/x"
+    assert nodes.bare_doi(None) is None
 
 
 def test_bare_openalex_id_from_url():

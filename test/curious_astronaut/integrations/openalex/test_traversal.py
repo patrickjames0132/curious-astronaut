@@ -525,3 +525,37 @@ def test_get_paper_none_when_unresolvable(monkeypatch):
 
     monkeypatch.setattr(client, "request", not_found)
     assert traversal.get_paper("W404") is None
+
+
+def test_reference_keys_resolves_dois_arxiv_and_bare_ids(monkeypatch):
+    filters = []
+
+    def fake_request(url):
+        query = _query(url)
+        filters.append(query["filter"])
+        assert query["select"] == "id,doi,referenced_works"
+        if query["filter"].startswith("doi:"):
+            return {"results": [
+                {"id": "https://openalex.org/W1", "doi": "https://doi.org/10.1/ABC",
+                 "referenced_works": ["https://openalex.org/W2", "https://openalex.org/W9"]},
+                {"id": "https://openalex.org/W3", "doi": "https://doi.org/10.48550/arxiv.1706.03762",
+                 "referenced_works": []},
+            ]}
+        return {"results": [{"id": "https://openalex.org/W2", "doi": None,
+                             "referenced_works": ["https://openalex.org/W1"]}]}
+
+    monkeypatch.setattr(client, "request", fake_request)
+    out = traversal.reference_keys(
+        ["DOI:10.1/abc", "ARXIV:1706.03762", "W2", "DOI:10.1/missing", "weird"]
+    )
+    # DOIs (the arXiv one minted from its id) in one OR filter, bare ids in another.
+    assert filters == [
+        "doi:10.1/abc|10.48550/arxiv.1706.03762|10.1/missing",
+        "openalex_id:W2",
+    ]
+    # Matched back case-insensitively; the unresolved DOI is simply absent.
+    assert out == {
+        "DOI:10.1/abc": ("W1", ["W2", "W9"]),
+        "ARXIV:1706.03762": ("W3", []),
+        "W2": ("W2", ["W1"]),
+    }

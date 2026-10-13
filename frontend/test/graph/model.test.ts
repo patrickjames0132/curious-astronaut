@@ -15,6 +15,7 @@ import type { GraphNode } from '../../src/api'
 import {
   CITE_SLIDER_STEPS,
   ID_RE,
+  betweenLinkType,
   citationThreshold,
   cleanNode,
   countRels,
@@ -110,6 +111,22 @@ describe('primaryRel', () => {
 
   it('falls back to unknown when a node has no relation at all', () => {
     expect(primaryRel(makeNode({ rels: [] }))).toBe('unknown')
+  })
+})
+
+describe('betweenLinkType', () => {
+  const reference = makeNode({ id: 'ref', rels: ['reference'] })
+  const citer = makeNode({ id: 'cite', rels: ['citation'] })
+
+  it('takes the citing paper’s relation', () => {
+    expect(betweenLinkType(citer, reference)).toBe('citation')
+    expect(betweenLinkType(reference, reference)).toBe('reference')
+  })
+
+  it('falls back to the cited paper’s when the citing one has no colour of its own', () => {
+    expect(betweenLinkType(makeNode({ is_seed: true }), citer)).toBe('citation')
+    expect(betweenLinkType(makeNode({ rels: ['similar'] }), citer)).toBe('citation')
+    expect(betweenLinkType(makeNode({ rels: [] }), makeNode({ rels: [] }))).toBe('reference')
   })
 })
 

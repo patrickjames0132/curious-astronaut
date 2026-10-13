@@ -12,6 +12,8 @@ ui/
                          animation (below)
   Fold.tsx             — a section that opens and closes by animating its
                          height (below)
+  MarkIcon.tsx         — a button's leading mark (+, −, ✓, ✕) drawn as one
+                         family on a 12-unit grid, for `.btn-marked` buttons
   SlidersGlyph.tsx     — the folded-controls icon, shared by the citation
                          graph and the knowledge graph (v8.14.0) so the two
                          corner buttons are one button

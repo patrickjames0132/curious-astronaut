@@ -1,8 +1,9 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-Growing a built graph (services/graph/growth.py): what an expansion fetches,
-adds and links.
+Growing a built graph (services/graph/growth.py): what an expansion adds and
+links, and the citations found among a graph's papers, per provider, with the
+per-paper reference cache.
 
 Provider lookups are monkeypatched; the cache is real SQLite on the per-test
 temp DB (see conftest ``_isolate``).
@@ -12,6 +13,8 @@ Charles Patrick James <charles.patrick.james@gmail.com>
 """
 
 from __future__ import annotations
+
+import pytest
 
 from curious_astronaut.services.graph import growth
 from curious_astronaut.services.graph.shape import BuildShape
@@ -99,3 +102,45 @@ def test_expand_citations_point_at_the_expanded_paper():
         "citer", "origin", "citation", True,
     )
     assert grown.nodes[0].rels == ["citation"]
+
+
+def test_links_between_on_s2_and_its_per_paper_cache(monkeypatch):
+    asked = []
+
+    def fake_reference_ids(paper_ids):
+        asked.append(list(paper_ids))
+        return {"a": ["b", "outside", "a"], "b": ["c"], "c": []}
+
+    monkeypatch.setattr(growth.s2, "reference_ids", fake_reference_ids)
+    pairs = growth.links_between(["a", "b", "c", "a", "gone"], "s2")
+    # Only citations whose both ends are on the graph, and no self-loop.
+    assert sorted(pairs) == [("a", "b"), ("b", "c")]
+    assert asked == [["a", "b", "c", "gone"]]
+
+    # The graph grows by one paper: only that one is asked about. "gone" was
+    # cached as unresolved, so it isn't asked again either.
+    growth.links_between(["a", "b", "c", "gone", "d"], "s2")
+    assert asked[1] == ["d"]
+
+
+def test_links_between_on_openalex_matches_by_work_id(monkeypatch):
+    monkeypatch.setattr(
+        growth.openalex,
+        "reference_keys",
+        lambda node_ids: {"DOI:10.1/x": ("W1", ["W2"]), "W2": ("W2", ["W7"])},
+    )
+    assert growth.links_between(["DOI:10.1/x", "W2"], "openalex") == [("DOI:10.1/x", "W2")]
+
+
+def test_links_between_caps_the_request(monkeypatch):
+    seen = []
+    monkeypatch.setattr(growth.s2, "reference_ids", lambda ids: seen.extend(ids) or {})
+    growth.links_between([f"id{index}" for index in range(growth.MAX_LINK_IDS + 5)], "s2")
+    assert len(seen) == growth.MAX_LINK_IDS
+
+
+@pytest.mark.parametrize("provider", ["s2", "openalex"])
+def test_links_between_empty_graph_asks_nothing(monkeypatch, provider):
+    monkeypatch.setattr(growth.s2, "reference_ids", lambda ids: pytest.fail("asked"))
+    monkeypatch.setattr(growth.openalex, "reference_keys", lambda ids: pytest.fail("asked"))
+    assert growth.links_between([], provider) == []

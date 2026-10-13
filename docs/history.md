@@ -373,6 +373,47 @@
       alongside and split out on 2026-10-13 for its own ship; it is parked on
       the local branch `feature/paper-links` and stays in the Backlog.
 
+- [x] **Show the citation edges between non-seed papers** *(v8.19.0)* —
+      **Show interconnected links** in the graph controls links up the papers
+      on screen by the citations among them, not just their edges to the
+      seed, and lets those links shape the Force layout, the way Connected
+      Papers does. *(From the `todos.md` inbox, 2026-10-09; first built with
+      v8.18.0, split out on 2026-10-13 to polish on its own, shipped the same
+      day after three browser rounds with Patrick.)*
+
+      **The data.** `POST /api/graph/links` (`growth.links_between`) reads
+      each paper's reference list, S2 in batches of 500 by corpus id
+      (`reference_ids`), OpenAlex by work id (`reference_keys`), each cached
+      on its own for a day, so a graph that grows re-asks only for its new
+      papers; a request is capped at 2,000 papers. `usePaperLinks` asks again
+      whenever the graph grows and drops pairs already drawn as edges.
+
+      **The layout (Force only).** The seed holds the centre, the sectors
+      give way, and the links do the clustering. The spacing is measured,
+      not eyeballed (Atari's 290 papers and 281 links, simulated offline):
+      the gap between linked papers tracks the collision margin, so the first
+      cut's margin of 4 packed them 8 units apart against 44 for the rest; a
+      margin of 20, links resting 80 past both radii and a charge of -60
+      open it to 40 against 54 while linked papers still cluster. Papers
+      linked only to the seed used to ring the whole graph; they now gather
+      one cluster per relation (citers east, references west), with a weaker
+      charge and a firmer pull (a ±30° wedge, measured). In Timeline the
+      links aren't offered: x is the date there, so nothing can be pulled
+      together without breaking the time series.
+
+      **The button.** A switch flipped at once while nothing seemed to happen
+      and then everything appeared. It's now a button like the Expand ones:
+      "Show interconnected links", a spinner alone while the links load and
+      until the graph has settled around them (on show, hide, and the refresh
+      after an expansion), then "Hide interconnected links" with the count
+      below, and a retry after a failure. Its marks (+, −, and the Expand
+      buttons' ✓/✕) became one family of drawn icons (`ui/MarkIcon`), centred
+      in the space left of the label (`.btn-marked`), after measuring the
+      text glyphs' mismatch in the browser.
+
+      Also fixed on the way: the year slider's fill ran off the controls
+      panel when a saved year window outlived the papers that set it.
+
 ### Search & seeding
 
 - [x] **One `@` list for papers and threads, Enter that does what the lit row

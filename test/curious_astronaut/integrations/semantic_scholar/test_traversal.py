@@ -624,3 +624,31 @@ def test_recommendations_pool_in_url(monkeypatch):
     (hit,) = traversal.recommendations("p1", limit=5)
     assert "from=all-cs" in urls[0]  # the "recent" pool returns nothing for old seeds
     assert hit == {"node": nodes.node({"paperId": "s1"})}
+
+
+def test_reference_ids_batches_nested_references_and_skips_gaps(monkeypatch):
+    calls = []
+
+    def fake_request(url, method="GET", body=None, tries=4):
+        calls.append((url, body["ids"]))
+        return [
+            {"paperId": "a", "references": [{"paperId": "b"}, {"paperId": None}, {}]},
+            None,  # S2 couldn't resolve the second id
+        ]
+
+    monkeypatch.setattr(client, "request", fake_request)
+    out = traversal.reference_ids(["a", "", "zz"])
+    # One batch, the nested field asked for, and the falsy id dropped.
+    assert calls == [(calls[0][0], ["a", "zz"])]
+    assert "fields=references.paperId,references.corpusId" in calls[0][0]
+    assert out == {"a": ["b"]}
+
+
+def test_reference_ids_name_references_by_corpus_id(monkeypatch):
+    # The graph's node ids are corpus ids, so a reference list in hex would
+    # never match a paper on it.
+    def fake_request(url, method="GET", body=None, tries=4):
+        return [{"references": [{"paperId": "b", "corpusId": "42"}, {"paperId": "c"}]}]
+
+    monkeypatch.setattr(client, "request", fake_request)
+    assert traversal.reference_ids(["CorpusId:1"]) == {"CorpusId:1": ["CorpusId:42", "c"]}

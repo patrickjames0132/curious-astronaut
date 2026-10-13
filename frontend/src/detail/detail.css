@@ -207,15 +207,7 @@
   border-color: var(--border);
 }
 .detail-expand-btns .ghost-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-}
-.detail-expand-btns .ghost-btn .spin {
-  width: 10px;
-  height: 10px;
-  margin-right: 4px;
+  min-height: 34px;
 }
 /* A hop that has run: a green ✓ that turns to ✕ on hover, since clicking it
    takes the hop's papers away again. */
@@ -228,6 +220,7 @@
 }
 .expand-mark > span {
   grid-area: 1 / 1;
+  display: inline-flex;
   transition: opacity var(--motion-pop) var(--ease-rise);
 }
 .expand-undo {

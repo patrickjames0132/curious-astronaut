@@ -60,11 +60,12 @@ def bare_openalex_id(work_url: str | None) -> str | None:
     return work_url.rstrip("/").rsplit("/", 1)[-1]
 
 
-def _bare_doi(doi_url: str | None) -> str | None:
+def bare_doi(doi_url: str | None) -> str | None:
     """Strip a DOI down to its bare ``10.…`` form.
 
     OpenAlex reports DOIs as full URLs (``https://doi.org/10.1038/248030a0``);
-    S2's ``DOI:`` id prefix wants just the ``10.…`` part.
+    S2's ``DOI:`` id prefix wants just the ``10.…`` part. Public because
+    ``traversal.reference_keys`` matches works back to node ids by it.
     """
     if not doi_url:
         return None
@@ -105,7 +106,7 @@ def arxiv_id_from_work(work: dict) -> str | None:
             if found:
                 return found
         # The arXiv-minted DOI (10.48550/arXiv.<id>) also carries the id.
-        doi = _bare_doi(location.get("doi"))
+        doi = bare_doi(location.get("doi"))
         if doi and doi.lower().startswith("10.48550/arxiv."):
             return doi.split(".", 2)[-1]
     return None
@@ -126,7 +127,7 @@ def resolvable_id(work: dict, arxiv_id: str | None) -> str | None:
     Returns:
         The id string, or None when the work has no usable id at all.
     """
-    doi = _bare_doi(work.get("doi"))
+    doi = bare_doi(work.get("doi"))
     if doi:
         return f"DOI:{doi}"
     if arxiv_id:
@@ -307,7 +308,7 @@ def node(work: dict | None) -> dict | None:
     if arxiv_id:
         url = f"https://arxiv.org/abs/{arxiv_id}"
     else:
-        doi = _bare_doi(work.get("doi"))
+        doi = bare_doi(work.get("doi"))
         url = f"https://doi.org/{doi}" if doi else (work.get("id") or "")
     return {
         "id": node_id,

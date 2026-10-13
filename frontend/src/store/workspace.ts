@@ -59,6 +59,8 @@ export interface WorkspaceState {
     citeLo: number
     citeHi: number
     relCaps: Record<string, number>
+    /** The "Links between papers" switch (v8.18.0); absent on older saves. */
+    links?: boolean
   }
   graph: GraphResponse | null
   /**

@@ -20,8 +20,8 @@
  * Only the selection moves. While a focus is held, a selected paper outside
  * it is dimmed and its ring hidden, so it stays behind (`visibleIds`). And
  * every other paper is held still for the length of the drag, then let go on
- * the drop: until then the links towed every paper linked to the selection
- * along behind it.
+ * the drop: until then the links, the links between papers above all, towed
+ * every paper linked to the selection along behind it.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>

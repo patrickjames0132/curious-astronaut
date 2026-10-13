@@ -2,7 +2,8 @@
 
 Description:
 Growing a built graph from the Paper Graph's own controls (v8.18.0), with no
-agent involved: expanding any paper on it.
+agent involved: expanding any paper on it, and finding the citations among
+the papers already on it.
 
 ``expand`` is the reader's twin of the researcher's ``expand_node``: one hop
 of references or citations from a paper, merged onto the same graph. It keeps
@@ -17,6 +18,11 @@ the build's own citation step (``build.s2_citations`` /
 took the researcher's ``expand_limit`` (8), and its citers came from one
 newest-first page of S2's live endpoint, so they leaned recent; the
 researcher's ``expand_node`` still does, being an agent's budgeted tool.
+
+``links_between`` answers "which of these papers cite each other?". Until it
+existed, a graph showed only the edges to its seed, plus whatever an expansion
+had drawn. Each paper's reference list is cached on its own for a day, so a
+graph that grows by a few papers re-asks the provider for those few only.
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
@@ -38,6 +44,11 @@ from .shape import BuildShape
 #: The two hops an expansion can take, as the route names them.
 Hop = Literal["references", "citations"]
 
+#: The most papers ``links_between`` reads in one request: it bounds a forged
+#: request. An adaptive graph is a few hundred papers, well under it; a
+#: user-sized build big enough to pass it gets the links among its first
+#: ``MAX_LINK_IDS`` papers.
+MAX_LINK_IDS = 2000
 
 
 @dataclass
@@ -152,3 +163,86 @@ def expand(
             added.add(neighbor_id)
             nodes.append(Node(**neighbor, rels=[rel_tag], is_seed=False))
     return Growth(nodes=nodes, edges=edges)
+
+
+def _reference_cache_key(provider: Provider, node_id: str) -> str:
+    """The cache key for one paper's reference list.
+
+    Args:
+        provider: The graph's provider.
+        node_id: The paper's node id.
+
+    Returns:
+        The key.
+    """
+    return f"refs:v2:{provider}:{node_id}"
+
+
+def _references(node_ids: list[str], provider: Provider) -> dict[str, tuple[str, list[str]]]:
+    """Each paper's identity key and the keys it cites, from cache or the provider.
+
+    The key is what reference lists name papers by: the node id itself on S2,
+    the OpenAlex work id on OpenAlex. A paper the provider can't resolve is
+    cached as ``None`` too, so it isn't asked about again every time the
+    graph grows.
+
+    Args:
+        node_ids: The papers.
+        provider: The graph's provider.
+
+    Returns:
+        A map of node id to ``(key, cited keys)`` for the papers that resolved.
+
+    Raises:
+        s2.S2Error: When an S2 batch request fails after retries.
+        openalex.OpenAlexError: When an OpenAlex request fails after retries.
+    """
+    out: dict[str, tuple[str, list[str]]] = {}
+    missing: list[str] = []
+    for node_id in node_ids:
+        cached = cache.get(_reference_cache_key(provider, node_id), config.graph.cache_ttl)
+        if cached is None:
+            missing.append(node_id)
+        elif cached.get("key"):
+            out[node_id] = (cached["key"], cached["cites"])
+    if not missing:
+        return out
+    if provider == "openalex":
+        fetched = openalex.reference_keys(missing)
+    else:
+        fetched = {node_id: (node_id, cited) for node_id, cited in s2.reference_ids(missing).items()}
+    for node_id in missing:
+        key, cited = fetched.get(node_id, (None, []))
+        cache.set(_reference_cache_key(provider, node_id), {"key": key, "cites": cited})
+        if key:
+            out[node_id] = (key, cited)
+    return out
+
+
+def links_between(node_ids: list[str], provider: Provider) -> list[tuple[str, str]]:
+    """The citations among a set of papers: every pair where one cites the other.
+
+    Args:
+        node_ids: The papers on the graph (at most ``MAX_LINK_IDS`` are read).
+        provider: The graph's provider.
+
+    Returns:
+        ``(citing, cited)`` node-id pairs, deduplicated.
+
+    Raises:
+        s2.S2Error: When an S2 batch request fails after retries.
+        openalex.OpenAlexError: When an OpenAlex request fails after retries.
+    """
+    unique = list(dict.fromkeys(node_id for node_id in node_ids if node_id))[:MAX_LINK_IDS]
+    references = _references(unique, provider)
+    by_key = {key: node_id for node_id, (key, _) in references.items()}
+    pairs: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for node_id, (_, cited) in references.items():
+        for cited_key in cited:
+            target = by_key.get(cited_key)
+            pair = (node_id, target) if target else None
+            if pair and target != node_id and pair not in seen:
+                seen.add(pair)
+                pairs.append(pair)
+    return pairs

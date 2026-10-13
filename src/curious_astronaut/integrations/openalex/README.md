@@ -108,14 +108,15 @@ nodes.py      — translates a raw OpenAlex "work" into the app's node shape
      ↓                (id, title, abstract, year, citation count, topic tags, ...)
 traversal.py  — resolve_seed_work / resolve_work (seed → work), get_paper (detail
      ↓          hydration), references (cited_by:), citation_relations/citations
-     ↓          (cites:), related_works (the "similar" hop for the agent)
+     ↓          (cites:), related_works (the "similar" hop for the agent),
+     ↓          reference_keys (the citations among a graph's papers)
 search.py     — search_papers: free-text relevance search (ungrounded seed discovery)
 vocab.py      — the 26 top-level OpenAlex fields (id + name), for the search filter
 ```
 
 Mirrors `semantic_scholar/`'s package split by concern. `__init__.py` re-exports
 the public API (`OpenAlexError`, `resolve_seed_work`, `resolve_work`, `get_paper`,
-`bare_work_id`, `references`, `citation_relations`, `citations`, `search_papers`,
+`bare_work_id`, `references`, `citation_relations`, `citations`, `reference_keys`, `search_papers`,
 `landmark_max_year`, `node`, `bare_openalex_id`) so callers read
 `from ..integrations import openalex; openalex.references(...)`.
 
@@ -231,6 +232,14 @@ generous limits are why it's the more rate-limit-resilient provider of the two.)
   verified via `resolve_work`.
 - **`routes/graph.py`** — `/api/paper/<ref>?provider=openalex` calls `get_paper`
   to hydrate a clicked node's detail panel.
+- **`services/graph/growth.py`** — `links_between` calls `reference_keys`
+  for the "Links between papers" switch (v8.18.0). A node id is `DOI:…`,
+  `ARXIV:…` or a bare `W…`, but `referenced_works` are always `W…`, so
+  `reference_keys` resolves each node to its work first (DOIs through the
+  `doi:` OR filter, bare ids through `openalex_id:`; an `ARXIV:` node is
+  tried by its arXiv-minted `10.48550` DOI) and the caller matches on work
+  ids. A node that resolves to nothing contributes no edges. `nodes.bare_doi`
+  went public for that match.
 - **`agents/traversal.py`** — under an OpenAlex graph, the researcher's
   `expand_node` hops through `references` / `citations` / `related_works` (the
   `similar` hop; `related_works` is OpenAlex's concept/citation-overlap

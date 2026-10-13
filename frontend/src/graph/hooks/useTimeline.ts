@@ -10,7 +10,9 @@
  * `../streamForce.ts`). Force: the relation clustering (see
  * `../clusterForce.ts` — sector anchors around the seed, expansion groups out
  * past them and the bridges between, per-link distances measured between
- * the plan's homes) plus its own collide for in-cluster spacing. Single ownership matters because both
+ * the plan's homes) plus its own collide for in-cluster spacing,
+ * or, while the interconnected-links button is on, the connected layout
+ * the links between papers shape. Single ownership matters because both
  * layouts write the same force slots ('collide', 'link', 'cluster', 'stream')
  * — two hooks doing that would fight over them on every switch.
  *
@@ -27,7 +29,13 @@ import { useCallback, useEffect, useRef } from 'react'
 // forceCollide to space nodes out by their radius.
 // @ts-expect-error - no type declarations
 import { forceCollide } from 'd3-force-3d'
-import { clusterForce, clusterRadius, expansionGroups, layoutPlan } from '../clusterForce'
+import {
+  clusterForce,
+  clusterRadius,
+  connectedRadius,
+  expansionGroups,
+  layoutPlan,
+} from '../clusterForce'
 import { nodeRadius } from '../model'
 import type { Base, VLink, VNode } from '../model'
 import { streamForce } from '../streamForce'
@@ -35,6 +43,32 @@ import { YEAR_SPACING } from '../theme'
 
 /** The shortest a link touching an expansion group or a bridge may get. */
 const MIN_GROUP_LINK_DISTANCE = 40
+/**
+ * The connected layout's spacing, measured on a real graph (Atari's 290 papers
+ * and 281 links between them, simulated offline) rather than eyeballed. The
+ * gap between linked papers tracks the collision margin, about twice it: at
+ * the first cut's 4 the linked papers packed 8 units apart (median) against
+ * 44 for the unlinked ones, the knot Patrick saw. A margin of 20, links that
+ * rest 80 past the two papers' radii, and a charge of -60 open it to 40
+ * against 54, while linked papers still sit about a third as far apart as
+ * random pairs do (the clustering survives) and the graph grows ~10%.
+ */
+const CONNECTED_COLLIDE_MARGIN = 20
+/** How far past the two papers' radii a link between papers rests. */
+const BETWEEN_LINK_GAP = 80
+/** The connected layout's charge (the sector layout keeps d3's -30). */
+const CONNECTED_CHARGE = -60
+/**
+ * A lone paper's charge and collision margin in the connected layout (one no
+ * link between papers reaches; see `../clusterForce.ts`). Measured the same
+ * way (Atari, 194 lone citers): at the linked papers' -60 and 20, the lone
+ * citers' cluster repelled itself into a disc that wrapped almost the whole
+ * way round the seed; at -15 and 8, with the cluster force's stronger pull
+ * home, it holds a wedge about ±30° wide. They need no air for lines: none
+ * run between them.
+ */
+const LONE_CHARGE = -15
+const LONE_COLLIDE_MARGIN = 8
 
 /** Arguments for {@link useTimeline}. */
 export interface UseTimelineArgs {
@@ -42,6 +76,9 @@ export interface UseTimelineArgs {
   base: Base | null
   /** The current layout mode. */
   layout: 'force' | 'timeline'
+  /** The interconnected-links button: Force drops its sectors and lets the
+   *  links between papers shape the layout. */
+  connected: boolean
   /** The ForceGraph2D ref (for d3 forces, reheat, zoomToFit, coords). */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fgRef: { current: any }
@@ -70,7 +107,8 @@ export interface TimelineApi {
    * and adds a radius-sized collide force; Force releases the pins and
    * registers the relation clustering (sector anchors, orbit-length links,
    * its own collide — see `../clusterForce.ts`). Does NOT touch pin state —
-   * the caller clears `pinned` itself.
+   * the caller clears `pinned` itself. The interconnected-links button
+   * re-registers the forces without this, so showing or hiding keeps every pin.
    */
   applyLayoutPhysics: (mode: 'force' | 'timeline') => void
   /**
@@ -98,6 +136,7 @@ export interface TimelineApi {
 export function useTimeline({
   base,
   layout,
+  connected,
   fgRef,
   size,
   fitDone,
@@ -136,14 +175,15 @@ export function useTimeline({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const linkDefaults = useRef<{ distance: any; strength: any } | null>(null)
 
-  // Register a layout's forces, leaving every node's fx/fy alone (the
-  // pin resets are applyLayoutPhysics's).
+  // Register a layout's forces, leaving every node's fx/fy alone: the
+  // interconnected-links button calls this on its own, so showing or hiding them keeps
+  // the user's pins and Timeline's frozen heights.
   const configureForces = useCallback(
     (mode: 'force' | 'timeline') => {
       if (!base) return
       const fg = fgRef.current
       const charge = fg?.d3Force?.('charge')
-      if (charge) charge.strength(-30)
+      if (charge) charge.strength(mode === 'force' && connected ? CONNECTED_CHARGE : -30)
       const linkForce = fg?.d3Force?.('link')
       if (linkForce && !linkDefaults.current) {
         linkDefaults.current = { distance: linkForce.distance(), strength: linkForce.strength() }
@@ -153,8 +193,10 @@ export function useTimeline({
         // papers apart within a year column (no overlap, even spacing); the
         // cluster force comes out (x is pinned by year — sector pulls would
         // only fight the columns), the expansion streams go in, and the link
-        // force gets its defaults back, except that no link pulls from a
-        // stream to the seed's (v8.18.0's polish): it dragged the papers an expansion shares
+        // force gets its defaults back. A link between papers pulls on
+        // nothing (none are drawn in Timeline anyway: `linksActive` keeps the
+        // links to Force). Nor does a link from a stream to the
+        // seed's (v8.18.0's polish): it dragged the papers an expansion shares
         // with the seed halfway up to the group, a third row between the two,
         // and tugged the expanded paper back down. Each stream holds its own.
         fg?.d3Force?.(
@@ -169,6 +211,7 @@ export function useTimeline({
           let groups = expansionGroups(base.nodes)
           linkForce.strength((link: VLink, index: number, links: VLink[]) => {
             if (index === 0) groups = expansionGroups(base.nodes)
+            if (link._between) return 0
             const sourceGroup = groups.groupOf.get(link._s)
             const targetGroup = groups.groupOf.get(link._t)
             if (sourceGroup !== targetGroup) return 0
@@ -182,22 +225,36 @@ export function useTimeline({
         // with a collide for in-cluster spacing, and stretch each link to its
         // relation cluster's orbit at low strength — the default (distance 30,
         // leaf-strength 1) yanked every neighbor into one clump around the
-        // seed, which was most of the layout's clutter.
-        fg?.d3Force?.(
-          'collide',
-          forceCollide((node: VNode) => nodeRadius(node) + 4),
+        // seed, which was most of the layout's clutter. Connected, the
+        // sectors go and the links between papers do the clustering.
+        // The cluster force's plan, rebuilt at each link initialization (d3
+        // asks for link 0 first) over the papers the links join: an expansion
+        // changes the groups, and the links between papers change the degrees
+        // and who is lone. Rebuilt here rather than read off the cluster
+        // force, because d3 initializes the link force first.
+        let plan = layoutPlan([], [], connected)
+        const collide = forceCollide(
+          (node: VNode) =>
+            nodeRadius(node) +
+            (!connected
+              ? 4
+              : plan.lone.has(node.id)
+                ? LONE_COLLIDE_MARGIN
+                : CONNECTED_COLLIDE_MARGIN),
         )
+        fg?.d3Force?.('collide', collide)
+        const chargeOf = (node: VNode) =>
+          !connected ? -30 : plan.lone.has(node.id) ? LONE_CHARGE : CONNECTED_CHARGE
+        if (charge) charge.strength(chargeOf)
         fg?.d3Force?.(
           'cluster',
-          clusterForce(() => base.links),
+          // The sim's own links (the links between papers among them, which
+          // say who is lone), falling back to the base's before the first.
+          clusterForce(connected, () => linkForce?.links?.() ?? base.links),
         )
         fg?.d3Force?.('stream', null)
         if (linkForce) {
-          // The cluster force's plan, rebuilt at each link initialization (d3
-          // asks for link 0 first) over the papers the links join, since an
-          // expansion changes the groups. Rebuilt here rather than read off
-          // the cluster force, because d3 initializes the link force first.
-          let plan = layoutPlan([], [])
+          let degree = new Map<string, number>()
           const refresh = (links: VLink[]) => {
             const papers = new Map<string, VNode>()
             for (const link of links) {
@@ -205,9 +262,23 @@ export function useTimeline({
                 if (typeof end === 'object' && end) papers.set((end as VNode).id, end as VNode)
               }
             }
-            plan = layoutPlan([...papers.values()], base.links)
+            plan = layoutPlan([...papers.values()], links, connected)
+            // d3 sizes the collide and the charge per node when the nodes
+            // arrive, before the links do: size them again now that the plan
+            // knows who is lone.
+            if (connected) {
+              collide.radius(collide.radius())
+              charge?.strength(chargeOf)
+            }
+            degree = new Map()
+            for (const link of links) {
+              if (!link._between) continue
+              degree.set(link._s, (degree.get(link._s) ?? 0) + 1)
+              degree.set(link._t, (degree.get(link._t) ?? 0) + 1)
+            }
           }
-          const planned = (id: string) => plan.groups.groupOf.has(id) || plan.bridges.has(id)
+          const planned = (id: string) =>
+            plan.groups.groupOf.has(id) || plan.bridges.has(id) || plan.lone.has(id)
           linkForce.distance((link: VLink, index: number, links: VLink[]) => {
             if (index === 0) refresh(links)
             // Touching a group or a bridge: as long as their homes are apart,
@@ -217,15 +288,36 @@ export function useTimeline({
             if ((planned(link._s) || planned(link._t)) && from && to) {
               return Math.max(MIN_GROUP_LINK_DISTANCE, Math.hypot(from.dx - to.dx, from.dy - to.dy))
             }
+            if (link._between) {
+              const ends = [link.source, link.target].map((end) =>
+                typeof end === 'object' && end ? nodeRadius(end as VNode) : 0,
+              )
+              return BETWEEN_LINK_GAP + ends[0] + ends[1]
+            }
+            if (connected) {
+              const population = Object.values(plan.counts).reduce((sum, count) => sum + count, 0)
+              return connectedRadius(population)
+            }
             return clusterRadius(plan.counts[link.type ?? ''] ?? 0)
           })
-          linkForce.strength(0.08)
+          linkForce.strength((link: VLink, index: number, links: VLink[]) => {
+            if (index === 0) refresh(links)
+            const grouped = planned(link._s) || planned(link._t)
+            if (link._between) {
+              if (grouped) return 0.02
+              // d3's own rule, scaled: a paper with many links gets a gentler
+              // pull from each, so a hub doesn't collapse its neighbourhood.
+              const busiest = Math.min(degree.get(link._s) ?? 1, degree.get(link._t) ?? 1)
+              return 0.6 / busiest
+            }
+            return connected && !grouped ? 0.05 : 0.08
+          })
         }
       }
       fitDone.current = false
       fg?.d3ReheatSimulation?.()
     },
-    [base, fgRef, fitDone],
+    [base, connected, fgRef, fitDone],
   )
 
   const applyLayoutPhysics = useCallback(
@@ -244,6 +336,16 @@ export function useTimeline({
     },
     [base, nodeTimelineX, configureForces],
   )
+
+  // The interconnected-links button reshapes Force (and takes the links'
+  // pull out of Timeline) without touching a single pin.
+  const lastConnected = useRef(connected)
+  useEffect(() => {
+    if (lastConnected.current === connected) return
+    lastConnected.current = connected
+    configureForces(layout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected])
 
   // Re-apply the active layout's physics when a new graph loads: Timeline
   // re-pins its year columns (a fresh graph has no user pins yet), Force

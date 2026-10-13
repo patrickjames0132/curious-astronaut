@@ -133,6 +133,23 @@ canvas about what "a reference" looks like, and both style via
   call — the yank out to fit-everything read as losing your place).
 - **Refresh** busts the seed's day-cached snapshot server-side; the button
   disables while a load is in flight.
+- **The interconnected-links button (v8.18.0)** links up the papers on the
+  graph by their citations, not just to the seed, and lets those links
+  shape the layout. Force only: `GraphExplorer` passes no `onLinks` in
+  Timeline, so the button isn't rendered there (see `../hooks/README.md`'s
+  `usePaperLinks` and its physics notes). It's the detail panel's Expand
+  button in the controls (v8.18.0's polish; it was a switch): "Show
+  interconnected links" while none are drawn, "Hide interconnected links"
+  once they are, and a spinner in it, the button held, while the links load
+  and until the graph has settled around them (`linksBusy`). **The label
+  only changes once the graph has settled:** while busy the label gives way
+  to the spinner alone (flipping it at the click claimed links that weren't
+  drawn yet), and `aria-label` keeps the button's name for screen readers.
+  Like the Expand buttons it's a `.btn-marked` grid (`app.css`): the label
+  centred in the button, the +/− mark centred in the space to its left. A status line
+  under it gives the count, "Linking up the papers…" while busy, or the
+  error, after which a click retries. Its state is saved with the thread's
+  view filters (`links`, absent on older saves, which read as off).
 - **The `providerNote` line** surfaces a provider-specific caveat under the
   controls when one applies — currently the Semantic Scholar ~10k citer-offset
   limit (the most-cited citers come from the recent citer tip, not the full
@@ -149,7 +166,9 @@ below, retired it. "Added by expanding" (faint halo) appears once an
 expansion has pulled a paper in, the reader's own (the detail panel's Expand
 buttons) or the agent's, from the workspace slice's `selectHasDiscovered` via
 `GraphExplorer`. It said "Discovered by teacher" until v8.18.0, when the
-reader could expand too. A "Found by search" (pink) entry sat beside it until v7.5.0,
+reader could expand too. The links between papers have no entry: they draw
+in the relation colours already listed. (A "Cites (between papers)" entry
+for a dashed violet line lived only in the first cut.) A "Found by search" (pink) entry sat beside it until v7.5.0,
 when the `search` and `similar` relations were removed outright; the legend
 lists what the graph can contain, and neither can arrive any more.
 

@@ -5,8 +5,8 @@
  * The ForceGraph2D wrapper: all canvas painting for the explorer — node
  * fills by relation (pink for a paper that has been expanded), the
  * dim/highlight/pin/selection rings, the faint
- * "added by expanding" halo, node labels, edge colors/widths/arrows, and
- * pointer areas.
+ * "added by expanding" halo, node labels, edge colors/widths/arrows (the
+ * links between papers among them, drawn finer), and pointer areas.
  *
  * Purely presentational: the simulation's node/link objects, the fgRef, and
  * every piece of interaction state live in GraphExplorer and arrive as props.
@@ -149,7 +149,9 @@ export default function GraphCanvas({
           ? DIM_EDGE
           : (EDGE_COLOR[link.type] ?? UNKNOWN_EDGE)
       }
-      linkWidth={(link: VLink) => (link.influential ? 1.6 : 0.6)}
+      // A link between papers draws finer than a seed edge: there can be
+      // hundreds, and they are the web, not the story.
+      linkWidth={(link: VLink) => (link._between ? 0.35 : link.influential ? 1.6 : 0.6)}
       // Every edge type is a citation now, so every edge gets an arrow. The
       // exception this used to carry was `similar`, retired in v7.5.0 —
       // direction meant nothing on an embedding neighbour.

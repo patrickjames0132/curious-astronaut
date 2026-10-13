@@ -22,6 +22,25 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### Opening any thread blanked the screen (v8.19.0, pre-release)
+
+- **Symptom.** Clicking a thread in the sidebar left the whole app blank,
+  for every graph, right after a polish round on the links between papers.
+- **Root cause.** A render loop. `usePaperLinks` returned `on ? links : []`,
+  so while the links were off (the default) every render got a *new* empty
+  array. `GraphExplorer`'s `view` memo had just started depending on that
+  list; a new view republished the visible ids to the store, the store
+  re-rendered the explorer, and React gave up and unmounted the tree.
+- **Fix.** One shared `NO_LINKS` constant returned while off
+  (`graph/hooks/usePaperLinks.ts`), so the memo sees the same list each
+  render.
+- **Lesson / guard.** A hook whose result feeds a memo must keep its empty
+  value's identity stable; a fresh `[]` or `{}` per render is a loop waiting
+  for a dependency. `usePaperLinks.test` asserts the off value is the same
+  array across re-renders; it failed before the fix. No test renders the
+  whole explorer, which is how this got as far as the browser.
+
+
 ### One S2 paper, two ids: expansions drew duplicates (v8.18.0, pre-release)
 
 - **Symptom.** Expanding a citation on an S2 graph brought in references

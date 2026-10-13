@@ -4,9 +4,9 @@
  * Description:
  * The color legend under the graph. The later entries only appear when they
  * apply: pink once a paper has been expanded, the faint halo once an
- * expansion (the reader's or the teacher's) has added papers, and the dotted
- * ring while a scoped paper is on screen that the view filters would
- * otherwise hide.
+ * expansion (the reader's or the teacher's) has added papers, and the dotted ring while a scoped paper is on screen
+ * that the view filters would otherwise hide. The links between papers need
+ * no entry: they draw in the relation colours already listed.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
