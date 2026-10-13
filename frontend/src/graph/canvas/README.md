@@ -1,7 +1,9 @@
 # `src/graph/canvas`
 
 The ForceGraph2D wrapper — every canvas painter for the explorer: node
-fills by relation, the ring/glow vocabulary, zoom-gated labels, edge
+fills by relation (and pink, `EXPANDED_COLOR`, for a paper an Expand hop has
+run on: `GraphExplorer` reads `expandedIds` off the discovery lists, the same
+way the Expand buttons read their ✓; v8.18.0), the ring/glow vocabulary, zoom-gated labels, edge
 colors/widths/arrows, and the enlarged pointer areas. One component
 (`GraphCanvas.tsx`), nested here per the hybrid structure rule: its only
 parent is `graph/GraphExplorer.tsx`.
@@ -28,17 +30,24 @@ arc on top of it.
 - **Cyan ring** — in the teacher's scope (`selectedIds`: the alt-drag
   marquee / shift-click selection, or the papers a message asked for, which
   `send` makes the selection). While a scope is active, everything
-  outside it **dims** like a focus set, so the scoped cluster stands out; the
-  ring is cyan to stay distinct from the gold, pale-white, and bright-white
+  outside it **dims** like a focus set, so the scoped cluster stands out,
+  **unless a focus is held** (a ⌘-click, v8.18.0's polish): then the
+  focus owns the dimming and the selection shows as rings alone
+  (`selectionDims`), so a reader can pick papers out of a focused
+  neighbourhood without the rest of it going dark. Dimming means one thing
+  at a time. The ring is cyan to stay distinct from the gold, pale-white, and bright-white
   rings it can coexist with.
 - **Dotted outer ring** — a scoped paper the view filters would hide, drawn
   anyway (`ghostIds`, always a subset of `selectedIds`; v7.24.0). The scope
   outranks the filters, and this is what keeps "the filters are a lens"
   honest: the reader can see which papers the lens would have dropped. The
   legend names it *"In scope, hidden by your filters"* while any is drawn.
-- **Dashed ring** — agent-discovered mid-chat (`node.discovered`). Drawn on
-  its own path just outside the fill: stroking the fill's arc buries half the
-  line width under the disc, which made the original ring easy to miss.
+- **Faint halo** — added by expanding (`node.discovered`): the reader's
+  Expand buttons or the teacher's `expand_node`. A hairline in the soft ink
+  with a little air round the disc. It was a bold dashed ring until v8.18.0,
+  which made a cluster of expanded papers look like a stack of poker chips
+  (Patrick); the group's own place on the map already says where they came
+  from, so the mark only has to whisper.
 - **Pale ring** — user-pinned.
 - **Bright ring** — the open detail-panel node (`selectedId`).
 

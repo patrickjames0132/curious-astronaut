@@ -9,7 +9,8 @@ controls/
   GraphControls.tsx — a panel that folds away into a sliders button, over:
                       layout toggle,
                       per-relation filter chips, the dual-knob year slider,
-                      the citation-count threshold slider, the count
+                      the citation-count threshold slider, the "Links
+                      between papers" switch, the count
                       readout + release/fit/refresh/clear action row, the
                       node-selector gesture hint, the per-layout hint line
   Legend.tsx        — the color legend (agent entries appear on first use)
@@ -121,7 +122,8 @@ canvas about what "a reference" looks like, and both style via
   **Esc**, same reset, see `hooks/useEscapeClear.ts`) drops *everything* lit
   at once: the pick and the teacher's glow, wherever it came from.
 - **The hint line teaches per-layout gestures** — drag-to-pin in Force,
-  left→right-by-year in Timeline; double-click-to-reseed in both.
+  left→right-by-year in Timeline; double-click to re-seed and ⌘-click to
+  hold a paper's links in focus in both.
 - **Release** unpins every node AND reheats the simulation — it stays enabled
   with nothing pinned, because "re-settle a drifted force layout" is a want of
   its own (it used to require abusing a filter chip's reheat side effect).
@@ -139,10 +141,15 @@ canvas about what "a reference" looks like, and both style via
 
 ## `Legend` — never explain marks that aren't on screen
 
-The three relation entries (Seed / References / Citations) are static; one entry is conditional — "Discovered by teacher"
-(dashed ring) appears only once the agent has actually pulled a paper in
-mid-conversation, from the workspace slice's `selectHasDiscovered` via
-`GraphExplorer`. A "Found by search" (pink) entry sat beside it until v7.5.0,
+The three relation entries (Seed / References / Citations) are static. Three
+are conditional. "Expanded" (pink) appears once an Expand hop has run on a
+paper (v8.18.0): the paper an expansion grew from is filled pink so it stands
+out from the papers it brought. The pink is free because "Found by search",
+below, retired it. "Added by expanding" (faint halo) appears once an
+expansion has pulled a paper in, the reader's own (the detail panel's Expand
+buttons) or the agent's, from the workspace slice's `selectHasDiscovered` via
+`GraphExplorer`. It said "Discovered by teacher" until v8.18.0, when the
+reader could expand too. A "Found by search" (pink) entry sat beside it until v7.5.0,
 when the `search` and `similar` relations were removed outright; the legend
 lists what the graph can contain, and neither can arrive any more.
 

@@ -57,7 +57,10 @@ follow in `transcript.ts`. The graph rules themselves are pure functions in
 ignored by the reducers and replaced by `knowledgeStarted`.
 
 `workspace.ts` holds the active graph, discoveries, selections, layout and view
-filters. `threadActivated` parks the outgoing state and restores the incoming
+filters. `expansionUndone` (v8.18.0) takes one of a paper's Expand hops back
+off the discovery lists, with every discovered paper the graph can no longer
+reach (`graph/expansions.ts`); a hop's ✓ is read off the same lists, so it is
+saved with the thread for free. `threadActivated` parks the outgoing state and restores the incoming
 state in one action, also handled by `transcript.ts` and `highlight.ts`.
 Two scope fields for `scope/resolve.ts`'s priority list: `visibleNodeIds` is
 the papers **passing the view filters** (published by `GraphExplorer` from

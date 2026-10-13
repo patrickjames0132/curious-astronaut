@@ -432,3 +432,43 @@ def test_stream_parses_the_shape_in_the_request_context(client, monkeypatch):
     frames(client.get("/api/graph/stream?seed=1312.5602&adaptive=0&per_band=30"))
     assert seen["shape"].adaptive is False
     assert seen["shape"].nodes_per_band == 30
+
+
+def test_expand_adds_new_papers_flagged_discovered(client, monkeypatch):
+    seen = {}
+
+    def fake_hop(node_id, hop, provider, shape, arxiv_id=None):
+        seen.update(node_id=node_id, hop=hop, provider=provider, arxiv_id=arxiv_id,
+                     per_band=shape.nodes_per_band)
+        base = {"arxiv_id": None, "abstract": None, "tldr": None, "year": 2020, "month": None,
+                "pub_date": None, "citation_count": 5, "authors": None, "url": "u"}
+        return [{"node": {**base, "id": "known", "title": "K"}}] + [
+            {"node": {**base, "id": f"fresh{index}", "title": "F"}} for index in range(12)
+        ]
+
+    monkeypatch.setattr(graph_routes.growth, "hop_hits", fake_hop)
+    response = client.post(
+        "/api/graph/expand?adaptive=0&per_band=30",
+        json={"id": "p1", "hop": "citations", "provider": "openalex", "known_ids": ["p1", "known"],
+              "arxiv_id": "1509.06461"},
+    )
+    assert response.status_code == 200
+    # The reader's build shape and the paper's arXiv id reach the hop.
+    assert seen == {"node_id": "p1", "hop": "citations", "provider": "openalex",
+                    "arxiv_id": "1509.06461", "per_band": 30}
+    # Every new paper the hop picked comes in: no per-hop cap any more.
+    assert len(response.json["nodes"]) == 12
+    assert response.json["nodes"][0]["discovered"] is True
+    assert ("known", "p1") in {(edge["source"], edge["target"]) for edge in response.json["edges"]}
+
+
+def test_expand_rejects_a_bad_request_and_maps_provider_failure(client, monkeypatch):
+    assert client.post("/api/graph/expand", json={"id": "p1", "hop": "similar"}).status_code == 400
+    assert client.post("/api/graph/expand", json={"hop": "references"}).status_code == 400
+
+    def down(*args):
+        raise semantic_scholar.S2Error("rate limited")
+
+    monkeypatch.setattr(graph_routes.growth, "hop_hits", down)
+    response = client.post("/api/graph/expand", json={"id": "p1", "hop": "references"})
+    assert response.status_code == 502

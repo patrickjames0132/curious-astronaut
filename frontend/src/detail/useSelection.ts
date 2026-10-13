@@ -5,7 +5,8 @@
  * Selection state for the explorer: which node is open in the detail panel,
  * its lazily-hydrated details (abstract/TL;DR), its lazily-fetched figures,
  * code links, and arXiv category tags, and the click handler that both
- * selects and (on a quick double-click) re-seeds the graph.
+ * selects and (on a quick double-click) hands the paper to `onDoubleClick`,
+ * which re-seeds the graph on it.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -32,8 +33,8 @@ export interface UseSelectionArgs {
   /** The active provider — detail hydration comes from the backend the graph
    *  was built with. */
   provider: Provider
-  /** Re-seed the whole graph on a paper (fired by a quick double-click). */
-  loadGraph: (seed: string) => void
+  /** A quick double-click on a paper (the explorer re-seeds on it). */
+  onDoubleClick: (node: VNode) => void
 }
 
 /** What {@link useSelection} returns for GraphExplorer to wire up. */
@@ -56,7 +57,7 @@ export interface SelectionApi {
   codeLinks: Record<string, CodeLinksResponse>
   /** The paper's own arXiv category tags per arXiv id, as they finish loading. */
   categories: Record<string, CategoriesResponse>
-  /** Canvas click handler: select on click, re-seed on quick double-click. */
+  /** Canvas click handler: select on click, `onDoubleClick` on a quick double-click. */
   onNodeClick: (node: VNode) => void
   /** Overlay extra hydrated fields onto one node — e.g. a TL;DR the panel
    *  just generated — so `selected` (and the graph's session save, via the
@@ -73,7 +74,12 @@ export interface SelectionApi {
  *
  * @returns The selection state + handlers (see {@link SelectionApi}).
  */
-export function useSelection({ base, graph, provider, loadGraph }: UseSelectionArgs): SelectionApi {
+export function useSelection({
+  base,
+  graph,
+  provider,
+  onDoubleClick,
+}: UseSelectionArgs): SelectionApi {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [details, setDetails] = useState<Record<string, Partial<GraphNode>>>({})
   // The node id whose summary hydration is in flight — drives the panel's
@@ -157,16 +163,17 @@ export function useSelection({ base, graph, provider, loadGraph }: UseSelectionA
     fetchCategories(aid).then((res) => setCategories((prev) => ({ ...prev, [aid]: res })))
   }, [selected])
 
-  // Single click selects a node; a quick second click on the SAME node re-seeds
-  // the whole graph on it — letting you wander the literature node-to-node. We
-  // re-seed by Semantic Scholar id (node.id) so journal papers work too.
+  // Single click selects a node; a quick second click on the SAME node is a
+  // double-click, handed to the explorer, which re-seeds the whole graph on
+  // it, letting you wander the literature node-to-node (by node id, so
+  // journal papers work too).
   const lastClick = useRef<{ id: string; time: number }>({ id: '', time: 0 })
   const onNodeClick = useCallback(
     (node: VNode) => {
       const now = performance.now()
       if (lastClick.current.id === node.id && now - lastClick.current.time < 350) {
         lastClick.current = { id: '', time: 0 }
-        if (!node.is_seed) loadGraph(node.id)
+        onDoubleClick(node)
         return
       }
       lastClick.current = { id: node.id, time: now }
@@ -186,7 +193,7 @@ export function useSelection({ base, graph, provider, loadGraph }: UseSelectionA
           .finally(() => setDetailLoading((cur) => (cur === node.id ? null : cur)))
       }
     },
-    [details, provider, loadGraph],
+    [details, provider, onDoubleClick],
   )
 
   /** Merge extra fields into a node's hydrated-detail overlay. */

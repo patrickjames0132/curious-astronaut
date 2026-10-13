@@ -42,6 +42,15 @@ A package (not a flat module) split by concern, four files instead of one
   shared helper (list of raw papers → `[{"node": ...}, ...]`, skipping
   unresolved entries) used by both `recommendations()` and `search_papers()`
   — they had identical loops before this was factored out.
+  **A node's id is its corpus id, `CorpusId:<n>`** (v8.18.0, `canonical_id`),
+  with the hex `paperId` only as a fallback for a paper S2 gives no corpus
+  id. The offline corpus (`corpus/`) knows papers by nothing else, so before
+  this an S2 graph mixed two schemes: corpus-built citers wore `CorpusId:`
+  ids while the seed, its references and every expansion wore hex ones. One
+  paper could then have two ids. Expansions drew duplicates of citers already
+  on the graph, and a paper's id changed whenever a rebuild switched between the corpus and the live API,
+  which stranded expansions saved against it. S2 accepts `CorpusId:<n>`
+  anywhere it takes a `paperId`. The node `url` still links the hex id.
 - **`traversal.py`** — "what's connected to this paper?": `references()`
   (blue nodes — what it cites), `citation_relations()` (splits citers into
   **landmark** green nodes and **latest** light-green nodes — the citation path
@@ -263,8 +272,8 @@ paper; the ~65 anonymous dots of a graph don't need it).
   (references, landmark citations, latest citations). It **no longer calls
   `recommendations()`** — the *Similar* relation was retired from the build in
   v5.0.0. Also uses `arxiv.looks_arxiv` (from `integrations.arxiv`) to decide
-  whether the seed reference needs an `ARXIV:` prefix, or is already a raw S2
-  paperId.
+  whether the seed reference needs an `ARXIV:` prefix, or is already an S2
+  node id (`CorpusId:<n>`, or a hex paperId).
 - **`agents/traversal.py`** — wraps `references()`/`citations()`/
   `recommendations()`/`search_papers()` behind its own day-long cache (see
   `storage/README.md`) — this *is* the mechanism behind the agentic Q&A

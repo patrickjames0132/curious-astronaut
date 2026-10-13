@@ -69,11 +69,11 @@ function makeWorld(seedId: string) {
   return { graph, base, seed, neighbor }
 }
 
-/** Mount the hook over one world, with an inert re-seed callback. */
+/** Mount the hook over one world, with an inert double-click callback. */
 function mount(world: ReturnType<typeof makeWorld>) {
   return renderHook(
     ({ graph, base }: Pick<ReturnType<typeof makeWorld>, 'graph' | 'base'>) =>
-      useSelection({ base, graph, provider: 's2', loadGraph: () => {} }),
+      useSelection({ base, graph, provider: 's2', onDoubleClick: () => {} }),
     { initialProps: { graph: world.graph, base: world.base } },
   )
 }
@@ -110,5 +110,18 @@ describe('useSelection on a new graph', () => {
     // And the tour / chat-citation path sets it directly, the same way.
     act(() => result.current.setSelectedId(world.neighbor.id))
     expect(result.current.selected?.id).toBe('seed-1-neighbor')
+  })
+})
+
+describe('useSelection double-click', () => {
+  it('hands a quick second click on the same paper to onDoubleClick', () => {
+    const world = makeWorld('seed-1')
+    const onDoubleClick = vi.fn()
+    const { result } = renderHook(() =>
+      useSelection({ base: world.base, graph: world.graph, provider: 's2', onDoubleClick }),
+    )
+    act(() => result.current.onNodeClick(world.neighbor))
+    act(() => result.current.onNodeClick(world.neighbor))
+    expect(onDoubleClick).toHaveBeenCalledWith(world.neighbor)
   })
 })

@@ -11,7 +11,8 @@ api/
   agents.ts    — streaming lecture / Q&A / library chat, plus `routeMessage`
                  (routes/agents.py)
   search.ts    — direct search (SSE), field vocabulary (routes/search.py)
-  graph.ts     — graph, paper detail, figures, code links, category tags (routes/graph.py)
+  graph.ts     — graph, expand, paper detail, figures, code links, category
+                 tags (routes/graph.py)
   knowledge.ts — the knowledge network: expand an item, stream its lesson
                  (routes/knowledge.py)
   sessions.ts  — saved workspaces                          (routes/sessions.py)

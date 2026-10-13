@@ -62,9 +62,10 @@ from ...storage import cache
 from .model import Counts, Edge, Graph, Node, Seed
 from .shape import BuildShape
 
-# A bare Semantic Scholar paperId: a 40-hex SHA-1. Every S2 graph node carries
-# one as its ``id``; nothing else in the seed-reference grammar looks like it.
-_S2_PAPER_ID_RE = re.compile(r"[0-9a-f]{40}")
+# An S2 node id: ``CorpusId:<n>`` since v8.18.0 (see semantic_scholar/nodes.py),
+# or a bare 40-hex paperId — the scheme before it, and the fallback for a paper
+# with no corpus id. Nothing else in the seed-reference grammar looks like either.
+_S2_PAPER_ID_RE = re.compile(r"[0-9a-f]{40}|CorpusId:\d+")
 
 log = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ log = logging.getLogger(__name__)
 #: by the caller (the header dropdown), defaulting to ``config.providers.default_provider``.
 Provider = Literal["s2", "openalex"]
 
-SNAPSHOT_VERSION = "v3"
+SNAPSHOT_VERSION = "v4"
 """Schema version baked into every graph-snapshot cache key.
 
 Bump it whenever the ``Graph`` model **loses** a field: ``extra="forbid"``
@@ -80,7 +81,9 @@ turns a stored snapshot carrying the dead field into a validation *error*
 rather than a miss, so old entries have to become unreadable instead of
 poisonous. They age out on the TTL. (v2 = v7.5.0, which dropped ``Counts.similar``;
 v3 = v7.17.0, which dropped ``Counts.latest`` and narrowed ``Edge.type`` to
-``reference | citation``.)"""
+``reference | citation``.) Bump it too when node ids change meaning: v4 =
+v8.18.0, when S2 node ids became corpus ids, because a v3 snapshot's hex ids
+would duplicate every paper an expansion brings back under its corpus id."""
 
 
 def snapshot_prefix(provider: Provider) -> str:
@@ -165,6 +168,35 @@ def _traverse_s2(
     report(2, "Fetching references…")
     refs = s2.references(seed_id)
     report(3, "Fetching citations…")
+    landmark, latest, citation_source = s2_citations(seed_paper, seed_ref, shape)
+    return seed_paper, refs, landmark, latest, citation_source
+
+
+def s2_citations(
+    seed_paper: dict, seed_ref: str, shape: BuildShape
+) -> tuple[list[dict], list[dict], CitationSource]:
+    """A paper's citers on S2, banded by the tau rule: (landmarks, latest, source).
+
+    The seed build's citation step, shared since v8.18.0 with the detail
+    panel's Expand button, so an expanded paper's citers are chosen the way
+    the seed's are, over the paper's whole history, rather than its newest few.
+
+    For an expansion, the expanded paper plays the seed.
+
+    Args:
+        seed_paper: The paper's node dict (its ``id``, and ``arxiv_id`` when it
+            has one, which the corpus resolves first).
+        seed_ref: The reference it's known by: the seed's raw seed reference,
+            or an expanded paper's node id (``CorpusId:<n>`` resolves locally).
+        shape: The per-request build shape (see :mod:`.shape`).
+
+    Returns:
+        The landmark and latest citer entries, and where they came from.
+
+    Raises:
+        s2.S2Error: When the live fallback's request fails after retries.
+    """
+    seed_id = seed_paper["id"]
     # Prefer the offline citations corpus: it holds every citation edge with the
     # citers' own counts, so landmark citers come back citation-sorted across all
     # history — the ranking S2's live endpoint can't give (newest-first, ~10k
@@ -222,7 +254,7 @@ def _traverse_s2(
             nodes_per_band=shape.nodes_per_band,
         )
     landmark, latest = relations
-    return seed_paper, refs, landmark, latest, citation_source
+    return landmark, latest, citation_source
 
 
 def _traverse_openalex(
@@ -276,16 +308,35 @@ def _traverse_openalex(
     # a one-page probe of that ranking (see ``openalex._budgeted_landmarks`` —
     # what retired the trained model from serving), and the per-seed band-start
     # rule sizes the latest frontier (see ``bands.earliest_band_year``).
-    landmark, latest = openalex.citation_relations(
+    landmark, latest = openalex_citations(work_id, shape)
+    # OpenAlex's own server-sorted cites: queries already return true top-cited
+    # landmarks, so the corpus/live distinction doesn't apply — None.
+    return seed_paper, refs, landmark, latest, None
+
+
+def openalex_citations(work_id: str, shape: BuildShape) -> tuple[list[dict], list[dict]]:
+    """A work's citers on OpenAlex, banded by the tau rule: (landmarks, latest).
+
+    The seed build's citation step, shared since v8.18.0 with the detail
+    panel's Expand button (see :func:`s2_citations`).
+
+    Args:
+        work_id: The bare OpenAlex work id.
+        shape: The per-request build shape (see :mod:`.shape`).
+
+    Returns:
+        The landmark and latest citer entries.
+
+    Raises:
+        openalex.OpenAlexError: When an OpenAlex request fails after retries.
+    """
+    return openalex.citation_relations(
         work_id,
         band_start=shape.band_start(),
         landmark_budget=shape.landmark_budget(),
         number_of_bands=shape.number_of_bands,
         nodes_per_band=shape.nodes_per_band,
     )
-    # OpenAlex's own server-sorted cites: queries already return true top-cited
-    # landmarks, so the corpus/live distinction doesn't apply — None.
-    return seed_paper, refs, landmark, latest, None
 
 
 def _upgrade_node(existing: Node, sighting: dict) -> None:

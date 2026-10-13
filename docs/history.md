@@ -316,6 +316,63 @@
       arXiv id — rather than a stale duplicate. *(From the `todos.md` inbox,
       2026-07-07.)*
 
+- [x] **Expand any paper on the Paper Graph, not just the seed** *(v8.18.0)*
+      — the detail panel grows two buttons, **+ References** and
+      **+ Citations**, that pull a non-seed paper's neighbourhood onto the
+      **same graph**, with no new thread and no agent run, so two papers'
+      neighbourhoods can be compared side by side without spending tokens.
+      v7.5.0's rule holds: only real edges. *(From the `todos.md` inbox,
+      2026-10-09; built 2026-10-10, then a long browser polish with Patrick,
+      2026-10-10/13.)*
+
+      **What a hop brings.** `POST /api/graph/expand` sizes it like the
+      seed's own neighbourhood (`services/graph/growth.py`'s `hop_hits`):
+      **every reference**, and **the citers the tau rule picks** over the
+      paper's whole history, through the build's own citation step (now the
+      shared `build.s2_citations` / `build.openalex_citations`, corpus first)
+      and the reader's build shape, so one setting sizes every build. The
+      first cut took the researcher's `expand_limit` (8), its citers the
+      newest page of S2's live endpoint; Patrick found that too thin and too
+      recent. Papers already on the graph aren't re-added, only linked.
+
+      **The layout.** In Force an expanded paper and what it brought form a
+      group of their own out past the seed's formation, laid out like the
+      seed's (references west, citers east), with the papers it shares with
+      the seed (**bridges**) between the two; one plan (`layoutPlan`) gives
+      every node a home, and the link distances are measured between homes
+      so the links never fight the clusters. In Timeline the group gets a
+      parallel stream above the seed's; an expansion or an undo thaws the
+      settle-freeze so it can re-settle, and no link pulls across streams.
+      The expanded paper is filled **pink** (`EXPANDED_COLOR`, legend
+      "Expanded"). Every move **glides**: a speed cap of 4% of the distance
+      left a tick, never under 12 (a flat cap stranded a Timeline → Force
+      switch). The camera refits once a reader's expansion settles, and the
+      engine cools over 300 ticks, d3's full run, not 120.
+
+      **The buttons.** A spinner while a hop runs, then a green ✓ that fades
+      in. The ✓ is read off the saved discovery lists, so it survives a
+      reload, and **reclicking it undoes the hop**: its papers leave the
+      graph unless something else still links them (`graph/expansions.ts`,
+      the store's `expansionUndone`, the sim's in-place `onPrune`).
+
+      **Reading a neighbourhood.** **⌘-click** (Ctrl-click off a Mac) holds a
+      paper's links in focus while the pointer goes off to click through
+      them; ⌘-click again or Esc lets go. While a focus is held it owns the
+      dimming, and a selection shows as its cyan rings alone. **Dragging a
+      selected paper moves the whole (visible) selection**, pinned where it
+      lands, with everything else held still for the drag. (Double-click
+      held the focus for one round; it went back to re-seeding.)
+
+      **One id per S2 paper.** The offline corpus knows papers only as
+      `CorpusId:<n>`, while the live API answered in hex paperIds, so an S2
+      graph's citers and everything else wore different ids and expansions
+      drew duplicates. Live S2 nodes now take their corpus id too (see
+      [bugs.md](bugs.md)).
+
+      The companion ticket, **links between non-seed papers**, was built
+      alongside and split out on 2026-10-13 for its own ship; it is parked on
+      the local branch `feature/paper-links` and stays in the Backlog.
+
 ### Search & seeding
 
 - [x] **One `@` list for papers and threads, Enter that does what the lit row

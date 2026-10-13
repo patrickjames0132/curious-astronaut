@@ -240,24 +240,34 @@ The Vite dev server proxies `/api/*` to Flask.
    with a worked example, in
    [docs/landmark-vocabulary.md](docs/landmark-vocabulary.md).) Node size =
    citations; thick links = influential citations; a
-   dashed ring = discovered by the teacher mid-chat. Click a node for
+   faint halo = added by expanding. Click a node for
    details (TL;DR, abstract/PDF links, arXiv & Semantic Scholar category
    tags, figures — mined straight from the open-access PDF for journal
    papers, tables and algorithms included — code & artifacts);
-   **double-click to re-seed** on it — journal papers included. LaTeX math (`$…$`) renders throughout — titles,
+   **double-click to re-seed** on it — journal papers included. **Expand any
+   paper on the same graph** from its panel: **+ References** brings in every
+   paper it cites, **+ Citations** its citers picked the way the seed's are
+   (the tau rule over its whole history), and the paper turns pink and moves
+   out with them into a cluster of its own (a stream of its own in Timeline),
+   with the papers it shares with the seed between. Reclick a hop's green ✓
+   to take it back off. LaTeX math (`$…$`) renders throughout — titles,
    abstracts, lecture beats, answers, and figure captions — via KaTeX.
 3. **Declutter** — a new graph opens onto the *graph*: the controls sit folded
    to a slim bar (click its header to open them) and no paper is selected until
    you click one. Inside: Force ↔ Timeline layouts (x = publication date), relation
    on/off **filter chips**, a dual-knob **year slider** and a dual-knob
    **citation-count slider** (a log-scale min…max window over the papers on
-   screen — a display filter, no re-query), drag-to-pin, focus-on-hover, and a
+   screen — a display filter, no re-query), drag-to-pin, focus-on-hover,
+   **⌘-click** (Ctrl-click on Windows) to hold a paper's links in focus while
+   you click through them, and a
    **Refresh** that busts this seed's day-cached snapshot to re-fetch fresh from
    Semantic Scholar. **Hand-pick a scope** with the node selector:
    **alt-drag** a marquee to add papers to the teacher's scope (additive —
    several sweeps build one cluster), **shift-click** to add/remove one, and
    **alt-click** empty (or **Clear**) to reset. Picked papers ring cyan and the
-   rest dim; the teacher then grounds only in your selection — even papers a
+   rest dim (unless a ⌘-click focus is held, which then owns the dimming);
+   drag any ringed paper and the whole selection moves with it, pinned where
+   you drop it. The teacher then grounds only in your selection — even papers a
    filter later hides, which stay drawn with a dotted ring. Click the
    **Curious Astronaut** brand anytime to go home. By default the app **sizes each graph
    for you** (how many landmark citers to ship, where the Latest bands start —

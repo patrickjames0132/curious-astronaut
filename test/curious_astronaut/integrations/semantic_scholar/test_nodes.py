@@ -107,3 +107,26 @@ def test_node_oa_pdf_from_open_access_field():
     assert nodes.node({"paperId": "a"})["oa_pdf"] is None
     assert nodes.node({"paperId": "a", "openAccessPdf": None})["oa_pdf"] is None
     assert nodes.node({"paperId": "a", "openAccessPdf": {"url": ""}})["oa_pdf"] is None
+
+
+def test_node_id_is_the_corpus_id_when_s2_has_one():
+    # The offline corpus knows papers only by corpus id, so a live node must
+    # wear the same id or one paper gets two (v8.18.0).
+    raw = {"paperId": "abc", "externalIds": {"CorpusId": 6208256}, "title": "Double Q"}
+    node = nodes.node(raw)
+    assert node["id"] == "CorpusId:6208256"
+    # The page link still uses the hex id it was built from.
+    assert node["url"] == "https://www.semanticscholar.org/paper/abc"
+
+
+@pytest.mark.parametrize(
+    ("paper", "expected"),
+    [
+        ({"paperId": "abc", "externalIds": {"CorpusId": 7}}, "CorpusId:7"),
+        ({"paperId": "abc", "corpusId": "9"}, "CorpusId:9"),  # a nested reference
+        ({"paperId": "abc", "externalIds": {"DOI": "10.1/x"}}, "abc"),
+        ({"paperId": None}, None),
+    ],
+)
+def test_canonical_id(paper, expected):
+    assert nodes.canonical_id(paper) == expected

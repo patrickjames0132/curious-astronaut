@@ -3,8 +3,10 @@
  *
  * Description:
  * The ForceGraph2D wrapper: all canvas painting for the explorer — node
- * fills by relation, the dim/highlight/pin/selection rings, dashed
- * "discovered" markers, node labels, edge colors/arrows, and pointer areas.
+ * fills by relation (pink for a paper that has been expanded), the
+ * dim/highlight/pin/selection rings, the faint
+ * "added by expanding" halo, node labels, edge colors/widths/arrows, and
+ * pointer areas.
  *
  * Purely presentational: the simulation's node/link objects, the fgRef, and
  * every piece of interaction state live in GraphExplorer and arrive as props.
@@ -20,11 +22,12 @@ import ForceGraph2DImport from 'react-force-graph-2d'
 import type { GraphNode } from '../../api'
 import { latexToUnicode } from '../../notation/latexToUnicode'
 import { nodeRadius, primaryRel } from '../model'
-import type { PositionedVNode, VLink, VNode } from '../model'
+import type { DragStep, PositionedVNode, VLink, VNode } from '../model'
 import {
   DIM_EDGE,
   DIM_NODE,
   EDGE_COLOR,
+  EXPANDED_COLOR,
   REL_COLOR,
   SELECTION_RING,
   UNKNOWN_EDGE,
@@ -50,11 +53,18 @@ export interface GraphCanvasProps {
   focusSet: Set<string> | null
   /** User-pinned node ids (drawn with a pale ring). */
   pinned: Set<string>
+  /** Papers an Expand hop has run on (filled pink, see theme's EXPANDED_COLOR). */
+  expandedIds: Set<string>
   /** The selected node id (bright ring + always-on label). */
   selectedId: string | null
   /** The teacher's scope — the running turn's message scope, else the
    *  hand-picked selection (cyan ring; others dim). */
   selectedIds: Set<string>
+  /** Whether the selection dims everything outside it. Off while a focus is
+   *  held (a ⌘-click): then the focus owns the dimming, and the
+   *  selection shows as its cyan rings alone, so dimming means one thing at
+   *  a time. */
+  selectionDims: boolean
   /** Scoped nodes the view filters would hide, drawn anyway (dotted outer
    *  ring: "shown because it is in scope"). A subset of `selectedIds`. */
   ghostIds: Set<string>
@@ -65,6 +75,8 @@ export interface GraphCanvasProps {
   onNodeClick: (node: VNode, event?: MouseEvent) => void
   /** Hover handler — receives the node id, or null when leaving. */
   onNodeHover: (id: string | null) => void
+  /** Drag-step handler (carries the rest of a selection along). */
+  onNodeDrag: (node: VNode, translate: DragStep) => void
   /** Drag-release handler (pins the node where it was dropped). */
   onNodeDragEnd: (node: VNode) => void
   /** Sim-settled handler (timeline y-freeze + one-shot zoomToFit). */
@@ -96,12 +108,15 @@ export default function GraphCanvas({
   data,
   focusSet,
   pinned,
+  expandedIds,
   selectedId,
   selectedIds,
+  selectionDims,
   ghostIds,
   highlightIds,
   onNodeClick,
   onNodeHover,
+  onNodeDrag,
   onNodeDragEnd,
   onEngineStop,
   onRenderFramePre,
@@ -120,16 +135,21 @@ export default function GraphCanvas({
       nodeRelSize={1}
       onNodeClick={onNodeClick}
       onNodeHover={(node: VNode | null) => onNodeHover(node ? node.id : null)}
+      onNodeDrag={onNodeDrag}
       onNodeDragEnd={onNodeDragEnd}
       onEngineStop={onEngineStop}
       onRenderFramePre={onRenderFramePre}
-      cooldownTicks={120}
+      // d3's own full cool-down (alpha 1 → 0.001 at the default decay). At
+      // 120 the engine stopped mid-flight: an expansion group still on its
+      // way out past the formation froze wherever it was, worst on a restore,
+      // where every group starts from scratch at once (v8.18.0).
+      cooldownTicks={300}
       linkColor={(link: VLink) =>
         focusSet && !focusSet.has(link._s) && !focusSet.has(link._t)
           ? DIM_EDGE
           : (EDGE_COLOR[link.type] ?? UNKNOWN_EDGE)
       }
-      linkWidth={(link: { influential?: boolean | null }) => (link.influential ? 1.6 : 0.6)}
+      linkWidth={(link: VLink) => (link.influential ? 1.6 : 0.6)}
       // Every edge type is a citation now, so every edge gets an arrow. The
       // exception this used to carry was `similar`, retired in v7.5.0 —
       // direction meant nothing on an embedding neighbour.
@@ -142,8 +162,9 @@ export default function GraphCanvas({
       ) => {
         const radius = nodeRadius(node)
         // A hand-picked selection dims everything outside it (like focus), on
-        // top of any hover/highlight dimming, so the scoped cluster stands out.
-        const hasSelection = selectedIds.size > 0
+        // top of any hover/highlight dimming, so the scoped cluster stands out:
+        // unless a focus is held, which then owns the dimming (selectionDims).
+        const hasSelection = selectionDims && selectedIds.size > 0
         // Whether the pick / highlight is small enough to label at any zoom.
         const pickedFew = selectedIds.size <= LABEL_ALL_MAX
         const litFew = highlightIds.size <= LABEL_ALL_MAX
@@ -163,7 +184,11 @@ export default function GraphCanvas({
         }
         ctx.beginPath()
         ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
-        ctx.fillStyle = dim ? DIM_NODE : REL_COLOR[primaryRel(node)]
+        ctx.fillStyle = dim
+          ? DIM_NODE
+          : expandedIds.has(node.id)
+            ? EXPANDED_COLOR
+            : REL_COLOR[primaryRel(node)]
         ctx.fill()
         // A thin black outline on every disc (v8.16.0), so overlapping papers
         // read as separate shapes. Its colour is the theme's `--node-outline`
@@ -174,17 +199,16 @@ export default function GraphCanvas({
         ctx.strokeStyle = dim ? canvasInk.outlineDim : canvasInk.outline
         ctx.stroke()
         if (node.discovered && !dim) {
-          // Dashed ring marks a paper the AI teacher pulled in mid-chat. Its
-          // own path, just outside the fill: stroking the fill's arc buried
-          // half the line under the disc, which is why the old 1.2-width ring
-          // was so easy to miss.
+          // A faint halo marks a paper added by expanding (the reader's
+          // Expand buttons or the teacher's): a hairline with a little air
+          // round the disc. It was a bold dashed ring until v8.18.0, which
+          // made a cluster of them look like a stack of poker chips; the
+          // group's own place on the map already says where they came from.
           ctx.beginPath()
-          ctx.arc(node.x, node.y, radius + 1.5, 0, 2 * Math.PI)
-          ctx.lineWidth = 2 / globalScale
-          ctx.strokeStyle = canvasInk.ink
-          ctx.setLineDash([3 / globalScale, 2 / globalScale])
+          ctx.arc(node.x, node.y, radius + 2, 0, 2 * Math.PI)
+          ctx.lineWidth = 0.8 / globalScale
+          ctx.strokeStyle = canvasInk.soft
           ctx.stroke()
-          ctx.setLineDash([])
           // Restore the fill's arc as the current path — the lit/pinned/
           // selected rings below stroke it.
           ctx.beginPath()

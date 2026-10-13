@@ -6,11 +6,13 @@
  * layouts. Timeline: pinning each node's x to its publication year, the
  * collide force that spreads a year column out, the year-axis painter, and
  * the effects that keep all of it in sync as graphs load and the year slider
- * moves. Force: the relation clustering (see `../clusterForce.ts` — sector
- * anchors around the seed, per-type link distances) plus its own collide for
- * in-cluster spacing. Single ownership matters because both layouts write
- * the same force slots ('collide', 'link', 'cluster') — two hooks doing that
- * would fight over them on every switch.
+ * moves, plus the expansion streams above the seed's timeline (see
+ * `../streamForce.ts`). Force: the relation clustering (see
+ * `../clusterForce.ts` — sector anchors around the seed, expansion groups out
+ * past them and the bridges between, per-link distances measured between
+ * the plan's homes) plus its own collide for in-cluster spacing. Single ownership matters because both
+ * layouts write the same force slots ('collide', 'link', 'cluster', 'stream')
+ * — two hooks doing that would fight over them on every switch.
  *
  * State (layout mode, pins) stays in GraphExplorer — this hook only mutates
  * the simulation's node objects and d3 forces through the shared `fgRef`,
@@ -25,10 +27,14 @@ import { useCallback, useEffect, useRef } from 'react'
 // forceCollide to space nodes out by their radius.
 // @ts-expect-error - no type declarations
 import { forceCollide } from 'd3-force-3d'
-import { clusterCounts, clusterForce, clusterRadius, satelliteOffset } from '../clusterForce'
+import { clusterForce, clusterRadius, expansionGroups, layoutPlan } from '../clusterForce'
 import { nodeRadius } from '../model'
-import type { Base, VNode } from '../model'
+import type { Base, VLink, VNode } from '../model'
+import { streamForce } from '../streamForce'
 import { YEAR_SPACING } from '../theme'
+
+/** The shortest a link touching an expansion group or a bridge may get. */
+const MIN_GROUP_LINK_DISTANCE = 40
 
 /** Arguments for {@link useTimeline}. */
 export interface UseTimelineArgs {
@@ -130,6 +136,98 @@ export function useTimeline({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const linkDefaults = useRef<{ distance: any; strength: any } | null>(null)
 
+  // Register a layout's forces, leaving every node's fx/fy alone (the
+  // pin resets are applyLayoutPhysics's).
+  const configureForces = useCallback(
+    (mode: 'force' | 'timeline') => {
+      if (!base) return
+      const fg = fgRef.current
+      const charge = fg?.d3Force?.('charge')
+      if (charge) charge.strength(-30)
+      const linkForce = fg?.d3Force?.('link')
+      if (linkForce && !linkDefaults.current) {
+        linkDefaults.current = { distance: linkForce.distance(), strength: linkForce.strength() }
+      }
+      if (mode === 'timeline') {
+        // Timeline: a collision force sized to each node's radius spreads
+        // papers apart within a year column (no overlap, even spacing); the
+        // cluster force comes out (x is pinned by year — sector pulls would
+        // only fight the columns), the expansion streams go in, and the link
+        // force gets its defaults back, except that no link pulls from a
+        // stream to the seed's (v8.18.0's polish): it dragged the papers an expansion shares
+        // with the seed halfway up to the group, a third row between the two,
+        // and tugged the expanded paper back down. Each stream holds its own.
+        fg?.d3Force?.(
+          'collide',
+          forceCollide((node: VNode) => nodeRadius(node) + 6),
+        )
+        fg?.d3Force?.('cluster', null)
+        fg?.d3Force?.('stream', streamForce())
+        if (linkForce && linkDefaults.current) {
+          const defaults = linkDefaults.current
+          linkForce.distance(defaults.distance)
+          let groups = expansionGroups(base.nodes)
+          linkForce.strength((link: VLink, index: number, links: VLink[]) => {
+            if (index === 0) groups = expansionGroups(base.nodes)
+            const sourceGroup = groups.groupOf.get(link._s)
+            const targetGroup = groups.groupOf.get(link._t)
+            if (sourceGroup !== targetGroup) return 0
+            return typeof defaults.strength === 'function'
+              ? defaults.strength(link, index, links)
+              : defaults.strength
+          })
+        }
+      } else {
+        // Force: cluster the neighborhood by relation (see ../clusterForce.ts)
+        // with a collide for in-cluster spacing, and stretch each link to its
+        // relation cluster's orbit at low strength — the default (distance 30,
+        // leaf-strength 1) yanked every neighbor into one clump around the
+        // seed, which was most of the layout's clutter.
+        fg?.d3Force?.(
+          'collide',
+          forceCollide((node: VNode) => nodeRadius(node) + 4),
+        )
+        fg?.d3Force?.(
+          'cluster',
+          clusterForce(() => base.links),
+        )
+        fg?.d3Force?.('stream', null)
+        if (linkForce) {
+          // The cluster force's plan, rebuilt at each link initialization (d3
+          // asks for link 0 first) over the papers the links join, since an
+          // expansion changes the groups. Rebuilt here rather than read off
+          // the cluster force, because d3 initializes the link force first.
+          let plan = layoutPlan([], [])
+          const refresh = (links: VLink[]) => {
+            const papers = new Map<string, VNode>()
+            for (const link of links) {
+              for (const end of [link.source, link.target]) {
+                if (typeof end === 'object' && end) papers.set((end as VNode).id, end as VNode)
+              }
+            }
+            plan = layoutPlan([...papers.values()], base.links)
+          }
+          const planned = (id: string) => plan.groups.groupOf.has(id) || plan.bridges.has(id)
+          linkForce.distance((link: VLink, index: number, links: VLink[]) => {
+            if (index === 0) refresh(links)
+            // Touching a group or a bridge: as long as their homes are apart,
+            // so the links agree with the cluster force about where each sits.
+            const from = plan.homes.get(link._s)
+            const to = plan.homes.get(link._t)
+            if ((planned(link._s) || planned(link._t)) && from && to) {
+              return Math.max(MIN_GROUP_LINK_DISTANCE, Math.hypot(from.dx - to.dx, from.dy - to.dy))
+            }
+            return clusterRadius(plan.counts[link.type ?? ''] ?? 0)
+          })
+          linkForce.strength(0.08)
+        }
+      }
+      fitDone.current = false
+      fg?.d3ReheatSimulation?.()
+    },
+    [base, fgRef, fitDone],
+  )
+
   const applyLayoutPhysics = useCallback(
     (mode: 'force' | 'timeline') => {
       if (!base) return
@@ -142,57 +240,9 @@ export function useTimeline({
           node.fy = undefined
         }
       })
-      const fg = fgRef.current
-      const charge = fg?.d3Force?.('charge')
-      if (charge) charge.strength(-30)
-      const linkForce = fg?.d3Force?.('link')
-      if (linkForce && !linkDefaults.current) {
-        linkDefaults.current = { distance: linkForce.distance(), strength: linkForce.strength() }
-      }
-      if (mode === 'timeline') {
-        // Timeline: a collision force sized to each node's radius spreads
-        // papers apart within a year column (no overlap, even spacing); the
-        // cluster force comes out (x is pinned by year — sector pulls would
-        // only fight the columns) and the link force gets its defaults back.
-        fg?.d3Force?.(
-          'collide',
-          forceCollide((node: VNode) => nodeRadius(node) + 6),
-        )
-        fg?.d3Force?.('cluster', null)
-        if (linkForce && linkDefaults.current) {
-          linkForce.distance(linkDefaults.current.distance)
-          linkForce.strength(linkDefaults.current.strength)
-        }
-      } else {
-        // Force: cluster the neighborhood by relation (see ../clusterForce.ts)
-        // with a collide for in-cluster spacing, and stretch each link to its
-        // relation cluster's orbit at low strength — the default (distance 30,
-        // leaf-strength 1) yanked every neighbor into one clump around the
-        // seed, which was most of the layout's clutter.
-        fg?.d3Force?.(
-          'collide',
-          forceCollide((node: VNode) => nodeRadius(node) + 4),
-        )
-        fg?.d3Force?.('cluster', clusterForce())
-        if (linkForce) {
-          const counts = clusterCounts(base.nodes)
-          linkForce.distance((link: { type?: string; source?: unknown; target?: unknown }) => {
-            // A link touching an expansion satellite ties it to its ORIGIN,
-            // not to a seed-sector orbit — keep it short or the link force
-            // drags the satellite a whole orbit away. d3 resolves the
-            // endpoints to node objects before asking for distances.
-            const sourceNode = typeof link.source === 'object' ? (link.source as VNode) : undefined
-            const targetNode = typeof link.target === 'object' ? (link.target as VNode) : undefined
-            if (sourceNode?._origin || targetNode?._origin) return satelliteOffset(1)
-            return clusterRadius(counts[link.type ?? ''] ?? 0)
-          })
-          linkForce.strength(0.08)
-        }
-      }
-      fitDone.current = false
-      fg?.d3ReheatSimulation?.()
+      configureForces(mode)
     },
-    [base, nodeTimelineX, fgRef, fitDone],
+    [base, nodeTimelineX, configureForces],
   )
 
   // Re-apply the active layout's physics when a new graph loads: Timeline

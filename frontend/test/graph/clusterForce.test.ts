@@ -4,7 +4,9 @@
  * Description:
  * The Force layout's relation clustering: sector directions (references pull
  * west, citations east), √population orbits, seed and unknown-relation
- * exemptions, and re-initialization picking up discoveries.
+ * exemptions, re-initialization picking up discoveries, the expansion groups
+ * that leave the formation (references west of their paper, citers east),
+ * and the bridges between a group and the formation.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -12,10 +14,16 @@
 
 import { describe, expect, it } from 'vitest'
 import {
+  bridgesOf,
+  capSpeed,
   clusterCounts,
   clusterForce,
   clusterRadius,
   deriveOrigins,
+  expansionGroups,
+  groupAnchors,
+  groupSideRadius,
+  layoutPlan,
 } from '../../src/graph/clusterForce'
 import type { VNode } from '../../src/graph/model'
 
@@ -130,6 +138,15 @@ describe('clusterForce', () => {
     expect(reference.vy!).toBeLessThan(0)
   })
 
+  it('leaves the seed free with the sectors on, wherever it is', () => {
+    // Held at the centre, the seed's citers had to go round it and set into a
+    // ring; free, it slides out to the apex of their cone.
+    const theSeed = makeNode('seed', [], { is_seed: true, x: 300, y: -200 })
+    runOnce([theSeed, makeNode('ref', ['reference'])])
+    expect(theSeed.vx).toBe(0)
+    expect(theSeed.vy).toBe(0)
+  })
+
   it('leaves the seed and unknown relations alone', () => {
     const theSeed = seed()
     const stranger = makeNode('odd', ['unheard-of-relation'])
@@ -141,29 +158,36 @@ describe('clusterForce', () => {
     expect(theSeed.vy).toBe(0)
   })
 
-  it('gathers an expansion satellite beyond its origin, not in a seed sector', () => {
-    // Origin sits due east of the seed; its satellite carries a REFERENCE rel,
-    // which the sectors would pull west — the origin must win.
-    const origin = makeNode('origin', ['citation'], { x: 300, y: 0 })
-    const satellite = makeNode('sat', ['reference'], { x: 300, y: 0, _origin: 'origin' })
+  it('moves an expansion group out of the formation, the expanded paper included', () => {
+    // The origin is a citer, so its group goes to the east side, angled up
+    // off the citation axis. Its satellite carries a REFERENCE rel, which the
+    // sectors would pull west: the group must win, for both of them.
+    const origin = makeNode('origin', ['citation'])
+    const satellite = makeNode('sat', ['reference'], { _origin: 'origin' })
     runOnce([seed(), origin, satellite])
-    expect(satellite.vx!).toBeGreaterThan(0)
+    for (const member of [origin, satellite]) {
+      expect(member.vx!).toBeGreaterThan(0)
+      expect(member.vy!).toBeLessThan(0)
+    }
   })
 
-  it('excludes satellites from the sector populations', () => {
+  it('excludes group members, the expanded paper too, from the sector populations', () => {
     const counts = clusterCounts([
       seed(),
       makeNode('r1', ['reference']),
+      makeNode('r2', ['reference']),
       makeNode('sat', ['reference'], { _origin: 'r1' }),
     ])
     expect(counts).toEqual({ reference: 1 })
   })
 
-  it('falls back to sector behavior when the origin is filtered out of the sim', () => {
+  it('still anchors a group whose expanded paper is filtered out of the sim', () => {
     const orphan = makeNode('sat', ['reference'], { _origin: 'gone' })
     runOnce([seed(), orphan])
-    // No origin on screen — the reference sector (west) takes it as usual.
-    expect(orphan.vx!).toBeLessThan(0)
+    // No origin on screen to say which side: the group heads due north
+    // rather than falling back into the reference sector.
+    expect(orphan.vy!).toBeLessThan(0)
+    expect(Math.abs(orphan.vx!)).toBeLessThan(Math.abs(orphan.vy!))
   })
 
   it('re-initializing after discoveries widens a grown cluster’s orbit', () => {
@@ -184,5 +208,151 @@ describe('clusterForce', () => {
     // A 100-strong cluster orbits farther out, so the probe (still at the
     // seed) is pulled harder toward the more distant anchor.
     expect(Math.abs(probe.vx!)).toBeGreaterThan(Math.abs(smallPull))
+  })
+})
+
+describe('expansionGroups', () => {
+  it('groups an expansion with its expanded paper, in the order groups formed', () => {
+    const groups = expansionGroups([
+      seed(),
+      makeNode('second', ['citation']),
+      makeNode('first', ['reference']),
+      makeNode('a', ['reference'], { _origin: 'first' }),
+      makeNode('b', ['citation'], { _origin: 'second' }),
+      makeNode('c', ['reference'], { _origin: 'first' }),
+      makeNode('plain', ['reference']),
+    ])
+    expect(groups.order).toEqual(['first', 'second'])
+    expect(groups.groupOf.get('first')).toBe('first')
+    expect(groups.groupOf.get('c')).toBe('first')
+    expect(groups.sizes.get('first')).toBe(3)
+    expect(groups.groupOf.has('plain')).toBe(false)
+    expect(groups.groupOf.has('seed')).toBe(false)
+  })
+
+  it('lets an expanded paper from an earlier expansion lead its own group', () => {
+    const groups = expansionGroups([
+      seed(),
+      makeNode('top', ['reference']),
+      makeNode('mid', ['reference'], { _origin: 'top' }),
+      makeNode('leaf', ['reference'], { _origin: 'mid' }),
+    ])
+    expect(groups.groupOf.get('mid')).toBe('mid')
+    expect(groups.groupOf.get('leaf')).toBe('mid')
+    expect(groups.sizes.get('top')).toBe(1)
+  })
+})
+
+describe('groupAnchors', () => {
+  it('puts each group past the formation, and a second one on the same side elsewhere', () => {
+    const nodes = [
+      seed(),
+      ...Array.from({ length: 25 }, (_, index) => makeNode(`r${index}`, ['reference'])),
+      makeNode('o1', ['reference']),
+      makeNode('o2', ['reference']),
+      makeNode('s1', ['citation'], { _origin: 'o1' }),
+      makeNode('s2', ['citation'], { _origin: 'o2' }),
+    ]
+    const anchors = groupAnchors(nodes, expansionGroups(nodes))
+    const first = anchors.get('o1')!
+    const second = anchors.get('o2')!
+    // Beyond the reference cluster's orbit, on the west side, apart.
+    expect(first.distance).toBeGreaterThan(clusterRadius(25))
+    expect(Math.cos(first.angle)).toBeLessThan(0)
+    expect(Math.cos(second.angle)).toBeLessThan(0)
+    expect(first.angle).not.toBeCloseTo(second.angle)
+  })
+})
+
+describe('layoutPlan', () => {
+  /** A seed citer expanded both ways, plus a seed citer the expansion linked to. */
+  function grown() {
+    const origin = makeNode('origin', ['citation'])
+    const newCiter = makeNode('newCiter', ['citation'], { _origin: 'origin' })
+    const newRef = makeNode('newRef', ['reference'], { _origin: 'origin' })
+    const shared = makeNode('shared', ['citation'])
+    const nodes = [seed(), origin, newCiter, newRef, shared, makeNode('plain', ['citation'])]
+    const links = [
+      { _s: 'origin', _t: 'seed' },
+      { _s: 'shared', _t: 'seed' },
+      { _s: 'plain', _t: 'seed' },
+      { _s: 'newCiter', _t: 'origin' },
+      { _s: 'origin', _t: 'newRef' },
+      { _s: 'shared', _t: 'origin' },
+    ]
+    return { nodes, links }
+  }
+
+  it('lays a group out like the seed’s neighbourhood: references west, citers east', () => {
+    const { nodes, links } = grown()
+    const plan = layoutPlan(nodes, links)
+    const centre = plan.homes.get('origin')!
+    expect(plan.homes.get('newRef')!.dx).toBeCloseTo(centre.dx - groupSideRadius(1))
+    expect(plan.homes.get('newCiter')!.dx).toBeCloseTo(centre.dx + groupSideRadius(1))
+    expect(plan.homes.get('newRef')!.dy).toBeCloseTo(centre.dy)
+    expect(plan.homes.get('seed')).toEqual({ dx: 0, dy: 0 })
+  })
+
+  it('puts a paper the expansion linked to between its sector and the group', () => {
+    const { nodes, links } = grown()
+    const plan = layoutPlan(nodes, links)
+    const sector = plan.homes.get('plain')!
+    const group = plan.homes.get('origin')!
+    const bridge = plan.homes.get('shared')!
+    expect(bridge.dx).toBeCloseTo((sector.dx + group.dx) / 2)
+    expect(bridge.dy).toBeCloseTo((sector.dy + group.dy) / 2)
+    // And it no longer counts toward its sector's population.
+    expect(plan.counts.citation).toBe(1)
+  })
+})
+
+describe('bridgesOf', () => {
+  it('ignores the seed and group members', () => {
+    const nodes = [
+      seed(),
+      makeNode('origin', ['citation']),
+      makeNode('member', ['citation'], { _origin: 'origin' }),
+      makeNode('shared', ['reference']),
+    ]
+    const links = [
+      { _s: 'origin', _t: 'seed' },
+      { _s: 'member', _t: 'origin' },
+      { _s: 'origin', _t: 'shared' },
+    ]
+    const bridges = bridgesOf(nodes, links, expansionGroups(nodes))
+    expect([...bridges.entries()]).toEqual([['shared', ['origin']]])
+  })
+})
+
+describe('clusterForce, bridges', () => {
+  it('pulls a bridge off its sector toward the group it links', () => {
+    const origin = makeNode('origin', ['citation'])
+    const member = makeNode('member', ['citation'], { _origin: 'origin' })
+    const shared = makeNode('shared', ['citation'])
+    const plainCiter = makeNode('plain', ['citation'])
+    const links = [{ _s: 'shared', _t: 'origin' }]
+    const force = clusterForce(() => links)
+    force.initialize([seed(), origin, member, shared, plainCiter])
+    force(1)
+    // The group sits up-right, so the bridge is pulled up (negative y) where
+    // a plain citer is pulled only east along the axis.
+    expect(shared.vy!).toBeLessThan(0)
+    expect(plainCiter.vy!).toBeCloseTo(0)
+  })
+})
+
+describe('capSpeed', () => {
+  it('holds a node to its share of the trip left, never below the floor', () => {
+    const far = makeNode('far', [], { vx: 300, vy: 400 })
+    capSpeed(far, 2000)
+    // 4% of 2000 is 80, direction kept (3:4:5).
+    expect(far.vx).toBeCloseTo(48)
+    expect(far.vy).toBeCloseTo(64)
+    const near = makeNode('near', [], { vx: 30, vy: 40 })
+    capSpeed(near, 10)
+    expect(Math.hypot(near.vx!, near.vy!)).toBeCloseTo(12)
+    const slow = makeNode('slow', [], { vx: 3, vy: 4 })
+    capSpeed(slow, 2000)
+    expect(slow.vx).toBe(3)
   })
 })

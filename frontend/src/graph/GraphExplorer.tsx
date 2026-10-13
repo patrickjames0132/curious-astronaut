@@ -23,11 +23,12 @@
  */
 
 import { threadEdited } from '../store/explorations'
-import { viewFiltersSet } from '../store/workspace'
+import { discoveryMerged, expansionUndone, viewFiltersSet } from '../store/workspace'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { generateTldr } from '../api'
-import type { AnswerFigure } from '../api'
+import { expandPaper, generateTldr } from '../api'
+import type { AnswerFigure, ExpandHop } from '../api'
+import type { ExpansionStatus } from '../detail/DetailPanel'
 import { useAppDispatch, useAppSelector } from '../store'
 import { highlightSet, selectHighlightSet } from '../store/highlight'
 import {
@@ -52,7 +53,8 @@ import Legend from './controls/Legend'
 import { useBuildShape } from './buildShape'
 import { CHIP_TYPES, REL_TYPES } from './theme'
 import { deriveOrigins } from './clusterForce'
-import { useDiscovery } from './hooks/useDiscovery'
+import { hopAdded, withoutHop } from './expansions'
+import { linkKey, useDiscovery } from './hooks/useDiscovery'
 import { useEscapeClear } from './hooks/useEscapeClear'
 import { useMarquee } from './hooks/useMarquee'
 import { usePinning } from './hooks/usePinning'
@@ -141,6 +143,13 @@ export default function GraphExplorer({
   const [relCaps, setRelCaps] = useState<Record<string, number>>(
     initialFilters.current?.relCaps ?? {},
   )
+  // Each paper's Expand buttons, by paper then hop, as far as this session
+  // knows: in flight, just done, just undone, or failed. Cleared with every
+  // new graph; a hop's lasting ✓ is read off the discovery lists instead
+  // (`expansionOf`).
+  const [expansions, setExpansions] = useState<
+    Record<string, Partial<Record<ExpandHop, ExpansionStatus>>>
+  >({})
   const buildShape = useBuildShape()
   const capsActive = !buildShape.adaptive
   const [hoverId, setHoverId] = useState<string | null>(null)
@@ -223,12 +232,22 @@ export default function GraphExplorer({
     // A fresh graph shows every citation count; the user narrows from there.
     setCiteLo(initialFilters.current?.citeLo ?? 0)
     setCiteHi(initialFilters.current?.citeHi ?? CITE_SLIDER_STEPS)
+    setExpansions({})
     setHoverId(null)
   }, [base])
 
   useEffect(() => {
     if (!base || yearHi === 0) return
-    dispatch(viewFiltersSet({ enabled: [...enabled], yearLo, yearHi, citeLo, citeHi, relCaps }))
+    dispatch(
+      viewFiltersSet({
+        enabled: [...enabled],
+        yearLo,
+        yearHi,
+        citeLo,
+        citeHi,
+        relCaps,
+      }),
+    )
   }, [base, enabled, yearLo, yearHi, citeLo, citeHi, relCaps, dispatch])
 
   // Timeline layout physics (year-column pinning, collide force, year axis,
@@ -244,11 +263,15 @@ export default function GraphExplorer({
   })
 
   // User pins: drag-to-pin, the detail panel's Pin button, Release-all.
-  const { pinned, clearPins, onNodeDragEnd, togglePin, releaseAll } = usePinning({
+  // The held focus's papers, for the group drag (set below, once known).
+  const heldFocus = useRef<Set<string> | null>(null)
+  const { pinned, clearPins, onNodeDrag, onNodeDragEnd, togglePin, releaseAll } = usePinning({
     base,
     layout,
     nodeTimelineX,
     fgRef,
+    selectedIds,
+    visibleIds: heldFocus,
   })
 
   const doLoadGraph = useCallback(
@@ -267,6 +290,21 @@ export default function GraphExplorer({
     if (seedRef) dispatch(loadGraph({ seed: seedRef, refresh: true }))
   }, [dispatch, seedRef])
 
+  // The paper whose links are held in focus (v8.18.0's polish): ⌘-click one
+  // (Ctrl-click off a Mac) and its neighbourhood stays lit, the rest dimmed,
+  // while the pointer goes off to click through them; ⌘-click it again, or
+  // Esc, to let go. Hover focus only shows while the pointer is on a paper,
+  // which made the linked papers impossible to reach: they dimmed the moment
+  // it left. (It was a double-click for one round, which cost the re-seed.)
+  const [focusId, setFocusId] = useState<string | null>(null)
+  // A quick double-click re-seeds the whole graph on the paper.
+  const onDoubleClick = useCallback(
+    (node: VNode) => {
+      if (!node.is_seed) doLoadGraph(node.id)
+    },
+    [doLoadGraph],
+  )
+
   // Selection: the open detail panel, its hydration + figures + code links +
   // category tags.
   const {
@@ -279,7 +317,7 @@ export default function GraphExplorer({
     categories,
     onNodeClick,
     mergeDetail,
-  } = useSelection({ base, graph, provider, loadGraph: doLoadGraph })
+  } = useSelection({ base, graph, provider, onDoubleClick })
   // The detail panel slides out rather than vanishing (ui/usePresence). The
   // selection is already null by then, so the exit shows the last paper that
   // was actually in the panel.
@@ -304,13 +342,19 @@ export default function GraphExplorer({
 
   /**
    * Canvas click, split by modifier: a shift-click toggles the node in the
-   * hand-picked selection (never opening the detail panel or re-seeding); a
-   * plain click falls through to the usual select/re-seed behavior.
+   * hand-picked selection, and a ⌘-click (Ctrl-click off a Mac, where
+   * Ctrl-click is the context menu) holds or lets go of its links' focus;
+   * neither opens the detail panel. A plain click falls through to the usual
+   * select / double-click re-seed.
    */
   const onCanvasNodeClick = useCallback(
     (node: VNode, event?: MouseEvent) => {
       if (event?.shiftKey) {
         dispatch(nodeSelectionToggled(node.id))
+        return
+      }
+      if (event?.metaKey || event?.ctrlKey) {
+        setFocusId((prev) => (prev === node.id ? null : node.id))
         return
       }
       onNodeClick(node)
@@ -321,18 +365,139 @@ export default function GraphExplorer({
   // The sim-side discovery merge. The discovery LISTS live in the store (the
   // teacher dispatches them); this effect feeds them into the in-place merge,
   // whose internal dedupe makes re-feeding the full arrays safe.
-  const { graphVersion, onDiscover } = useDiscovery({
+  const { graphVersion, onDiscover, onPrune } = useDiscovery({
     base,
     layout,
+    pinned,
     nodeTimelineX,
     fgRef,
     onYearLo: setYearLo,
     onYearHi: setYearHi,
   })
   useEffect(() => {
+    // Prune first: an undone Expand hop shrinks the lists (v8.18.0), and the
+    // sim has to let go of what they no longer hold.
+    if (graph) {
+      onPrune(
+        new Set([...graph.nodes, ...discoveredNodes].map((node) => node.id)),
+        new Set(
+          [...graph.edges, ...discoveredEdges].map((edge) =>
+            linkKey(edge.source, edge.target, edge.type),
+          ),
+        ),
+      )
+    }
     if (discoveredNodes.length || discoveredEdges.length)
       onDiscover(discoveredNodes, discoveredEdges)
-  }, [discoveredNodes, discoveredEdges, onDiscover])
+  }, [graph, discoveredNodes, discoveredEdges, onDiscover, onPrune])
+
+  // A refit an expansion asked for waits for the merge: re-arming the one-shot
+  // fit at the click would spend it on whichever run ends next, which while
+  // the graph is still settling is the run *before* the group moved out.
+  // The merge bumps graphVersion and reheats, so the next stop is its own.
+  const refitOnGrowth = useRef(false)
+  useEffect(() => {
+    if (!refitOnGrowth.current) return
+    refitOnGrowth.current = false
+    fitDone.current = false
+  }, [graphVersion])
+
+  /**
+   * Expand a paper by one hop from the detail panel (v8.18.0). What comes
+   * back merges exactly like a researcher discovery: into the store's
+   * discovery lists, so it is drawn, saved with the thread, and in the
+   * assistant's scope like any other paper on the graph.
+   */
+  const expand = useCallback(
+    async (nodeId: string, hop: ExpandHop) => {
+      if (!base) return
+      const mark = (status: ExpansionStatus) =>
+        setExpansions((prev) => ({ ...prev, [nodeId]: { ...prev[nodeId], [hop]: status } }))
+      mark({ state: 'busy' })
+      try {
+        const grown = await expandPaper(
+          nodeId,
+          hop,
+          provider,
+          base.nodes.map((node) => node.id),
+          base.nodes.find((node) => node.id === nodeId)?.arxiv_id ?? null,
+        )
+        // The reader asked for this one, so once it settles, refit the camera
+        // to take in the group it formed out past the seed's formation. (A
+        // researcher discovery leaves the camera alone: the reader may be
+        // reading, not looking at the graph.) Armed before the dispatch: the
+        // store re-renders synchronously, so the merge has already run by the
+        // time the dispatch returns.
+        if (grown.nodes.length) refitOnGrowth.current = true
+        dispatch(discoveryMerged(grown))
+        dispatch(threadEdited())
+        mark({ state: 'done', added: grown.nodes.length, fresh: true })
+      } catch (error) {
+        mark({ state: 'error', message: error instanceof Error ? error.message : String(error) })
+      }
+    },
+    [base, provider, dispatch],
+  )
+
+  /**
+   * Undo one of a paper's Expand hops (v8.18.0): the reader reclicked its ✓.
+   * Its papers leave the graph unless something else still links them.
+   */
+  const unexpand = useCallback(
+    (nodeId: string, hop: ExpandHop) => {
+      if (!graph) return
+      const remaining = withoutHop(nodeId, hop, graph, discoveredNodes, discoveredEdges)
+      dispatch(expansionUndone({ nodeId, hop }))
+      dispatch(threadEdited())
+      setExpansions((prev) => ({
+        ...prev,
+        [nodeId]: {
+          ...prev[nodeId],
+          [hop]: { state: 'removed', removed: discoveredNodes.length - remaining.nodes.length },
+        },
+      }))
+    },
+    [graph, discoveredNodes, discoveredEdges, dispatch],
+  )
+
+  /**
+   * The papers an Expand hop has run on, read off the discovery lists like
+   * the hops' ✓: drawn pink, so the paper an expansion grew from stands out
+   * from what it brought. The seed is never one: the build is its expansion.
+   */
+  const expandedIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const edge of discoveredEdges) {
+      ids.add(edge.type === 'reference' ? edge.source : edge.target)
+    }
+    if (graph) ids.delete(graph.seed.id)
+    return ids
+  }, [discoveredEdges, graph])
+
+  /**
+   * Where each of a paper's Expand hops stands. A hop's ✓ is read off the
+   * discovery lists, which are saved with the thread, so it survives a
+   * reload; what's in flight, what failed, and what was just undone live
+   * only in this session's state.
+   */
+  const expansionOf = useCallback(
+    (nodeId: string): Partial<Record<ExpandHop, ExpansionStatus>> => {
+      const local = expansions[nodeId] ?? {}
+      const out: Partial<Record<ExpandHop, ExpansionStatus>> = {}
+      for (const hop of ['references', 'citations'] as const) {
+        const status = local[hop]
+        const added = hopAdded(nodeId, hop, discoveredNodes, discoveredEdges)
+        if (status?.state === 'busy' || status?.state === 'error') out[hop] = status
+        else if (added !== null)
+          out[hop] = { state: 'done', added, fresh: status?.state === 'done' && status.fresh }
+        // A hop that came back empty has nothing to read back, so its local
+        // status is all there is; so is one just undone.
+        else if (status) out[hop] = status
+      }
+      return out
+    },
+    [expansions, discoveredNodes, discoveredEdges],
+  )
 
   /**
    * The filtered view the canvas renders. Nodes keep their identity (so
@@ -456,7 +621,7 @@ export default function GraphExplorer({
     // A ghost keeps its edges even when their chip is off, or it would float
     // unattached — the chip hid the relation, the scope brought it back.
     const ghostLink = (link: VLink) => ghostIds.has(link._s) || ghostIds.has(link._t)
-    const links = base.links
+    const links: VLink[] = base.links
       .filter((link) => (linkOk(link) || ghostLink(link)) && ids.has(link._s) && ids.has(link._t))
       .map((link) => ({ ...link, source: link._s, target: link._t }))
     return { nodes, links, eligibleIds, ghostIds }
@@ -497,6 +662,7 @@ export default function GraphExplorer({
     dispatch(nodeSelectionCleared())
     dispatch(highlightSet([]))
     setFindQuery('')
+    setFocusId(null)
   }, [dispatch])
   // Esc = the same reset, unless an overlay owns the key right now: the
   // lightbox and the tour both close on their own Esc, and clearing the graph
@@ -508,16 +674,42 @@ export default function GraphExplorer({
     }, [lightbox, tourStage, onClearAll]),
   )
 
+  /** A paper and everything linked to it. */
+  const neighboursOf = useCallback(
+    (id: string) => {
+      const neighbors = new Set<string>([id])
+      base?.links.forEach((link) => {
+        if (link._s === id) neighbors.add(link._t)
+        if (link._t === id) neighbors.add(link._s)
+      })
+      return neighbors
+    },
+    // graphVersion: base.links grows in place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [base, graphVersion],
+  )
+
   /** Neighbors of the hovered node (for focus-on-hover dimming). */
-  const hoverSet = useMemo(() => {
-    if (!base || !hoverId) return null
-    const neighbors = new Set<string>([hoverId])
-    base.links.forEach((link) => {
-      if (link._s === hoverId) neighbors.add(link._t)
-      if (link._t === hoverId) neighbors.add(link._s)
-    })
-    return neighbors
-  }, [base, hoverId])
+  const hoverSet = useMemo(
+    () => (base && hoverId ? neighboursOf(hoverId) : null),
+    [base, hoverId, neighboursOf],
+  )
+
+  /** Neighbors of the double-clicked paper, held until let go. Gone with its
+   *  paper (an undone expansion, a new graph). */
+  const heldSet = useMemo(
+    () =>
+      base && focusId && base.nodes.some((node) => node.id === focusId)
+        ? neighboursOf(focusId)
+        : null,
+    // graphVersion: base.nodes changes in place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [base, focusId, neighboursOf, graphVersion],
+  )
+  heldFocus.current = heldSet
+  useEffect(() => {
+    setFocusId(null)
+  }, [base])
 
   /** The local find's matches over the VISIBLE view (hidden papers can't
    * match invisibly), or null when the box is empty. */
@@ -543,12 +735,13 @@ export default function GraphExplorer({
     setFindQuery('')
   }, [dispatch, findSet])
 
-  /** What to focus the canvas on: hovering wins; then an active find (an
-   * EMPTY match set dims everything — honest "no hits" feedback); then the
+  /** What to focus the canvas on: a held focus wins (hovering on the way to
+   * one of its papers mustn't swap it out); then hovering; then an active find
+   * (an EMPTY match set dims everything — honest "no hits" feedback); then the
    * papers the AI teacher is currently talking about. */
   const focusSet = useMemo(
-    () => hoverSet ?? findSet ?? (highlightIds.size ? highlightIds : null),
-    [hoverSet, findSet, highlightIds],
+    () => heldSet ?? hoverSet ?? findSet ?? (highlightIds.size ? highlightIds : null),
+    [heldSet, hoverSet, findSet, highlightIds],
   )
 
   /** Toggle one relation type's visibility (the filter chips). */
@@ -592,10 +785,10 @@ export default function GraphExplorer({
     }
   }, [freezeSettledY, pinned])
 
-  // Repaint when highlight/selection/pins/layout change (the sim may be at rest).
+  // Repaint when highlight/selection/pins/focus/layout change (the sim may be at rest).
   useEffect(() => {
     fgRef.current?.refresh?.()
-  }, [hoverId, selectedId, selectedIds, pinned, view, highlightIds, layout])
+  }, [hoverId, heldSet, selectedId, selectedIds, pinned, view, highlightIds, layout])
 
   const hasGraph = !!base && base.nodes.length > 0
 
@@ -672,12 +865,15 @@ export default function GraphExplorer({
             data={view}
             focusSet={focusSet}
             pinned={pinned}
+            expandedIds={expandedIds}
             selectedId={selectedId}
             selectedIds={selectedIds}
+            selectionDims={!heldSet}
             ghostIds={view.ghostIds}
             highlightIds={litSet}
             onNodeClick={onCanvasNodeClick}
             onNodeHover={setHoverId}
+            onNodeDrag={onNodeDrag}
             onNodeDragEnd={onNodeDragEnd}
             onEngineStop={onEngineStop}
             onRenderFramePre={drawAxis}
@@ -714,7 +910,13 @@ export default function GraphExplorer({
             onSelectAll={onFindSelectAll}
           />
         )}
-        {hasGraph && <Legend hasDiscovered={hasDiscovered} hasGhosts={view.ghostIds.size > 0} />}
+        {hasGraph && (
+          <Legend
+            hasDiscovered={hasDiscovered}
+            hasExpanded={expandedIds.size > 0}
+            hasGhosts={view.ghostIds.size > 0}
+          />
+        )}
       </main>
 
       {detailPanel.present && shownNode && (
@@ -730,6 +932,9 @@ export default function GraphExplorer({
           onTogglePin={() => togglePin(shownNode.id)}
           onClose={() => setSelectedId(null)}
           onExplore={doLoadGraph}
+          expansion={expansionOf(shownNode.id)}
+          onExpand={(hop) => expand(shownNode.id, hop)}
+          onUnexpand={(hop) => unexpand(shownNode.id, hop)}
           onGenerateTldr={async () => {
             // The panel's TL;DR toggle — the one gesture allowed to bill.
             const tldr = await generateTldr(shownNode.id, shownNode.title, shownNode.abstract ?? '')

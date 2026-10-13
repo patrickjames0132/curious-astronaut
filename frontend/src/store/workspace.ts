@@ -24,6 +24,7 @@ import {
   saveSession,
   type Beat,
   type ChatMsg,
+  type ExpandHop,
   type BuildProgress,
   type GraphEdge,
   type GraphNode,
@@ -34,6 +35,7 @@ import {
   type SaveSessionBody,
   type SavedSessionMeta,
 } from '../api'
+import { withoutHop } from '../graph/expansions'
 import { cleanNode, countRels, foldRetiredEdgeTypes, foldRetiredNodeRels } from '../graph/model'
 import type { VNode } from '../graph/model'
 import {
@@ -870,6 +872,26 @@ const workspaceSlice = createSlice({
       }
     },
     /**
+     * Undo one of a paper's Expand hops (v8.18.0): reclicking its ✓ takes
+     * away the edges it added and every discovered paper the graph can no
+     * longer reach (see `graph/expansions.ts`'s `withoutHop`).
+     *
+     * @param state  The slice state (mutated via immer).
+     * @param action Carries the expanded paper and the hop.
+     */
+    expansionUndone(state, action: PayloadAction<{ nodeId: string; hop: ExpandHop }>) {
+      if (!state.graph) return
+      const { nodes, edges } = withoutHop(
+        action.payload.nodeId,
+        action.payload.hop,
+        state.graph,
+        state.discoveredNodes,
+        state.discoveredEdges,
+      )
+      state.discoveredNodes = nodes
+      state.discoveredEdges = edges
+    },
+    /**
      * Switch the graph layout (Force ↔ Timeline).
      *
      * @param state  The slice state (mutated via immer).
@@ -1068,6 +1090,7 @@ const workspaceSlice = createSlice({
 
 export const {
   discoveryMerged,
+  expansionUndone,
   viewFiltersSet,
   layoutSet,
   providerSet,

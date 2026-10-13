@@ -38,7 +38,7 @@ log = logging.getLogger(__name__)
 #: Cache-key prefix for a resolved name. Carries a schema version like the
 #: graph snapshots do, so the day of entries written by an older rule become
 #: unreadable rather than wrong if the shape here changes.
-_NAME_PREFIX = "papername:v1:"
+_NAME_PREFIX = "papername:v2:"
 
 #: The sentinel a cached miss stores. A plain ``None`` is indistinguishable
 #: from "not cached", which would re-run the model on every keystroke for

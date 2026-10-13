@@ -22,6 +22,33 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### One S2 paper, two ids: expansions drew duplicates (v8.18.0, pre-release)
+
+- **Symptom.** Expanding a citation on an S2 graph brought in references
+  that hung off the seed instead of the expanded paper, some with no edges
+  at all, and the same paper appeared two or three times (Double Q-Learning
+  as a green citer and twice more as blue "references").
+- **Root cause.** Two id schemes on one graph. The offline citations corpus
+  knows papers only by `CorpusId:<n>`, so the seed's corpus-built citers
+  wore those ids, while the seed, its references and every expansion came
+  from the live API as 40-hex paperIds. An expansion compared hex ids
+  against corpus ids, never matched a paper already drawn, and re-added it.
+  Worse, a paper's id changed whenever a rebuild switched between the
+  corpus and the live API, so saved expansions pointed at ids the rebuilt
+  graph no longer had; their edges were dropped and their papers floated
+  loose. Found by reading the live store in Chrome, not by any test.
+- **Fix.** `semantic_scholar/nodes.py`'s `canonical_id`: every live S2 node
+  takes `CorpusId:<n>` when S2 knows it, the hex id only as a fallback.
+  Cache keys that hold node ids were bumped (`graph:v4`, `expand:v5`,
+  `search:v2`, `papername:v2`). The frontend also stops drawing a discovery
+  whose every edge points off the canvas (`useDiscovery`), so a stranded
+  save can't float loose again.
+- **Lesson / guard.** Two data paths feeding one graph must agree on
+  identity, or every "is it already here?" check silently fails.
+  `test_nodes.py` pins the corpus-id rule; `useDiscovery.test` pins the
+  stranded-discovery guard.
+
+
 ### The Knowledge Graph's 3D view crawled (v8.17.0, pre-release)
 
 - **Symptom.** 3D looked right but was "incredibly laggy" (Patrick), far
