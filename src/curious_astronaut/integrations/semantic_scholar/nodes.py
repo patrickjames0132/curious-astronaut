@@ -8,6 +8,17 @@ Every S2 response — batch hydration, references, citations, recommendations,
 search — funnels through ``node()``. Everything downstream (graph assembly,
 the teacher, the frontend) consumes the dict it produces.
 
+**A node's id is its corpus id, ``CorpusId:<n>``** (v8.18.0), falling back to
+the hex ``paperId`` only when S2 gives no corpus id. The offline citations
+corpus knows papers by nothing else, so until v8.18.0 an S2 graph mixed the
+two: the corpus-built citers wore ``CorpusId:`` ids while the seed, its
+references and every expansion wore hex ones. The same paper then had two
+ids, so an expansion never recognised a citer already on the graph and drew
+a duplicate, and a paper's id
+changed whenever a rebuild switched between the corpus and the live API,
+stranding the expansions saved against it. S2 accepts ``CorpusId:<n>``
+everywhere it accepts a ``paperId``, so one scheme costs nothing.
+
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
 """
@@ -88,6 +99,27 @@ def venue_name(paper: dict) -> str | None:
     return paper.get("venue") or None
 
 
+def canonical_id(paper: dict) -> str | None:
+    """A paper's node id: ``CorpusId:<n>`` when S2 gives a corpus id, else its ``paperId``.
+
+    Reads the corpus id from ``externalIds.CorpusId`` (full paper objects) or
+    a top-level ``corpusId`` (a nested reference, which S2 returns as a
+    string). See the module docstring for why the corpus id leads.
+
+    Args:
+        paper: A paper object as returned by S2.
+
+    Returns:
+        The id, or None when the paper has neither.
+    """
+    external_ids = paper.get("externalIds") or {}
+    corpus_id = external_ids.get("CorpusId") or paper.get("corpusId")
+    if corpus_id:
+        return f"CorpusId:{corpus_id}"
+    paper_id = paper.get("paperId")
+    return str(paper_id) if paper_id else None
+
+
 def node(paper: dict | None) -> dict | None:
     """Normalize a raw S2 paper object into the app's graph-node dict.
 
@@ -109,6 +141,7 @@ def node(paper: dict | None) -> dict | None:
     """
     if not paper or not paper.get("paperId"):
         return None
+    node_id = canonical_id(paper)
     external_ids = paper.get("externalIds") or {}
     arxiv_id = external_ids.get("ArXiv")
     tldr_obj = paper.get("tldr")
@@ -131,7 +164,7 @@ def node(paper: dict | None) -> dict | None:
     open_access = paper.get("openAccessPdf")
     oa_pdf = open_access.get("url") if isinstance(open_access, dict) else None
     return {
-        "id": paper["paperId"],
+        "id": node_id,
         "arxiv_id": arxiv_id,
         "title": paper.get("title") or "(untitled)",
         "abstract": paper.get("abstract"),

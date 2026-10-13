@@ -111,8 +111,10 @@ def neighbors(paper_id: str, relation: Relation, limit: int, provider: Provider 
         openalex.OpenAlexError: When an OpenAlex request fails (``openalex``).
     """
     # v4 key adds the provider: an S2 hop and an OpenAlex hop for the same node
-    # are different data and must not share an entry.
-    cache_key = f"expand:v4:{provider}:{relation}:{paper_id}:{limit}"
+    # are different data and must not share an entry. v5: S2 node ids became
+    # corpus ids (see semantic_scholar/nodes.py), so a v4 hop's hex ids would
+    # duplicate papers already on the graph.
+    cache_key = f"expand:v5:{provider}:{relation}:{paper_id}:{limit}"
     cached = cache.get(cache_key, config.graph.cache_ttl)
     if cached is not None:
         return cached
@@ -163,7 +165,7 @@ def search(
     normalized = query.strip().lower()
     fields_key = ",".join(fields) if fields else ""
     cache_key = (
-        f"search:{provider}:{normalized}:{year_from or ''}-{year_to or ''}:{limit}:{fields_key}"
+        f"search:v2:{provider}:{normalized}:{year_from or ''}-{year_to or ''}:{limit}:{fields_key}"
     )
     cached = cache.get(cache_key, config.graph.cache_ttl)
     if cached is not None:

@@ -15,8 +15,8 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import DetailPanel from '../../src/detail/DetailPanel'
 import type { DetailPanelProps } from '../../src/detail/DetailPanel'
 import type { VNode } from '../../src/graph/model'
@@ -137,5 +137,95 @@ describe('the joint loading gate', () => {
     const { container } = render(<DetailPanel {...makeProps()} />)
     expect(container.querySelector('.skel')).toBeNull()
     expect(container.querySelector('.detail-summary')).not.toBeNull()
+  })
+})
+
+describe('expand on this graph', () => {
+  it('is offered on any paper but the seed, and runs the hop asked for', () => {
+    const onExpand = vi.fn()
+    render(<DetailPanel {...makeProps({ onExpand })} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Citations' }))
+    expect(onExpand).toHaveBeenCalledWith('citations')
+    cleanup()
+
+    render(<DetailPanel {...makeProps({ onExpand, node: makeNode({ is_seed: true }) })} />)
+    expect(screen.queryByText('Expand on this graph')).toBeNull()
+  })
+
+  it('spins inside the button while a hop runs, and holds it', () => {
+    const { container } = render(
+      <DetailPanel
+        {...makeProps({ onExpand: () => {}, expansion: { citations: { state: 'busy' } } })}
+      />,
+    )
+    const busy = screen.getByRole('button', { name: 'Citations' }) as HTMLButtonElement
+    expect(busy.disabled).toBe(true)
+    expect(busy.querySelector('.spin')).toBeTruthy()
+    expect(container.querySelector('.expand-mark')).toBeNull()
+    expect(screen.getByText('Adding its citers…')).toBeTruthy()
+  })
+
+  it('fades in a ✓ on a hop that just finished, and says what it did', () => {
+    render(
+      <DetailPanel
+        {...makeProps({
+          onExpand: () => {},
+          onUnexpand: () => {},
+          expansion: { references: { state: 'done', added: 6, fresh: true } },
+        })}
+      />,
+    )
+    const done = screen.getByRole('button', { name: 'References' })
+    expect(done.getAttribute('aria-pressed')).toBe('true')
+    expect(done.querySelector('.expand-mark.fresh')).toBeTruthy()
+    expect(screen.getByText('Added 6 of its references.')).toBeTruthy()
+  })
+
+  it('shows a ✓ read back after a reload quietly, and reclicking it undoes the hop', () => {
+    const onExpand = vi.fn()
+    const onUnexpand = vi.fn()
+    render(
+      <DetailPanel
+        {...makeProps({
+          onExpand,
+          onUnexpand,
+          expansion: { references: { state: 'done', added: 6 } },
+        })}
+      />,
+    )
+    const done = screen.getByRole('button', { name: 'References' })
+    expect(done.querySelector('.expand-mark.fresh')).toBeNull()
+    expect(screen.queryByText('Added 6 of its references.')).toBeNull()
+    fireEvent.click(done)
+    expect(onUnexpand).toHaveBeenCalledWith('references')
+    expect(onExpand).not.toHaveBeenCalled()
+  })
+
+  it('says what an undo took away', () => {
+    render(
+      <DetailPanel
+        {...makeProps({
+          onExpand: () => {},
+          expansion: { citations: { state: 'removed', removed: 4 } },
+        })}
+      />,
+    )
+    expect(screen.getByText('Took 4 of its citers off the graph.')).toBeTruthy()
+    // Undone, the hop can run again.
+    expect(screen.getByRole('button', { name: 'Citations' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    )
+  })
+
+  it('says so when nothing new came in', () => {
+    render(
+      <DetailPanel
+        {...makeProps({
+          onExpand: () => {},
+          expansion: { citations: { state: 'done', added: 0, fresh: true } },
+        })}
+      />,
+    )
+    expect(screen.getByText('Its top citers were on the graph already.')).toBeTruthy()
   })
 })

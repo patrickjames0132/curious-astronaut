@@ -21,6 +21,18 @@ export const ID_RE =
   /^(?:https?:\/\/arxiv\.org\/(?:abs|pdf)\/)?(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[A-Z]{2})?\/\d{7}(?:v\d+)?)$/i
 
 /**
+ * How far one drag step moved the dragged node, in graph units: what
+ * react-force-graph hands `onNodeDrag` (v8.18.0's group drag).
+ */
+export interface DragStep {
+  // react-force-graph's own field names for the offset.
+  /* oxlint-disable id-length */
+  x: number
+  y: number
+  /* oxlint-enable id-length */
+}
+
+/**
  * A live simulation node: a GraphNode that react-force-graph has (or will)
  * decorate with position (`x`/`y`) and optional pin coordinates (`fx`/`fy`).
  */

@@ -177,8 +177,8 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
     body:
       'The legend names it all: the paper, concepts, the “depends on” arrow, and a ' +
       'concept’s states — grey and new until you open or break it down, then violet, and ' +
-      'green once you know it. Only the neighbourhood you are looking at is ' +
-      'named; point at any node for its name.',
+      'green once you know it. Zoomed out, only the paper and the item you have open ' +
+      'are named; zoom in to name them all, or point at any node for its name.',
   },
   {
     target: '[data-tour="knowledge-controls"]',
@@ -305,6 +305,8 @@ export const GRAPH_TOUR: TourStep[] = [
     body:
       'Hold ⌥ Alt and drag a box around papers to add them to the assistant’s scope — ' +
       'sweep several clusters to build one. ⇧ Shift-click toggles a single paper. ' +
+      'Drag any ringed paper and the whole selection moves with it, pinned where you ' +
+      'drop it. ' +
       'Lectures and answers then ground in exactly those papers — even ones a filter ' +
       'later hides, which stay drawn with a dotted ring — unless a message names its own. ' +
       'The rings show what a turn is about while it runs and clear when the answer lands; ' +
@@ -316,7 +318,10 @@ export const GRAPH_TOUR: TourStep[] = [
     title: 'Open a paper',
     body:
       'Click any paper to open its detail panel — abstract, figures, code links, tags. ' +
-      'Double-click a paper to re-seed the whole map on it and explore from there.',
+      'Double-click a paper to re-seed the whole map on it and explore from there. ' +
+      '⌘-click one (Ctrl-click on Windows) to hold its links in focus: everything it’s ' +
+      'linked to stays lit while you click through them. ⌘-click it again, or press Esc, ' +
+      'to let go.',
   },
   {
     target: '[data-tour="find"]',
@@ -326,7 +331,8 @@ export const GRAPH_TOUR: TourStep[] = [
       'and everything else dims — all on your screen, nothing is fetched. Pressing ' +
       'Enter (or “select” in the find bar) adds every match to the assistant’s ' +
       'scope. Esc or ✕ clears the find and tucks it away. This only searches what is ' +
-      'already drawn — to pull NEW papers in, use the chat bar in the assistant panel.',
+      'already drawn — to pull NEW papers in, expand a paper from its detail panel, or ' +
+      'ask in the chat bar in the assistant panel.',
   },
   {
     target: '[data-tour="tool-back"]',
@@ -368,8 +374,15 @@ export const GRAPH_TOUR: TourStep[] = [
     stage: 'details',
     title: 'Jump off from here',
     body:
-      'Open the abstract page or the PDF, Pin the node where you dragged it — or ' +
-      '“Explore from here”: rebuild the whole map with this paper as the new seed.',
+      'Open the abstract page or the PDF, or Pin the node where you dragged it. On any ' +
+      'paper but the seed, “Expand on this graph” adds all its references, or its citers ' +
+      'picked the way the seed’s are, to this map and moves the paper, now pink, out with ' +
+      'them: in Force, a cluster of its ' +
+      'own laid out like the seed’s (references left, citers right), with the papers it ' +
+      'shares with the seed sitting in between; in Timeline, a stream above the seed’s. ' +
+      'The view refits to show where they went. A hop that has run wears a green ✓; ' +
+      'click it again to take those papers back off. “Explore in a thread” opens a new ' +
+      'map with it as the seed.',
   },
   {
     target: '[data-tour="detail-code"]',
@@ -418,7 +431,7 @@ export const GRAPH_TOUR: TourStep[] = [
       'selected — or in every visible paper when you haven’t picked any. It reads them ' +
       'in full, hops the graph, searches the literature and your uploaded library, then ' +
       'answers with numbered citations (click one to highlight its paper on the graph). New ' +
-      'papers it finds join the map with dashed rings. ' +
+      'papers it finds join the map with a faint halo. ' +
       'Press Enter to send; ⇧ Shift+Enter starts a new line for longer questions.',
   },
   {

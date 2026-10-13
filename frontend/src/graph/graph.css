@@ -559,8 +559,8 @@
   background: transparent;
   /* The canvas's own ring ink, so it follows the theme. A fixed pale value
      vanished on the light legend (v8.16.0). */
-  border: 1.5px dashed var(--canvas-ink-soft);
+  border: 1px solid var(--canvas-ink-soft);
 }
 .legend i.ring.ghost {
-  border-style: dotted;
+  border: 1.5px dotted var(--canvas-ink-soft);
 }

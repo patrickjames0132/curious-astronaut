@@ -15,6 +15,7 @@ down.
 | --- | --- |
 | `GET /api/graph?seed=&refresh=` | build (or re-fetch) a seed's neighborhood graph |
 | `GET /api/graph/stream?seed=&refresh=` | same, as SSE with coarse build-stage progress |
+| `POST /api/graph/expand` | one hop of references or citations from any paper on the graph, for the detail panel's Expand buttons (v8.18.0) |
 | `GET /api/paper/<ref>` | hydrate one paper's details for the panel |
 | `GET /api/paper/<ref>/figures` | the paper's figures — ar5iv, else floats mined from its OA PDF |
 | `GET /api/paper/<ref>/code` | Hugging Face code & artifact links |
@@ -29,6 +30,19 @@ Design decisions worth knowing:
   such paper), 502 (S2 down, with a user-facing "try again"). The panel
   niceties (figures, code) instead degrade to `available: false` on ANY
   upstream failure — a missing figure strip must never 500 the panel.
+- **Growing a graph needs no agent (v8.18.0).** `/api/graph/expand` is the
+  reader's twin of the researcher's `expand_node`, with the same "only real
+  edges" rule, but sized like the seed's own neighbourhood
+  (`services.graph.growth.hop_hits`): every reference, and the citers the tau
+  rule picks over the paper's whole history. It takes the reader's build
+  shape as query args, parsed by the same `_requested_shape` as the graph
+  stream, and an optional `arxiv_id` in the body for the corpus to resolve
+  on. Until v8.18.0's polish it took the researcher's `expand_limit` (8) per
+  hop from a 100-paper pool, its citers the newest page of S2's live endpoint.
+  The client sends `known_ids` so the hop can tell new papers from ones
+  already drawn, which only gain an edge. It maps a provider failure to
+  502, like the build. The decisions themselves live in
+  `services/graph/growth.py`; the routes only fetch and serialize.
 - **`/api/graph/stream` is the determinate-progress twin of `/api/graph`.**
   Same result, delivered as SSE so the frontend overlay shows a real filling
   bar instead of a bare spinner. `build_graph` reports five coarse stages

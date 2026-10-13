@@ -11,9 +11,18 @@ graph/
   theme.ts          — the relation color scheme + layout geometry constants
   buildShape.ts     — the user's graph-sizing preference (adaptive on/off + the
                       band shape), a localStorage-backed module store
-  clusterForce.ts   — the Force layout's relation clustering (custom d3 force:
-                      sector anchors around the seed, √population orbits;
-                      wired by hooks/useTimeline's applyLayoutPhysics)
+  clusterForce.ts   — the Force layout's clustering (custom d3 force over one
+                      plan, `layoutPlan`, a home per node: sector anchors
+                      around the seed, √population orbits, expansion groups
+                      out past the formation with their references west and
+                      citers east, bridges between a group and the
+                      formation; wired by hooks/useTimeline's
+                      applyLayoutPhysics)
+  streamForce.ts    — Timeline's parallel streams: each expansion group in a
+                      band of its own above the seed's timeline (y only)
+  expansions.ts     — which of a paper's Expand hops have run (read off the
+                      saved discovery lists, so the ✓ survives a reload) and
+                      what undoing one takes away (pure)
   graph.css         — styles for the whole graph area (ported light-touch)
   canvas/           ← sub-package: the ForceGraph2D wrapper, every canvas painter
   controls/         ← sub-package: the declutter panel + the color legend
@@ -44,6 +53,15 @@ ids. The shell passes its overlays (hit list, loading/error/hint) as
 them. Note the discovery data flow is one-way: teacher → store → explorer
 → `base` — the discovery *lists* live in the workspace slice (grounding,
 Save, and the legend read them there); this folder owns only the sim merge.
+
+**Focus** dims everything but one set of papers. In priority order: a **held
+focus** (v8.18.0's polish: ⌘-click a paper, Ctrl-click off a Mac, and it and
+everything linked to it stay lit until it's ⌘-clicked again or Esc), then
+hover, then an active find, then the teacher's highlights. The held focus
+wins over hover on purpose: it exists so the pointer can travel to the
+linked papers to click them, and hover focus dimmed them the moment the
+pointer left the paper. It was a double-click for one round, which cost the
+double-click re-seed; that turned out to be the gesture worth keeping.
 
 The `view` separates **eligibility from drawing** (v7.24.0). `eligible` is
 what the chips, sliders and caps admit, and it is what gets published as
@@ -196,7 +214,13 @@ and `GraphExplorer` trims the view by it. Worth knowing:
 `tsc --noEmit` strict + oxlint (`d3-force-3d` ships no types — its import
 keeps a `@ts-expect-error`). The mutation-heavy behavior (pins surviving
 filters, discoveries settling near anchors, timeline freezing) is exactly
-what the end-of-phase browser milestone exercises by hand.
+what the end-of-phase browser milestone exercises by hand. The forces themselves are pure
+enough to test one tick at a time: `test/graph/clusterForce.test.ts` (sectors,
+expansion groups and their anchors, a group's west/east split, bridges)
+and
+`test/graph/streamForce.test.ts` (streams stacked above the seed's timeline,
+fixed heights left alone, the speed cap). `test/graph/expansions.test.ts`
+covers reading hops back and undoing one.
 
 ## Thread ownership
 

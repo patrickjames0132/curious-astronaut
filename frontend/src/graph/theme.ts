@@ -17,9 +17,9 @@ import type { EdgeType } from '../api'
 
 /** The theme-dependent colors the canvas paints with. */
 export interface CanvasInk {
-  /** Node labels and the discovered-node dashed ring. */
+  /** Node labels. */
   ink: string
-  /** The softer pinned-node ring. */
+  /** The softer pinned-node ring and the added-by-expanding halo. */
   soft: string
   /** The solid detail-selection ring. */
   hard: string
@@ -76,6 +76,14 @@ export const REL_COLOR: Record<string, string> = {
   // a restore folds it into `citation` instead (see `foldRetiredRels`).
   unknown: '#8b93a7',
 }
+
+/**
+ * The fill of a paper the reader (or the researcher) has expanded (v8.18.0):
+ * pink, a hue no relation uses, so the paper an expansion grew from stands out
+ * from the papers it brought, which wear their own relation's colour. Its own
+ * relation still shows in the detail panel's badge.
+ */
+export const EXPANDED_COLOR = '#f472b6'
 
 /** Relation colours for the detail-panel badges. Mirrors REL_COLOR, but the
  * citing relation takes a lighter mid-green (#4ade80) than the graph's, which

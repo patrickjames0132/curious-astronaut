@@ -266,6 +266,52 @@ export async function generateTldr(
   return data.tldr
 }
 
+/** The two ways a paper on the Paper Graph can be expanded. */
+export type ExpandHop = 'references' | 'citations'
+
+/** What one expansion adds: new papers (flagged `discovered`) and edges. */
+export interface Expansion {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}
+
+/**
+ * Expand any paper on the graph by one hop (v8.18.0), sized like the seed's
+ * own neighbourhood: every reference, or the citers the tau rule picks over
+ * the paper's whole history, by the reader's build shape (sent as the graph
+ * stream sends it). New papers come back to add, plus an edge to each
+ * neighbour already on the graph. The detail panel's Expand buttons call
+ * this; the result merges in exactly like a researcher discovery.
+ *
+ * @param nodeId The paper to expand.
+ * @param hop References (papers it cites) or citations (papers citing it).
+ * @param provider The graph's provider.
+ * @param knownIds Every paper id on the graph now.
+ * @param arxivId The paper's arXiv id, when it has one (the citations corpus
+ *   resolves on it first).
+ * @returns The papers and edges to merge.
+ * @throws With the server's error message when the provider fails.
+ */
+export async function expandPaper(
+  nodeId: string,
+  hop: ExpandHop,
+  provider: Provider,
+  knownIds: string[],
+  arxivId: string | null = null,
+): Promise<Expansion> {
+  const params = new URLSearchParams()
+  for (const [key, value] of shapeParams(getBuildShape())) params.set(key, value)
+  const query = params.toString()
+  const res = await fetch(`/api/graph/expand${query ? `?${query}` : ''}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: nodeId, hop, provider, known_ids: knownIds, arxiv_id: arxivId }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Failed to expand (${res.status})`)
+  return data
+}
+
 /**
  * A figure pulled from the paper — an ar5iv figure (proxied image + the
  * paper's own caption) or, for papers without an ar5iv render, a float

@@ -7,7 +7,7 @@
  * (Hugging Face Papers), lazily-loaded figures (ar5iv, or floats mined from
  * the paper's open-access PDF for papers off arXiv — click-to-enlarge via
  * the shared lightbox), and the paper actions (abstract/PDF links, pin,
- * explore-from-here).
+ * expand-on-this-graph, explore-from-here).
  *
  * The late-arriving sections (summary hydration, arXiv tags, code links,
  * figures) load behind ONE joint gate: while any of the node's fetches is
@@ -26,13 +26,28 @@
 
 import { useEffect, useState } from 'react'
 import type { AnimationEvent, CSSProperties } from 'react'
-import type { AnswerFigure, CategoriesResponse, CodeLinksResponse, FiguresResponse } from '../api'
+import type {
+  AnswerFigure,
+  CategoriesResponse,
+  CodeLinksResponse,
+  ExpandHop,
+  FiguresResponse,
+} from '../api'
 import type { VNode } from '../graph/model'
 import { formatPubDate } from '../graph/model'
 import { BADGE_COLOR } from '../graph/theme'
 import MathText from '../notation/MathText'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import './detail.css'
+
+/** Where one of a paper's Expand buttons stands. `fresh` marks a hop that
+ *  finished in front of the reader, whose ✓ fades in; one read back after a
+ *  reload just shows. */
+export type ExpansionStatus =
+  | { state: 'busy' }
+  | { state: 'done'; added: number; fresh?: boolean }
+  | { state: 'removed'; removed: number }
+  | { state: 'error'; message: string }
 
 /** Props for {@link DetailPanel}. */
 export interface DetailPanelProps {
@@ -64,6 +79,13 @@ export interface DetailPanelProps {
   onClose: () => void
   /** Re-seed the whole graph on this paper (hidden for the current seed). */
   onExplore: (id: string) => void
+  /** Pull this paper's references or citers onto the same graph (hidden for
+   *  the seed, whose neighbourhood the build already drew). */
+  onExpand?: (hop: ExpandHop) => void
+  /** Undo a hop that has run: reclicking its ✓ takes its papers away. */
+  onUnexpand?: (hop: ExpandHop) => void
+  /** This paper's expansions so far, by hop. */
+  expansion?: Partial<Record<ExpandHop, ExpansionStatus>>
   /** Generate a TL;DR for a paper that has none (resolves once the node's
    *  `tldr` is merged in). The ONLY surface allowed to trigger a generation —
    *  it runs on the explicit TL;DR toggle, never automatically, so unread
@@ -73,6 +95,104 @@ export interface DetailPanelProps {
   closing?: boolean
   /** Wire-through for the presence hook's exit bookkeeping. */
   onAnimationEnd?: (event: AnimationEvent) => void
+}
+
+/** The hops in button order, with their captions. */
+const EXPAND_HOPS: { hop: ExpandHop; label: string; noun: string }[] = [
+  { hop: 'references', label: 'References', noun: 'references' },
+  { hop: 'citations', label: 'Citations', noun: 'citers' },
+]
+
+/**
+ * The "Expand on this graph" row (v8.18.0): one button per hop, each pulling
+ * the paper's references (all of them) or its citers (picked by the tau rule,
+ * as the seed's are) onto the graph you're on, with
+ * a line saying what the last one did. A hop in flight spins inside its
+ * button; a hop that has run shows a green ✓ (faded in when it just
+ * finished), and reclicking it undoes the hop, its papers leaving the graph.
+ * On hover the ✓ turns to ✕ to say so.
+ *
+ * @param props The paper's expansions and the handlers.
+ * @param props.expansion Where each hop stands.
+ * @param props.onExpand Run one hop.
+ * @param props.onUnexpand Undo one hop.
+ * @returns The row.
+ */
+function ExpandRow({
+  expansion,
+  onExpand,
+  onUnexpand,
+}: {
+  expansion?: Partial<Record<ExpandHop, ExpansionStatus>>
+  onExpand: (hop: ExpandHop) => void
+  onUnexpand?: (hop: ExpandHop) => void
+}) {
+  const lines = EXPAND_HOPS.flatMap(({ hop, noun }) => {
+    const status = expansion?.[hop]
+    if (status?.state === 'busy') return [`Adding its ${noun}…`]
+    if (status?.state === 'error') return [status.message]
+    if (status?.state === 'removed')
+      return [
+        status.removed
+          ? `Took ${status.removed} of its ${noun} off the graph.`
+          : `Unlinked its ${noun}.`,
+      ]
+    // A ✓ read back after a reload says nothing: the line is for what just happened.
+    if (status?.state === 'done' && status.fresh)
+      return [
+        status.added
+          ? `Added ${status.added} of its ${noun}.`
+          : `Its top ${noun} were on the graph already.`,
+      ]
+    return []
+  })
+  return (
+    <div className="detail-expand" data-tour="detail-expand">
+      <div className="detail-expand-head">Expand on this graph</div>
+      <div className="detail-expand-btns">
+        {EXPAND_HOPS.map(({ hop, label, noun }) => {
+          const status = expansion?.[hop]
+          const done = status?.state === 'done'
+          const busy = status?.state === 'busy'
+          const undoable = done && !!onUnexpand
+          return (
+            <button
+              key={hop}
+              className={`ghost-btn${done ? ' done' : ''}${busy ? ' busy' : ''}`}
+              disabled={busy || (done && !undoable)}
+              aria-busy={busy}
+              aria-pressed={done}
+              onClick={() => (done ? onUnexpand?.(hop) : onExpand(hop))}
+              title={
+                done
+                  ? `Take the ${noun} this added off the graph`
+                  : hop === 'references'
+                    ? 'Add every paper this one cites to the graph, linked to it'
+                    : 'Add the papers citing this one to the graph, picked over its whole history the way the seed’s are'
+              }
+            >
+              {busy ? (
+                <span className="spin" aria-hidden="true" />
+              ) : done ? (
+                <span className={`expand-mark${status.fresh ? ' fresh' : ''}`} aria-hidden="true">
+                  <span className="expand-check">✓</span>
+                  <span className="expand-undo">✕</span>
+                </span>
+              ) : (
+                <span aria-hidden="true">+</span>
+              )}{' '}
+              {label}
+            </button>
+          )
+        })}
+      </div>
+      {lines.map((line) => (
+        <div key={line} className="detail-expand-status" role="status">
+          {line}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 /**
@@ -338,6 +458,9 @@ export default function DetailPanel({
   onTogglePin,
   onClose,
   onExplore,
+  onExpand,
+  onUnexpand,
+  expansion,
   onGenerateTldr,
   closing = false,
   onAnimationEnd,
@@ -437,6 +560,9 @@ export default function DetailPanel({
           <button className="ghost-btn" onClick={onTogglePin}>
             {isPinned ? 'Unpin' : 'Pin'}
           </button>
+        )}
+        {!node.is_seed && onExpand && (
+          <ExpandRow expansion={expansion} onExpand={onExpand} onUnexpand={onUnexpand} />
         )}
         {!node.is_seed && (
           <button className="explore-btn" onClick={() => onExplore(node.id)}>

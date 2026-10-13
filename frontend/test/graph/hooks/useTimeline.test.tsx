@@ -94,3 +94,64 @@ describe('nodeTimelineX', () => {
     expect(place({ year: null, month: null })).toBe(0)
   })
 })
+
+/** A stand-in for ForceGraph2D's d3Force registry, with a real-enough link force. */
+function fakeGraph() {
+  const forces = new Map<string, unknown>()
+  let strength: unknown = 1
+  let distance: unknown = 30
+  const link = {
+    strength: (value?: unknown) => (value === undefined ? strength : ((strength = value), link)),
+    distance: (value?: unknown) => (value === undefined ? distance : ((distance = value), link)),
+  }
+  forces.set('link', link)
+  forces.set('charge', { strength: () => undefined })
+  return {
+    fg: {
+      d3Force: (name: string, value?: unknown) => {
+        if (value === undefined) return forces.get(name)
+        forces.set(name, value)
+        return undefined
+      },
+      d3ReheatSimulation: () => {},
+    },
+    strengthOf: () => strength as (link: unknown, index: number, links: unknown[]) => number,
+  }
+}
+
+describe('Timeline link pull', () => {
+  it('lets no link pull between an expansion’s stream and the seed’s', () => {
+    const nodes = [
+      node('seed', 2020, 3, true),
+      { ...node('origin', 2021, 1), y: 0 },
+      { ...node('member', 2022, 1), _origin: 'origin' },
+      node('shared', 2021, 5),
+    ] as VNode[]
+    const graph = fakeGraph()
+    const { result } = renderHook(() =>
+      useTimeline({
+        base: base(nodes),
+        layout: 'timeline',
+        fgRef: { current: graph.fg },
+        size: { width: 800, height: 600 },
+        fitDone: { current: false },
+        yearLo: 2018,
+        yearHi: 2026,
+      }),
+    )
+    result.current.applyLayoutPhysics('timeline')
+    const strength = graph.strengthOf()
+    const links = [
+      { _s: 'origin', _t: 'member' },
+      { _s: 'origin', _t: 'seed' },
+      { _s: 'shared', _t: 'origin' },
+      { _s: 'shared', _t: 'seed' },
+    ]
+    // Inside the group, and inside the seed's stream: the default pull.
+    expect(strength(links[0], 0, links)).toBe(1)
+    expect(strength(links[3], 3, links)).toBe(1)
+    // Across the two streams: none.
+    expect(strength(links[1], 1, links)).toBe(0)
+    expect(strength(links[2], 2, links)).toBe(0)
+  })
+})

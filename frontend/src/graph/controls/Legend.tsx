@@ -2,22 +2,27 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The color legend under the graph. The teacher-related entries only appear
- * when they apply: the dashed ring once the agent has discovered papers
- * mid-conversation, the dotted ring while a scoped paper is on screen that
- * the view filters would otherwise hide.
+ * The color legend under the graph. The later entries only appear when they
+ * apply: pink once a paper has been expanded, the faint halo once an
+ * expansion (the reader's or the teacher's) has added papers, and the dotted
+ * ring while a scoped paper is on screen that the view filters would
+ * otherwise hide.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { REL_COLOR } from '../theme'
+import { EXPANDED_COLOR, REL_COLOR } from '../theme'
 import '../graph.css'
 
 /** Props for {@link Legend}. */
 export interface LegendProps {
-  /** The teacher has pulled in at least one off-graph paper (dashed ring). */
+  /** At least one paper was added after the build, by an expansion: the
+   *  reader's own (the detail panel's Expand buttons) or the teacher's
+   *  (faint halo). */
   hasDiscovered: boolean
+  /** At least one paper on the graph has been expanded (pink fill). */
+  hasExpanded?: boolean
   /** At least one scoped paper is drawn past the view filters (dotted ring). */
   hasGhosts: boolean
 }
@@ -27,7 +32,7 @@ export interface LegendProps {
  *
  * @returns The legend row.
  */
-export default function Legend({ hasDiscovered, hasGhosts }: LegendProps) {
+export default function Legend({ hasDiscovered, hasExpanded = false, hasGhosts }: LegendProps) {
   return (
     <div className="legend">
       <span>
@@ -42,10 +47,16 @@ export default function Legend({ hasDiscovered, hasGhosts }: LegendProps) {
         <i style={{ background: REL_COLOR.citation }} />
         Citations
       </span>
+      {hasExpanded && (
+        <span>
+          <i style={{ background: EXPANDED_COLOR }} />
+          Expanded
+        </span>
+      )}
       {hasDiscovered && (
         <span>
           <i className="ring" />
-          Discovered by teacher
+          Added by expanding
         </span>
       )}
       {hasGhosts && (

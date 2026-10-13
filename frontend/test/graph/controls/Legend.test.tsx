@@ -34,14 +34,22 @@ describe('Legend', () => {
     expect(screen.queryByText('Similar')).toBeNull()
   })
 
-  it('hides the discovered entry until the agent has actually acted', () => {
+  it('hides the discovered entry until an expansion has added papers', () => {
     render(<Legend hasDiscovered={false} hasGhosts={false} />)
-    expect(screen.queryByText('Discovered by teacher')).toBeNull()
+    expect(screen.queryByText('Added by expanding')).toBeNull()
   })
 
   it('shows the discovered entry once its flag flips', () => {
     render(<Legend hasDiscovered={true} hasGhosts={false} />)
-    expect(screen.getByText('Discovered by teacher')).toBeTruthy()
+    expect(screen.getByText('Added by expanding')).toBeTruthy()
+  })
+
+  it('names the pink fill only once a paper has been expanded', () => {
+    const { unmount } = render(<Legend hasDiscovered={true} hasGhosts={false} />)
+    expect(screen.queryByText('Expanded')).toBeNull()
+    unmount()
+    render(<Legend hasDiscovered={true} hasExpanded={true} hasGhosts={false} />)
+    expect(screen.getByText('Expanded')).toBeTruthy()
   })
 
   it('names the dotted ring only while a scoped paper is drawn past the filters', () => {

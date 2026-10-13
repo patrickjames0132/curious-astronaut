@@ -10,12 +10,25 @@
  * to its date column — dragging only sets its height, and releasing restores
  * the column pin rather than freeing the node entirely.
  *
+ * **Group drag (v8.18.0's polish):** dragging a paper in the hand-picked
+ * selection (the cyan rings) moves the whole selection with it, by the same
+ * offset each step, and drops every one of them pinned where it lands: the
+ * way a set of selected shapes moves together in a slide editor. A selection
+ * is the set the reader acts on, and moving it is one more action on it.
+ * Dragging a paper outside the selection moves just that paper.
+ *
+ * Only the selection moves. While a focus is held, a selected paper outside
+ * it is dimmed and its ring hidden, so it stays behind (`visibleIds`). And
+ * every other paper is held still for the length of the drag, then let go on
+ * the drop: until then the links towed every paper linked to the selection
+ * along behind it.
+ *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useCallback, useEffect, useState } from 'react'
-import type { Base, VNode } from '../model'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Base, DragStep, VNode } from '../model'
 
 /** Arguments for {@link usePinning}. */
 export interface UsePinningArgs {
@@ -28,6 +41,12 @@ export interface UsePinningArgs {
   /** The ForceGraph2D ref, to reheat the sim after releasing pins. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fgRef: { current: any }
+  /** The hand-picked selection: dragging one of them moves them all. */
+  selectedIds: Set<string>
+  /** The papers on show when a focus is held (the rest are dimmed), else
+   *  null: a group drag carries only the selected papers among them. A ref,
+   *  because the explorer works the focus out after the pins it depends on. */
+  visibleIds: { current: Set<string> | null }
 }
 
 /** What {@link usePinning} returns for GraphExplorer to wire up. */
@@ -36,7 +55,11 @@ export interface PinningApi {
   pinned: Set<string>
   /** Clear pin STATE only (layout switches re-pin the nodes themselves). */
   clearPins: () => void
-  /** Drag-release handler: pin the node where it was dropped. */
+  /** Drag-step handler: carry the rest of the selection along with a
+   *  selected paper (`translate` is the step's offset in graph units). */
+  onNodeDrag: (node: VNode, translate: DragStep) => void
+  /** Drag-release handler: pin the node where it was dropped (and the rest
+   *  of the selection, when it was one of them). */
   onNodeDragEnd: (node: VNode) => void
   /** Pin a node at its current position, or release it if already pinned. */
   togglePin: (id: string) => void
@@ -52,7 +75,14 @@ export interface PinningApi {
  *
  * @returns The pinned-id set + the pin/unpin/release handlers.
  */
-export function usePinning({ base, layout, nodeTimelineX, fgRef }: UsePinningArgs): PinningApi {
+export function usePinning({
+  base,
+  layout,
+  nodeTimelineX,
+  fgRef,
+  selectedIds,
+  visibleIds,
+}: UsePinningArgs): PinningApi {
   const [pinned, setPinned] = useState<Set<string>>(new Set())
 
   // A new graph starts unpinned.
@@ -62,19 +92,79 @@ export function usePinning({ base, layout, nodeTimelineX, fgRef }: UsePinningArg
 
   const clearPins = useCallback(() => setPinned(new Set()), [])
 
+  /** The rest of a dragged paper's group: the other selected papers on show,
+   *  when it's selected; none otherwise. */
+  const companionsOf = useCallback(
+    (node: VNode): VNode[] =>
+      base && selectedIds.has(node.id)
+        ? base.nodes.filter(
+            (other) =>
+              other.id !== node.id &&
+              selectedIds.has(other.id) &&
+              (!visibleIds.current || visibleIds.current.has(other.id)),
+          )
+        : [],
+    [base, selectedIds, visibleIds],
+  )
+
+  // The papers held still during a group drag, with the pins they had before,
+  // to give back on the drop. Null between drags.
+  const heldStill = useRef<Map<VNode, { fx?: number; fy?: number }> | null>(null)
+
+  const onNodeDrag = useCallback(
+    (node: VNode, translate: DragStep) => {
+      const companions = companionsOf(node)
+      if (companions.length && base && !heldStill.current) {
+        const moving = new Set([node, ...companions])
+        heldStill.current = new Map()
+        for (const other of base.nodes) {
+          if (moving.has(other) || typeof other.x !== 'number') continue
+          heldStill.current.set(other, { fx: other.fx, fy: other.fy })
+          other.fx = other.x
+          other.fy = other.y
+        }
+      }
+      for (const other of companions) {
+        if (typeof other.x !== 'number' || typeof other.y !== 'number') continue
+        // Held where the drag puts them, like the dragged paper. In Timeline
+        // only the height moves: x belongs to the date column.
+        other.y += translate.y
+        other.fy = other.y
+        if (layout !== 'timeline') {
+          other.x += translate.x
+          other.fx = other.x
+        }
+      }
+    },
+    [companionsOf, base, layout],
+  )
+
   const onNodeDragEnd = useCallback(
     (node: VNode) => {
-      if (layout === 'timeline') {
-        // Keep the paper at its date column; the drag only sets its height.
-        node.fx = nodeTimelineX(node)
-        node.fy = node.y
-      } else {
-        node.fx = node.x
-        node.fy = node.y
+      // Let go of everything held still, back to the pins it had.
+      for (const [other, pins] of heldStill.current ?? []) {
+        other.fx = pins.fx
+        other.fy = pins.fy
       }
-      setPinned((prev) => new Set(prev).add(node.id))
+      heldStill.current = null
+      const dropped = [node, ...companionsOf(node)]
+      for (const paper of dropped) {
+        if (layout === 'timeline') {
+          // Keep the paper at its date column; the drag only sets its height.
+          paper.fx = nodeTimelineX(paper)
+          paper.fy = paper.y
+        } else {
+          paper.fx = paper.x
+          paper.fy = paper.y
+        }
+      }
+      setPinned((prev) => {
+        const next = new Set(prev)
+        for (const paper of dropped) next.add(paper.id)
+        return next
+      })
     },
-    [layout, nodeTimelineX],
+    [companionsOf, layout, nodeTimelineX],
   )
 
   const togglePin = useCallback(
@@ -115,5 +205,5 @@ export function usePinning({ base, layout, nodeTimelineX, fgRef }: UsePinningArg
     fgRef.current?.d3ReheatSimulation?.()
   }, [base, layout, nodeTimelineX, fgRef])
 
-  return { pinned, clearPins, onNodeDragEnd, togglePin, releaseAll }
+  return { pinned, clearPins, onNodeDrag, onNodeDragEnd, togglePin, releaseAll }
 }

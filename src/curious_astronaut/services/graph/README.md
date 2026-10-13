@@ -12,6 +12,8 @@ graph/
   bands.py   — adaptive recent-band serving: which years get their own citer query
   shape.py   — the per-request BuildShape: adaptive (the app sizes itself) vs.
                user-sized, and the cache-key suffix that keeps them apart
+  growth.py  — growing a built graph with no agent (v8.18.0): expand any paper
+               by one hop
 ```
 
 `__init__.py` re-exports `build_graph`, `Provider`, `resolve_provider`, and the
@@ -287,8 +289,33 @@ cache hit, a deliberate trade.
   stays on S2 in this phase, for both providers — OpenAlex nodes carry
   S2-resolvable ids so this works).
 
+## Growing a built graph — `growth.py` (v8.18.0)
+
+A built graph used to grow only through the researcher's `expand_node`, an
+agent run. `growth.py` lets the reader grow it by hand.
+
+- **`hop_hits(node_id, hop, provider, shape, arxiv_id)`** fetches one hop,
+  sized like the seed's neighbourhood: **every reference** (a reference list
+  is short), and **the citers the tau rule picks** over the paper's whole
+  history, through the build's own citation step (`build.s2_citations`,
+  corpus first with the live fallback, or `build.openalex_citations`) and the
+  reader's build shape. So one setting, the build shape, sizes every build:
+  the seed's and each expansion's. Day-cached per provider, hop, paper and
+  shape (`hop:v1:`). Until v8.18.0's polish an expansion took the
+  researcher's `expand_limit` (8), its citers the newest page of S2's live
+  endpoint, so they leaned recent; the researcher's agentic `expand_node`
+  still takes its budget.
+- **`expand(origin_id, hop, hits, known_ids, limit=None)`** decides what one
+  hop of references or citations adds. It is pure: `hop_hits` fetches and
+  this picks. Hits already on the graph cost nothing and are always linked,
+  since the citation is real even when both papers were there. Every *new*
+  paper joins them unless a `limit` caps them. Edges follow the build's
+  direction rule: citing → cited.
+
 ## Who uses it
 
+- **`routes/graph.py`** — `POST /api/graph/expand` calls `growth.hop_hits`
+  and `growth.expand`.
 - **`routes/graph.py`** — `GET /api/graph?seed=…&provider=…&refresh=…` calls
   `build_graph` and returns `graph.model_dump()` as JSON, catching `s2.S2Error`
   *and* `openalex.OpenAlexError` and turning either into an HTTP 502 (named for
@@ -316,6 +343,12 @@ corpus receives `budget.computed_cite_limit` (measure the pool you already
 fetched), the live fallback `budget.select_landmarks` (band it, since a prefix of a
 truncated pool strands the recent years), and both take the flat
 `UNBOUNDED_LANDMARK_CAP` payload guard (`integrations/caps.py`) only as a ceiling.
+
+**`test_growth.py`** covers `growth.py`: an expansion links papers already on
+the graph and still adds `limit` new ones (every one with no limit), edge
+directions per hop, and no self-loops; `hop_hits` takes every reference,
+bands citers through the build's tau step, caches per shape, and resolves
+an OpenAlex work first.
 
 The adaptive budget's own tests live in **`test_budget.py`** — the two pure rules
 and the trim built on them. The latest-band serving tests are in

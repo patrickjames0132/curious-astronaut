@@ -7,7 +7,8 @@ behind it.
 detail/
   useSelection.ts — selection id, lazy hydration/figures/code/categories, click gesture
   DetailPanel.tsx — the panel (badges, meta incl. the publication venue,
-                    summary, category tags, actions, code links, figures)
+                    summary, category tags, actions, the Expand row, code
+                    links, figures)
   detail.css      — styles (ported light-touch)
 ```
 
@@ -86,9 +87,11 @@ figures.
   tags stay arXiv-gated on purpose: HF Papers and arXiv's own metadata are
   arXiv-keyed — a journal paper's node just never requests them.
 - **The click gesture:** single click selects; a quick (<350 ms) second
-  click on the same node re-seeds the whole graph on it — wandering the
-  literature node-to-node. Re-seeding uses the S2 paperId so journal
-  papers work as seeds too.
+  click on the same node is a double-click, handed to `onDoubleClick`:
+  `GraphExplorer` re-seeds the whole graph on it — wandering the literature
+  node-to-node, by node id so journal papers work as seeds too. (v8.18.0's
+  polish gave it to the held focus for one round, then gave it back; the
+  focus is a ⌘-click, handled in `GraphExplorer`'s canvas click.)
 - **`DetailPanel` is purely presentational**, and its `CodeRow`/
   `CodeSection`/`CategoryTags` children are single-parent — nested in the
   parent's file per the hybrid structure rule. The HF section caps rows
@@ -100,6 +103,29 @@ figures.
   filter's clickable `.cat-chip` — nothing to toggle here) between the
   meta line and the TL;DR.
 
+- **"Expand on this graph" (v8.18.0).** Every paper but the seed gets two
+  buttons, **+ References** and **+ Citations**. Each pulls that paper's
+  references (all of them) or citers (the tau rule's pick over its whole
+  history, as the seed's are, by your build shape) onto the graph you're on, with no new
+  thread and no agent run, and the paper moves out with them: in Force, a
+  cluster of its own laid out like the seed's (references west, citers
+  east), with the papers it shares with the seed between the two; in
+  Timeline, a stream above the seed's. The view refits once it settles. The seed has
+  none, because the build already drew its neighbourhood. A status line says what the last hop did ("Added 8 of
+  its citers.", or that its top ones were on the graph already). **A hop in
+  flight spins inside its button** (the app's shared `.spin`); **one that
+  has run wears a green ✓** (`--done-ink`), faded in when it just finished
+  in front of the reader (`fresh`) and simply shown when read back after a
+  reload. **Reclicking the ✓ undoes the hop** (on hover it turns to ✕ to
+  say so): its papers leave the graph unless something else still links
+  them, and the line says how many went. `aria-pressed` carries the state,
+  since the icons are hidden from the accessible name. Until v8.18.0's
+  polish the ✓ was disabled and forgotten on reload. The panel stays
+  presentational: `GraphExplorer` derives each hop's ✓ from the discovery
+  lists (`graph/expansions.ts`, saved with the thread, so it persists) and
+  keeps only what's in flight, failed or just undone in its own
+  `ExpansionStatus` record (cleared with each new graph).
+  See `graph/hooks/README.md` for how the result merges.
 - **It slides in and out, and the graph glides with it (v8.9.0).** The
   panel keeps its full width and a negative `margin-right` pulls it past the
   edge (`panel-in` / `panel-out` in `index.css`), so its text never reflows

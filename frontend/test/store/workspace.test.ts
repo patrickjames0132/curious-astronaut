@@ -15,6 +15,8 @@ import { describe, expect, it, vi } from 'vitest'
 import type { GraphNode, GraphResponse } from '../../src/api'
 import reducer, {
   buildSaveBody,
+  discoveryMerged,
+  expansionUndone,
   loadGraph,
   saveWorkspace,
   nodeSelectionAdded,
@@ -656,5 +658,26 @@ describe('an abandoned answer is marked when it is saved', () => {
     // A user turn is not a failed answer.
     const body = buildSaveBody(chatEndingWith([{ role: 'user', text: 'q' }]), 'Whatever')
     expect(body.chat[0].failed).toBeUndefined()
+  })
+})
+
+describe('expansionUndone', () => {
+  it('takes one Expand hop back off the discovery lists, leaving the other', () => {
+    const graph = makeGraph([makeNode('seed', { is_seed: true }), makeNode('origin')])
+    graph.edges = [{ source: 'origin', target: 'seed', type: 'citation' } as never]
+    let state: WorkspaceState = { ...initial(), graph }
+    state = reducer(
+      state,
+      discoveryMerged({
+        nodes: [makeNode('newRef'), makeNode('newCiter', { rels: ['citation'] })],
+        edges: [
+          { source: 'origin', target: 'newRef', type: 'reference' },
+          { source: 'newCiter', target: 'origin', type: 'citation' },
+        ] as never,
+      }),
+    )
+    state = reducer(state, expansionUndone({ nodeId: 'origin', hop: 'references' }))
+    expect(state.discoveredNodes.map((node) => node.id)).toEqual(['newCiter'])
+    expect(state.discoveredEdges).toHaveLength(1)
   })
 })

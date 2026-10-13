@@ -6,6 +6,7 @@ detail hydration, and a paper's figures (proxied from ar5iv).
 
 GET /api/graph?seed=&refresh=      -> neighborhood graph for a seed paper
 GET /api/graph/stream?seed=&refresh= -> same, as SSE with coarse build progress
+POST /api/graph/expand             -> one hop of references/citations from any paper
 GET /api/paper/<arxiv_id>          -> full details for one paper (panel hydrate)
 POST /api/paper/tldr               -> generate (or recall) a paper's TL;DR
 GET /api/paper/<ref>/figures       -> figures + captions (ar5iv, else mined OA PDF)
@@ -39,7 +40,7 @@ from ..agents.orchestrators import summarizer
 from ..integrations import arxiv, caps, huggingface, openalex, semantic_scholar
 from ..services import graph as graph_service
 from ..services import pdf as pdf_service
-from ..services.graph import Provider
+from ..services.graph import Provider, growth
 from ..services.graph.shape import BuildShape
 from ..storage import cache
 from .sse import sse, sse_response
@@ -289,6 +290,58 @@ def api_graph_stream() -> ResponseReturnValue:
     provider = _requested_provider()
     refresh = request.args.get("refresh", "").lower() in ("1", "true", "yes")
     return sse_response(_build_stream(seed, provider, refresh, _requested_shape()))
+
+
+@bp.post("/api/graph/expand")
+def api_graph_expand() -> ResponseReturnValue:
+    """Expand any paper on the Paper Graph: one hop of references or citations.
+
+    The detail panel's two Expand buttons (v8.18.0). The reader's twin of the
+    researcher's ``expand_node``, without an agent run, and sized like the
+    seed's own neighbourhood (``growth.hop_hits``): every reference, and the
+    citers the tau rule picks over the paper's whole history, by the same
+    build shape the graph was built with. Until v8.18.0's polish it took the
+    researcher's ``expand_limit`` (8) per hop, its citers the newest few.
+
+    JSON body:
+        id: The paper to expand (a node id on the graph).
+        hop: ``references`` or ``citations``.
+        provider: The graph's provider.
+        known_ids: Every paper id on the graph now, so the hop adds new papers
+            and only links the ones already there.
+        arxiv_id: The paper's arXiv id, when it has one (optional; the corpus
+            resolves citers on it first).
+
+    Query args:
+        adaptive, cluster_start, bands, per_band: The reader's build shape,
+            as the graph stream takes it (see :func:`_requested_shape`).
+
+    Returns:
+        JSON ``{nodes, edges}``: the new papers (flagged ``discovered``, as the
+        researcher's are) and the edges. HTTP 400 for a missing id or a bad
+        hop, 502 when the provider is unavailable.
+    """
+    payload = request.get_json(silent=True) or {}
+    node_id = str(payload.get("id") or "").strip()
+    hop = payload.get("hop")
+    if not node_id or hop not in ("references", "citations"):
+        return jsonify({"error": "need an 'id' and a 'hop' of references or citations"}), 400
+    provider = graph_service.resolve_provider(payload.get("provider"))
+    known = payload.get("known_ids")
+    known_ids = {str(item) for item in known} if isinstance(known, list) else set()
+    arxiv_id = str(payload.get("arxiv_id") or "").strip() or None
+    try:
+        hits = growth.hop_hits(node_id, hop, provider, _requested_shape(), arxiv_id)
+    except _BUILD_ERRORS as exc:
+        current_app.logger.warning("expand failed for %s (%s, %s): %s", node_id, hop, provider, exc)
+        return jsonify({"error": f"{_provider_name(provider)} is unavailable — try again."}), 502
+    grown = growth.expand(node_id, hop, hits, known_ids)
+    return jsonify(
+        {
+            "nodes": [{**node.model_dump(), "discovered": True} for node in grown.nodes],
+            "edges": [edge.model_dump() for edge in grown.edges],
+        }
+    )
 
 
 @bp.get("/api/paper/<path:paper_ref>")

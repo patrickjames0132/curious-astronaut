@@ -54,6 +54,8 @@
   --knowledge-paper-ink: #ffd166;
   --knowledge-concept-ink: #b197fc;
   --knowledge-known-ink: #22c55e;
+  /* A finished action's ✓ (the detail panel's Expand buttons). */
+  --done-ink: #4ade80;
   --shadow: rgba(0, 0, 0, 0.45);
   --hover: rgba(255, 255, 255, 0.05);
   /* Translucent surfaces that float over the canvas (controls, legend) —
@@ -147,6 +149,7 @@
   --knowledge-paper-ink: #a86f00;
   --knowledge-concept-ink: #7048d4;
   --knowledge-known-ink: #15803d;
+  --done-ink: #15803d;
   /* Softer on light — a 0.45 black shadow reads as grime on white. */
   --shadow: rgba(11, 21, 36, 0.12);
   --hover: rgba(11, 21, 36, 0.05);

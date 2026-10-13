@@ -31,8 +31,9 @@ keeps its internal names (the `'graph'` tool id, `GraphExplorer`,
 Opening a card dispatches `openTool` (`store/workspace.ts`). **Clicking a
 thread in the rail always lands here** (`openThread`, since v8.16.0), even
 the thread already on screen; until then a revisit reopened the tool last
-used. Opening a paper *for* a tool still lands on that tool: a node's
-double-click on the graph, or a citation's graph icon. A thread saved or
+used. Opening a paper *for* a tool still lands on that tool: the detail
+panel's "Explore in a thread", a node's double-click on the graph, or a
+citation's graph icon. A thread saved or
 reloaded on a tool reopens there too. The ↑ at the top of a tool returns here, and the graph stays built in
 memory, so going back to it is free. It was a pill bearing the paper's title
 until 5b's review: titles run long, and "up" is where the cards are. **Nothing is built until a card is

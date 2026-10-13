@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { useDiscovery } from '../../../src/graph/hooks/useDiscovery'
 import type { GraphEdge, GraphNode } from '../../../src/api'
 import type { Base, VNode } from '../../../src/graph/model'
@@ -61,11 +61,13 @@ function runDiscover(
   layout: 'force' | 'timeline',
   nodes: GraphNode[],
   edges: GraphEdge[],
+  pinned: Set<string> = new Set(),
 ) {
   const { result } = renderHook(() =>
     useDiscovery({
       base,
       layout,
+      pinned,
       nodeTimelineX: (node) => (typeof node.year === 'number' ? node.year * 10 : 0),
       fgRef: { current: null },
       onYearLo: () => {},
@@ -100,10 +102,11 @@ describe('useDiscovery origin tracking', () => {
     expect(base.nodes.find((node) => node.id === 'searchHit')!._origin).toBeUndefined()
   })
 
-  it('bands a Timeline satellite outward in y, past its origin', () => {
+  it('starts a Timeline group at its paper’s height, to glide up into its stream', () => {
     const base = makeBase([
       makeNode('seed', { is_seed: true, y: 0 }),
       makeNode('expanded', { y: 80 }),
+      makeNode('high', { y: -200 }),
     ])
     runDiscover(
       base,
@@ -112,10 +115,48 @@ describe('useDiscovery origin tracking', () => {
       [{ source: 'expanded', target: 'found', type: 'reference' } as GraphEdge],
     )
     const merged = base.nodes.find((node) => node.id === 'found')!
-    // Positive-y origin pushes its satellites further positive (outward),
-    // and the date column still pins x.
-    expect(merged.y!).toBeGreaterThan(80 + 100)
+    // Near the paper it was found from, not teleported above everything
+    // (the stream force carries it up); the date column still pins x.
+    expect(Math.abs(merged.y! - 80)).toBeLessThanOrEqual(20)
     expect(merged.fx).toBe(2020 * 10)
+  })
+
+  it('thaws the whole frozen timeline when a group forms, all but the reader’s pins', () => {
+    // The group's papers have to get past the seed's stream to their own, so
+    // nothing may stay frozen in their way; what the reader pinned stays put.
+    const base = makeBase([
+      makeNode('seed', { is_seed: true, y: 0, fy: 0 }),
+      makeNode('expanded', { y: 80, fy: 80 }),
+      makeNode('neighbour', { y: 40, fy: 40 }),
+      makeNode('pinnedOne', { y: 20, fy: 20 }),
+    ])
+    runDiscover(
+      base,
+      'timeline',
+      [discovery('found')],
+      [{ source: 'expanded', target: 'found', type: 'reference' } as GraphEdge],
+      new Set(['pinnedOne']),
+    )
+    const byId = new Map(base.nodes.map((node) => [node.id, node]))
+    expect(byId.get('expanded')!.fy).toBeUndefined()
+    expect(byId.get('neighbour')!.fy).toBeUndefined()
+    expect(byId.get('seed')!.fy).toBeUndefined()
+    expect(byId.get('pinnedOne')!.fy).toBe(20)
+  })
+
+  it('leaves a pinned expanded paper where the user put it', () => {
+    const base = makeBase([
+      makeNode('seed', { is_seed: true, y: 0 }),
+      makeNode('expanded', { y: 80, fy: 80 }),
+    ])
+    runDiscover(
+      base,
+      'force',
+      [discovery('found')],
+      [{ source: 'expanded', target: 'found', type: 'reference' } as GraphEdge],
+      new Set(['expanded']),
+    )
+    expect(base.nodes.find((node) => node.id === 'expanded')!.fy).toBe(80)
   })
 })
 
@@ -152,5 +193,79 @@ describe('useDiscovery edge safety', () => {
       ],
     )
     expect(base.links).toHaveLength(2)
+  })
+
+  it('leaves out a discovery stranded off the canvas, and one found only from it', () => {
+    // Saved against a paper the rebuilt graph names differently, so every
+    // edge points at nothing drawn: it would only float loose.
+    const base = makeBase([makeNode('seed', { is_seed: true })])
+    runDiscover(
+      base,
+      'force',
+      [discovery('stranded'), discovery('fromStranded'), discovery('kept')],
+      [
+        { source: 'gone', target: 'stranded', type: 'reference' } as GraphEdge,
+        { source: 'stranded', target: 'fromStranded', type: 'reference' } as GraphEdge,
+        { source: 'seed', target: 'kept', type: 'reference' } as GraphEdge,
+      ],
+    )
+    expect(base.nodes.map((node) => node.id)).toEqual(['seed', 'kept'])
+  })
+})
+
+describe('useDiscovery prune', () => {
+  it('lets go of the papers and edges the store no longer holds, in place', () => {
+    const origin = makeNode('origin')
+    const member = makeNode('member', { _origin: 'origin', rels: ['reference'] })
+    const base = makeBase([makeNode('seed', { is_seed: true }), origin, member])
+    base.counts.reference = 1
+    base.links.push(
+      { _s: 'seed', _t: 'origin', type: 'citation' } as never,
+      { _s: 'origin', _t: 'member', type: 'reference' } as never,
+    )
+    const nodesArray = base.nodes
+    const { result } = renderHook(() =>
+      useDiscovery({
+        base,
+        layout: 'force',
+        pinned: new Set(),
+        nodeTimelineX: () => 0,
+        fgRef: { current: null },
+        onYearLo: () => {},
+        onYearHi: () => {},
+      }),
+    )
+    act(() =>
+      result.current.onPrune(new Set(['seed', 'origin']), new Set(['seed|origin|citation'])),
+    )
+    // Same array, so the sim's node objects survive.
+    expect(base.nodes).toBe(nodesArray)
+    expect(base.nodes.map((node) => node.id)).toEqual(['seed', 'origin'])
+    expect(base.links).toHaveLength(1)
+    expect(base.counts.reference).toBe(0)
+    expect(result.current.graphVersion).toBe(1)
+  })
+
+  it('thaws the timeline so an undone paper comes back down to the seed’s stream', () => {
+    const origin = makeNode('origin', { y: -400, fy: -400 })
+    const base = makeBase([
+      makeNode('seed', { is_seed: true, y: 0, fy: 0 }),
+      origin,
+      makeNode('member', { _origin: 'origin' }),
+    ])
+    base.links.push({ _s: 'origin', _t: 'member', type: 'reference' } as never)
+    const { result } = renderHook(() =>
+      useDiscovery({
+        base,
+        layout: 'timeline',
+        pinned: new Set(),
+        nodeTimelineX: () => 0,
+        fgRef: { current: null },
+        onYearLo: () => {},
+        onYearHi: () => {},
+      }),
+    )
+    act(() => result.current.onPrune(new Set(['seed', 'origin']), new Set()))
+    expect(origin.fy).toBeUndefined()
   })
 })

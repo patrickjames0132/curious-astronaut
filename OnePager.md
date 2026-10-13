@@ -764,13 +764,6 @@ than deleted so the plan doesn't get re-proposed.
       (cheap on a filesystem with reflinks, expensive otherwise) or whether
       `CURRENT` has to move aside for the duration.
 
-- [ ] **Expand any paper on the Paper Graph, not just the seed** — a button
-      (in the detail panel, probably) that pulls a non-seed paper's
-      references and citations onto the **same graph**, without opening a new
-      thread for it. The reader can then compare two papers' neighbourhoods
-      side by side without asking the agent, which saves tokens; the agent's
-      `expand_node` stays available. Reuse what `expand_node` already does
-      server-side, and keep v7.5.0's rule: only real edges. *(From the `todos.md` inbox, 2026-10-09.)*
 - [ ] **Show the citation edges between non-seed papers** — a toggle that
       draws the edges among the papers already on the graph (one reference
       citing another), not just the edges to the seed. Today finding these
@@ -779,6 +772,13 @@ than deleted so the plan doesn't get re-proposed.
       graph, and how many lines the canvas can take before it turns into a
       hairball. Related: "A precise overlapping references/citations skill"
       (Teacher & agent reach). *(From the `todos.md` inbox, 2026-10-09.)*
+      **A first cut exists, parked on the local branch `feature/paper-links`**
+      (one WIP commit, split out of v8.18.0 on 2026-10-13 because it still
+      needed polish): `POST /api/graph/links`, per-paper reference lists cached
+      a day, a "Links between papers" switch, and a Connected-Papers-style
+      Force layout where the links shape the formation. Rebase it onto main
+      and keep only the links work. Open from the browser rounds: the connected
+      burst's look, and how the links play with expansion groups and streams.
 
 ### UI & rendering polish
 

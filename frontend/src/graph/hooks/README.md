@@ -15,8 +15,9 @@ hooks/
   useMarquee.ts     — alt-drag node selection (the teacher's scope)
   usePinning.ts     — user pins (drag / toggle / release), timeline-aware
   useTimeline.ts    — BOTH layouts' physics (the one owner of the d3 force
-                      slots): Timeline's year pinning/collide/axis painting,
-                      and Force's relation clustering (../clusterForce.ts)
+                      slots): Timeline's year pinning/collide/axis painting
+                      and expansion streams (../streamForce.ts), and Force's
+                      clustering (../clusterForce.ts), connected or not
 ```
 
 ## `useDiscovery` — the graph grows mid-conversation
@@ -41,10 +42,23 @@ tools) into the live graph:
   even though `base` is the same object. Deliberate, load-bearing, and the
   opposite of idiomatic-React immutability — RFG's ownership of the objects
   rules the immutable-copy style out.
+- **Prune, the other way round (v8.18.0):** `onPrune(keepNodeIds,
+  keepLinkKeys)` splices out, in place, whatever the store's lists no longer
+  hold: what undoing an Expand hop took away. It decrements the counts, drops
+  an `_origin` whose paper went, bumps `graphVersion` and reheats.
+  `GraphExplorer` runs it before every merge, over the graph's own papers
+  and edges plus the discovery lists.
 - `discoveredNodes` mirrors what was merged, kept separately so follow-up
   questions can extend the researcher's grounding without rebuilding
   `base`; on a restored session it's re-collected from the saved nodes'
   `discovered` flags.
+
+**The reader's Expand buttons use the same merge (v8.18.0).** The detail
+panel's Expand row calls `/api/graph/expand`, and `GraphExplorer` dispatches
+what comes back as `discoveryMerged`, just as a researcher discovery would.
+So an expanded paper is drawn, anchored, saved with the thread, and in the
+assistant's scope like any other, and it wears the same faint halo. The
+legend now says *"Added by expanding"*, since the reader expands too.
 
 ## `useMarquee` — hand-pick the teacher's scope
 
@@ -105,6 +119,21 @@ own the key, since both bind their own Esc-to-close.
 Pins are just `fx`/`fy`, but their *semantics* are layout-aware:
 
 - **Force mode:** drag pins where dropped; unpin frees the node entirely.
+- **Group drag (v8.18.0's polish):** dragging a paper in the hand-picked
+  selection (the cyan rings) carries the rest of it along: `onNodeDrag`
+  moves each other selected paper by the step's offset and holds it there,
+  and `onNodeDragEnd` pins every one of them where it lands. In Timeline
+  only their heights move, and the drop re-pins their date columns.
+  Dragging an unselected paper moves just that paper. A selection is the
+  set the reader acts on, the way selected shapes move together in a slide
+  editor; asking the assistant about it is one action and moving it another.
+  **Only the selection moves:** a selected paper outside a held focus is
+  dimmed and its ring hidden, so it stays behind (`visibleIds`, a ref, since
+  the focus is worked out after the pins it depends on); and for the length
+  of the drag every other paper is held still (pinned at its position, its
+  own pins given back on the drop). The first cut did neither, and the
+  links towed every paper linked to the selection along behind it. After the drop the sim re-settles, so a
+  paper strongly linked to the moved ones may still drift toward them.
 - **Timeline mode:** a node's x is ALWAYS its date column — dragging only
   sets height, unpinning restores the column pin, and `releaseAll` keeps
   the date structure. `nodeTimelineX` maps year + month fraction to x, so
@@ -140,27 +169,62 @@ Pins are just `fx`/`fy`, but their *semantics* are layout-aware:
   captured once and restored on the switch to Timeline, and the cluster
   force is removed there (sector pulls would fight the year columns).
   `useTimeline` is deliberately the ONE owner of the 'collide'/'link'/
-  'cluster' force slots — a second hook writing them would fight it on
-  every layout switch. A new graph re-applies whichever layout is active
-  (one shared effect); discoveries re-balance the orbits for free via the
-  force's own `initialize`.
-- **Expansion satellites (v5.24.0):** a discovery anchored on a non-seed
-  node gets `_origin` stamped by `useDiscovery`'s merge, and the cluster
-  force gathers it just BEYOND that origin (on the seed→origin ray, its
-  own √population offset) instead of absorbing it into a seed sector —
-  before this, a dashed-ring `reference` discovery was torn away from the
-  node it was expanded from and dumped into the blue cluster. Satellite
-  links keep a short distance (they tie a satellite to its origin, not to
-  a sector orbit — the accessor checks the resolved endpoints for
-  `_origin`), and satellites don't inflate the sector populations. In
-  **Timeline** (x date-pinned, heights frozen post-settle) the same merge
-  bands satellites outward in y past their origin's side of the mass, so
-  the reheat spreads them by collide outside the settled columns rather
-  than inside them. `_origin` is sim-side only — `cleanNode` never
-  persists it, and a restored session (whose discoveries arrive folded
-  into the graph, not through this merge) re-derives it in
-  `GraphExplorer`'s base build via `clusterForce.deriveOrigins`: same
-  rule, the first edge's other endpoint when it isn't the seed.
+  'cluster'/'stream' force slots — a second hook writing them would fight
+  it on every layout switch. A new graph re-applies whichever layout is
+  active (one shared effect); discoveries re-balance the orbits for free via
+  the force's own `initialize`, and the link accessors recompute their
+  groups at each link initialization (d3 asks for link 0 first).
+- **Expansion groups (v8.18.0; satellites since v5.24.0):** a discovery
+  anchored on a non-seed node gets `_origin` stamped by `useDiscovery`'s
+  merge. `clusterForce.expansionGroups` gathers each origin and its
+  satellites into a group. In **Force**, the group, **the expanded paper
+  included**, leaves the formation for an anchor of its own
+  (`groupAnchors`): past the formation's outer edge, on its origin's side,
+  angled off the relation axis so it never lands on a sector, a second
+  group on the same side at the next heading. Inside the group the layout
+  repeats the seed's at a smaller scale: the expanded paper at the anchor,
+  its references to the west, its citers to the east
+  (`groupSideRadius`). A paper the expansion only linked to, already on the
+  graph, is no member but a **bridge** (`bridgesOf`): it leaves its sector
+  for the midpoint between its sector and the group (the centroid, when it
+  links to several groups), so the papers the two neighbourhoods share sit
+  visibly between them. All of it is one plan, `layoutPlan`, a home per node
+  as an offset from the seed; the cluster force pulls to the homes, and the
+  link force measures every link that touches a group or a bridge as the
+  distance between its two homes (at least 40), so the links never fight the
+  clusters. (Holding the seed at the centre with the sectors on was tried
+  and reverted: the seed has to slide out of its citers to the apex of their
+  cone, and held, they set into a ring all the way round it.) After an expansion
+  the reader asked for (the detail panel's buttons, not the researcher's),
+  the camera refits once the sim settles. In **Timeline**, `../streamForce.ts` gives each
+  group a band of its own **above** the seed's timeline, stacked upward in
+  the order the groups formed, so an expansion reads as a parallel stream.
+  The merge starts new papers at their paper's height (they glide up into
+  the stream; until v8.18.0 they appeared above everything at once). A
+  group forming, or an Expand hop undone (`onPrune`), **thaws the whole
+  timeline** (`thawTimeline`): Timeline freezes every height once the sim
+  stops (`freezeSettledY`), and only the expanded paper used to be released,
+  so a new group wedged into the frozen seed's stream on its way up and an
+  undone paper stayed where its group had been. Everything but the reader's
+  own pins re-settles, as the Release button does. And in Timeline **no link
+  pulls across streams**: one from a group to the seed's stream dragged the
+  papers the expansion shared with the seed halfway up, a third row, and
+  tugged the expanded paper down; each stream holds its own. **Every move is a glide:** the cluster force caps each node's
+  speed after the other forces have pushed (`capSpeed`: at most `GLIDE`,
+  4%, of the distance left to its home a tick, never below `MAX_SPEED`, 12),
+  and the stream force caps its vertical pull the same way, so every trip
+  is an ease-out of about two seconds. A flat cap of 12 was tried first: it
+  glided, but stranded a Timeline → Force switch, whose papers start
+  thousands of units out along the year axis, with the references still
+  strung out in a line when the sim cooled.
+  Until v8.18.0 the satellites gathered just beyond an origin that stayed in
+  its sector (Force) or banded outward from its side of the mass
+  (Timeline), which read as a clump stuck to the formation. `_origin` is
+  sim-side only — `cleanNode` never persists it, and a restored session
+  (whose discoveries arrive folded into the graph, not through this merge)
+  re-derives it in `GraphExplorer`'s base build via
+  `clusterForce.deriveOrigins`: same rule, the first edge's other endpoint
+  when it isn't the seed.
 
 ## How it's verified
 
