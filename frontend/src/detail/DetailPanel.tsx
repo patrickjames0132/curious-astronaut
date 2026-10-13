@@ -37,6 +37,7 @@ import type { VNode } from '../graph/model'
 import { formatPubDate } from '../graph/model'
 import { BADGE_COLOR } from '../graph/theme'
 import MathText from '../notation/MathText'
+import MarkIcon from '../ui/MarkIcon'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import './detail.css'
 
@@ -158,7 +159,7 @@ function ExpandRow({
           return (
             <button
               key={hop}
-              className={`ghost-btn${done ? ' done' : ''}${busy ? ' busy' : ''}`}
+              className={`ghost-btn btn-marked${done ? ' done' : ''}${busy ? ' busy' : ''}`}
               disabled={busy || (done && !undoable)}
               aria-busy={busy}
               aria-pressed={done}
@@ -171,17 +172,23 @@ function ExpandRow({
                     : 'Add the papers citing this one to the graph, picked over its whole history the way the seed’s are'
               }
             >
-              {busy ? (
-                <span className="spin" aria-hidden="true" />
-              ) : done ? (
-                <span className={`expand-mark${status.fresh ? ' fresh' : ''}`} aria-hidden="true">
-                  <span className="expand-check">✓</span>
-                  <span className="expand-undo">✕</span>
-                </span>
-              ) : (
-                <span aria-hidden="true">+</span>
-              )}{' '}
-              {label}
+              <span className="btn-mark" aria-hidden="true">
+                {busy ? (
+                  <span className="spin" />
+                ) : done ? (
+                  <span className={`expand-mark${status.fresh ? ' fresh' : ''}`}>
+                    <span className="expand-check">
+                      <MarkIcon kind="check" />
+                    </span>
+                    <span className="expand-undo">
+                      <MarkIcon kind="cross" />
+                    </span>
+                  </span>
+                ) : (
+                  <MarkIcon kind="plus" />
+                )}
+              </span>
+              <span className="btn-label">{label}</span>
             </button>
           )
         })}

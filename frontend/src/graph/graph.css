@@ -261,6 +261,41 @@
   background: var(--c);
 }
 
+/* The "Links between papers" switch (v8.18.0), under the relation chips, with
+   its count (or lookup state) at the far end of the row. */
+/* The interconnected-links button, under the relation chips: the same ghost
+   button as the detail panel's Expand row, a spinner in it while the links
+   load and the graph settles, and a status line under it. */
+.ctrl-links {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.ctrl-links-btn {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.ctrl-links-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.ctrl-links-btn:disabled {
+  cursor: default;
+}
+.ctrl-links-status {
+  margin-top: 6px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ctrl-links-status.error {
+  color: #ef4444;
+}
+
 /* Build user-sized: each relation is its filter chip sitting atop its own count
    slider. The chip is the same pill toggle as always (highlighted while on); the
    slider under it trims how many of that relation show. Full-width slider with

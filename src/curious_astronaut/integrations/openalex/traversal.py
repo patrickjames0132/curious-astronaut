@@ -545,6 +545,97 @@ def _hydrate_ids(work_ids: list[str]) -> list[dict]:
     return entries
 
 
+#: What ``reference_keys`` asks OpenAlex for: identity and the bibliography.
+_REFERENCE_SELECT = "id,doi,referenced_works"
+
+
+def _reference_query(filter_clause: str) -> list[dict]:
+    """One OR-filtered page of works with their reference lists.
+
+    Args:
+        filter_clause: A ``doi:a|b`` or ``openalex_id:W1|W2`` filter, at most
+            ``_OR_FILTER_MAX`` values.
+
+    Returns:
+        The raw works (``id``, ``doi``, ``referenced_works``).
+
+    Raises:
+        client.OpenAlexError: When the request fails after retries.
+    """
+    params = {
+        "filter": filter_clause,
+        "per-page": str(_OR_FILTER_MAX),
+        "select": _REFERENCE_SELECT,
+    }
+    data = client.request(client.works_url(params))
+    results = data.get("results") if isinstance(data, dict) else None
+    return [work for work in results or [] if isinstance(work, dict)]
+
+
+def reference_keys(node_ids: list[str]) -> dict[str, tuple[str, list[str]]]:
+    """Each node's OpenAlex work id and the work ids it cites, in batches.
+
+    The OpenAlex half of finding the citations *among* a graph's papers. A
+    graph node's id is ``DOI:…``, ``ARXIV:…`` or a bare ``W…`` (see
+    ``nodes.resolvable_id``), while a work's ``referenced_works`` are always
+    ``W…``; so this resolves each node to its work first, and the caller
+    matches on work ids. DOIs go through the ``doi:`` OR filter and bare ids
+    through ``openalex_id:``. An ``ARXIV:`` node has no filterable id of its
+    own (see ``resolve_work``) and is tried by its arXiv-minted DOI, which
+    resolves when the preprint is the canonical record. That is the only kind
+    of node ``resolvable_id`` names ``ARXIV:`` in the first place (anything
+    with a DOI is named by it), so the miss rate is small. A node that still
+    resolves to nothing just contributes no edges.
+
+    Args:
+        node_ids: The graph's node ids (OpenAlex-provider ids).
+
+    Returns:
+        A map of node id to ``(its W id, the W ids it cites)``, for the nodes
+        that resolved.
+
+    Raises:
+        client.OpenAlexError: When a request fails after retries.
+    """
+    by_doi: dict[str, str] = {}
+    by_work: dict[str, str] = {}
+    for node_id in node_ids:
+        if node_id.startswith("DOI:"):
+            doi = node_id[4:].lower()
+        elif node_id.startswith("ARXIV:"):
+            doi = f"10.48550/arxiv.{node_id[6:]}".lower()
+        elif re.fullmatch(r"W\d+", node_id):
+            by_work[node_id] = node_id
+            continue
+        else:
+            continue
+        # A comma or pipe would split the filter itself.
+        if "," not in doi and "|" not in doi:
+            by_doi.setdefault(doi, node_id)
+
+    out: dict[str, tuple[str, list[str]]] = {}
+
+    def keep(work: dict, node_id: str | None) -> None:
+        work_id = nodes.bare_openalex_id(work.get("id"))
+        if not node_id or not work_id or node_id in out:
+            return
+        cited = [nodes.bare_openalex_id(url) for url in work.get("referenced_works") or []]
+        out[node_id] = (work_id, [ref for ref in cited if ref])
+
+    dois = list(by_doi)
+    for start in range(0, len(dois), _OR_FILTER_MAX):
+        chunk = dois[start : start + _OR_FILTER_MAX]
+        for work in _reference_query("doi:" + "|".join(chunk)):
+            doi = (nodes.bare_doi(work.get("doi")) or "").lower()
+            keep(work, by_doi.get(doi))
+    works = list(by_work)
+    for start in range(0, len(works), _OR_FILTER_MAX):
+        chunk = works[start : start + _OR_FILTER_MAX]
+        for work in _reference_query("openalex_id:" + "|".join(chunk)):
+            keep(work, by_work.get(nodes.bare_openalex_id(work.get("id")) or ""))
+    return out
+
+
 def related_works(work_id: str, limit: int | None) -> list[dict]:
     """A paper's OpenAlex *related works* — the OA analogue of S2's SPECTER2
     recommendations (the "similar" hop).

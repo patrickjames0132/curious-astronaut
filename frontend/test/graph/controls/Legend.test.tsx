@@ -60,6 +60,11 @@ describe('Legend', () => {
     expect(screen.getByText('In scope, hidden by your filters')).toBeTruthy()
   })
 
+  it('needs no entry for the links between papers, which wear the relation colours', () => {
+    render(<Legend hasDiscovered={false} hasGhosts={false} />)
+    expect(screen.queryByText('Cites (between papers)')).toBeNull()
+  })
+
   // The legend lists what the graph can contain. A "Found by search" entry sat
   // here until v7.5.0, when the `search` and `similar` relations were removed
   // outright — an entry for a colour nothing can be is worse than no entry.

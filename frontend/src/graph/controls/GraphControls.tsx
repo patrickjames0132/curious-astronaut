@@ -24,7 +24,9 @@ import type { CSSProperties } from 'react'
 import { CHIP_TYPES, REL_COLOR, REL_LABEL } from '../theme'
 import { CITE_SLIDER_STEPS, citationThreshold } from '../model'
 import '../graph.css'
+import MarkIcon from '../../ui/MarkIcon'
 import SlidersGlyph from '../../ui/SlidersGlyph'
+import type { PaperLinksStatus } from '../hooks/usePaperLinks'
 import { usePresence } from '../../ui/usePresence'
 
 /** Props for {@link GraphControls}. */
@@ -89,6 +91,20 @@ export interface GraphControlsProps {
   /** A provider-specific caveat to surface below the controls (e.g. S2's ~10k
    *  citer-offset limit), or null when the active provider has none. */
   providerNote?: string | null
+  /** The interconnected links (the citations among the papers on the graph,
+   *  not just the ones to the seed): whether they're wanted. Optional, like
+   *  the caps: without `onLinks` the button isn't rendered (Timeline). */
+  linksOn?: boolean
+  /** Ask for the links (true) or hide them (false); true again after a
+   *  failed lookup retries it. */
+  onLinks?: (on: boolean) => void
+  /** The links are being looked up or the graph is still settling around
+   *  them: the button spins and holds until it's done. */
+  linksBusy?: boolean
+  /** Where the links lookup stands (for the error line). */
+  linksStatus?: PaperLinksStatus
+  /** How many links are drawn. */
+  linksCount?: number
   /** The guided tour is walking the panel's stops — expand a collapsed panel
    *  so its targets can be spotlighted (it never re-collapses; no tidy-up). */
   stagedOpen?: boolean
@@ -131,8 +147,25 @@ export default function GraphControls({
   onRefresh,
   refreshing,
   providerNote,
+  linksOn = false,
+  onLinks,
+  linksBusy = false,
+  linksStatus = 'off',
+  linksCount = 0,
   stagedOpen,
 }: GraphControlsProps) {
+  // The interconnected-links button names what's on screen once the graph has
+  // settled: while it's busy (loading, then reheating), it keeps the label it
+  // had, with a spinner beside it, and only then turns from Show to Hide (or
+  // back). Flipping at the click claimed links that weren't drawn yet.
+  const linksFailed = linksOn && linksStatus === 'error'
+  const linksShown = linksOn && !linksFailed && linksCount > 0
+  const [settledShown, setSettledShown] = useState(linksShown)
+  useEffect(() => {
+    if (!linksBusy) setSettledShown(linksShown)
+  }, [linksBusy, linksShown])
+  const linksLabelShown = linksBusy ? settledShown : linksShown
+
   // Collapsed to the slim header bar? Local, like the find control's own
   // open/closed — nothing else needs to know.
   //
@@ -158,7 +191,12 @@ export default function GraphControls({
    * @param year The year to place.
    * @returns The position as a 0–100 percentage.
    */
-  const yearPct = (year: number) => (yearSpan ? ((year - minYear) / yearSpan) * 100 : 0)
+  // Clamped to the track: a saved year window can reach past the graph's
+  // current span (an undone expansion took its oldest papers with it), and
+  // the range inputs clamp their thumbs, but an unclamped fill ran off the
+  // panel's edge into the sidebar.
+  const yearPct = (year: number) =>
+    yearSpan ? Math.min(100, Math.max(0, ((year - minYear) / yearSpan) * 100)) : 0
 
   // The citation slider only earns its space when the neighbors span a citation
   // range to bound a window against (a flat/empty range gives nothing to trim).
@@ -308,6 +346,52 @@ export default function GraphControls({
                   </button>
                 )
               })}
+            </div>
+          )}
+
+          {onLinks && (
+            <div className="ctrl-links" data-tour="links">
+              <button
+                type="button"
+                className="ctrl-links-btn btn-marked"
+                aria-label={
+                  linksLabelShown ? 'Hide interconnected links' : 'Show interconnected links'
+                }
+                disabled={linksBusy}
+                aria-busy={linksBusy}
+                aria-pressed={linksLabelShown}
+                onClick={() => onLinks(linksFailed ? true : !linksOn)}
+                title={
+                  linksLabelShown
+                    ? 'Hide the citations among the papers on the graph'
+                    : 'Link up the papers on the graph by their citations, not just to the seed, the way Connected Papers does'
+                }
+              >
+                {linksBusy ? (
+                  // Busy: the spinner alone, where the label was.
+                  <span className="btn-label" aria-hidden="true">
+                    <span className="spin" />
+                  </span>
+                ) : (
+                  <>
+                    <span className="btn-mark" aria-hidden="true">
+                      <MarkIcon kind={linksLabelShown ? 'minus' : 'plus'} />
+                    </span>
+                    <span className="btn-label">
+                      {linksLabelShown ? 'Hide interconnected links' : 'Show interconnected links'}
+                    </span>
+                  </>
+                )}
+              </button>
+              {(linksBusy || linksFailed || linksShown) && (
+                <div className={`ctrl-links-status${linksFailed ? ' error' : ''}`} role="status">
+                  {linksFailed
+                    ? 'Couldn’t load the links. Click to try again.'
+                    : linksBusy
+                      ? 'Linking up the papers…'
+                      : `${linksCount} links between papers`}
+                </div>
+              )}
             </div>
           )}
 

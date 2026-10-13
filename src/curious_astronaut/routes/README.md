@@ -16,6 +16,7 @@ down.
 | `GET /api/graph?seed=&refresh=` | build (or re-fetch) a seed's neighborhood graph |
 | `GET /api/graph/stream?seed=&refresh=` | same, as SSE with coarse build-stage progress |
 | `POST /api/graph/expand` | one hop of references or citations from any paper on the graph, for the detail panel's Expand buttons (v8.18.0) |
+| `POST /api/graph/links` | the citations among the papers on a graph, for the "Links between papers" switch (v8.18.0) |
 | `GET /api/paper/<ref>` | hydrate one paper's details for the panel |
 | `GET /api/paper/<ref>/figures` | the paper's figures — ar5iv, else floats mined from its OA PDF |
 | `GET /api/paper/<ref>/code` | Hugging Face code & artifact links |
@@ -40,8 +41,9 @@ Design decisions worth knowing:
   on. Until v8.18.0's polish it took the researcher's `expand_limit` (8) per
   hop from a 100-paper pool, its citers the newest page of S2's live endpoint.
   The client sends `known_ids` so the hop can tell new papers from ones
-  already drawn, which only gain an edge. It maps a provider failure to
-  502, like the build. The decisions themselves live in
+  already drawn, which only gain an edge. `/api/graph/links` hands its
+  ids to `services.graph.growth.links_between`. Both map a provider failure
+  to 502, like the build. The decisions themselves live in
   `services/graph/growth.py`; the routes only fetch and serialize.
 - **`/api/graph/stream` is the determinate-progress twin of `/api/graph`.**
   Same result, delivered as SSE so the frontend overlay shows a real filling

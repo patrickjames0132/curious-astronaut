@@ -57,6 +57,15 @@ always; everyone else past 1.6× zoom, truncated at 42 chars, run through
 draw heavier (1.6 vs 0.6); `similar` edges get no arrowhead — they aren't
 citations, mirroring the backend's `influential=null` semantics.
 
+## Links between papers: just finer edges (v8.18.0)
+
+The "Links between papers" arrive in `data.links` like any edge, flagged
+`_between`, and draw in the relation colours (`EDGE_COLOR`) with the usual
+arrows and dimming. The one difference is width: 0.35 against a seed edge's
+0.6, because there can be hundreds and they are the web, not the story. They
+were painted separately (dashed violet, outside the simulation) in the
+first cut; see `../hooks/README.md`'s `usePaperLinks` for why that went.
+
 ## The one rule: never copy `data`
 
 The nodes handed in are the live objects the simulation mutates

@@ -49,6 +49,7 @@ from .traversal import (
     get_paper,
     get_papers,
     recommendations,
+    reference_ids,
     references,
 )
 
@@ -61,6 +62,7 @@ __all__ = [
     "get_papers",
     "match_title",
     "recommendations",
+    "reference_ids",
     "references",
     "search_papers",
     "vocab",

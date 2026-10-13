@@ -259,7 +259,9 @@ The Vite dev server proxies `/api/*` to Flask.
    **citation-count slider** (a log-scale min…max window over the papers on
    screen — a display filter, no re-query), drag-to-pin, focus-on-hover,
    **⌘-click** (Ctrl-click on Windows) to hold a paper's links in focus while
-   you click through them, and a
+   you click through them, **Show interconnected links** (Force) to link up
+   the papers on screen by their citations to each other, the way Connected
+   Papers does, with papers linked only to the seed gathered per relation, and a
    **Refresh** that busts this seed's day-cached snapshot to re-fetch fresh from
    Semantic Scholar. **Hand-pick a scope** with the node selector:
    **alt-drag** a marquee to add papers to the teacher's scope (additive —

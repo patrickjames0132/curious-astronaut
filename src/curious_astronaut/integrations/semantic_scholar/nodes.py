@@ -14,7 +14,7 @@ corpus knows papers by nothing else, so until v8.18.0 an S2 graph mixed the
 two: the corpus-built citers wore ``CorpusId:`` ids while the seed, its
 references and every expansion wore hex ones. The same paper then had two
 ids, so an expansion never recognised a citer already on the graph and drew
-a duplicate, and a paper's id
+a duplicate, the links between papers never reached a citer, and a paper's id
 changed whenever a rebuild switched between the corpus and the live API,
 stranding the expansions saved against it. S2 accepts ``CorpusId:<n>``
 everywhere it accepts a ``paperId``, so one scheme costs nothing.

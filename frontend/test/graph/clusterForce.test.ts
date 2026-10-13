@@ -6,7 +6,7 @@
  * west, citations east), √population orbits, seed and unknown-relation
  * exemptions, re-initialization picking up discoveries, the expansion groups
  * that leave the formation (references west of their paper, citers east),
- * and the bridges between a group and the formation.
+ * the bridges between a group and the formation, and connected mode.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -253,7 +253,7 @@ describe('groupAnchors', () => {
       makeNode('s1', ['citation'], { _origin: 'o1' }),
       makeNode('s2', ['citation'], { _origin: 'o2' }),
     ]
-    const anchors = groupAnchors(nodes, expansionGroups(nodes))
+    const anchors = groupAnchors(nodes, expansionGroups(nodes), false)
     const first = anchors.get('o1')!
     const second = anchors.get('o2')!
     // Beyond the reference cluster's orbit, on the west side, apart.
@@ -261,6 +261,53 @@ describe('groupAnchors', () => {
     expect(Math.cos(first.angle)).toBeLessThan(0)
     expect(Math.cos(second.angle)).toBeLessThan(0)
     expect(first.angle).not.toBeCloseTo(second.angle)
+  })
+})
+
+describe('clusterForce, connected', () => {
+  it('plans on its first tick, from the links as they are by then', () => {
+    // The graph library hands the sim new nodes before new links, so a plan
+    // made at initialize would miss the links between papers.
+    let links: { _s: string; _t: string; _between?: boolean }[] = []
+    const one = makeNode('one', ['citation'], { x: 0, y: 0 })
+    const two = makeNode('two', ['citation'], { x: 0, y: 0 })
+    const force = clusterForce(true, () => links)
+    force.initialize([seed(), one, two])
+    links = [{ _s: 'one', _t: 'two', _between: true }]
+    force(1)
+    // Linked, so no lone home pulls them east.
+    expect(one.vx).toBe(0)
+  })
+
+  it('drops the sectors and holds the seed at the centre', () => {
+    const theSeed = makeNode('seed', [], { is_seed: true, x: 50, y: -40 })
+    const reference = makeNode('ref', ['reference'], { x: 50, y: -40 })
+    const other = makeNode('other', ['reference'], { x: 50, y: -40 })
+    const force = clusterForce(true, () => [{ _s: 'ref', _t: 'other', _between: true }])
+    force.initialize([theSeed, reference, other])
+    force(1)
+    // Linked, so no westward pull: the links between papers place it instead.
+    expect(reference.vx).toBe(0)
+    expect(reference.vy).toBe(0)
+    expect(theSeed.vx!).toBeLessThan(0)
+    expect(theSeed.vy!).toBeGreaterThan(0)
+  })
+
+  it('leaves a pinned seed where the user put it', () => {
+    const theSeed = makeNode('seed', [], { is_seed: true, x: 50, y: 0, fx: 50 })
+    const force = clusterForce(true)
+    force.initialize([theSeed])
+    force(1)
+    expect(theSeed.vx).toBe(0)
+  })
+
+  it('keeps expansion groups out on their own anchors', () => {
+    const origin = makeNode('origin', ['citation'], { x: 0, y: 0 })
+    const satellite = makeNode('sat', ['citation'], { x: 0, y: 0, _origin: 'origin' })
+    const force = clusterForce(true)
+    force.initialize([seed(), origin, satellite])
+    force(1)
+    expect(satellite.vx!).toBeGreaterThan(0)
   })
 })
 
@@ -285,7 +332,7 @@ describe('layoutPlan', () => {
 
   it('lays a group out like the seed’s neighbourhood: references west, citers east', () => {
     const { nodes, links } = grown()
-    const plan = layoutPlan(nodes, links)
+    const plan = layoutPlan(nodes, links, false)
     const centre = plan.homes.get('origin')!
     expect(plan.homes.get('newRef')!.dx).toBeCloseTo(centre.dx - groupSideRadius(1))
     expect(plan.homes.get('newCiter')!.dx).toBeCloseTo(centre.dx + groupSideRadius(1))
@@ -295,7 +342,7 @@ describe('layoutPlan', () => {
 
   it('puts a paper the expansion linked to between its sector and the group', () => {
     const { nodes, links } = grown()
-    const plan = layoutPlan(nodes, links)
+    const plan = layoutPlan(nodes, links, false)
     const sector = plan.homes.get('plain')!
     const group = plan.homes.get('origin')!
     const bridge = plan.homes.get('shared')!
@@ -304,19 +351,48 @@ describe('layoutPlan', () => {
     // And it no longer counts toward its sector's population.
     expect(plan.counts.citation).toBe(1)
   })
+
+  it('gives a bridge a home in connected mode too, and gathers the lone papers', () => {
+    const { nodes, links } = grown()
+    const plan = layoutPlan(nodes, links, true)
+    expect(plan.homes.get('shared')).toBeDefined()
+    // No link between papers reaches `plain`: it's lone, homed with the
+    // other lone citers out east, not left to ring the graph.
+    expect(plan.lone.has('plain')).toBe(true)
+    expect(plan.homes.get('plain')!.dx).toBeGreaterThan(0)
+    expect(plan.homes.get('plain')!.dy).toBeCloseTo(0)
+  })
+
+  it('leaves a paper a link between papers reaches to its links, and homes lone references west', () => {
+    const nodes = [
+      seed(),
+      makeNode('linkedOne', ['citation']),
+      makeNode('linkedTwo', ['citation']),
+      makeNode('loneRef', ['reference']),
+    ]
+    const links = [{ _s: 'linkedOne', _t: 'linkedTwo', _between: true }]
+    const plan = layoutPlan(nodes, links, true)
+    expect(plan.homes.get('linkedOne')).toBeUndefined()
+    expect(plan.lone.has('linkedTwo')).toBe(false)
+    expect(plan.homes.get('loneRef')!.dx).toBeLessThan(0)
+    // Lone papers only exist in connected mode.
+    expect(layoutPlan(nodes, links, false).lone.size).toBe(0)
+  })
 })
 
 describe('bridgesOf', () => {
-  it('ignores the seed and group members', () => {
+  it('ignores the seed, group members and the links between papers', () => {
     const nodes = [
       seed(),
       makeNode('origin', ['citation']),
       makeNode('member', ['citation'], { _origin: 'origin' }),
+      makeNode('webbed', ['citation']),
       makeNode('shared', ['reference']),
     ]
     const links = [
       { _s: 'origin', _t: 'seed' },
       { _s: 'member', _t: 'origin' },
+      { _s: 'webbed', _t: 'origin', _between: true },
       { _s: 'origin', _t: 'shared' },
     ]
     const bridges = bridgesOf(nodes, links, expansionGroups(nodes))
@@ -331,7 +407,7 @@ describe('clusterForce, bridges', () => {
     const shared = makeNode('shared', ['citation'])
     const plainCiter = makeNode('plain', ['citation'])
     const links = [{ _s: 'shared', _t: 'origin' }]
-    const force = clusterForce(() => links)
+    const force = clusterForce(false, () => links)
     force.initialize([seed(), origin, member, shared, plainCiter])
     force(1)
     // The group sits up-right, so the bridge is pulled up (negative y) where

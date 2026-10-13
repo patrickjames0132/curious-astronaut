@@ -312,6 +312,33 @@ export async function expandPaper(
   return data
 }
 
+/** A citation between two papers on the graph, citing → cited. */
+export interface PaperLink {
+  source: string
+  target: string
+}
+
+/**
+ * The citations among the papers on a graph (v8.18.0), for the "Links between
+ * papers" switch. The server caches each paper's reference list for a day,
+ * so asking again after the graph grows costs only the new papers.
+ *
+ * @param ids The papers on the graph.
+ * @param provider The graph's provider.
+ * @returns Every citing → cited pair whose ends are both in `ids`.
+ * @throws With the server's error message when the provider fails.
+ */
+export async function fetchPaperLinks(ids: string[], provider: Provider): Promise<PaperLink[]> {
+  const res = await fetch('/api/graph/links', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids, provider }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Failed to load links (${res.status})`)
+  return data.links
+}
+
 /**
  * A figure pulled from the paper — an ar5iv figure (proxied image + the
  * paper's own caption) or, for papers without an ar5iv render, a float

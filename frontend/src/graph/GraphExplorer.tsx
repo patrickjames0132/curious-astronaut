@@ -57,10 +57,12 @@ import { hopAdded, withoutHop } from './expansions'
 import { linkKey, useDiscovery } from './hooks/useDiscovery'
 import { useEscapeClear } from './hooks/useEscapeClear'
 import { useMarquee } from './hooks/useMarquee'
+import { usePaperLinks } from './hooks/usePaperLinks'
 import { usePinning } from './hooks/usePinning'
 import { useTimeline } from './hooks/useTimeline'
 import {
   CITE_SLIDER_STEPS,
+  betweenLinkType,
   citationThreshold,
   findMatches,
   type Base,
@@ -143,6 +145,19 @@ export default function GraphExplorer({
   const [relCaps, setRelCaps] = useState<Record<string, number>>(
     initialFilters.current?.relCaps ?? {},
   )
+  // The interconnected-links button: the citations among the papers on the
+  // graph, painted under it (see hooks/usePaperLinks.ts).
+  const [showLinks, setShowLinks] = useState(initialFilters.current?.links ?? false)
+  // The links between papers are a Force feature: Timeline's x is the date,
+  // so there's no room to pull linked papers together without breaking the
+  // time series. The links keep their setting across a trip to Timeline.
+  const linksActive = showLinks && layout === 'force'
+  // Bumped by the button to re-ask after a failed lookup.
+  const [linksAttempt, setLinksAttempt] = useState(0)
+  // The graph is still settling around a change to the links (shown, hidden,
+  // or refreshed after an expansion): the button spins until the sim stops,
+  // so the links arrive with visible progress, not all at once from nowhere.
+  const [linksSettling, setLinksSettling] = useState(false)
   // Each paper's Expand buttons, by paper then hop, as far as this session
   // knows: in flight, just done, just undone, or failed. Cleared with every
   // new graph; a hop's lasting ✓ is read off the discovery lists instead
@@ -232,6 +247,7 @@ export default function GraphExplorer({
     // A fresh graph shows every citation count; the user narrows from there.
     setCiteLo(initialFilters.current?.citeLo ?? 0)
     setCiteHi(initialFilters.current?.citeHi ?? CITE_SLIDER_STEPS)
+    setShowLinks(initialFilters.current?.links ?? false)
     setExpansions({})
     setHoverId(null)
   }, [base])
@@ -246,15 +262,17 @@ export default function GraphExplorer({
         citeLo,
         citeHi,
         relCaps,
+        links: showLinks,
       }),
     )
-  }, [base, enabled, yearLo, yearHi, citeLo, citeHi, relCaps, dispatch])
+  }, [base, enabled, yearLo, yearHi, citeLo, citeHi, relCaps, showLinks, dispatch])
 
   // Timeline layout physics (year-column pinning, collide force, year axis,
   // settle-freeze) — plus its keep-in-sync effects.
   const { nodeTimelineX, applyLayoutPhysics, drawAxis, freezeSettledY } = useTimeline({
     base,
     layout,
+    connected: linksActive,
     fgRef,
     size,
     fitDone,
@@ -390,6 +408,22 @@ export default function GraphExplorer({
     if (discoveredNodes.length || discoveredEdges.length)
       onDiscover(discoveredNodes, discoveredEdges)
   }, [graph, discoveredNodes, discoveredEdges, onDiscover, onPrune])
+
+  const paperLinks = usePaperLinks({
+    base,
+    graphVersion,
+    provider,
+    on: linksActive,
+    attempt: linksAttempt,
+  })
+  // Any change to the drawn links reheats the graph: busy until it settles.
+  const lastLinks = useRef(paperLinks.links)
+  useEffect(() => {
+    if (lastLinks.current === paperLinks.links) return
+    lastLinks.current = paperLinks.links
+    setLinksSettling(true)
+  }, [paperLinks.links])
+  const linksBusy = (linksActive && paperLinks.status === 'loading') || linksSettling
 
   // A refit an expansion asked for waits for the merge: re-arming the one-shot
   // fit at the click would spend it on whichever run ends next, which while
@@ -624,6 +658,29 @@ export default function GraphExplorer({
     const links: VLink[] = base.links
       .filter((link) => (linkOk(link) || ghostLink(link)) && ids.has(link._s) && ids.has(link._t))
       .map((link) => ({ ...link, source: link._s, target: link._t }))
+    // The links between papers (v8.18.0), while they are shown: real links
+    // in the simulation, so they shape the layout the way Connected Papers'
+    // do, coloured by the citing paper's relation (`betweenLinkType`). They
+    // live only here, never in `base.links`: they aren't saved, and they never
+    // make a paper reachable for the chips above. Drawn when both papers are.
+    const byId = new Map(nodes.map((node) => [node.id, node]))
+    // A citation the graph already draws (every seed edge, and an expansion's)
+    // comes back from the links too; drawing it twice would pull twice.
+    const drawn = new Set(base.links.map((link) => `${link._s}|${link._t}`))
+    paperLinks.links.forEach((link) => {
+      const citing = byId.get(link.source)
+      const cited = byId.get(link.target)
+      if (!citing || !cited || drawn.has(`${link.source}|${link.target}`)) return
+      links.push({
+        source: link.source,
+        target: link.target,
+        _s: link.source,
+        _t: link.target,
+        type: betweenLinkType(citing, cited),
+        influential: null,
+        _between: true,
+      })
+    })
     return { nodes, links, eligibleIds, ghostIds }
     // graphVersion isn't read directly — it's a signal that base.nodes/links
     // were mutated in place (discoveries) and this must recompute.
@@ -641,6 +698,7 @@ export default function GraphExplorer({
     relCaps,
     relRank,
     selectedIds,
+    paperLinks.links,
   ])
 
   // Publish the filter-passing ids — the default scope (`selectScope`) — not
@@ -674,7 +732,10 @@ export default function GraphExplorer({
     }, [lightbox, tourStage, onClearAll]),
   )
 
-  /** A paper and everything linked to it. */
+  /**
+   * A paper and everything linked to it: the links between papers count
+   * while they're shown.
+   */
   const neighboursOf = useCallback(
     (id: string) => {
       const neighbors = new Set<string>([id])
@@ -682,11 +743,15 @@ export default function GraphExplorer({
         if (link._s === id) neighbors.add(link._t)
         if (link._t === id) neighbors.add(link._s)
       })
+      paperLinks.links.forEach((link) => {
+        if (link.source === id) neighbors.add(link.target)
+        if (link.target === id) neighbors.add(link.source)
+      })
       return neighbors
     },
     // graphVersion: base.links grows in place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [base, graphVersion],
+    [base, graphVersion, paperLinks.links],
   )
 
   /** Neighbors of the hovered node (for focus-on-hover dimming). */
@@ -778,6 +843,7 @@ export default function GraphExplorer({
   /** When the sim settles: freeze Timeline y positions and run the one-shot
    * zoomToFit. */
   const onEngineStop = useCallback(() => {
+    setLinksSettling(false)
     freezeSettledY(pinned)
     if (!fitDone.current && fgRef.current) {
       fgRef.current.zoomToFit(400, 60)
@@ -788,7 +854,17 @@ export default function GraphExplorer({
   // Repaint when highlight/selection/pins/focus/layout change (the sim may be at rest).
   useEffect(() => {
     fgRef.current?.refresh?.()
-  }, [hoverId, heldSet, selectedId, selectedIds, pinned, view, highlightIds, layout])
+  }, [
+    hoverId,
+    heldSet,
+    selectedId,
+    selectedIds,
+    pinned,
+    view,
+    highlightIds,
+    layout,
+    paperLinks.links,
+  ])
 
   const hasGraph = !!base && base.nodes.length > 0
 
@@ -852,6 +928,24 @@ export default function GraphExplorer({
             onFit={() => fgRef.current?.zoomToFit(400, 60)}
             onRefresh={onRefresh}
             refreshing={loading}
+            linksOn={showLinks}
+            // Force only: in Timeline the switch isn't offered at all.
+            onLinks={
+              layout === 'force'
+                ? (on) => {
+                    // Asked again while already on: a retry after a failure.
+                    if (on && showLinks) {
+                      setLinksAttempt((attempt) => attempt + 1)
+                      return
+                    }
+                    dispatch(threadEdited())
+                    setShowLinks(on)
+                  }
+                : undefined
+            }
+            linksBusy={linksBusy}
+            linksStatus={paperLinks.status}
+            linksCount={paperLinks.links.length}
             providerNote={citationNote(provider, graph?.citation_source)}
             stagedOpen={tourStage === 'controls'}
           />

@@ -16,7 +16,7 @@ graph/
                       around the seed, √population orbits, expansion groups
                       out past the formation with their references west and
                       citers east, bridges between a group and the
-                      formation; wired by hooks/useTimeline's
+                      formation, connected mode; wired by hooks/useTimeline's
                       applyLayoutPhysics)
   streamForce.ts    — Timeline's parallel streams: each expansion group in a
                       band of its own above the seed's timeline (y only)
@@ -216,8 +216,8 @@ keeps a `@ts-expect-error`). The mutation-heavy behavior (pins surviving
 filters, discoveries settling near anchors, timeline freezing) is exactly
 what the end-of-phase browser milestone exercises by hand. The forces themselves are pure
 enough to test one tick at a time: `test/graph/clusterForce.test.ts` (sectors,
-expansion groups and their anchors, a group's west/east split, bridges)
-and
+expansion groups and their anchors, a group's west/east split, bridges,
+connected mode) and
 `test/graph/streamForce.test.ts` (streams stacked above the seed's timeline,
 fixed heights left alone, the speed cap). `test/graph/expansions.test.ts`
 covers reading hops back and undoing one.

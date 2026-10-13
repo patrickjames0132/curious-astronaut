@@ -288,6 +288,17 @@ export const GRAPH_TOUR: TourStep[] = [
       'to a mega-paper). Trim the long tail, or hide the giants to see what’s underneath.',
   },
   {
+    target: '[data-tour="links"]',
+    stage: 'controls',
+    title: 'Interconnected links',
+    body:
+      'The map draws each paper’s link to the seed. “Show interconnected links” links up the papers ' +
+      'on screen too, the way Connected Papers does: the seed stays at the centre and ' +
+      'papers that cite each other pull together around it. A citer’s links draw green, ' +
+      'a reference’s blue, and they follow the graph as it grows. Force layout only: ' +
+      'Timeline keeps its papers in date order.',
+  },
+  {
     target: '[data-tour="actions"]',
     stage: 'controls',
     title: 'Release · Fit · Refresh · Clear',

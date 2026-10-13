@@ -13,7 +13,7 @@ graph/
   shape.py   — the per-request BuildShape: adaptive (the app sizes itself) vs.
                user-sized, and the cache-key suffix that keeps them apart
   growth.py  — growing a built graph with no agent (v8.18.0): expand any paper
-               by one hop
+               by one hop, and find the citations among the papers on it
 ```
 
 `__init__.py` re-exports `build_graph`, `Provider`, `resolve_provider`, and the
@@ -292,7 +292,7 @@ cache hit, a deliberate trade.
 ## Growing a built graph — `growth.py` (v8.18.0)
 
 A built graph used to grow only through the researcher's `expand_node`, an
-agent run. `growth.py` lets the reader grow it by hand.
+agent run. `growth.py` serves the two ways the reader grows it by hand.
 
 - **`hop_hits(node_id, hop, provider, shape, arxiv_id)`** fetches one hop,
   sized like the seed's neighbourhood: **every reference** (a reference list
@@ -311,11 +311,21 @@ agent run. `growth.py` lets the reader grow it by hand.
   since the citation is real even when both papers were there. Every *new*
   paper joins them unless a `limit` caps them. Edges follow the build's
   direction rule: citing → cited.
+- **`links_between(node_ids, provider)`** answers "which of these papers
+  cite each other?". It needs each paper's reference list, keyed the way
+  reference lists name papers: the node id itself on S2 (`s2.reference_ids`,
+  one `/paper/batch` per 500 papers), the OpenAlex `W…` work id on OpenAlex
+  (`openalex.reference_keys`, which resolves each node to its work first).
+  **Each paper's list is cached on its own** (`refs:v2:<provider>:<id>`, the
+  graph TTL), so when the graph grows by a few papers, only those few are
+  re-asked. A paper the provider can't resolve is cached as a miss too, so it
+  isn't re-asked on every growth. `MAX_LINK_IDS` (2000) caps one request,
+  which bounds a forged one; an adaptive graph is a few hundred papers.
 
 ## Who uses it
 
-- **`routes/graph.py`** — `POST /api/graph/expand` calls `growth.hop_hits`
-  and `growth.expand`.
+- **`routes/graph.py`** — `POST /api/graph/expand` and `POST /api/graph/links`
+  call `growth.expand` and `growth.links_between`.
 - **`routes/graph.py`** — `GET /api/graph?seed=…&provider=…&refresh=…` calls
   `build_graph` and returns `graph.model_dump()` as JSON, catching `s2.S2Error`
   *and* `openalex.OpenAlexError` and turning either into an HTTP 502 (named for
@@ -348,7 +358,9 @@ truncated pool strands the recent years), and both take the flat
 the graph and still adds `limit` new ones (every one with no limit), edge
 directions per hop, and no self-loops; `hop_hits` takes every reference,
 bands citers through the build's tau step, caches per shape, and resolves
-an OpenAlex work first.
+an OpenAlex work first. For the links, it covers matching on S2 ids and on OpenAlex work
+ids, the per-paper cache (a second call asks only for the new papers),
+cached misses, and the id cap.
 
 The adaptive budget's own tests live in **`test_budget.py`** — the two pure rules
 and the trim built on them. The latest-band serving tests are in

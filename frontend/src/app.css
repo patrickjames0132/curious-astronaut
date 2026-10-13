@@ -90,6 +90,50 @@
   }
 }
 
+/* A button with a leading mark (+, −, ✓, or the spinner while it works):
+   the label centred in the button, the mark centred in the space between the
+   button's left edge and the label. Three columns, the outer two equal, so
+   the label stays put however the mark changes. No side padding: the outer
+   columns are the padding, and with it the mark sat right of centre (19px
+   to the edge against 7px to the label, measured). */
+.btn-marked {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+.btn-marked > .btn-mark {
+  justify-self: center;
+}
+.btn-marked > .btn-label {
+  grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+/* The drawn marks (ui/MarkIcon): one size and stroke for all four. */
+.mark-icon {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.btn-mark .spin,
+.btn-label .spin {
+  width: 13px;
+  height: 13px;
+}
+
 /* --- centered status overlays (loading / error / empty-state hint) --- */
 .overlay {
   position: absolute;

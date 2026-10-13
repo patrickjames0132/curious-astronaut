@@ -40,6 +40,16 @@
  * `useTimeline`'s link distances are measured between homes, so the links
  * never fight the clusters.
  *
+ * **Connected mode** (the interconnected-links button, v8.18.0) drops the
+ * sectors: the links among the papers shape the formation instead, the way
+ * Connected Papers and the Knowledge Graph do, with the seed held at the
+ * centre so the rest bursts out around it. Expansion groups keep their own
+ * anchors in both modes. A **lone** paper, one no link between papers
+ * reaches, has nothing to place it but its seed edge, and a crowd of them
+ * spread into a ring round the whole graph. So the lone ones gather instead,
+ * one cluster per relation (citers east, references west) out past the
+ * linked core: they read as "linked only to the seed".
+ *
  * Wired up (with the matching collide force and per-link distances) in
  * `hooks/useTimeline.ts`'s `applyLayoutPhysics`, the one owner of the sim's
  * d3 forces.
@@ -88,6 +98,8 @@ const GROUP_LAP = 220
 const GROUP_SIDE_BASE = 50
 /** Side growth per √(papers on that side). */
 const GROUP_SIDE_PER_NODE = 10
+/** How hard the seed is held at the centre in connected mode. */
+const SEED_CENTRE_PULL = 0.3
 /**
  * The speed cap's floor, in graph units per tick: no node is ever held below
  * it, however close it is to where it's going (and the stream force's flat
@@ -106,6 +118,15 @@ export const MAX_SPEED = 12
  * the distance.
  */
 export const GLIDE = 0.04
+/** The seed-link length in connected mode, per √(papers): the shell radius. */
+const CONNECTED_RADIUS_PER_NODE = 8
+/** How far out past the connected shell a cluster of lone papers sits, per
+ *  √(papers in it): a big cluster needs more room to clear the core. */
+export const LONE_RADIUS_PER_NODE = 10
+/** How hard a lone paper is pulled to its cluster (per unit alpha): firmer
+ *  than a sector's, or the cluster spreads into a ring (measured on Atari;
+ *  see `hooks/useTimeline.ts`'s LONE_CHARGE). */
+const LONE_PULL = 0.28
 
 /**
  * The headings a group may take, per side of the seed, in the order groups
@@ -126,6 +147,18 @@ const GROUP_HEADINGS: Record<'west' | 'east' | 'none', number[]> = {
  */
 export function clusterRadius(count: number): number {
   return BASE_RADIUS + RADIUS_PER_NODE * Math.sqrt(count)
+}
+
+/**
+ * The seed-link length in connected mode: every paper wants to sit about this
+ * far from the seed, so the papers form a soft shell the links then pull into
+ * filaments.
+ *
+ * @param count Papers in the formation.
+ * @returns The distance, in graph units.
+ */
+export function connectedRadius(count: number): number {
+  return BASE_RADIUS * 0.6 + CONNECTED_RADIUS_PER_NODE * Math.sqrt(count)
 }
 
 /**
@@ -221,12 +254,21 @@ export interface GroupAnchor {
  *
  * @param nodes The sim's nodes.
  * @param groups The graph's expansion groups.
+ * @param connected Whether the sectors are off (the formation is one shell).
  * @returns Each group's anchor, by group id.
  */
-export function groupAnchors(nodes: VNode[], groups: ExpansionGroups): Map<string, GroupAnchor> {
+export function groupAnchors(
+  nodes: VNode[],
+  groups: ExpansionGroups,
+  connected: boolean,
+): Map<string, GroupAnchor> {
   const counts = clusterCounts(nodes, groups)
-  // The formation's outer edge: the farthest cluster's orbit plus its spread.
-  const reach = BASE_RADIUS + 2 * RADIUS_PER_NODE * Math.sqrt(Math.max(0, ...Object.values(counts)))
+  const population = Object.values(counts).reduce((sum, count) => sum + count, 0)
+  // The formation's outer edge: the farthest cluster's orbit plus its spread,
+  // or the connected shell plus a margin for the filaments.
+  const reach = connected
+    ? connectedRadius(population) + RADIUS_PER_NODE * Math.sqrt(population) * 0.5
+    : BASE_RADIUS + 2 * RADIUS_PER_NODE * Math.sqrt(Math.max(0, ...Object.values(counts)))
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const taken: Record<'west' | 'east' | 'none', number> = { west: 0, east: 0, none: 0 }
   const anchors = new Map<string, GroupAnchor>()
@@ -249,16 +291,18 @@ export function groupAnchors(nodes: VNode[], groups: ExpansionGroups): Map<strin
   return anchors
 }
 
-/** The endpoints of a link, as raw ids (`_s`/`_t`). */
+/** The endpoints of a link, as raw ids (`_s`/`_t`), and whether it is a link between papers. */
 export interface PlanLink {
   _s: string
   _t: string
+  _between?: boolean
 }
 
 /**
  * The papers an expansion linked to rather than added: on the graph already,
  * outside every group, and joined to a group's expanded paper by a citation
- * edge. The seed never is one.
+ * edge. The links between papers don't count (they would make half the graph
+ * a bridge), and neither does the seed.
  *
  * @param nodes The sim's nodes.
  * @param links The graph's links.
@@ -277,6 +321,7 @@ export function bridgesOf(
     nodes.filter((node) => !node.is_seed && !groups.groupOf.has(node.id)).map((node) => node.id),
   )
   for (const link of links) {
+    if (link._between) continue
     for (const [paper, leader] of [
       [link._s, link._t],
       [link._t, link._s],
@@ -306,10 +351,12 @@ export interface LayoutPlan {
   bridges: Map<string, string[]>
   /** Per-relation populations of the seed's formation. */
   counts: Record<string, number>
-  /** Each node's home as an offset from the seed. A node with none (a
-   *  relation with no sector) goes where its links take it. The seed's is
-   *  the origin. */
+  /** Each node's home as an offset from the seed. A node with none (a linked
+   *  paper in connected mode, or a relation with no sector) goes where its
+   *  links take it. The seed's is the origin. */
   homes: Map<string, Offset>
+  /** Connected mode's lone papers: no link between papers reaches them. */
+  lone: Set<string>
 }
 
 /**
@@ -317,19 +364,37 @@ export interface LayoutPlan {
  *
  * @param nodes The sim's nodes.
  * @param links The graph's links (for the bridges).
+ * @param connected Whether the sectors are off (the links shape the formation).
  * @returns The plan.
  */
-export function layoutPlan(nodes: VNode[], links: PlanLink[]): LayoutPlan {
+export function layoutPlan(nodes: VNode[], links: PlanLink[], connected: boolean): LayoutPlan {
   const groups = expansionGroups(nodes)
-  const anchors = groupAnchors(nodes, groups)
+  const anchors = groupAnchors(nodes, groups, connected)
   const bridges = bridgesOf(nodes, links, groups)
   const counts = clusterCounts(nodes, groups, bridges)
+  const population = Object.values(counts).reduce((sum, count) => sum + count, 0)
   const toward = (angle: number, distance: number): Offset => ({
     dx: Math.cos(angle) * distance,
     dy: Math.sin(angle) * distance,
   })
   const centres = new Map<string, Offset>()
   for (const [group, anchor] of anchors) centres.set(group, toward(anchor.angle, anchor.distance))
+  // Connected mode's lone papers, counted per relation: each relation's
+  // cluster sits as far out as its own population needs.
+  const lone = new Set<string>()
+  const loneCounts: Record<string, number> = {}
+  if (connected) {
+    const linkedIds = new Set(
+      links.filter((link) => link._between).flatMap((link) => [link._s, link._t]),
+    )
+    for (const node of nodes) {
+      const rel = primaryRel(node)
+      if (node.is_seed || groups.groupOf.has(node.id) || bridges.has(node.id)) continue
+      if (linkedIds.has(node.id) || SECTOR_ANGLE[rel] === undefined) continue
+      lone.add(node.id)
+      loneCounts[rel] = (loneCounts[rel] ?? 0) + 1
+    }
+  }
   // Each group's references and citers, counted apart: they sit on opposite
   // sides of the expanded paper, each as far out as its own population needs.
   const sides = new Map<string, number>()
@@ -361,14 +426,24 @@ export function layoutPlan(nodes: VNode[], links: PlanLink[]): LayoutPlan {
     }
     const angle = SECTOR_ANGLE[primaryRel(node)]
     const sector =
-      angle === undefined ? undefined : toward(angle, clusterRadius(counts[primaryRel(node)] ?? 0))
+      connected || angle === undefined
+        ? undefined
+        : toward(angle, clusterRadius(counts[primaryRel(node)] ?? 0))
     const linked = (bridges.get(node.id) ?? [])
       .map((leader) => centres.get(leader))
       .filter((centre): centre is Offset => centre !== undefined)
     if (linked.length) {
-      // Between its own place and every group it links to (with no sector of
-      // its own, between the seed and them).
-      const own = sector ?? { dx: 0, dy: 0 }
+      // Between its own place and every group it links to. In connected mode
+      // its own place is the shell, on the side its groups are.
+      const own =
+        sector ??
+        toward(
+          Math.atan2(
+            linked.reduce((sum, centre) => sum + centre.dy, 0),
+            linked.reduce((sum, centre) => sum + centre.dx, 0),
+          ),
+          connectedRadius(population),
+        )
       const points = [own, ...linked]
       homes.set(node.id, {
         dx: points.reduce((sum, point) => sum + point.dx, 0) / points.length,
@@ -377,8 +452,18 @@ export function layoutPlan(nodes: VNode[], links: PlanLink[]): LayoutPlan {
       continue
     }
     if (sector) homes.set(node.id, sector)
+    else if (lone.has(node.id)) {
+      const rel = primaryRel(node)
+      homes.set(
+        node.id,
+        toward(
+          SECTOR_ANGLE[rel],
+          connectedRadius(population) + LONE_RADIUS_PER_NODE * Math.sqrt(loneCounts[rel] ?? 1),
+        ),
+      )
+    }
   }
-  return { groups, anchors, bridges, counts, homes }
+  return { groups, anchors, bridges, counts, homes, lone }
 }
 
 /**
@@ -434,32 +519,47 @@ export function capSpeed(node: VNode, distance: number): void {
  * registered and this one comes after link, charge and collide, so the cap
  * sees their pushes too before d3 moves anything.
  *
- * The seed is left free: it has to slide out of its citers to the apex of
- * their cone. Held at the centre, the citers had to go round it and set into
- * a ring all the way round the seed (tried and reverted in v8.18.0).
+ * In connected mode the seed is held at the centre (unless pinned). Not with
+ * the sectors: there the seed has to be free to slide out of its citers to
+ * the apex of their cone. Held, the citers had to go round it and set into a
+ * ring all the way round the seed (tried and reverted in v8.18.0).
  *
+ * @param connected Connected mode: no sectors; the links shape the formation.
  * @param linksOf The graph's links, read at each initialization (for the bridges).
  * @returns The custom force, ready for `fg.d3Force('cluster', ...)`.
  */
-export function clusterForce(linksOf: () => PlanLink[] = () => []) {
+export function clusterForce(connected = false, linksOf: () => PlanLink[] = () => []) {
   let nodes: VNode[] = []
   let seed: VNode | undefined
-  let plan: LayoutPlan = layoutPlan([], [])
+  // Built on the first tick after each initialization, not in initialize:
+  // the graph library hands the sim its new nodes before its new links, so
+  // at initialize time the links (and which papers they reach) are stale.
+  let plan: LayoutPlan | null = null
 
   const force = (alpha: number) => {
     if (!seed || typeof seed.x !== 'number' || typeof seed.y !== 'number') return
+    plan ??= layoutPlan(nodes, linksOf(), connected)
+    if (connected && seed.fx === undefined) {
+      seed.vx = (seed.vx ?? 0) - seed.x * SEED_CENTRE_PULL * alpha
+      seed.vy = (seed.vy ?? 0) - seed.y * SEED_CENTRE_PULL * alpha
+    }
+    const current = plan
     for (const node of nodes) {
       if (node.is_seed) continue
-      const home = plan.homes.get(node.id)
+      const home = current.homes.get(node.id)
       if (!home) continue
-      const pull = plan.groups.groupOf.has(node.id) || plan.bridges.has(node.id) ? GROUP_PULL : PULL
+      const pull = current.lone.has(node.id)
+        ? LONE_PULL
+        : current.groups.groupOf.has(node.id) || current.bridges.has(node.id)
+          ? GROUP_PULL
+          : PULL
       node.vx = (node.vx ?? 0) + (seed.x + home.dx - (node.x ?? 0)) * pull * alpha
       node.vy = (node.vy ?? 0) + (seed.y + home.dy - (node.y ?? 0)) * pull * alpha
     }
     for (const node of nodes) {
       // Measured to its home, or, with none, to the seed (or the centre, for
       // the seed itself): roughly how far it has to go.
-      const home = plan.homes.get(node.id)
+      const home = current.homes.get(node.id)
       const targetX = node.is_seed ? 0 : seed.x + (home?.dx ?? 0)
       const targetY = node.is_seed ? 0 : seed.y + (home?.dy ?? 0)
       capSpeed(node, Math.hypot(targetX - (node.x ?? 0), targetY - (node.y ?? 0)))
@@ -468,7 +568,7 @@ export function clusterForce(linksOf: () => PlanLink[] = () => []) {
   force.initialize = (simNodes: VNode[]) => {
     nodes = simNodes
     seed = simNodes.find((node) => node.is_seed)
-    plan = layoutPlan(simNodes, linksOf())
+    plan = null
   }
   return force
 }

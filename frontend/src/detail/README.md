@@ -114,7 +114,9 @@ figures.
   none, because the build already drew its neighbourhood. A status line says what the last hop did ("Added 8 of
   its citers.", or that its top ones were on the graph already). **A hop in
   flight spins inside its button** (the app's shared `.spin`); **one that
-  has run wears a green ✓** (`--done-ink`), faded in when it just finished
+  has run wears a green ✓** (`--done-ink`; the buttons are `.btn-marked`
+  grids from `app.css`, the label centred and the mark centred in the space
+  to its left), faded in when it just finished
   in front of the reader (`fresh`) and simply shown when read back after a
   reload. **Reclicking the ✓ undoes the hop** (on hover it turns to ✕ to
   say so): its papers leave the graph unless something else still links
