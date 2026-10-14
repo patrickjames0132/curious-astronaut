@@ -1590,6 +1590,60 @@ than deleted so the plan doesn't get re-proposed.
       - **Let the tutor draw on the reader's library**, not only the paper's
         references, when it writes a lesson: the researcher's
         `search_sources` already does this for answers. *(From the `todos.md` inbox, 2026-10-09.)*
+      - **Tie the concepts together: the course's missing middle layer.**
+        *(Workshopped with Patrick 2026-10-13; open design, three questions
+        below still undecided.)* Patrick's picture is a pyramid: the paper's
+        new idea on top, **foundational knowledge** at the bottom, and between
+        them a layer that is **putting the knowledge together**, with an AI
+        summary that draws the intuition from several concepts into the
+        paper's larger theme. His example, *Attention Is All You Need*:
+        Transformers ← Supervised Learning + Deep Learning ← Calculus,
+        Statistics, Probability. Today the graph has concepts and one "needs"
+        edge, and nothing says how ideas *combine*.
+
+        **Overlap is not a problem for the model.** Patrick's worry was that
+        concepts overlap like a Venn diagram, or form cycles (Calculus
+        underneath both Supervised Learning and Deep Learning). That is a
+        **shared prerequisite**, not a cycle: the graph already holds it as
+        one node with two incoming edges, and real loops are already dropped.
+        A pyramid of stacked boxes breaks down here because a box sits under
+        exactly one parent, so Calculus has to be drawn twice. A graph doesn't.
+        So the data model is sound. What's missing is the middle layer.
+
+        **Proposal: tie-in nodes**, a second node kind. A tie-in groups 2+
+        concepts, and its lesson explains how they come together toward the
+        paper. If concepts are Venn circles, a tie-in is where they overlap,
+        and a concept can belong to several. It needs its members, and
+        whatever is above it needs the tie-in, so the no-loops rule and the
+        post-order course walk apply as they are: the walk already puts a
+        tie-in after its members and before the paper. It gets its own shape
+        (a diamond or small hub) and a legend entry. **A tie-in is not pruned
+        when its members are checked off**: "you know calculus and probability;
+        here's where they meet in this paper" is still worth teaching. Patrick
+        spoke of tying together *learned* nodes, so checking off the members
+        may be what *unlocks* the tie-in.
+
+        **Separable and cheaper: a pyramid layout**, a layered view with
+        foundations at the bottom and the paper on top, each node placed by
+        the depth of its prerequisite chain. That is the pyramid drawn from
+        the graph we already have, with shared nodes at their natural level.
+        It needs no tie-ins.
+
+        **Open questions (Patrick to decide):**
+        1. **Who creates tie-ins?** Suggested: both. Either the reader
+           selects 2+ nodes (shift-click or alt-drag, which exist today) and
+           chooses "Tie together", and the AI names the group, writes the
+           summary and attaches it under the lowest item that needs all of
+           them (usually the paper); or the AI proposes them after a breakdown
+           or from a whole-graph "Restructure" pass, for the reader to accept
+           or dismiss.
+        2. **When can a tie-in appear?** Either only once its members are
+           learned (a reward for progress), or at any time (part of the
+           planned course).
+        3. **Is the pyramid layout worth having on its own** as a third view
+           beside force and 3D, or does it only matter once tie-ins exist?
+
+        *(From the `todos.md` inbox, 2026-10-13.)*
 
       **Later stages, deliberately out of v1:**
       - **A challenger agent** that asks probe questions to learn what the
