@@ -336,11 +336,11 @@ export const GRAPH_TOUR: TourStep[] = [
     stage: 'controls',
     title: 'Open a paper',
     body:
-      'Click any paper to open its detail panel — abstract, figures, code links, tags. ' +
-      'Double-click a paper to re-seed the whole map on it and explore from there. ' +
-      '⌘-click one (Ctrl-click on Windows) to hold its links in focus: everything it’s ' +
-      'linked to stays lit while you click through them. ⌘-click it again, or press Esc, ' +
-      'to let go.',
+      'Click any paper to centre it and open its detail panel — abstract, figures, code ' +
+      'links, tags — and hold its links in focus: everything it’s linked to stays lit, the rest dims, ' +
+      'while the panel is open. Point at one of the lit papers to see its links in turn. ' +
+      'Click the paper again, close the panel, or press Esc to let go. “Explore in a ' +
+      'thread” in the panel re-seeds the whole map on a paper.',
   },
   {
     target: '[data-tour="find"]',
@@ -358,8 +358,8 @@ export const GRAPH_TOUR: TourStep[] = [
     title: 'Back up to the paper’s cards',
     body:
       'The ↑ at the top takes you back up to this paper’s cards and its other tools; the ' +
-      'graph stays as you left it. Double-click a node to open that paper — it gets its ' +
-      'own thread and lands straight on its graph.',
+      'graph stays as you left it. “Explore in a thread” in a paper’s panel opens that ' +
+      'paper — it gets its own thread and lands straight on its graph.',
   },
   {
     target: '[data-tour="details"]',

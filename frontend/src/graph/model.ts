@@ -225,6 +225,41 @@ export function findMatches(nodes: GraphNode[], query: string): Set<string> | nu
 }
 
 /**
+ * Which papers the canvas keeps lit, everything else dimming, by priority
+ * (v8.21.0): an active find (being typed right now; an EMPTY match set dims
+ * everything — honest "no hits" feedback); then, while a paper is open,
+ * hovering over **one of its lit papers** shows that paper's neighbourhood
+ * instead, until the pointer leaves it; then the held focus of the open
+ * paper; then hovering; then the papers the AI teacher is talking about.
+ * Hover over a *dimmed* paper doesn't count while a focus is held, so the
+ * pointer can cross the graph to a neighbour without the light jumping about
+ * (why the held focus outranked hover outright until v8.21.0, when Patrick
+ * asked to explore a neighbour's neighbourhood without letting go). The held
+ * focus outranked the find too then, but it was a rare ⌘-click; with a panel
+ * open most of the time it would hide every find behind it.
+ *
+ * @param sets The candidate sets; null where that source is inactive.
+ * @param sets.find The find bar's matches.
+ * @param sets.held The open paper and everything linked to it.
+ * @param sets.hover The hovered paper and everything linked to it.
+ * @param sets.hoverId The hovered paper, or null.
+ * @param sets.highlights The teacher's lit papers (empty when none).
+ * @returns The focus set, or null for no dimming at all.
+ */
+export function focusOf(sets: {
+  find: Set<string> | null
+  held: Set<string> | null
+  hover: Set<string> | null
+  hoverId: string | null
+  highlights: Set<string>
+}): Set<string> | null {
+  if (sets.find) return sets.find
+  if (sets.held)
+    return sets.hover && sets.hoverId && sets.held.has(sets.hoverId) ? sets.hover : sets.held
+  return sets.hover ?? (sets.highlights.size ? sets.highlights : null)
+}
+
+/**
  * Strip a live VNode back to its persistable GraphNode fields — dropping the
  * sim's x/y and any fx/fy pins (re-derived on restore), and the researcher's
  * `idx` (per-conversation numbering ephemera; the researcher renumbers from node

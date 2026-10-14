@@ -55,6 +55,7 @@ import { CHIP_TYPES, REL_TYPES } from './theme'
 import { deriveOrigins } from './clusterForce'
 import { hopAdded, withoutHop } from './expansions'
 import { linkKey, useDiscovery } from './hooks/useDiscovery'
+import { useCameraChase } from './hooks/useCameraChase'
 import { useEscapeClear } from './hooks/useEscapeClear'
 import { useMarquee } from './hooks/useMarquee'
 import { usePaperLinks } from './hooks/usePaperLinks'
@@ -65,6 +66,7 @@ import {
   betweenLinkType,
   citationThreshold,
   findMatches,
+  focusOf,
   type Base,
   type VLink,
   type VNode,
@@ -308,21 +310,6 @@ export default function GraphExplorer({
     if (seedRef) dispatch(loadGraph({ seed: seedRef, refresh: true }))
   }, [dispatch, seedRef])
 
-  // The paper whose links are held in focus (v8.18.0's polish): ⌘-click one
-  // (Ctrl-click off a Mac) and its neighbourhood stays lit, the rest dimmed,
-  // while the pointer goes off to click through them; ⌘-click it again, or
-  // Esc, to let go. Hover focus only shows while the pointer is on a paper,
-  // which made the linked papers impossible to reach: they dimmed the moment
-  // it left. (It was a double-click for one round, which cost the re-seed.)
-  const [focusId, setFocusId] = useState<string | null>(null)
-  // A quick double-click re-seeds the whole graph on the paper.
-  const onDoubleClick = useCallback(
-    (node: VNode) => {
-      if (!node.is_seed) doLoadGraph(node.id)
-    },
-    [doLoadGraph],
-  )
-
   // Selection: the open detail panel, its hydration + figures + code links +
   // category tags.
   const {
@@ -335,7 +322,7 @@ export default function GraphExplorer({
     categories,
     onNodeClick,
     mergeDetail,
-  } = useSelection({ base, graph, provider, onDoubleClick })
+  } = useSelection({ base, graph, provider })
   // The detail panel slides out rather than vanishing (ui/usePresence). The
   // selection is already null by then, so the exit shows the last paper that
   // was actually in the panel.
@@ -359,11 +346,12 @@ export default function GraphExplorer({
   // opens it, like any other node.
 
   /**
-   * Canvas click, split by modifier: a shift-click toggles the node in the
-   * hand-picked selection, and a ⌘-click (Ctrl-click off a Mac, where
-   * Ctrl-click is the context menu) holds or lets go of its links' focus;
-   * neither opens the detail panel. A plain click falls through to the usual
-   * select / double-click re-seed.
+   * Canvas click: a shift-click toggles the node in the hand-picked
+   * selection without opening anything; a plain click falls through to the
+   * usual select (which also holds its links in focus), and centres the
+   * paper in view (v8.21.0, as the Knowledge Graph does): a
+   * pan, no zoom change. A click on the paper already open closes its panel
+   * and lets go of the focus (`useSelection`).
    */
   const onCanvasNodeClick = useCallback(
     (node: VNode, event?: MouseEvent) => {
@@ -371,13 +359,13 @@ export default function GraphExplorer({
         dispatch(nodeSelectionToggled(node.id))
         return
       }
-      if (event?.metaKey || event?.ctrlKey) {
-        setFocusId((prev) => (prev === node.id ? null : node.id))
-        return
-      }
+      // Centre only what opens: a click on the open paper closes it.
+      const opening = node.id !== selectedId
       onNodeClick(node)
+      if (opening && node.x !== undefined && node.y !== undefined)
+        fgRef.current?.centerAt(node.x, node.y, 600)
     },
-    [dispatch, onNodeClick],
+    [dispatch, onNodeClick, selectedId],
   )
 
   // The sim-side discovery merge. The discovery LISTS live in the store (the
@@ -720,8 +708,9 @@ export default function GraphExplorer({
     dispatch(nodeSelectionCleared())
     dispatch(highlightSet([]))
     setFindQuery('')
-    setFocusId(null)
-  }, [dispatch])
+    // The held focus is the open paper, so letting go of it closes the panel.
+    setSelectedId(null)
+  }, [dispatch, setSelectedId])
   // Esc = the same reset, unless an overlay owns the key right now: the
   // lightbox and the tour both close on their own Esc, and clearing the graph
   // underneath them would be a surprise.
@@ -760,21 +749,22 @@ export default function GraphExplorer({
     [base, hoverId, neighboursOf],
   )
 
-  /** Neighbors of the double-clicked paper, held until let go. Gone with its
-   *  paper (an undone expansion, a new graph). */
+  /** Neighbors of the paper open in the detail panel, held while it stays
+   *  open (v8.21.0; a ⌘-click held them from v8.18.0's polish). Hover focus
+   *  only shows while the pointer is on a paper, which made the linked papers
+   *  impossible to reach: they dimmed the moment it left. Holding them on the
+   *  click that opens the panel means no modifier to learn; closing the panel
+   *  (✕, Esc) lets go. Gone with its paper (an undone expansion). */
   const heldSet = useMemo(
     () =>
-      base && focusId && base.nodes.some((node) => node.id === focusId)
-        ? neighboursOf(focusId)
+      base && selectedId && base.nodes.some((node) => node.id === selectedId)
+        ? neighboursOf(selectedId)
         : null,
     // graphVersion: base.nodes changes in place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [base, focusId, neighboursOf, graphVersion],
+    [base, selectedId, neighboursOf, graphVersion],
   )
   heldFocus.current = heldSet
-  useEffect(() => {
-    setFocusId(null)
-  }, [base])
 
   /** The local find's matches over the VISIBLE view (hidden papers can't
    * match invisibly), or null when the box is empty. */
@@ -800,13 +790,19 @@ export default function GraphExplorer({
     setFindQuery('')
   }, [dispatch, findSet])
 
-  /** What to focus the canvas on: a held focus wins (hovering on the way to
-   * one of its papers mustn't swap it out); then hovering; then an active find
-   * (an EMPTY match set dims everything — honest "no hits" feedback); then the
-   * papers the AI teacher is currently talking about. */
+  /** What to focus the canvas on, by `model.focusOf`'s priority: the find,
+   * hover over one of the held papers, the open paper's held focus, hover,
+   * then the teacher's papers. */
   const focusSet = useMemo(
-    () => heldSet ?? hoverSet ?? findSet ?? (highlightIds.size ? highlightIds : null),
-    [heldSet, hoverSet, findSet, highlightIds],
+    () =>
+      focusOf({
+        find: findSet,
+        held: heldSet,
+        hover: hoverSet,
+        hoverId,
+        highlights: highlightIds,
+      }),
+    [heldSet, hoverSet, hoverId, findSet, highlightIds],
   )
 
   /** Toggle one relation type's visibility (the filter chips). */
@@ -823,6 +819,10 @@ export default function GraphExplorer({
     [dispatch],
   )
 
+  // The camera follows a layout switch from its first frame (v8.21.0),
+  // instead of waiting out the settle.
+  const { start: startChase, stop: stopChase } = useCameraChase(fgRef)
+
   /**
    * Switch layout. The physics live in useTimeline; clearing pin state stays
    * here because switching layout releases all user pins. (A restored
@@ -836,20 +836,22 @@ export default function GraphExplorer({
       if (!base) return
       applyLayoutPhysics(mode)
       clearPins()
+      startChase()
     },
-    [dispatch, base, applyLayoutPhysics, clearPins],
+    [dispatch, base, applyLayoutPhysics, clearPins, startChase],
   )
 
-  /** When the sim settles: freeze Timeline y positions and run the one-shot
-   * zoomToFit. */
+  /** When the sim settles: end any camera chase, freeze Timeline y positions
+   * and run the one-shot zoomToFit. */
   const onEngineStop = useCallback(() => {
+    stopChase()
     setLinksSettling(false)
     freezeSettledY(pinned)
     if (!fitDone.current && fgRef.current) {
       fgRef.current.zoomToFit(400, 60)
       fitDone.current = true
     }
-  }, [freezeSettledY, pinned])
+  }, [freezeSettledY, pinned, stopChase])
 
   // Repaint when highlight/selection/pins/focus/layout change (the sim may be at rest).
   useEffect(() => {

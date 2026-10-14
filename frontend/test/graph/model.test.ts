@@ -20,6 +20,7 @@ import {
   cleanNode,
   countRels,
   findMatches,
+  focusOf,
   foldRetiredEdgeTypes,
   foldRetiredNodeRels,
   formatPubDate,
@@ -255,5 +256,40 @@ describe('foldRetiredNodeRels / foldRetiredEdgeTypes', () => {
       { source: 'b', target: 'c', type: 'reference' },
     ])
     expect(folded.map((edge) => edge.type)).toEqual(['citation', 'reference'])
+  })
+})
+
+describe('focusOf', () => {
+  const find = new Set(['found'])
+  const held = new Set(['open', 'linked'])
+  const hover = new Set(['hovered'])
+  const highlights = new Set(['cited'])
+
+  const hoverId = 'hovered'
+
+  it('ranks the find, then the open paper, then hover, then the teacher', () => {
+    expect(focusOf({ find, held, hover, hoverId, highlights })).toBe(find)
+    expect(focusOf({ find: null, held, hover, hoverId, highlights })).toBe(held)
+    expect(focusOf({ find: null, held: null, hover, hoverId, highlights })).toBe(hover)
+    expect(focusOf({ find: null, held: null, hover: null, hoverId: null, highlights })).toBe(
+      highlights,
+    )
+  })
+
+  it('hovering one of the open paper’s lit papers shows that paper’s neighbourhood', () => {
+    const neighbour = new Set(['linked', 'further'])
+    expect(focusOf({ find: null, held, hover: neighbour, hoverId: 'linked', highlights })).toBe(
+      neighbour,
+    )
+    // A dimmed paper under the pointer changes nothing.
+    expect(focusOf({ find: null, held, hover, hoverId, highlights })).toBe(held)
+  })
+
+  it('an empty find still wins (dims everything), and nothing lit means no dimming', () => {
+    const none = new Set<string>()
+    expect(focusOf({ find: none, held, hover, hoverId, highlights })).toBe(none)
+    expect(
+      focusOf({ find: null, held: null, hover: null, hoverId: null, highlights: new Set() }),
+    ).toBeNull()
   })
 })

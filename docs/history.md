@@ -414,6 +414,37 @@
       Also fixed on the way: the year slider's fill ran off the controls
       panel when a saved year window outlived the papers that set it.
 
+- [x] **Click to focus, and a camera that keeps up with a layout switch**
+      *(v8.21.0)* — from the 2026-10-13 inbox ("switching between timeline
+      to force is a little slow, as the graph takes about 3 seconds to
+      recenter on the seed"), which Patrick widened on 2026-10-14 to retire
+      the ⌘-click focus, then refined over three browser rounds.
+
+      **The camera follows a layout switch** (`hooks/useCameraChase`). The
+      one-shot fit waited for the sim's full 300-tick cool-down, so the
+      camera sat still for about three seconds while the papers moved. The
+      cool-down stays (expansion groups freeze mid-flight without it); the
+      camera now re-fits every 250 ms from the first frame, each fit animated
+      over the same 250 ms so the moves join into one glide, until the
+      engine stops (or 2.5 s), and the settle's fit makes the last
+      correction.
+
+      **A click holds the focus.** The held focus is the paper open in the
+      detail panel: a click opens it, **centres it** (a pan, no zoom change,
+      as the Knowledge Graph does) and keeps it and everything linked to it
+      lit; a **second click on it closes the panel** and lets go, as do ✕ and
+      Esc. **Hovering one of its lit papers** shows that paper's
+      neighbourhood until the pointer leaves it, so the reader can look a
+      step further out without letting go; hovering a dimmed paper changes
+      nothing (`model.focusOf`). **An active find now outranks the held
+      focus**, since a panel is open most of the time. The alt-drag scope
+      selection keeps to the lit neighbourhood, as before.
+
+      **The double-click re-seed is gone.** With a second click closing the
+      panel, the two fought over one gesture and the double-click got hard
+      to land; re-seeding is the panel's "Explore in a thread". The hint
+      line, the tour, and the READMEs teach the new gestures.
+
 ### Search & seeding
 
 - [x] **One `@` list for papers and threads, Enter that does what the lit row

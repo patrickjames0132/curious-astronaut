@@ -86,12 +86,15 @@ figures.
   (the backend mines a journal paper's OA PDF). Code links and category
   tags stay arXiv-gated on purpose: HF Papers and arXiv's own metadata are
   arXiv-keyed — a journal paper's node just never requests them.
-- **The click gesture:** single click selects; a quick (<350 ms) second
-  click on the same node is a double-click, handed to `onDoubleClick`:
-  `GraphExplorer` re-seeds the whole graph on it — wandering the literature
-  node-to-node, by node id so journal papers work as seeds too. (v8.18.0's
-  polish gave it to the held focus for one round, then gave it back; the
-  focus is a ⌘-click, handled in `GraphExplorer`'s canvas click.)
+- **The click gesture** (v8.21.0): a click opens a paper, **centres it** and
+  **holds its links in focus** while its panel is open (`GraphExplorer`
+  derives the held focus from `selectedId`; it was a ⌘-click before), and a
+  **click on the open paper closes it**, letting go of the focus. Until
+  v8.21.0 a quick (<350 ms) second click was a double-click that re-seeded
+  the graph on the paper; with a second click also closing the panel, the
+  two fought over one gesture (Patrick found the double-click hard to land),
+  so the double-click went and re-seeding is the panel's **"Explore in a
+  thread"** alone, by node id so journal papers work as seeds too.
 - **`DetailPanel` is purely presentational**, and its `CodeRow`/
   `CodeSection`/`CategoryTags` children are single-parent — nested in the
   parent's file per the hybrid structure rule. The HF section caps rows
@@ -146,8 +149,9 @@ ring. The teacher's "papers I cited" chips also drive `setSelectedId`.
 
 ## How it's verified
 
-`tsc --noEmit` strict + oxlint; the lazy-load/caching behavior and the
-double-click re-seed are browser-milestone items (click a journal paper —
+`tsc --noEmit` strict + oxlint; `test/detail/useSelection.test.tsx` covers
+a new graph opening nothing and a click on the open paper closing it; the
+lazy-load/caching behavior is a browser-milestone item (click a journal paper —
 its abstract should now appear).
 
 ## Citation navigation

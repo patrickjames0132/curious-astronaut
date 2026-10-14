@@ -194,7 +194,7 @@ const DOUBLE_CLICK_MS = 350
 /**
  * Click and double-click on a node, which the force engine doesn't tell apart:
  * a click opens the lesson, a quick second click on the same node breaks it
- * down — the same gesture the citation graph uses to re-seed on a node. A
+ * down (the citation graph's re-seed gesture until v8.21.0, when it went). A
  * shift-click adds the node to, or takes it out of, the selection (v8.17.0),
  * again as on the citation graph, and never opens or breaks anything down.
  *
