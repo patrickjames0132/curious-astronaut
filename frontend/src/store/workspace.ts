@@ -66,7 +66,7 @@ export interface WorkspaceState {
   /**
    * The exact reference this graph was loaded with (arXiv id, pasted URL, or
    * S2 paperId) — kept so "Refresh" can bust the *same* cache key the server
-   * stored the snapshot under (a double-click re-seed keys by paperId, a
+   * stored the snapshot under (an "Explore in a thread" re-seed keys by paperId, a
    * search by arXiv id). Null with no graph.
    */
   seedRef: string | null
@@ -389,7 +389,7 @@ export const deleteThread = createAsyncThunk<
 /** Open a thread the way the rail does: a paper thread always lands on its
  * cards, even the one already on screen (Patrick, 2026-10-09). Since v8.16.0;
  * before that a rail click reopened the tool last used. Opening a paper *for*
- * a tool (a node's double-click, a citation's graph icon) goes through
+ * a tool (the panel's "Explore in a thread", a citation's graph icon) goes through
  * `seedPaper`/`openPaper` instead and keeps landing on that tool. Setting the
  * tool first means a thread that rested on its graph never rebuilds it here.
  * @param threadId The thread to show.

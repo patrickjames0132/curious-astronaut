@@ -126,8 +126,9 @@ canvas about what "a reference" looks like, and both style via
   **Esc**, same reset, see `hooks/useEscapeClear.ts`) drops *everything* lit
   at once: the pick and the teacher's glow, wherever it came from.
 - **The hint line teaches per-layout gestures** — drag-to-pin in Force,
-  left→right-by-year in Timeline; double-click to re-seed and ⌘-click to
-  hold a paper's links in focus in both.
+  left→right-by-year in Timeline; a click to hold a paper's links in focus,
+  and a second to let go, in both. (The focus was a ⌘-click until v8.21.0,
+  and the line taught double-click to re-seed, a gesture v8.21.0 retired.)
 - **Release** unpins every node AND reheats the simulation — it stays enabled
   with nothing pinned, because "re-settle a drifted force layout" is a want of
   its own (it used to require abusing a filter chip's reheat side effect).

@@ -54,14 +54,36 @@ them. Note the discovery data flow is one-way: teacher → store → explorer
 → `base` — the discovery *lists* live in the workspace slice (grounding,
 Save, and the legend read them there); this folder owns only the sim merge.
 
-**Focus** dims everything but one set of papers. In priority order: a **held
-focus** (v8.18.0's polish: ⌘-click a paper, Ctrl-click off a Mac, and it and
-everything linked to it stay lit until it's ⌘-clicked again or Esc), then
-hover, then an active find, then the teacher's highlights. The held focus
-wins over hover on purpose: it exists so the pointer can travel to the
-linked papers to click them, and hover focus dimmed them the moment the
-pointer left the paper. It was a double-click for one round, which cost the
-double-click re-seed; that turned out to be the gesture worth keeping.
+**Focus** dims everything but one set of papers (`model.focusOf`). In
+priority order: an active find, then a **held focus**, then hover, then the
+teacher's highlights. The held focus is **the paper open in the detail
+panel** (v8.21.0): the click that opens the panel keeps it and everything
+linked to it lit until the panel closes (a second click on the paper, ✕, or
+Esc's clear-all), and pans the paper to the middle of the view, as the
+Knowledge Graph does (no zoom change). The held focus wins over hover in
+general: it exists so the pointer can travel to the linked papers, and hover
+focus dimmed them the moment the pointer left the paper. **Except over one
+of its own lit papers**: pointing at a neighbour shows *that* paper's
+neighbourhood until the pointer leaves it, so the reader can explore a step
+further out without letting go; hover over a dimmed paper changes nothing.
+How it got here: v8.18.0's polish made the focus a double-click for one
+round (which cost the double-click re-seed), then a ⌘-click, an extra
+modifier to learn (Patrick, v8.21.0: "it doesn't need a cmd-click"). In the
+same change the double-click re-seed went too: once a second click closed
+the panel, the two fought over one gesture, and "Explore in a thread" in the
+panel re-seeds. The find moved above the held focus as well: with a panel
+open most of the time, a held focus outranking the find would hide every
+find behind it.
+
+**Switching layout chases the camera** (v8.21.0). The one-shot
+`zoomToFit` waits for the sim to settle, a full 300-tick cool-down
+(`GraphCanvas`'s `cooldownTicks`, which expansions need), so after a
+Force ↔ Timeline switch the camera sat still for about three seconds while
+the papers flew to their new places. `setLayoutMode` now starts
+`hooks/useCameraChase`: a short fit every `CHASE_STEP_MS` (250 ms, each fit
+animated over the same 250 ms so the moves join into one glide) until the
+engine stops or `CHASE_MAX_MS` (2.5 s) passes; the settle's own fit then
+makes the last correction.
 
 The `view` separates **eligibility from drawing** (v7.24.0). `eligible` is
 what the chips, sliders and caps admit, and it is what gets published as

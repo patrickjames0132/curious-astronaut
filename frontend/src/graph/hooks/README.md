@@ -10,6 +10,7 @@ by identity.
 
 ```
 hooks/
+  useCameraChase.ts — the camera follows a layout switch instead of waiting it out
   useDiscovery.ts   — the sim-side discovery merge, in place
   useEscapeClear.ts — Esc = one "unhighlight everything" gesture
   useMarquee.ts     — alt-drag node selection (the teacher's scope)
@@ -128,6 +129,20 @@ piece of this hook's state that's genuinely cross-cutting, since
 `scope/resolve.ts` reads it to scope the teacher (the selection is the
 middle rung of its priority list, above the filters). The rectangle and the
 `armed` flag stay local (only the canvas paints them).
+
+## `useCameraChase` — the camera follows a layout switch
+
+Switching Force ↔ Timeline reheats the sim, and the explorer's one-shot
+`zoomToFit` waits for it to settle: a full 300-tick cool-down
+(`canvas/GraphCanvas`'s `cooldownTicks`, which expansion groups need to get
+all the way out), so the camera sat still for about three seconds while the
+papers flew to their new places (Patrick, v8.21.0). Shortening the cool-down
+would have frozen those groups mid-flight again, so the physics are left
+alone and **the camera chases instead**: `start` (from `setLayoutMode`)
+fits every `CHASE_STEP_MS` (250 ms), each fit animated over the same 250 ms
+so the moves join into one glide, until `stop` (the engine-stop handler) or
+`CHASE_MAX_MS` (2.5 s). The settle's own fit then makes the last
+correction. An unmount stops a chase still running.
 
 ## `useEscapeClear` — one key drops every highlight
 
@@ -288,7 +303,9 @@ Pins are just `fx`/`fy`, but their *semantics* are layout-aware:
 
 ## How it's verified
 
-`tsc --noEmit` strict + oxlint. `test/graph/hooks/usePaperLinks.test.tsx`
+`tsc --noEmit` strict + oxlint. `test/graph/hooks/useCameraChase.test.tsx`
+covers the chase: a fit every step from the start, a restart, `stop`, the
+time cap, and unmount. `test/graph/hooks/usePaperLinks.test.tsx`
 covers the links hook: no request while off, a re-ask on a version bump,
 already-drawn pairs dropped, and the error status. The mutation-heavy behavior (pins surviving
 filters, discoveries settling near anchors, timeline freezing) is exactly

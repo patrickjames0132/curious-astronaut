@@ -6,8 +6,8 @@ story of how a field got here.**
 Drop in a paper and Curious Astronaut renders a **Connected-Papers-style interactive
 graph** of how it links to the literature — the papers it cites (its
 intellectual ancestors), the papers that cite it (its descendants), and its
-nearest neighbors by meaning. Then wander: double-click any node to re-center
-the graph on it and keep exploring.
+nearest neighbors by meaning. Then wander: open any paper and **Explore in a
+thread** to re-center the graph on it and keep exploring.
 
 Each **exploration** contains a permanent **General** discussion and a thread
 for each paper. A paper thread opens on its **card home**: the paper (title,
@@ -245,7 +245,7 @@ The Vite dev server proxies `/api/*` to Flask.
    details (TL;DR, abstract/PDF links, arXiv & Semantic Scholar category
    tags, figures — mined straight from the open-access PDF for journal
    papers, tables and algorithms included — code & artifacts);
-   **double-click to re-seed** on it — journal papers included. **Expand any
+   **Explore in a thread** from its panel to re-seed on it — journal papers included. **Expand any
    paper on the same graph** from its panel: **+ References** brings in every
    paper it cites, **+ Citations** its citers picked the way the seed's are
    (the tau rule over its whole history), and the paper turns pink and moves
@@ -258,9 +258,10 @@ The Vite dev server proxies `/api/*` to Flask.
    you click one. Inside: Force ↔ Timeline layouts (x = publication date), relation
    on/off **filter chips**, a dual-knob **year slider** and a dual-knob
    **citation-count slider** (a log-scale min…max window over the papers on
-   screen — a display filter, no re-query), drag-to-pin, focus-on-hover,
-   **⌘-click** (Ctrl-click on Windows) to hold a paper's links in focus while
-   you click through them, **Show interconnected links** (Force) to link up
+   screen — a display filter, no re-query), drag-to-pin, focus-on-hover, and
+   a **click** centres a paper, opens its detail panel and holds its links
+   in focus until you click it again, close the panel, or press Esc (point
+   at one of the lit papers to see its own links in turn), **Show interconnected links** (Force) to link up
    the papers on screen by their citations to each other, the way Connected
    Papers does, with papers linked only to the seed gathered per relation, and a
    **Refresh** that busts this seed's day-cached snapshot to re-fetch fresh from
@@ -268,7 +269,7 @@ The Vite dev server proxies `/api/*` to Flask.
    **alt-drag** a marquee to add papers to the teacher's scope (additive —
    several sweeps build one cluster), **shift-click** to add/remove one, and
    **alt-click** empty (or **Clear**) to reset. Picked papers ring cyan and the
-   rest dim (unless a ⌘-click focus is held, which then owns the dimming);
+   rest dim (unless a paper's panel is open, whose held focus then owns the dimming);
    drag any ringed paper and the whole selection moves with it, pinned where
    you drop it. The teacher then grounds only in your selection — even papers a
    filter later hides, which stay drawn with a dotted ring. Click the

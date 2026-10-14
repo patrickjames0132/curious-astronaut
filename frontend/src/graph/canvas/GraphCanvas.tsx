@@ -61,7 +61,7 @@ export interface GraphCanvasProps {
    *  hand-picked selection (cyan ring; others dim). */
   selectedIds: Set<string>
   /** Whether the selection dims everything outside it. Off while a focus is
-   *  held (a ⌘-click): then the focus owns the dimming, and the
+   *  held (the paper open in the detail panel): then the focus owns the dimming, and the
    *  selection shows as its cyan rings alone, so dimming means one thing at
    *  a time. */
   selectionDims: boolean
@@ -70,8 +70,8 @@ export interface GraphCanvasProps {
   ghostIds: Set<string>
   /** Nodes the teacher is currently talking about (gold glow + ring). */
   highlightIds: Set<string>
-  /** Select / re-seed handler (single vs. quick double click); the DOM event
-   *  carries the shift modifier used for add/remove selection. */
+  /** Click handler (open / close a paper); the DOM event carries the shift
+   *  modifier used for add/remove selection. */
   onNodeClick: (node: VNode, event?: MouseEvent) => void
   /** Hover handler — receives the node id, or null when leaving. */
   onNodeHover: (id: string | null) => void

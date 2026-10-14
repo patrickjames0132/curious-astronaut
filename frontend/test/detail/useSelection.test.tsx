@@ -7,7 +7,8 @@
  * every new graph, returns to) null — v7.9.0's "a graph opens onto the graph,
  * not onto its panels" — so the detail panel only appears once a paper is
  * clicked. The seed is no longer auto-selected; the chat-citation path and the
- * guided tour open it explicitly, from GraphExplorer.
+ * guided tour open it explicitly, from GraphExplorer. And the clicks: a
+ * second click on the open paper closes it.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -69,11 +70,11 @@ function makeWorld(seedId: string) {
   return { graph, base, seed, neighbor }
 }
 
-/** Mount the hook over one world, with an inert double-click callback. */
+/** Mount the hook over one world. */
 function mount(world: ReturnType<typeof makeWorld>) {
   return renderHook(
     ({ graph, base }: Pick<ReturnType<typeof makeWorld>, 'graph' | 'base'>) =>
-      useSelection({ base, graph, provider: 's2', onDoubleClick: () => {} }),
+      useSelection({ base, graph, provider: 's2' }),
     { initialProps: { graph: world.graph, base: world.base } },
   )
 }
@@ -113,15 +114,23 @@ describe('useSelection on a new graph', () => {
   })
 })
 
-describe('useSelection double-click', () => {
-  it('hands a quick second click on the same paper to onDoubleClick', () => {
+describe('useSelection clicks', () => {
+  it('a second click on the open paper closes it, and a third opens it again', () => {
     const world = makeWorld('seed-1')
-    const onDoubleClick = vi.fn()
-    const { result } = renderHook(() =>
-      useSelection({ base: world.base, graph: world.graph, provider: 's2', onDoubleClick }),
-    )
+    const { result } = mount(world)
     act(() => result.current.onNodeClick(world.neighbor))
+    expect(result.current.selectedId).toBe(world.neighbor.id)
     act(() => result.current.onNodeClick(world.neighbor))
-    expect(onDoubleClick).toHaveBeenCalledWith(world.neighbor)
+    expect(result.current.selectedId).toBeNull()
+    act(() => result.current.onNodeClick(world.neighbor))
+    expect(result.current.selectedId).toBe(world.neighbor.id)
+  })
+
+  it('a click on another paper moves the selection rather than closing it', () => {
+    const world = makeWorld('seed-1')
+    const { result } = mount(world)
+    act(() => result.current.onNodeClick(world.neighbor))
+    act(() => result.current.onNodeClick(world.seed))
+    expect(result.current.selectedId).toBe(world.seed.id)
   })
 })

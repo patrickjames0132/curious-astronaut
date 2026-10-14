@@ -507,8 +507,8 @@ export default function GraphControls({
 
           <div className="ctrl-hint" data-tour="hint">
             {layout === 'timeline'
-              ? 'papers placed left→right by year · double-click to re-seed · ⌘-click to hold its links in focus'
-              : 'drag to pin · double-click to re-seed · ⌘-click to hold its links in focus'}
+              ? 'papers placed left→right by year · click to focus, again to let go'
+              : 'drag to pin · click to focus, again to let go'}
           </div>
 
           {providerNote && <div className="provider-note">ⓘ {providerNote}</div>}

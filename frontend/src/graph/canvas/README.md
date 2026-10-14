@@ -31,7 +31,8 @@ arc on top of it.
   marquee / shift-click selection, or the papers a message asked for, which
   `send` makes the selection). While a scope is active, everything
   outside it **dims** like a focus set, so the scoped cluster stands out,
-  **unless a focus is held** (a ⌘-click, v8.18.0's polish): then the
+  **unless a focus is held** (the paper open in the detail panel, since
+  v8.21.0; a ⌘-click from v8.18.0's polish): then the
   focus owns the dimming and the selection shows as rings alone
   (`selectionDims`), so a reader can pick papers out of a focused
   neighbourhood without the rest of it going dark. Dimming means one thing
