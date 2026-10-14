@@ -260,7 +260,8 @@ The Vite dev server proxies `/api/*` to Flask.
    **citation-count slider** (a log-scale min…max window over the papers on
    screen — a display filter, no re-query), drag-to-pin, focus-on-hover, and
    a **click** centres a paper, opens its detail panel and holds its links
-   in focus until you click it again, close the panel, or press Esc (point
+   in focus until you click it again, close the panel, or press Esc (a first
+   Esc clears any selection or highlight, the next lets go; point
    at one of the lit papers to see its own links in turn), **Show interconnected links** (Force) to link up
    the papers on screen by their citations to each other, the way Connected
    Papers does, with papers linked only to the seed gathered per relation, and a

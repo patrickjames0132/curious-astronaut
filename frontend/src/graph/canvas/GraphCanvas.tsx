@@ -21,16 +21,17 @@
 import ForceGraph2DImport from 'react-force-graph-2d'
 import type { GraphNode } from '../../api'
 import { latexToUnicode } from '../../notation/latexToUnicode'
-import { nodeRadius, primaryRel } from '../model'
+import { edgeLit, edgeTypeFrom, nodeRadius, primaryRel } from '../model'
 import type { DragStep, PositionedVNode, VLink, VNode } from '../model'
 import {
+  ARROW_COLOR,
   DIM_EDGE,
-  DIM_NODE,
   EDGE_COLOR,
   EXPANDED_COLOR,
   REL_COLOR,
   SELECTION_RING,
   UNKNOWN_EDGE,
+  dimColor,
   useCanvasInk,
 } from '../theme'
 
@@ -51,6 +52,9 @@ export interface GraphCanvasProps {
   data: { nodes: VNode[]; links: VLink[] }
   /** Nodes in focus (hover neighborhood or teacher highlights); null = no dimming. */
   focusSet: Set<string> | null
+  /** The paper the edges are coloured from (`model.focusAnchor`): blue where
+   *  it cites, green where it is cited. Null: the seed's point of view. */
+  anchorId: string | null
   /** User-pinned node ids (drawn with a pale ring). */
   pinned: Set<string>
   /** Papers an Expand hop has run on (filled pink, see theme's EXPANDED_COLOR). */
@@ -107,6 +111,7 @@ export default function GraphCanvas({
   height,
   data,
   focusSet,
+  anchorId,
   pinned,
   expandedIds,
   selectedId,
@@ -133,6 +138,11 @@ export default function GraphCanvas({
         `${latexToUnicode(node.title)}${node.year ? ` (${node.year})` : ''}`
       }
       nodeRelSize={1}
+      // The drawn radius, squared: the engine never draws a node here (the
+      // canvas object below does), but it ends each arrow at the target's
+      // edge by this size. Unset, it took every node for radius 1, and every
+      // arrowhead sat hidden under the disc it pointed at (until v8.22.0).
+      nodeVal={(node: VNode) => nodeRadius(node) ** 2}
       onNodeClick={onNodeClick}
       onNodeHover={(node: VNode | null) => onNodeHover(node ? node.id : null)}
       onNodeDrag={onNodeDrag}
@@ -144,18 +154,27 @@ export default function GraphCanvas({
       // way out past the formation froze wherever it was, worst on a restore,
       // where every group starts from scratch at once (v8.18.0).
       cooldownTicks={300}
+      // Under a focused paper only its own edges stay lit (`edgeLit`).
       linkColor={(link: VLink) =>
-        focusSet && !focusSet.has(link._s) && !focusSet.has(link._t)
-          ? DIM_EDGE
-          : (EDGE_COLOR[link.type] ?? UNKNOWN_EDGE)
+        edgeLit(link, focusSet, anchorId)
+          ? (EDGE_COLOR[edgeTypeFrom(link, anchorId)] ?? UNKNOWN_EDGE)
+          : DIM_EDGE
+      }
+      // Arrowheads a step bolder than their line, so the direction reads.
+      linkDirectionalArrowColor={(link: VLink) =>
+        edgeLit(link, focusSet, anchorId)
+          ? (ARROW_COLOR[edgeTypeFrom(link, anchorId)] ?? UNKNOWN_EDGE)
+          : DIM_EDGE
       }
       // A link between papers draws finer than a seed edge: there can be
       // hundreds, and they are the web, not the story.
       linkWidth={(link: VLink) => (link._between ? 0.35 : link.influential ? 1.6 : 0.6)}
-      // Every edge type is a citation now, so every edge gets an arrow. The
-      // exception this used to carry was `similar`, retired in v7.5.0 —
-      // direction meant nothing on an embedding neighbour.
-      linkDirectionalArrowLength={2.4}
+      // Every edge type is a citation now, so every edge gets an arrow,
+      // pointing from the citing paper to the one it cites. The exception
+      // this used to carry was `similar`, retired in v7.5.0 — direction meant
+      // nothing on an embedding neighbour. A link between papers takes a
+      // smaller head, as it takes a finer line.
+      linkDirectionalArrowLength={(link: VLink) => (link._between ? 3 : 4.5)}
       linkDirectionalArrowRelPos={1}
       nodeCanvasObject={(
         node: PositionedVNode,
@@ -186,11 +205,10 @@ export default function GraphCanvas({
         }
         ctx.beginPath()
         ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
-        ctx.fillStyle = dim
-          ? DIM_NODE
-          : expandedIds.has(node.id)
-            ? EXPANDED_COLOR
-            : REL_COLOR[primaryRel(node)]
+        // A dimmed paper keeps a faint trace of its own colour, so who cites
+        // and who is cited still shows behind a focus (v8.22.0; grey before).
+        const fill = expandedIds.has(node.id) ? EXPANDED_COLOR : REL_COLOR[primaryRel(node)]
+        ctx.fillStyle = dim ? dimColor(fill) : fill
         ctx.fill()
         // A thin black outline on every disc (v8.16.0), so overlapping papers
         // read as separate shapes. Its colour is the theme's `--node-outline`

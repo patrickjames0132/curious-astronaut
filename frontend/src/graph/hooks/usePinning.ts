@@ -19,9 +19,11 @@
  *
  * Only the selection moves. While a focus is held, a selected paper outside
  * it is dimmed and its ring hidden, so it stays behind (`visibleIds`). And
- * every other paper is held still for the length of the drag, then let go on
- * the drop: until then the links, the links between papers above all, towed
- * every paper linked to the selection along behind it.
+ * every other paper is held still for the length of the drag, and on past
+ * the drop until the layout settles (`releaseHeld`, on engine stop): until
+ * then the links, the links between papers above all, towed every paper
+ * linked to the selection along behind it. Letting go on the drop itself
+ * still did, since the drag leaves the sim hot (v8.22.0).
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -61,6 +63,9 @@ export interface PinningApi {
   /** Drag-release handler: pin the node where it was dropped (and the rest
    *  of the selection, when it was one of them). */
   onNodeDragEnd: (node: VNode) => void
+  /** Let go of the papers a group drag held still: on engine stop, once the
+   *  layout has settled after the drop. */
+  releaseHeld: () => void
   /** Pin a node at its current position, or release it if already pinned. */
   togglePin: (id: string) => void
   /** Unpin every node (keeps Timeline date columns when in Timeline). */
@@ -108,12 +113,30 @@ export function usePinning({
   )
 
   // The papers held still during a group drag, with the pins they had before,
-  // to give back on the drop. Null between drags.
+  // to give back once the layout settles after the drop. Null otherwise.
   const heldStill = useRef<Map<VNode, { fx?: number; fy?: number }> | null>(null)
+  // The paper under the pointer during a drag (every step reports it).
+  const dragging = useRef<VNode | null>(null)
+
+  /** Give the papers held still back their own pins. Called when the sim
+   *  settles after a group drop (v8.22.0): giving them back on the drop
+   *  itself, while the drag still had the sim hot, let the links tow them,
+   *  dimmed papers and all, after the group to wherever it landed. */
+  const releaseHeld = useCallback(() => {
+    for (const [other, pins] of heldStill.current ?? []) {
+      other.fx = pins.fx
+      other.fy = pins.fy
+    }
+    heldStill.current = null
+  }, [])
 
   const onNodeDrag = useCallback(
     (node: VNode, translate: DragStep) => {
       const companions = companionsOf(node)
+      // A drag before the last drop has settled: its papers go back first,
+      // so this drag holds still exactly what it doesn't carry.
+      if (companions.length && !dragging.current) releaseHeld()
+      dragging.current = node
       if (companions.length && base && !heldStill.current) {
         const moving = new Set([node, ...companions])
         heldStill.current = new Map()
@@ -136,18 +159,18 @@ export function usePinning({
         }
       }
     },
-    [companionsOf, base, layout],
+    [companionsOf, base, layout, releaseHeld],
   )
 
   const onNodeDragEnd = useCallback(
     (node: VNode) => {
-      // Let go of everything held still, back to the pins it had.
-      for (const [other, pins] of heldStill.current ?? []) {
-        other.fx = pins.fx
-        other.fy = pins.fy
-      }
-      heldStill.current = null
+      // Everything held still stays held until the layout settles
+      // (`releaseHeld`, on engine stop); only the dropped papers are pinned.
+      dragging.current = null
       const dropped = [node, ...companionsOf(node)]
+      // A paper dropped while still held from an earlier drag keeps this
+      // drop's pin, not the old one the release would give back.
+      for (const paper of dropped) heldStill.current?.delete(paper)
       for (const paper of dropped) {
         if (layout === 'timeline') {
           // Keep the paper at its date column; the drag only sets its height.
@@ -205,5 +228,5 @@ export function usePinning({
     fgRef.current?.d3ReheatSimulation?.()
   }, [base, layout, nodeTimelineX, fgRef])
 
-  return { pinned, clearPins, onNodeDrag, onNodeDragEnd, togglePin, releaseAll }
+  return { pinned, clearPins, onNodeDrag, onNodeDragEnd, releaseHeld, togglePin, releaseAll }
 }

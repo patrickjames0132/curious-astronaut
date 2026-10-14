@@ -1644,6 +1644,12 @@ than deleted so the plan doesn't get re-proposed.
            beside force and 3D, or does it only matter once tie-ins exist?
 
         *(From the `todos.md` inbox, 2026-10-13.)*
+      - **Fade dimmed concepts in their own colour**, as the Paper Graph does
+        since v8.22.0 (`graph/theme.dimColor`): the Knowledge Graph's find
+        still dims every non-match to a flat grey (`DIM_NODE`, in both
+        `KnowledgeGraph.tsx` and `KnowledgeGraph3D.tsx`), losing which
+        concepts are known (green), explored (violet) or new (grey).
+        *(Patrick, 2026-10-14, at the v8.22.0 ship.)*
 
       **Later stages, deliberately out of v1:**
       - **A challenger agent** that asks probe questions to learn what the

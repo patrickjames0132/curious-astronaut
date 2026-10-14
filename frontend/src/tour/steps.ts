@@ -339,7 +339,8 @@ export const GRAPH_TOUR: TourStep[] = [
       'Click any paper to centre it and open its detail panel — abstract, figures, code ' +
       'links, tags — and hold its links in focus: everything it’s linked to stays lit, the rest dims, ' +
       'while the panel is open. Point at one of the lit papers to see its links in turn. ' +
-      'Click the paper again, close the panel, or press Esc to let go. “Explore in a ' +
+      'Click the paper again, close the panel, or press Esc to let go (a first Esc clears ' +
+      'any selection or highlight, the next lets go). “Explore in a ' +
       'thread” in the panel re-seeds the whole map on a paper.',
   },
   {
