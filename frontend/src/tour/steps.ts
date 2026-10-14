@@ -158,8 +158,8 @@ export const CARDS_TOUR: TourStep[] = [
 ]
 
 /**
- * The knowledge network: the graph (click, double-click), the course bar
- * (progress, next lesson, 2D/3D), and the lesson panel.
+ * The knowledge network: the graph (click, double-click), the legend, the
+ * course controls, the find bar, and the lesson panel.
  */
 export const KNOWLEDGE_TOUR: TourStep[] = [
   {
@@ -187,6 +187,14 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
       'Open these controls to fly through the course in 3D, or for ' +
       'Release (unpin the nodes you dragged), Fit (the whole course in view) and Clear ' +
       '(drop a selection).',
+  },
+  {
+    target: '[data-tour="knowledge-find"]',
+    title: 'Find a concept',
+    body:
+      'Type part of a name to spotlight the concepts that match; the rest dim. Enter (or ' +
+      '“select”) picks every match, ready to check off with “✓ I know these”. Esc or ✕ ' +
+      'clears the find.',
   },
   {
     target: '[data-tour="knowledge"]',

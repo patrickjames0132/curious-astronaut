@@ -103,6 +103,10 @@ canvas about what "a reference" looks like, and both style via
   same highlight machinery the teacher's glow uses (matches glow + label,
   everything else dims; zero hits dims the whole graph — honest feedback).
   A new graph resets it; the graph-wide Esc/clear-all drops it too.
+  **The knowledge graph reuses it** (v8.20.0) over concept names: the
+  wording and `data-tour` anchor are props (`FindCopy`, `tour`) whose
+  defaults are this graph's, and there "select" feeds the check-off
+  selection instead of the teacher's scope (see `knowledge/README.md`).
 - **The year slider only renders when the graph spans more than one
   year** — a single-year graph gets nothing to filter. Its two knobs clamp
   against each other (`lo ≤ hi`).

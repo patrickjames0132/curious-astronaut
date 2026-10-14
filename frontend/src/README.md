@@ -46,6 +46,7 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │  ├─ the graph                 knowledge/KnowledgeGraph.tsx, or
    │  │                              KnowledgeGraph3D.tsx (lazy-loaded)
    │  ├─ legend                    knowledge/KnowledgeLegend.tsx
+   │  ├─ find control (🔍 → pill)  graph/controls/FindBar.tsx (shared)
    │  └─ lesson panel (on click)   knowledge/KnowledgePanel.tsx
    ├─ graph area                   graph/GraphExplorer.tsx
    │  ├─ overlays (from the shell): loading / error, and the ↑ back up to

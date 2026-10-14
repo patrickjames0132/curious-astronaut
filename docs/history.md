@@ -3472,6 +3472,28 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **Knowledge Graph: a find bar for concepts** *(v8.20.0)* — from the
+      2026-10-13 inbox ("add lexical search bar in the bottom right hand
+      corner of the Knowledge Graph"). The Paper Graph's own find control
+      (`graph/controls/FindBar`) now serves both graphs, in the same
+      bottom-right corner: its wording and tour anchor became props
+      (`FindCopy`, `tour`) whose defaults are the Paper Graph's, so that one
+      is unchanged.
+
+      **Names only.** `findItems` (`knowledge/model.ts`) is a plain,
+      case-insensitive substring match over concept names; lesson text would
+      match nearly any word. While a query is live, the items that don't
+      match dim (the Paper Graph's `DIM_NODE`; edges `DIM_EDGE` unless they
+      touch a match) and only the matches are named, at any zoom. In 3D the
+      other spheres dim and their labels hide.
+
+      **Find → select → check off.** "select", or Enter, adds every match to
+      the check-off selection and clears the find, so the selection's blue
+      rings and its "✓ I know these" bar take over — the Knowledge Graph's
+      counterpart to the Paper Graph's find → select → ask. The query is
+      component state like the selection, never saved, and empties when the
+      course changes. The tour gained a "Find a concept" step.
+
 - [x] **Knowledge Graph polish: no citations, multi-select check-offs, and
       the Citation Graph's look** *(v8.17.0)* — three Backlog items from the
       2026-10-09 inbox plus a long browser round with Patrick (2026-10-09/10),

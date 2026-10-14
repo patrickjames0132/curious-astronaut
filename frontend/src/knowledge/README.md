@@ -15,6 +15,7 @@ knowledge/
   KnowledgeGraph3D.tsx  — the 3D scene (react-force-graph-3d), lazy-loaded
   KnowledgeControls.tsx — the folding course controls (sliders button, top-left)
   KnowledgeLegend.tsx   — node kinds, the edge, and node states (bottom-left)
+                          (the find bar, bottom-right, is ../graph/controls/FindBar)
   KnowledgePanel.tsx    — the side panel: why it's needed, what it needs, the lesson
   look.ts               — shared by both views: colours, sizes, labels, stable data, clicks
   useLessons.ts         — lesson streaming that outlives the tool's mount
@@ -116,6 +117,19 @@ knowledge/
   outlines need no entry. The panel's kicker takes its node's colour ("Paper"
   gold, "Concept" violet, and "Known concept" / "Known paper" green once
   known), through theme tokens deepened for the light panel.
+- **Find a concept by name** (v8.20.0) with the citation graph's own find
+  bar (`graph/controls/FindBar`), in the same bottom-right corner, in its
+  own wording (`FIND_COPY` in `KnowledgeNetwork`) and with its own tour
+  anchor (`knowledge-find`). `findItems` (`model.ts`) is a plain,
+  case-insensitive substring match over **names only**: lesson text would
+  match nearly any word. While a query is live, every item that doesn't
+  match dims (the citation graph's `DIM_NODE`, edges `DIM_EDGE` unless they
+  touch a match) and only the matches are named, at any zoom; in 3D the
+  other spheres dim and their labels hide. **"select", or Enter, adds the
+  matches to the check-off selection** and clears the find, so the
+  selection's blue rings and its "✓ I know these" bar take over: find →
+  select → check off. The query is component state like the selection,
+  never saved, and a new course starts with it empty.
 - **Labels follow the citation graph's rule** (`labelled` in `look.ts`,
   v8.17.0) with a lower threshold: zoomed in past `LABEL_ZOOM` (0.6, against
   the citation graph's 1.6, since a course is smaller and sparser) every
@@ -183,14 +197,17 @@ assistant docked here: since v8.15.0 it lives on the Citation Graph alone (see
 ## Verified by
 
 `test/knowledge/model.test.ts` covers identity, node kinds, shared concepts,
-loops, routes, course order, pruning, next-lesson and `lessonText`.
-`test/knowledge/KnowledgeGraph.test.tsx` covers the 2D view's first fit and
-that a shift-click selects without opening.
+loops, routes, course order, pruning, next-lesson, `lessonText` and
+`findItems`.
+`test/knowledge/KnowledgeGraph.test.tsx` covers the 2D view's first fit,
+that a shift-click selects without opening, and a find dimming the edges
+away from its matches.
 `test/knowledge/KnowledgeNetwork.test.tsx` runs the tool over a real store,
 with the canvas swapped for a list of node buttons (jsdom can't draw). It
 covers the first expansion and its grounding, an old-shape course being
 replaced, a lesson streamed into the panel and kept, visiting, a check-off,
-checking off a selection (and taking it back, and Esc),
+checking off a selection (and taking it back, and Esc), a find whose
+Enter selects its matches,
 the next lesson, a shared prerequisite becoming one node with two edges, a
 retry, and the course surviving a save round-trip. The 3D view, the canvas
 painting, the folding controls and the legend are checked in the browser.

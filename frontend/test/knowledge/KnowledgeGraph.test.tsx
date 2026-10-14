@@ -2,7 +2,7 @@
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  * Description: The knowledge graph's camera (the one-shot fit waits for more than the lone paper)
- * and its clicks (a shift-click selects, never opens).
+ * its clicks (a shift-click selects, never opens) and a find's dimmed edges.
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { forwardRef, useImperativeHandle } from 'react'
@@ -10,6 +10,7 @@ import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import KnowledgeGraph, { type KnowledgeGraphProps } from '../../src/knowledge/KnowledgeGraph'
 import { createMap, withChildren } from '../../src/knowledge/model'
+import { DIM_EDGE, UNKNOWN_EDGE } from '../../src/graph/theme'
 
 // The engine stands in as its handle and the props it was last given, so the
 // test can stop the "simulation" at will and watch the camera calls.
@@ -18,6 +19,7 @@ const engine = vi.hoisted(() => ({
   props: {} as {
     onEngineStop?: () => void
     onNodeClick?: (node: { id: string }, event?: { shiftKey: boolean }) => void
+    linkColor?: (link: { source: string; target: string }) => string
   },
 }))
 vi.mock('react-force-graph-2d', () => ({
@@ -57,6 +59,7 @@ function renderGraph(
     focus: null,
     fitSignal: 0,
     selected: new Set(),
+    found: null,
     onOpen: () => {},
     onExpand: () => {},
     onSelect: () => {},
@@ -123,6 +126,7 @@ it('fits on a Fit press, never for the signal it mounted with (the blank 3D swit
       focus={null}
       fitSignal={2}
       selected={new Set()}
+      found={null}
       onOpen={() => {}}
       onExpand={() => {}}
       onSelect={() => {}}
@@ -140,6 +144,7 @@ it('fits on a Fit press, never for the signal it mounted with (the blank 3D swit
       focus={null}
       fitSignal={3}
       selected={new Set()}
+      found={null}
       onOpen={() => {}}
       onExpand={() => {}}
       onSelect={() => {}}
@@ -148,4 +153,15 @@ it('fits on a Fit press, never for the signal it mounted with (the blank 3D swit
     />,
   )
   expect(engine.zoomToFit).toHaveBeenCalledTimes(1)
+})
+
+it('a find dims every edge except those touching a match', () => {
+  const course = withChildren(PAPER, PAPER.rootId, [
+    { name: 'Q-learning', why: 'w' },
+    { name: 'Experience replay', why: 'w' },
+  ])
+  renderGraph(course, { found: new Set(['q learning']) })
+  const color = engine.props.linkColor!
+  expect(color({ source: course.rootId, target: 'q learning' })).toBe(UNKNOWN_EDGE)
+  expect(color({ source: course.rootId, target: 'experience replay' })).toBe(DIM_EDGE)
 })

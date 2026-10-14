@@ -19,7 +19,8 @@ have none. The
 **Knowledge Graph** is a short course on the ideas a paper rests on: the paper
 at the centre, the concepts it needs around it. Double-click any concept to
 break it down further, click one for a lesson written for this course, and tick off
-what you already know (shift-click or alt-drag to tick off several at once). There's a
+what you already know (shift-click or alt-drag to tick off several at once, or 🔍 find concepts
+by name and select every match). There's a
 3D mode too. Paper citations highlight the current graph; graph icons open or resume that paper's thread
 directly (onto its graph if you're on one, onto its cards otherwise). Type **@** and pick another discussion from the suggestions to
 bring it into the agent's context. Lectures remain part of their thread's history, including follow-up

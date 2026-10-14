@@ -8,7 +8,8 @@
  * green ✓), an item not yet broken down wears a dashed ring — there is more beneath
  * it — and the open lesson's item gets the selection ring. Only the
  * neighbourhood in focus is named by default (`labelled` in `look.ts`), so a
- * growing course stays readable.
+ * growing course stays readable. While the find bar holds a query, the
+ * items that don't match it dim and the matches keep their names (v8.20.0).
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -16,7 +17,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import ForceGraph2DImport from 'react-force-graph-2d'
-import { SELECTION_RING, UNKNOWN_EDGE, useCanvasInk } from '../graph/theme'
+import { DIM_EDGE, DIM_NODE, SELECTION_RING, UNKNOWN_EDGE, useCanvasInk } from '../graph/theme'
 import {
   labelled,
   nodeLook,
@@ -55,6 +56,8 @@ export interface KnowledgeGraphProps {
   fitSignal: number
   /** Items picked to check off together (shift-click, alt-drag). */
   selected: ReadonlySet<string>
+  /** The find bar's matches; everything else dims. Null while no find runs. */
+  found: ReadonlySet<string> | null
   onOpen: (nodeId: string) => void
   onExpand: (nodeId: string) => void
   /** Shift-click: add an item to the selection, or take it out. */
@@ -81,7 +84,7 @@ export interface KnowledgeEngine {
  * @returns The force-graph canvas.
  */
 export default function KnowledgeGraph(props: KnowledgeGraphProps) {
-  const { map, width, height, expanding, focus, fitSignal } = props
+  const { map, width, height, expanding, focus, fitSignal, found } = props
   const { selected, onOpen, onExpand, onSelect, onBackground, engineRef, onPinned } = props
   const ink = useCanvasInk()
   const [hoverId, setHoverId] = useState<string | null>(null)
@@ -170,10 +173,13 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
       // Keep repainting while something is being broken down, so its ring turns.
       autoPauseRedraw={expanding.size === 0}
       linkColor={(link: CanvasLink) => {
-        const touches = [link.source, link.target].some(
-          (end) => (typeof end === 'string' ? end : end.id) === map.openId,
+        const ends = [link.source, link.target].map((end) =>
+          typeof end === 'string' ? end : end.id,
         )
-        return touches ? SELECTION_RING : UNKNOWN_EDGE
+        if (ends.includes(map.openId ?? '')) return SELECTION_RING
+        // A find dims every edge but those touching a match.
+        if (found && !ends.some((end) => found.has(end))) return DIM_EDGE
+        return UNKNOWN_EDGE
       }}
       linkWidth={(link: CanvasLink) =>
         [link.source, link.target].some(
@@ -192,10 +198,11 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
         const nodeX = node.x
         const nodeY = node.y
         const picked = selected.has(item.id)
+        const dim = !!found && !found.has(item.id)
 
         ctx.beginPath()
         ctx.arc(nodeX, nodeY, radius, 0, 2 * Math.PI)
-        ctx.fillStyle = color
+        ctx.fillStyle = dim ? DIM_NODE : color
         ctx.fill()
 
         // One outline, on the disc's own edge, as on the citation graph:
@@ -206,7 +213,8 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
         const busy = expanding.has(item.id)
         const open = map.openId === item.id
         ctx.lineWidth = (open || picked || busy ? 2 : 1) / scale
-        ctx.strokeStyle = picked || busy ? SELECTION_RING : open ? ink.hard : ink.outline
+        ctx.strokeStyle =
+          picked || busy ? SELECTION_RING : open ? ink.hard : dim ? ink.outlineDim : ink.outline
         if (busy) {
           ctx.setLineDash([3 / scale, 2.5 / scale])
           ctx.lineDashOffset = -performance.now() / 60 / scale
@@ -215,8 +223,9 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
         ctx.setLineDash([])
 
         // Every name once zoomed in, as on the citation graph; zoomed out,
-        // only the paper, the open item, picked items and the hovered one.
-        if (!labelled(map, item.id, hoverId, picked, scale)) return
+        // only the paper, the open item, picked items and the hovered one. A
+        // find names its matches at any zoom, and only them.
+        if (found ? dim : !labelled(map, item.id, hoverId, picked, scale)) return
         const fontSize = Math.max(11 / scale, 2.4)
         ctx.font = `${item.id === map.rootId ? '600 ' : ''}${fontSize}px sans-serif`
         ctx.textAlign = 'center'

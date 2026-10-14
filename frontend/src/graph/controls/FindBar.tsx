@@ -17,6 +17,10 @@
  * find, so find → select → ask is three gestures. Both affordances stay:
  * the link is discoverable, Enter is fast.
  *
+ * The knowledge graph uses the same control (v8.20.0), over concept names,
+ * with its own wording (`FindCopy`) and "select" feeding its check-off
+ * selection instead of the teacher's scope.
+ *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
@@ -24,6 +28,34 @@
 import { useState } from 'react'
 import { usePresence } from '../../ui/usePresence'
 import '../graph.css'
+
+/** What the control calls things: the citation graph's wording by default. */
+export interface FindCopy {
+  /** The 🔍 toggle's aria-label. */
+  toggleLabel: string
+  /** The 🔍 toggle's tooltip. */
+  toggleTitle: string
+  /** The input's placeholder. */
+  placeholder: string
+  /** The input's aria-label. */
+  inputLabel: string
+  /** The input's tooltip. */
+  inputTitle: string
+  /** The "select" link's tooltip, for a given hit count. */
+  selectTitle: (count: number) => string
+}
+
+/** The citation graph's wording. */
+const PAPER_COPY: FindCopy = {
+  toggleLabel: 'Find a paper on screen',
+  toggleTitle: 'Find a paper among those on screen (title or author) — local only, fetches nothing',
+  placeholder: 'Find on graph…',
+  inputLabel: 'Find a paper among those on screen (title or author)',
+  inputTitle:
+    "Spotlight on-screen papers by title or author — local only, fetches nothing. Enter adds the matches to the teacher's scope.",
+  selectTitle: (count) =>
+    `Add all ${count} matching paper${count === 1 ? '' : 's'} to the teacher's scope`,
+}
 
 /**
  * Render the find control: the collapsed 🔍 toggle, or — once opened or while
@@ -34,6 +66,8 @@ import '../graph.css'
  * @param count Matching on-screen papers, or null when the box is empty.
  * @param onSelectAll Add every current match to the teacher's hand-picked
  *   scope (GraphExplorer also clears the find, so the selection shows).
+ * @param copy What the control calls things; the citation graph's by default.
+ * @param tour Its `data-tour` anchor, which only the citation graph's tour uses.
  * @returns The floating find control.
  */
 export default function FindBar({
@@ -41,11 +75,15 @@ export default function FindBar({
   onQuery,
   count,
   onSelectAll,
+  copy = PAPER_COPY,
+  tour = 'find',
 }: {
   query: string
   onQuery: (query: string) => void
   count: number | null
   onSelectAll: () => void
+  copy?: FindCopy
+  tour?: string
 }) {
   const [open, setOpen] = useState(false)
   // A live query pins the pill open regardless of focus — the hit count (and
@@ -58,10 +96,10 @@ export default function FindBar({
     return (
       <button
         className="graph-find-toggle"
-        data-tour="find"
+        data-tour={tour}
         onClick={() => setOpen(true)}
-        aria-label="Find a paper on screen"
-        title="Find a paper among those on screen (title or author) — local only, fetches nothing"
+        aria-label={copy.toggleLabel}
+        title={copy.toggleTitle}
       >
         🔍
       </button>
@@ -70,7 +108,7 @@ export default function FindBar({
   return (
     <div
       className={`graph-find${pill.closing ? ' closing' : ''}`}
-      data-tour="find"
+      data-tour={tour}
       onAnimationEnd={pill.onAnimationEnd}
     >
       <input
@@ -98,19 +136,15 @@ export default function FindBar({
           // Clicking away from an empty box tidies the pill back to the 🔍.
           if (!query) setOpen(false)
         }}
-        placeholder="Find on graph…"
-        aria-label="Find a paper among those on screen (title or author)"
-        title="Spotlight on-screen papers by title or author — local only, fetches nothing. Enter adds the matches to the teacher's scope."
+        placeholder={copy.placeholder}
+        aria-label={copy.inputLabel}
+        title={copy.inputTitle}
       />
       {count !== null && (
         <span className="find-status">
           {count} hit{count === 1 ? '' : 's'}
           {count > 0 && (
-            <button
-              className="link-btn"
-              onClick={onSelectAll}
-              title={`Add all ${count} matching paper${count === 1 ? '' : 's'} to the teacher's scope`}
-            >
+            <button className="link-btn" onClick={onSelectAll} title={copy.selectTitle(count)}>
               select
             </button>
           )}
