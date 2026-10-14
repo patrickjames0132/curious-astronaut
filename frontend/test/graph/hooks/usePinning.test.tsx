@@ -81,12 +81,41 @@ describe('usePinning group drag', () => {
     expect([...result.current.pinned]).toEqual(['bystander'])
   })
 
-  it('holds every other paper still while a selection moves, then lets go', () => {
+  it('holds every other paper still through the drop, letting go once it settles', () => {
     const { result, dragged, bystander } = mount('force')
     act(() => result.current.onNodeDrag(dragged, { x: 10, y: 10 }))
     // Pinned in place, so no link can tow it after the selection.
     expect([bystander.fx, bystander.fy]).toEqual([200, 200])
+    // Still held on the drop: the drag left the sim hot (v8.22.0).
     act(() => result.current.onNodeDragEnd(dragged))
+    expect([bystander.fx, bystander.fy]).toEqual([200, 200])
+    act(() => result.current.releaseHeld())
+    expect([bystander.fx, bystander.fy]).toEqual([undefined, undefined])
+  })
+
+  it('a paper dropped alone while still held keeps its new pin through the release', () => {
+    const { result, dragged, bystander } = mount('force')
+    act(() => result.current.onNodeDrag(dragged, { x: 10, y: 10 }))
+    act(() => result.current.onNodeDragEnd(dragged))
+    // Before the settle, the held bystander is dragged on its own.
+    bystander.x = 300
+    bystander.y = 320
+    act(() => result.current.onNodeDrag(bystander, { x: 100, y: 120 }))
+    act(() => result.current.onNodeDragEnd(bystander))
+    act(() => result.current.releaseHeld())
+    expect([bystander.fx, bystander.fy]).toEqual([300, 320])
+    expect(result.current.pinned.has('bystander')).toBe(true)
+  })
+
+  it('a second group drag first gives back what the first one held', () => {
+    const { result, dragged, companion, bystander } = mount('force')
+    act(() => result.current.onNodeDrag(dragged, { x: 10, y: 10 }))
+    act(() => result.current.onNodeDragEnd(dragged))
+    act(() => result.current.onNodeDrag(companion, { x: 5, y: 5 }))
+    // Held again by this drag, from where it stands now.
+    expect([bystander.fx, bystander.fy]).toEqual([bystander.x, bystander.y])
+    act(() => result.current.onNodeDragEnd(companion))
+    act(() => result.current.releaseHeld())
     expect([bystander.fx, bystander.fy]).toEqual([undefined, undefined])
   })
 

@@ -158,6 +158,13 @@ controls (Esc in the search box means "leave the box" — the Tour's
 precedent); GraphExplorer additionally skips it while the lightbox or tour
 own the key, since both bind their own Esc-to-close.
 
+**Esc goes in two steps** (v8.22.0, Patrick): while anything is lit (a
+selection, the teacher's highlight, a find) a press runs `onClearAll`, and
+once nothing is, the next press closes the open paper's panel and lets go of
+its focus. In v8.21.0 `onClearAll` closed the panel too, so clearing a
+selection also lost the paper it had been picked around; it is back to
+clearing light only, which is also all the controls' Clear button does.
+
 ## `usePinning` + `useTimeline` — two layouts, one pin vocabulary
 
 Pins are just `fx`/`fy`, but their *semantics* are layout-aware:
@@ -173,12 +180,17 @@ Pins are just `fx`/`fy`, but their *semantics* are layout-aware:
   editor; asking the assistant about it is one action and moving it another.
   **Only the selection moves:** a selected paper outside a held focus is
   dimmed and its ring hidden, so it stays behind (`visibleIds`, a ref, since
-  the focus is worked out after the pins it depends on); and for the length
-  of the drag every other paper is held still (pinned at its position, its
-  own pins given back on the drop). The first cut did neither, and the
+  the focus is worked out after the pins it depends on); and every other
+  paper is held still (pinned at its position) for the drag **and on until
+  the layout settles after the drop**, when `releaseHeld` (the explorer's
+  engine stop) gives back its own pins. The first cut did neither, and the
   links, the links between papers above all, towed every paper linked to
-  the selection along behind it. After the drop the sim re-settles, so a
-  paper strongly linked to the moved ones may still drift toward them.
+  the selection along behind it. Until v8.22.0 the pins went back on the
+  drop itself, and since a drag leaves the sim hot, the links still towed
+  the bystanders, dimmed ones and all, after the group (Patrick had to pin
+  them back out of the way). Released once the sim has stopped, they stay
+  put. A drag before that first gives back what the last one held; a paper
+  dropped on its own meanwhile keeps its new pin.
 - **Timeline mode:** a node's x is ALWAYS its date column — dragging only
   sets height, unpinning restores the column pin, and `releaseAll` keeps
   the date structure. `nodeTimelineX` maps year + month fraction to x, so

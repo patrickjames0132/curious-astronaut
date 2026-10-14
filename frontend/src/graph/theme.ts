@@ -101,6 +101,13 @@ export const EDGE_COLOR: Record<EdgeType, string> = {
   citation: 'rgba(34,197,94,0.30)',
 }
 
+/** Arrowheads per edge type (v8.22.0): the node colours at 0.8, so the
+ * direction reads where the 0.30 line alone would blur into the web. */
+export const ARROW_COLOR: Record<EdgeType, string> = {
+  reference: 'rgba(110,168,254,0.8)',
+  citation: 'rgba(34,197,94,0.8)',
+}
+
 /** Stroke for an edge whose type this build doesn't recognise — the edge twin
  * of `REL_COLOR.unknown`, and why a retired edge type can't draw an invisible
  * line on an old save. */
@@ -112,8 +119,26 @@ export const UNKNOWN_EDGE = 'rgba(139,147,167,0.22)'
  * glance while a selection is active. */
 export const SELECTION_RING = '#22d3ee'
 
-/** Fill for nodes outside the current hover/highlight focus. */
+/** Fill for nodes outside the current hover/highlight focus, where a node
+ *  has no colour of its own to fade (the knowledge graph's find). */
 export const DIM_NODE = 'rgba(120,130,150,0.18)'
+
+/** How much of its colour a dimmed paper keeps. */
+export const DIM_ALPHA = 0.22
+
+/**
+ * A paper's own colour, faded for when it sits outside the focus (v8.22.0,
+ * Patrick): references stay faintly blue and citers faintly green behind a
+ * focused neighbourhood, where a flat grey (`DIM_NODE`, until then) hid who
+ * was which.
+ *
+ * @param hex A `#rrggbb` colour.
+ * @returns The same colour at `DIM_ALPHA`.
+ */
+export function dimColor(hex: string): string {
+  const value = Number.parseInt(hex.slice(1), 16)
+  return `rgba(${(value >> 16) & 255},${(value >> 8) & 255},${value & 255},${DIM_ALPHA})`
+}
 /** Stroke for edges outside the current hover/highlight focus. */
 export const DIM_EDGE = 'rgba(120,130,150,0.05)'
 

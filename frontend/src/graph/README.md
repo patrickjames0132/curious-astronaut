@@ -59,7 +59,8 @@ priority order: an active find, then a **held focus**, then hover, then the
 teacher's highlights. The held focus is **the paper open in the detail
 panel** (v8.21.0): the click that opens the panel keeps it and everything
 linked to it lit until the panel closes (a second click on the paper, ✕, or
-Esc's clear-all), and pans the paper to the middle of the view, as the
+Esc, which first clears any selection, highlight or find and lets go on the
+press after), and pans the paper to the middle of the view, as the
 Knowledge Graph does (no zoom change). The held focus wins over hover in
 general: it exists so the pointer can travel to the linked papers, and hover
 focus dimmed them the moment the pointer left the paper. **Except over one
@@ -74,6 +75,12 @@ the panel, the two fought over one gesture, and "Explore in a thread" in the
 panel re-seeds. The find moved above the held focus as well: with a panel
 open most of the time, a held focus outranking the find would hide every
 find behind it.
+
+**Edges are coloured from the focus's point of view** (v8.22.0): blue where
+the focused paper cites, green where it's cited, so the colours always
+describe the relation to the paper the light is on (`model.focusAnchor`
+picks it with the same priority as the dimming; `model.edgeTypeFrom` colours
+the edge). See `canvas/README.md`.
 
 **Switching layout chases the camera** (v8.21.0). The one-shot
 `zoomToFit` waits for the sim to settle, a full 300-tick cool-down

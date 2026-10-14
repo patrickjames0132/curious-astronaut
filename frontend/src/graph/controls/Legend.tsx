@@ -5,8 +5,9 @@
  * The color legend under the graph. The later entries only appear when they
  * apply: pink once a paper has been expanded, the faint halo once an
  * expansion (the reader's or the teacher's) has added papers, and the dotted ring while a scoped paper is on screen
- * that the view filters would otherwise hide. The links between papers need
- * no entry: they draw in the relation colours already listed.
+ * that the view filters would otherwise hide. The edges need no entry of
+ * their own: they draw in the same two colours, seen from the paper in focus
+ * (v8.22.0), which the References and Citations tooltips say.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -39,11 +40,11 @@ export default function Legend({ hasDiscovered, hasExpanded = false, hasGhosts }
         <i style={{ background: REL_COLOR.seed }} />
         Seed
       </span>
-      <span>
+      <span title="Papers the seed cites. A blue edge runs to a paper the one in focus cites (the seed, or the paper you've opened or are pointing at).">
         <i style={{ background: REL_COLOR.reference }} />
         References
       </span>
-      <span>
+      <span title="Papers that cite the seed. A green edge runs from a paper that cites the one in focus (the seed, or the paper you've opened or are pointing at).">
         <i style={{ background: REL_COLOR.citation }} />
         Citations
       </span>

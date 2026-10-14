@@ -445,6 +445,44 @@
       to land; re-seeding is the panel's "Explore in a thread". The hint
       line, the tour, and the READMEs teach the new gestures.
 
+- [x] **Edges that say who cites whom, and a cleaner focus** *(v8.22.0)* —
+      from Patrick's browser review of v8.21.0 (2026-10-14): with
+      interconnected links on, nearly every edge drew green, and a focused
+      citer's edge to an older paper drew green where he read that paper as
+      the citer's reference.
+
+      **Arrowheads you can see.** They had always been configured, and
+      always hidden: the canvas draws its own discs and never told the
+      engine their size, so every arrow ended 1 unit from the target's
+      centre, under a disc 3–18 units across. `nodeVal` (radius²) now lands
+      each head on the disc's edge; heads are 4.5 units on a seed edge and 3
+      on a link between papers, in `ARROW_COLOR` (0.8 against the line's
+      0.30). Every edge runs citing → cited, so the head marks the cited
+      paper.
+
+      **Colours from the focus's point of view.** An edge touching the paper
+      in focus draws blue where that paper cites the other end and green
+      where the other end cites it (`model.edgeTypeFrom`); the paper is
+      `model.focusAnchor`, chosen with the dimming's own priority (the open
+      paper, a lit paper hovered inside its focus, the hovered paper, else
+      the seed, whose edges read exactly as before). The legend's References
+      and Citations tooltips say so. Patrick weighed and turned down a
+      neutral colour for links between papers.
+
+      **Only the focused paper's edges stay lit** (`model.edgeLit`): every
+      other line and arrowhead dims, where an edge used to stay lit while
+      either end was. Under a find or the teacher's highlights the old rule
+      holds. **Dimmed papers keep a trace of their colour**
+      (`theme.dimColor`, 22%) instead of a flat grey, so citers and
+      references still read behind a focus.
+
+      **Polish.** A group drag's bystanders now stay held until the layout
+      settles after the drop (`usePinning.releaseHeld`, on engine stop):
+      released on the drop, with the sim still hot, the links towed them,
+      dimmed ones and all, after the group. **Esc goes in two steps**: the
+      first clears a selection, highlight or find, the next closes the
+      focused paper; the controls' Clear no longer closes the panel.
+
 ### Search & seeding
 
 - [x] **One `@` list for papers and threads, Enter that does what the lit row

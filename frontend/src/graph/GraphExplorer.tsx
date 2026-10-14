@@ -66,6 +66,7 @@ import {
   betweenLinkType,
   citationThreshold,
   findMatches,
+  focusAnchor,
   focusOf,
   type Base,
   type VLink,
@@ -285,14 +286,15 @@ export default function GraphExplorer({
   // User pins: drag-to-pin, the detail panel's Pin button, Release-all.
   // The held focus's papers, for the group drag (set below, once known).
   const heldFocus = useRef<Set<string> | null>(null)
-  const { pinned, clearPins, onNodeDrag, onNodeDragEnd, togglePin, releaseAll } = usePinning({
-    base,
-    layout,
-    nodeTimelineX,
-    fgRef,
-    selectedIds,
-    visibleIds: heldFocus,
-  })
+  const { pinned, clearPins, onNodeDrag, onNodeDragEnd, releaseHeld, togglePin, releaseAll } =
+    usePinning({
+      base,
+      layout,
+      nodeTimelineX,
+      fgRef,
+      selectedIds,
+      visibleIds: heldFocus,
+    })
 
   const doLoadGraph = useCallback(
     (seed: string) => {
@@ -708,17 +710,20 @@ export default function GraphExplorer({
     dispatch(nodeSelectionCleared())
     dispatch(highlightSet([]))
     setFindQuery('')
-    // The held focus is the open paper, so letting go of it closes the panel.
-    setSelectedId(null)
-  }, [dispatch, setSelectedId])
-  // Esc = the same reset, unless an overlay owns the key right now: the
-  // lightbox and the tour both close on their own Esc, and clearing the graph
-  // underneath them would be a surprise.
+  }, [dispatch])
+  // Esc, in two steps (v8.22.0, Patrick): the first press does the same
+  // reset, and once nothing is lit, the next closes the focused paper's
+  // panel, letting go of its focus. One press used to drop both, so clearing
+  // a selection also lost the paper it had been picked around. Not while an
+  // overlay owns the key: the lightbox and the tour both close on their own
+  // Esc, and clearing the graph underneath them would be a surprise.
+  const anythingLit = selectedIds.size > 0 || highlightIds.size > 0 || findQuery !== ''
   useEscapeClear(
     useCallback(() => {
       if (lightbox || tourStage) return
-      onClearAll()
-    }, [lightbox, tourStage, onClearAll]),
+      if (anythingLit) onClearAll()
+      else setSelectedId(null)
+    }, [lightbox, tourStage, anythingLit, onClearAll, setSelectedId]),
   )
 
   /**
@@ -804,6 +809,19 @@ export default function GraphExplorer({
       }),
     [heldSet, hoverSet, hoverId, findSet, highlightIds],
   )
+  /** Whose point of view the edges are coloured from: the paper that focus
+   * is centred on (`model.focusAnchor`), the seed's when null. */
+  const anchorId = useMemo(
+    () =>
+      focusAnchor({
+        find: findSet,
+        held: heldSet,
+        heldId: selectedId,
+        hover: hoverSet,
+        hoverId,
+      }),
+    [findSet, heldSet, selectedId, hoverSet, hoverId],
+  )
 
   /** Toggle one relation type's visibility (the filter chips). */
   const toggleType = useCallback(
@@ -845,13 +863,15 @@ export default function GraphExplorer({
    * and run the one-shot zoomToFit. */
   const onEngineStop = useCallback(() => {
     stopChase()
+    // A group drop's bystanders, held still until now (`usePinning`).
+    releaseHeld()
     setLinksSettling(false)
     freezeSettledY(pinned)
     if (!fitDone.current && fgRef.current) {
       fgRef.current.zoomToFit(400, 60)
       fitDone.current = true
     }
-  }, [freezeSettledY, pinned, stopChase])
+  }, [freezeSettledY, pinned, stopChase, releaseHeld])
 
   // Repaint when highlight/selection/pins/focus/layout change (the sim may be at rest).
   useEffect(() => {
@@ -960,6 +980,7 @@ export default function GraphExplorer({
             height={size.height}
             data={view}
             focusSet={focusSet}
+            anchorId={anchorId}
             pinned={pinned}
             expandedIds={expandedIds}
             selectedId={selectedId}

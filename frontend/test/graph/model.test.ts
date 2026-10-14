@@ -20,12 +20,16 @@ import {
   cleanNode,
   countRels,
   findMatches,
+  edgeLit,
+  edgeTypeFrom,
+  focusAnchor,
   focusOf,
   foldRetiredEdgeTypes,
   foldRetiredNodeRels,
   formatPubDate,
   nodeRadius,
   primaryRel,
+  type VLink,
 } from '../../src/graph/model'
 import type { VNode } from '../../src/graph/model'
 
@@ -291,5 +295,68 @@ describe('focusOf', () => {
     expect(
       focusOf({ find: null, held: null, hover: null, hoverId: null, highlights: new Set() }),
     ).toBeNull()
+  })
+})
+
+describe('focusAnchor', () => {
+  const held = new Set(['open', 'linked'])
+  const hover = new Set(['linked', 'further'])
+
+  it('is the open paper, or the lit paper hovered inside its focus', () => {
+    const base = { find: null, held, heldId: 'open', hover: null, hoverId: null }
+    expect(focusAnchor(base)).toBe('open')
+    expect(focusAnchor({ ...base, hover, hoverId: 'linked' })).toBe('linked')
+    // A dimmed paper under the pointer doesn't move it.
+    expect(focusAnchor({ ...base, hover: new Set(['far']), hoverId: 'far' })).toBe('open')
+  })
+
+  it('is the hovered paper with nothing open, and the seed (null) under a find', () => {
+    const none = { find: null, held: null, heldId: null, hover: null, hoverId: null }
+    expect(focusAnchor(none)).toBeNull()
+    expect(focusAnchor({ ...none, hover, hoverId: 'linked' })).toBe('linked')
+    expect(
+      focusAnchor({ find: new Set(['x']), held, heldId: 'open', hover, hoverId: 'linked' }),
+    ).toBeNull()
+  })
+})
+
+describe('edgeTypeFrom', () => {
+  // A citer of the seed citing an older paper: citing -> cited.
+  const link = {
+    source: 'citer',
+    target: 'older',
+    _s: 'citer',
+    _t: 'older',
+    type: 'citation',
+  } as VLink
+
+  it('draws blue from the citing end and green from the cited end', () => {
+    expect(edgeTypeFrom(link, 'citer')).toBe('reference')
+    expect(edgeTypeFrom(link, 'older')).toBe('citation')
+  })
+
+  it('keeps its own type seen from elsewhere, or from the seed', () => {
+    expect(edgeTypeFrom(link, 'someone')).toBe('citation')
+    expect(edgeTypeFrom(link, null)).toBe('citation')
+  })
+})
+
+describe('edgeLit', () => {
+  const edge = (from: string, to: string) =>
+    ({ source: from, target: to, _s: from, _t: to, type: 'citation' }) as VLink
+  const lit = new Set(['open', 'linked', 'other'])
+
+  it('under a focused paper, lights only its own edges', () => {
+    expect(edgeLit(edge('open', 'linked'), lit, 'open')).toBe(true)
+    expect(edgeLit(edge('linked', 'open'), lit, 'open')).toBe(true)
+    // Between two of its neighbours, and out of the neighbourhood: dimmed.
+    expect(edgeLit(edge('linked', 'other'), lit, 'open')).toBe(false)
+    expect(edgeLit(edge('linked', 'far'), lit, 'open')).toBe(false)
+  })
+
+  it('without a focused paper, lights an edge with either end lit; nothing dims unfocused', () => {
+    expect(edgeLit(edge('linked', 'far'), lit, null)).toBe(true)
+    expect(edgeLit(edge('far', 'away'), lit, null)).toBe(false)
+    expect(edgeLit(edge('far', 'away'), null, null)).toBe(true)
   })
 })

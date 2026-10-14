@@ -260,6 +260,80 @@ export function focusOf(sets: {
 }
 
 /**
+ * Whose point of view the edges are coloured from (v8.22.0): the paper the
+ * focus is centred on, by `focusOf`'s own priority, so the colours always
+ * follow the light. The open paper (or the lit paper hovered inside its
+ * focus), else the hovered paper. Null while a find or the teacher's
+ * highlights hold the light, or nothing does: the seed's point of view,
+ * which is the edges' own build-time types.
+ *
+ * @param sets What `focusOf` was given, plus the open paper's id.
+ * @param sets.find The find bar's matches.
+ * @param sets.held The open paper and everything linked to it.
+ * @param sets.heldId The open paper, or null.
+ * @param sets.hover The hovered paper and everything linked to it.
+ * @param sets.hoverId The hovered paper, or null.
+ * @returns The paper the edges are seen from, or null for the seed.
+ */
+export function focusAnchor(sets: {
+  find: Set<string> | null
+  held: Set<string> | null
+  heldId: string | null
+  hover: Set<string> | null
+  hoverId: string | null
+}): string | null {
+  if (sets.find) return null
+  if (sets.held && sets.heldId) {
+    return sets.hover && sets.hoverId && sets.held.has(sets.hoverId) ? sets.hoverId : sets.heldId
+  }
+  return sets.hover ? sets.hoverId : null
+}
+
+/**
+ * Whether an edge stays lit (v8.22.0). While a paper is in focus
+ * (`anchorId`), **only its own edges** do: every other line and arrowhead
+ * dims, those between two of its neighbours and those running out of the
+ * neighbourhood alike, so the relations the reader is looking at stand out
+ * (Patrick: "it's hard to see the relationships you're interested in").
+ * Without one (a find, the teacher's highlights), an edge stays lit while
+ * either end is lit, as before. With no focus at all nothing dims.
+ *
+ * @param link The edge.
+ * @param focusSet The lit papers (`focusOf`), or null.
+ * @param anchorId The paper in focus (`focusAnchor`), or null.
+ * @returns True to draw it in full colour.
+ */
+export function edgeLit(
+  link: VLink,
+  focusSet: Set<string> | null,
+  anchorId: string | null,
+): boolean {
+  if (!focusSet) return true
+  if (anchorId) return link._s === anchorId || link._t === anchorId
+  return focusSet.has(link._s) || focusSet.has(link._t)
+}
+
+/**
+ * An edge's colour type seen from one paper (v8.22.0, Patrick): **blue
+ * (reference) when that paper cites the other end, green (citation) when the
+ * other end cites it**. Every edge runs citing → cited (`_s` → `_t`), so it
+ * is which end the paper sits on. That is how the seed's own edges have
+ * always read; before v8.22.0 every other edge kept one fixed colour, and a
+ * focused citer's edge to an older paper drew green, the citer's colour,
+ * where the reader saw that older paper as the citer's reference. An edge
+ * not touching the paper keeps its own type.
+ *
+ * @param link The edge.
+ * @param anchorId The paper it is seen from (`focusAnchor`), or null.
+ * @returns The type whose colour it draws in.
+ */
+export function edgeTypeFrom(link: VLink, anchorId: string | null): EdgeType {
+  if (anchorId === link._s) return 'reference'
+  if (anchorId === link._t) return 'citation'
+  return link.type
+}
+
+/**
  * Strip a live VNode back to its persistable GraphNode fields — dropping the
  * sim's x/y and any fx/fy pins (re-derived on restore), and the researcher's
  * `idx` (per-conversation numbering ephemera; the researcher renumbers from node
