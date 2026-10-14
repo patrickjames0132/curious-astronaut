@@ -24,7 +24,7 @@ import * as api from '../../src/api'
 
 // The canvas stands in as one button per node: click opens, the "+" breaks down.
 vi.mock('../../src/knowledge/KnowledgeGraph', () => ({
-  default: ({ map, selected, onOpen, onExpand, onSelect }: KnowledgeGraphProps) => (
+  default: ({ map, selected, found, onOpen, onExpand, onSelect }: KnowledgeGraphProps) => (
     <div>
       {Object.values(map.nodes).map((node) => (
         <span key={node.id}>
@@ -38,6 +38,7 @@ vi.mock('../../src/knowledge/KnowledgeGraph', () => ({
           <button type="button" onClick={() => onSelect(node.id)}>
             select: {node.title}
             {selected.has(node.id) ? ' (selected)' : ''}
+            {found?.has(node.id) ? ' (found)' : ''}
           </button>
         </span>
       ))}
@@ -219,6 +220,24 @@ it('checks off a selection at once, takes it back, and Esc clears it', async () 
   expect(clear.disabled).toBe(false)
   fireEvent.click(clear)
   expect(screen.queryByText('1 selected')).toBeNull()
+})
+
+it('finds items by name, and Enter selects every match and clears the find', async () => {
+  vi.spyOn(api, 'expandKnowledge').mockResolvedValue(ROOT_CHILDREN)
+  mount()
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByLabelText('Find a concept on the graph'))
+  const input = screen.getByLabelText('Find a concept on the graph by name')
+  fireEvent.change(input, { target: { value: 'learn' } })
+  expect(screen.getByText('select: Q-learning (found)')).toBeTruthy()
+  expect(screen.getByText('select: TD learning (found)')).toBeTruthy()
+  expect(screen.getByText('select: Playing Atari')).toBeTruthy()
+  expect(screen.getByText('2 hits', { exact: false })).toBeTruthy()
+
+  fireEvent.keyDown(input, { key: 'Enter' })
+  expect(screen.getByText('2 selected')).toBeTruthy()
+  expect(screen.getByText('select: Q-learning (selected)')).toBeTruthy()
+  expect(screen.queryByText(/\(found\)/)).toBeNull()
 })
 
 it('a shared prerequisite becomes one node with two arrows into it', async () => {

@@ -7,7 +7,8 @@
  * view (`look.ts`): spheres instead of discs, a floating label over each,
  * drag to orbit, scroll to zoom. **Loaded on demand** (`React.lazy` in
  * `KnowledgeNetwork`): three.js is several hundred kilobytes that nobody
- * should download until they flip the switch.
+ * should download until they flip the switch. A find dims the spheres
+ * that don't match and hides their names, as the 2D view does (v8.20.0).
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -16,7 +17,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import ForceGraph3DImport from 'react-force-graph-3d'
 import SpriteText from 'three-spritetext'
-import { SELECTION_RING, useCanvasInk } from '../graph/theme'
+import { DIM_NODE, SELECTION_RING, useCanvasInk } from '../graph/theme'
 import type { KnowledgeGraphProps } from './KnowledgeGraph'
 import type { KnowledgeMap, KnowledgeNode } from './model'
 import { inBox } from '../ui/useBoxSelect'
@@ -111,7 +112,7 @@ interface SpriteParts {
  * @returns The three.js scene.
  */
 export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
-  const { map, width, height, expanding, focus, fitSignal } = props
+  const { map, width, height, expanding, focus, fitSignal, found } = props
   const { selected, onOpen, onExpand, onSelect, onBackground, engineRef, onPinned } = props
   const ink = useCanvasInk()
   const data = useGraphData(map)
@@ -200,7 +201,9 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
       const label = sprite as unknown as SpriteParts
       // 3D names every node (`labelled` with no zoom): no hover state, since
       // rebuilding every node's sprites on each hover made the view lag.
-      label.visible = labelled(map, node.id, null, false)
+      // A find names its matches only.
+      const dim = !!found && !found.has(node.id)
+      label.visible = !dim && labelled(map, node.id, null, false)
 
       if (!item) {
         label.position.y = lift
@@ -209,7 +212,13 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
       const busyOrPicked = selected.has(item.id) || expanding.has(item.id)
       const ringSprite = outlineRing(
         sphereRadius(map, item) + RING_WIDTH / 2,
-        busyOrPicked ? SELECTION_RING : item.id === map.openId ? ink.hard : ink.outline,
+        busyOrPicked
+          ? SELECTION_RING
+          : item.id === map.openId
+            ? ink.hard
+            : dim
+              ? ink.outlineDim
+              : ink.outline,
       )
       const ring = ringSprite as unknown as SpriteParts
       label.position.y = lift / ring.scale.y
@@ -218,7 +227,7 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
       ring.add(sprite)
       return ringSprite
     },
-    [map, ink.ink, ink.hard, ink.outline, selected, expanding],
+    [map, ink.ink, ink.hard, ink.outline, ink.outlineDim, selected, expanding, found],
   )
 
   const touchesOpen = (link: CanvasLink) =>
@@ -242,8 +251,10 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
       }}
       nodeColor={(node: CanvasNode) => {
         const item = map.nodes[node.id]
-        // Its own colour always; open, picked and busy show on the ring.
-        return item ? nodeLook(map, item).color : ink.soft
+        // Its own colour unless a find dims it; open, picked and busy show
+        // on the ring.
+        if (!item) return ink.soft
+        return found && !found.has(item.id) ? DIM_NODE : nodeLook(map, item).color
       }}
       nodeOpacity={0.92}
       nodeThreeObject={nodeObject}

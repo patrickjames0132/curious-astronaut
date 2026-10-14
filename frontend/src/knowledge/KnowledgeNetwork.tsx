@@ -9,8 +9,10 @@
  * into it. A click opens the item's lesson in a side panel; a double-click
  * breaks it down. The course controls (2D / 3D and the citation
  * graph's Release · Fit · Clear row) fold into a sliders button like the
- * citation graph's, and a legend
- * sits bottom-left.
+ * citation graph's, a legend
+ * sits bottom-left, and the citation graph's find bar sits bottom-right
+ * (v8.20.0): it dims every item whose name doesn't match, and "select"
+ * (or Enter) adds the matches to the check-off selection.
  *
  * This component owns the in-flight state (which items are being broken
  * down, which failed) and the calls; the course itself lives on the thread
@@ -21,7 +23,16 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { expandKnowledge, type KnowledgePaper } from '../api'
 import { useAppDispatch } from '../store'
 import {
@@ -32,18 +43,31 @@ import {
   knowledgeStarted,
   type ThreadRecord,
 } from '../store/explorations'
+import FindBar, { type FindCopy } from '../graph/controls/FindBar'
 import { usePresence } from '../ui/usePresence'
 import { useBoxSelect } from '../ui/useBoxSelect'
 import KnowledgeControls from './KnowledgeControls'
 import KnowledgeGraph, { type KnowledgeEngine } from './KnowledgeGraph'
 import KnowledgeLegend from './KnowledgeLegend'
 import KnowledgePanel from './KnowledgePanel'
-import { courseNames, createMap, isCurrentMap, tutorPath } from './model'
+import { courseNames, createMap, findItems, isCurrentMap, tutorPath } from './model'
 import { useLessons } from './useLessons'
 import './knowledge.css'
 
 /** three.js only loads when someone flips to 3D. */
 const KnowledgeGraph3D = lazy(() => import('./KnowledgeGraph3D'))
+
+/** The find bar's wording over a course. */
+const FIND_COPY: FindCopy = {
+  toggleLabel: 'Find a concept on the graph',
+  toggleTitle: 'Find a concept on the graph by name',
+  placeholder: 'Find a concept…',
+  inputLabel: 'Find a concept on the graph by name',
+  inputTitle:
+    'Spotlight the concepts whose names contain this. Enter selects them all, ready to check off.',
+  selectTitle: (count) =>
+    `Select all ${count} matching item${count === 1 ? '' : 's'}, ready to check off`,
+}
 
 /** localStorage keys for the per-browser view preferences. */
 const MODE_KEY = 'ca.knowledge3d'
@@ -127,6 +151,9 @@ export default function KnowledgeNetwork({
   // an alt-drag box adds the nodes inside it, as on the citation graph. Not
   // saved: a selection is a moment's gesture, not part of the course.
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  // The find bar's text. Not saved either, and a new course starts empty.
+  const [findQuery, setFindQuery] = useState('')
+  useEffect(() => setFindQuery(''), [threadId])
   const engineRef = useRef<KnowledgeEngine | null>(null)
   // Nodes pinned by dragging, for the controls' Release count. The pins live
   // on the view's own node objects, so switching 2D/3D starts unpinned.
@@ -174,6 +201,15 @@ export default function KnowledgeNetwork({
   useEffect(() => {
     if (!map) dispatch(knowledgeStarted({ threadId, map: createMap(rootPaper(thread)) }))
   }, [dispatch, thread, threadId, map])
+
+  const found = useMemo(() => (map ? findItems(map, findQuery) : null), [map, findQuery])
+  // "select" (or Enter) adds every match to the selection and clears the
+  // find, so the selection's blue rings and its bar show what was picked.
+  const selectFound = useCallback(() => {
+    if (!found || found.size === 0) return
+    setSelected((previous) => new Set([...previous, ...found]))
+    setFindQuery('')
+  }, [found])
 
   // The map as of the latest render, for callbacks that outlive one.
   const mapRef = useRef(map)
@@ -271,6 +307,7 @@ export default function KnowledgeNetwork({
     focus,
     fitSignal,
     selected,
+    found,
     onOpen: openAndFocus,
     onExpand: expand,
     onSelect: toggleSelected,
@@ -355,6 +392,14 @@ export default function KnowledgeNetwork({
           </div>
         )}
         <KnowledgeLegend />
+        <FindBar
+          query={findQuery}
+          onQuery={setFindQuery}
+          count={found ? found.size : null}
+          onSelectAll={selectFound}
+          copy={FIND_COPY}
+          tour="knowledge-find"
+        />
         {failed[map.rootId] && (
           <div className="overlay overlay-card knowledge-failed">
             {failed[map.rootId]}{' '}

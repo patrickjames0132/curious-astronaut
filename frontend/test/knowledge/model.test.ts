@@ -10,6 +10,7 @@ import {
   courseNames,
   courseOrder,
   createMap,
+  findItems,
   isCurrentMap,
   lessonText,
   nameKey,
@@ -173,5 +174,15 @@ describe('labelled', () => {
     expect(labelled({ ...course, openId: 'td learning' }, 'td learning', null, false, zoom)).toBe(
       true,
     )
+  })
+})
+
+describe('findItems', () => {
+  it('matches names case-insensitively, and runs no find on an empty box', () => {
+    const map = dqnCourse()
+    expect(findItems(map, '  ')).toBeNull()
+    expect(findItems(map, 'LEARN')).toEqual(new Set(['q learning']))
+    expect(findItems(map, 'tion')).toEqual(new Set(['bellman equations', 'convolutional networks']))
+    expect(findItems(map, 'transformers')).toEqual(new Set())
   })
 })

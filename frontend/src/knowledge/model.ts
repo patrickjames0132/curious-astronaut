@@ -205,6 +205,25 @@ export function courseNames(map: KnowledgeMap): string[] {
 }
 
 /**
+ * The items whose names contain the find bar's text (v8.20.0): a plain,
+ * case-insensitive substring match, as the citation graph's find does over
+ * titles. Names only: a lesson's text would match nearly any word.
+ *
+ * @param map The course.
+ * @param query The find bar's contents.
+ * @returns The matching ids, or null when the box is empty (no find running).
+ */
+export function findItems(map: KnowledgeMap, query: string): Set<string> | null {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return null
+  return new Set(
+    Object.values(map.nodes)
+      .filter((node) => node.title.toLowerCase().includes(needle))
+      .map((node) => node.id),
+  )
+}
+
+/**
  * Whether `target` is reachable from `start` by following "needs" edges.
  *
  * @param map The course.
