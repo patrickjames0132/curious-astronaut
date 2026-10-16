@@ -6,7 +6,15 @@
 import { createAction, createSlice, nanoid } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
 import type { KnowledgeChild, PaperDetails, SessionData } from '../api'
-import { isCurrentMap, withChildren, type KnowledgeMap } from '../knowledge/model'
+import {
+  isCurrentMap,
+  withChildren,
+  withSynthesis,
+  withBreakdownAgain,
+  withRestored,
+  withoutItems,
+  type KnowledgeMap,
+} from '../knowledge/model'
 import type { WorkspaceState } from './workspace'
 
 /**
@@ -225,20 +233,63 @@ const slice = createSlice({
       found.thread.knowledge = action.payload.map
       found.record.revision++
     },
-    /** Attach an item's prerequisites, as the tutor listed them.
+    /** Attach an item's prerequisites, as the tutor listed them; with
+     * `again`, replace its breakdown with this fresh one (v8.23.0).
      * @param state Exploration state.
-     * @param action The thread, the expanded item, and its children.
+     * @param action The thread, the expanded item, its children, and whether it is a redo.
      */
     knowledgeExpanded(
       state,
-      action: PayloadAction<{ threadId: string; nodeId: string; children: KnowledgeChild[] }>,
+      action: PayloadAction<{
+        threadId: string
+        nodeId: string
+        children: KnowledgeChild[]
+        again?: boolean
+      }>,
     ) {
-      const { threadId, nodeId, children } = action.payload
-      updateKnowledge(state, threadId, (map) => withChildren(map, nodeId, children))
+      const { threadId, nodeId, children, again } = action.payload
+      updateKnowledge(state, threadId, (map) =>
+        again ? withBreakdownAgain(map, nodeId, children) : withChildren(map, nodeId, children),
+      )
     },
-    /** Keep a finished lesson and its citations, so reopening it costs nothing.
+    /** Bring back an item's deleted prerequisites from its remembered breakdown (v8.23.0).
      * @param state Exploration state.
-     * @param action The thread, the item, the lesson's Markdown and its cited papers.
+     * @param action The thread and the item.
+     */
+    knowledgeRestored(state, action: PayloadAction<{ threadId: string; nodeId: string }>) {
+      const { threadId, nodeId } = action.payload
+      updateKnowledge(state, threadId, (map) => withRestored(map, nodeId))
+    },
+    /** Add a synthesis: several concepts synthesized toward an item (v8.23.0).
+     * @param state Exploration state.
+     * @param action The thread, and the synthesis's name, reason, concepts and target.
+     */
+    knowledgeSynthesized(
+      state,
+      action: PayloadAction<{
+        threadId: string
+        name: string
+        why: string
+        members: string[]
+        toward: string
+      }>,
+    ) {
+      const { threadId, ...synthesis } = action.payload
+      updateKnowledge(state, threadId, (map) => withSynthesis(map, synthesis))
+    },
+    /** Delete items, never the paper, with what only they needed and the
+     * syntheses they leave short (v8.23.0).
+     * @param state Exploration state.
+     * @param action The thread and the items.
+     */
+    knowledgeDeleted(state, action: PayloadAction<{ threadId: string; nodeIds: string[] }>) {
+      const { threadId, nodeIds } = action.payload
+      updateKnowledge(state, threadId, (map) => withoutItems(map, nodeIds))
+    },
+    /** Keep a finished lesson, so reopening it costs nothing; also how a
+     * lesson's rewritten "How it fits in" section lands (v8.23.0).
+     * @param state Exploration state.
+     * @param action The thread, the item, the lesson's Markdown, and the items its closing section was written for.
      */
     knowledgeLessonWritten(
       state,
@@ -246,16 +297,22 @@ const slice = createSlice({
         threadId: string
         nodeId: string
         text: string
+        fitFor?: string[]
       }>,
     ) {
-      const { threadId, nodeId, text } = action.payload
+      const { threadId, nodeId, text, fitFor } = action.payload
       updateKnowledge(state, threadId, (map) =>
         map.nodes[nodeId]
           ? {
               ...map,
               nodes: {
                 ...map.nodes,
-                [nodeId]: { ...map.nodes[nodeId], lesson: text },
+                [nodeId]: {
+                  ...map.nodes[nodeId],
+                  lesson: text,
+                  ...(fitFor && { fitFor }),
+                  freshLesson: undefined,
+                },
               },
             }
           : map,
@@ -380,6 +437,9 @@ export const {
   threadPaperSet,
   knowledgeStarted,
   knowledgeExpanded,
+  knowledgeSynthesized,
+  knowledgeDeleted,
+  knowledgeRestored,
   knowledgeLessonWritten,
   knowledgeKnownToggled,
   knowledgeKnownSet,

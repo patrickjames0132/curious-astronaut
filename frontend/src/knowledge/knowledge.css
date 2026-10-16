@@ -44,6 +44,11 @@
   flex-wrap: wrap;
   max-width: calc(100% - 28px);
 }
+/* The synthesis's swatch, turned into its diamond. */
+.legend i.diamond {
+  border-radius: 1px;
+  transform: rotate(45deg) scale(0.85);
+}
 .legend .legend-arrow {
   color: var(--muted);
   font-weight: 600;
@@ -88,9 +93,38 @@
   font: inherit;
   cursor: pointer;
 }
-.knowledge-selection-mark:hover {
+.knowledge-selection-mark:not(:disabled):hover {
   background: var(--accent);
   color: var(--bg);
+}
+/* "Synthesize" in the synthesis's teal (v8.23.0). */
+.knowledge-selection-mark.synthesis {
+  border-color: var(--knowledge-synthesis-ink);
+  color: var(--knowledge-synthesis-ink);
+}
+/* Delete in the quieter secondary colours, as in the panel. */
+.knowledge-selection-mark.delete {
+  border-color: var(--border);
+  color: var(--text);
+}
+.knowledge-selection-mark.delete:not(:disabled):hover {
+  background: var(--chip);
+  border-color: var(--text);
+  color: var(--text-strong);
+}
+/* A redundant Synthesize, or a Delete with only the paper picked. */
+.knowledge-selection-mark:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.knowledge-selection-mark.synthesis:not(:disabled):hover {
+  background: var(--knowledge-synthesis-ink);
+  color: var(--bg);
+}
+/* The note after a deletion sits where the selection bar was. */
+.knowledge-deleted {
+  padding: 7px 14px;
+  color: var(--muted);
 }
 @media (prefers-reduced-motion: reduce) {
   .knowledge-selection {
@@ -102,12 +136,25 @@
 .knowledge-panel {
   position: relative;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  /* The footer lays itself out by the panel's own width (v8.23.0). */
+  container: lesson-panel / inline-size;
   border-left: 1px solid var(--border);
   background: var(--panel);
+  overflow: hidden;
+  box-sizing: border-box;
+  animation: panel-in var(--motion-panel) var(--ease-rise) both;
+}
+/* What scrolls (v8.23.0): the panel itself did, and its resize handle, sized
+   to it, scrolled away with the lesson. The handle and the ✕ stay put on
+   the panel; the sticky footer sticks to this. */
+.knowledge-panel-scroll {
+  flex: 1;
+  min-height: 0;
   padding: 20px 22px 24px;
   overflow-y: auto;
   box-sizing: border-box;
-  animation: panel-in var(--motion-panel) var(--ease-rise) both;
 }
 .knowledge-panel.closing {
   animation: panel-out var(--motion-panel) var(--ease-fade) both;
@@ -117,6 +164,7 @@
   position: absolute;
   top: 12px;
   right: 14px;
+  z-index: 3;
 }
 .lesson-kicker {
   margin: 0 0 6px;
@@ -135,6 +183,10 @@
 }
 .lesson-kicker.concept {
   color: var(--knowledge-concept-ink);
+}
+/* A synthesis (v8.23.0): teal, as on the canvas. */
+.lesson-kicker.synthesis {
+  color: var(--knowledge-synthesis-ink);
 }
 /* Known: "Known concept" / "Known paper", in the known green. */
 .lesson-kicker.known {
@@ -187,25 +239,131 @@
   color: var(--muted);
   font-size: 13px;
 }
-.lesson-reasons {
-  margin: 10px 0 0;
-  padding: 0 0 0 12px;
-  border-left: 3px solid var(--accent);
-  list-style: none;
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.5;
+/* The Connections card, which folds (v8.23.0): a caret header like the
+   lecture's beats row, then its sections. */
+.lesson-card {
+  margin: 12px 0 0;
+  padding: 8px 12px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--chip);
 }
-.lesson-reasons li + li {
-  margin-top: 8px;
-}
-/* The item's name heads its reason, small and linked; the reason reads on. */
-.lesson-reasons button {
-  display: block;
-  font-size: 12.5px;
+.lesson-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
 }
-.lesson-reasons button,
+.lesson-card-head:hover {
+  color: var(--text);
+}
+.lesson-card-caret {
+  display: inline-block;
+  font-size: 9px;
+  transition: transform 0.15s;
+}
+.lesson-card-head.open .lesson-card-caret {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lesson-card-caret {
+    transition: none;
+  }
+}
+/* The lesson's closing "How it fits in" section, in its own card with the
+   accent stripe the old reasons list wore (v8.23.0, Patrick). */
+.lesson-fit {
+  margin: 18px 0 4px;
+  padding: 10px 14px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  background: var(--chip);
+}
+.lesson-fit h3 {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.lesson-fit > :last-child {
+  margin-bottom: 0;
+}
+/* --- the Connections card's rows (v8.23.0) --- */
+.connections-group {
+  margin-top: 10px;
+}
+.connections-label {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+/* About five rows, then the section scrolls on its own. */
+.connections-list {
+  max-height: 168px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.connections-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 6px;
+  border-radius: 6px;
+}
+.connections-list li:hover {
+  background: var(--bg);
+}
+/* The node's own colour, as on the graph; a synthesis's is a diamond. */
+.connections-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.connections-dot.diamond {
+  border-radius: 1px;
+  transform: rotate(45deg) scale(0.85);
+}
+.connections-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.connections-name:hover {
+  color: var(--accent);
+}
+.connections-known {
+  color: var(--knowledge-known-ink);
+  font-size: 12px;
+}
 .lesson-error button {
   padding: 0;
   border: 0;
@@ -227,6 +385,28 @@
 .lesson-action:hover {
   border-color: var(--accent);
   color: var(--text-strong);
+}
+/* How many a "Break it down" brings back (v8.23.0): a badge on the
+   button's top-right corner, as a notification count sits on its icon, so
+   it takes no room in the row. */
+.lesson-foot > button:has(.lesson-count) {
+  position: relative;
+}
+.lesson-count {
+  position: absolute;
+  top: -7px;
+  right: -5px;
+  min-width: 1.5em;
+  padding: 0 5px;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 2px var(--panel);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
 }
 .lesson-status,
 .lesson-error {
@@ -262,32 +442,144 @@
 .lesson-foot .spin {
   flex-shrink: 0;
 }
-/* Pushes the lesson's actions to the right of the "I know this" switch. */
-.lesson-foot-gap {
-  flex: 1;
+/* The selection bar borrows the panel's status and error lines ("Synthesizing
+   together…"), but not their 12px top margin, which sat the spinner and
+   its words below the bar's centre (v8.23.0), as the footer's rule above. */
+.knowledge-selection .lesson-status,
+.knowledge-selection .lesson-error {
+  margin: 0;
 }
+/* A narrow panel (v8.23.0, Patrick): two rows of two equal cells instead
+   of one row of squeezed pills. Unknown and Delete on top, the breakdown
+   button and Next lesson below; an odd last one (a synthesis or the paper
+   has three) spans the row. */
+@container lesson-panel (max-width: 440px) {
+  .lesson-foot {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .lesson-foot > .lesson-known {
+    margin-right: 0;
+  }
+  .lesson-foot > :last-child:nth-child(odd of :not(.lesson-confirm)) {
+    grid-column: 1 / -1;
+  }
+  .lesson-foot > .lesson-status {
+    justify-content: center;
+  }
+}
+/* "Unknown" / "Known" (v8.23.0, a switch until then): the footer's own
+   button, its text turning the known green once pressed. It sits left and
+   the actions group right, however many there are (a space-between round
+   left a synthesis's Delete stranded mid-row). */
 .lesson-known {
-  color: var(--text);
-  font-size: 14px;
-  /* On, the switch is green like a known node (look.ts KNOWLEDGE_COLOR.known). */
-  --switch-on: #22c55e;
-}
-/* "Known" by the switch, in the kicker's small caps: muted while off, the
-   known green once on. */
-.lesson-known .switch-label {
+  margin-right: auto;
+  /* Unknown reads a step quieter than its neighbours; Known in the green. */
   color: var(--muted);
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  transition: color 220ms ease;
 }
-.lesson-known .switch input:checked ~ .switch-label {
+.lesson-known.on {
   color: var(--knowledge-known-ink);
 }
+.lesson-known-mark {
+  display: inline-block;
+  margin-right: 5px;
+}
+/* A known item's bulb keeps the soft glow the pop ends on. */
+.lesson-known.on .lesson-known-mark {
+  filter: drop-shadow(0 0 2px rgb(253 224 71 / 0.45));
+}
+/* The 💡 lights up when the item is marked known: it pops in, glows, and
+   settles; taken back, the 🤔 fades in rising from below (v8.23.0,
+   Patrick). Only on the click: `.pop` is set then, and the switch of
+   animation name between the two restarts it each time. */
+.lesson-known.pop.on .lesson-known-mark {
+  animation: known-bulb 700ms var(--ease-rise) both;
+}
+.lesson-known.pop:not(.on) .lesson-known-mark {
+  animation: unknown-rise 420ms var(--ease-rise) both;
+}
+@keyframes unknown-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes known-bulb {
+  0% {
+    transform: scale(0.4) rotate(-20deg);
+    filter: drop-shadow(0 0 0 rgb(253 224 71 / 0));
+  }
+  45% {
+    transform: scale(1.35) rotate(8deg);
+    filter: drop-shadow(0 0 7px rgb(253 224 71 / 0.95));
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    filter: drop-shadow(0 0 2px rgb(253 224 71 / 0.45));
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .lesson-known .switch-label {
-    transition: none;
+  .lesson-known.pop .lesson-known-mark {
+    animation: none;
+  }
+}
+.lesson-known.on:hover {
+  color: var(--knowledge-known-ink);
+}
+/* The footer's buttons share one size and spread evenly. A narrow panel
+   wraps their labels rather than overflowing the row (v8.23.0: a nowrap
+   round cut Next lesson off at the panel's edge). */
+.lesson-foot > button {
+  /* Shrinks to its longest word, never past it (a min-width of 0 let
+     "Unknown" spill out of its pill). */
+  flex: 0 1 auto;
+  padding: 7px 14px;
+  font-size: 13.5px;
+  line-height: 1.25;
+}
+/* The paper's "Break it down again" confirmation, opening up from the
+   footer (it sits at the panel's foot), in the settings page's danger red. */
+.lesson-confirm {
+  position: absolute;
+  right: 22px;
+  bottom: calc(100% + 8px);
+  left: 22px;
+  z-index: 2;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  animation: lesson-confirm-in 160ms var(--ease-rise) both;
+}
+.lesson-confirm p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.lesson-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.lesson-action.danger {
+  border-color: #c0523f;
+  color: #d9705c;
+}
+.lesson-action.danger:hover {
+  border-color: #d9705c;
+  color: #d9705c;
+}
+@keyframes lesson-confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lesson-confirm {
+    animation: none;
   }
 }
 .lesson-next {

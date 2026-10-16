@@ -66,25 +66,215 @@ knowledge/
   other shape (the tree, or the graph with paper nodes, both from early in
   5b) is started over rather than migrated: neither shipped.
 
+## Syntheses: combining concepts (v8.23.0)
+
+Patrick's picture was a pyramid: the paper on top, foundations at the
+bottom, and between them a layer that **puts the knowledge together**. A
+**synthesis** is that layer, one group at a time: several concepts brought
+together toward the item they build toward, with a lesson on how they
+combine. The design was parked in the OnePager on 2026-10-13 and settled on
+2026-10-14. The code uses the reader's word throughout (`kind:
+'synthesis'`, `synthesis:` ids, `/api/knowledge/synthesis`,
+`withSynthesis` …). It was Patrick's pick at the first browser round over
+"big picture", "keystone" and "connection" ("bridge" was out: the OnePager
+has a "Bridge two topics" phase).
+
+- **Made by choice, then part of the plan.** A synthesis is **not an
+  edge**: it holds its `members` and its `toward` target, and
+  `synthesisLinks` draws its lines (to each member, and from the target), so
+  `tutorPath` and the breakdowns never see it. But once made it **is a
+  lesson in the plan** (Patrick, at the last round: Next lesson should land
+  on them): `courseOrder` teaches it after everything it combines and just
+  before the item it builds toward, an inner synthesis before one holding
+  it, and it counts in `progress`; one building toward a known item is
+  pruned with what that item needs. Until then syntheses stayed out of the
+  order entirely (Patrick: "we are way too strict about the teaching order
+  here … it's not required or anything"), which left Next lesson walking
+  past them. It can't be broken down; its panel's kicker says "Synthesis"
+  (it said "· optional" too for one round, which Patrick dropped). **It
+  checks off like a concept** (Patrick, the second round): the panel's
+  Known button and "✓ I know these" both reach it, it turns green, the
+  kicker animates to "Known Synthesis" as it does to "Known Concept", and
+  the course skips it.
+- **Overlap is fine.** A concept can be in several syntheses, the way a
+  shared prerequisite already has several edges in. Calculus under both
+  supervised learning and deep learning is a shared prerequisite, not a
+  cycle; it was only the stacked-boxes picture that had to draw it twice.
+- **Made by the reader** (this release): select two or more concepts
+  (shift-click, alt-drag) and **◆ Synthesize** on the selection bar.
+  The target is `synthesisTarget`, the deepest item that needs every member,
+  directly or not (concepts meeting under Q-learning build toward
+  Q-learning, not the paper). The tutor names the group
+  (`POST /api/knowledge/synthesis`), the synthesis is added (`knowledgeSynthesized`,
+  `withSynthesis`) and opens, and its lesson streams from
+  `POST /api/knowledge/synthesis/lesson` (`useLessons`). Synthesizing the same concepts
+  again opens the one already made (`findSynthesis`).
+- **Syntheses build on each other** (Patrick, at the first browser round): a
+  member can be a concept or another synthesis, never the paper (`synthesizable`),
+  so the middle layer can stack the way the pyramid's does. A synthesis among
+  the members counts as the concepts underneath it for the target
+  (`conceptsOf`), and `withSynthesis` drops any member that already holds the
+  new synthesis, so none ever contains itself (only reusing a name could try).
+- **No redundant groups** (Patrick): a pick already inside another pick,
+  however deep (a synthesis with one of its own concepts, or with a
+  synthesis it holds), or one another pick already builds on through the
+  course's own "needs" edges (stochastic gradient descent with the sample
+  averages it needs, the browser case that showed the first rule was too
+  narrow; for a synthesis, through the concepts underneath it), says
+  nothing new and muddles the tutor's brief. `redundancy` finds such a pair
+  (`how`: `includes` or `needs`); **◆ Synthesize** is then disabled, its
+  tooltip saying "already includes" or "already builds on", and
+  `withSynthesis` drops the inner one anyway. A concept two picks merely share
+  doesn't count: overlapping syntheses can still be synthesized.
+- **Deletable**, like any item (see "Deleting, and bringing back" below):
+  one that held it loses that member, and one left with fewer than two goes
+  too, and so on up, since a synthesis of one thing says nothing. No
+  confirmation: remaking one is a cached call, so it costs nothing to undo
+  by hand.
+- **The course keeps a tree** (`hierarchyForce`, `look.ts`, both views).
+  Patrick asked for "a more hierarchical tree-like structure", with the
+  more abstract syntheses nearer their parent, without waiting for the
+  pyramid view. Two pulls on top of the charge and links. **Rings:** each
+  item is drawn to the ring at its depth around the paper (`courseDepths`,
+  the fewest "needs" steps; `LEVEL_GAP` 70 apart, `LEVEL_STRENGTH` 0.25), so
+  what an item needs sits outside it. **Syntheses beside their parent:** a
+  synthesis is drawn (`SYNTHESIS_STRENGTH` 0.3) to a spot just outside the
+  item it builds toward, on its members' side, `SYNTHESIS_REACH` (0.6)
+  level gaps out divided by its height (`synthesisHeight`: 1 for plain
+  concepts, one more per level of synthesis inside), so the more abstract,
+  the nearer its parent, be that the paper, a concept or a synthesis. The
+  spot alone was too soft: the charge of the items around a synthesis
+  pushed it about two ring gaps out (Patrick: "the diamond isn't close to
+  the parent"). So its line to its parent is also a short, full-strength
+  spring of that same length (`useHierarchyForce` sets every link's length
+  and pull). The spring holds the distance and the spot picks the side. Its
+  lines to its members pull at `MEMBER_LINK_STRENGTH` 0.03, so they don't drag
+  it back out among them; every other link keeps d3's own strength at
+  `LINK_DISTANCE` 48. In a headless run of a three-level course, the gap
+  between a synthesis and its parent went from 92 to 53 against a 42
+  target. **A 2D node never gets a z** (`useGraphData`): a new item once
+  started beside its anchor with one, d3's centring force then averaged z
+  over the course and turned every other node's missing z into NaN, and the
+  hierarchy force (which reads z in 3D) spread it to x and y. Every synthesis
+  blanked the graph down to the paper until a reload; the force now reads z
+  only when it's finite (`hasZ`). The first
+  cut (a spot 60% of the way from the members to the target) left a
+  synthesis of deep concepts far out among them, and nothing ordered the
+  concepts at all. The constants are eyeballed layout, not fitted: tune
+  them in the browser.
+- **The tutor's suggested syntheses** were planned as this feature's second
+  half and moved to the Knowledge Graph assistant ticket instead (the
+  OnePager, Phase 5's follow-ups): an assistant needs a synthesis-making
+  tool anyway, so a separate button would be a second path to one thing.
+- **Its id carries `SYNTHESIS_PREFIX`** (`synthesis:`), so a synthesis named like a concept
+  never collides with it, and `courseNames` leaves syntheses out so the tutor
+  doesn't reuse their names for concepts. The saved shape stays `version: 3`:
+  the new fields are optional, and a course without syntheses is unchanged.
+- **The look:** a teal diamond (`KNOWLEDGE_COLOR.synthesis`, a hue nothing else
+  uses; green once known) with dashed teal lines in
+  2D (`SYNTHESIS_EDGE`), and in 3D a camera-facing ◆ sprite in place of the
+  sphere (`nodeThreeObjectExtend` is false for it alone), so it is the same
+  diamond from any angle; a legend entry once the course has one.
+
+## Deleting, and bringing back (v8.23.0)
+
+Patrick: a delete for every node, never the paper, with a breakdown able to
+bring a deleted concept back.
+
+- **What goes** (`withoutItems`, `knowledgeDeleted`): the picked items, then
+  every concept the paper no longer reaches by "needs" edges, then each
+  synthesis left with fewer than two members or without the item it builds
+  toward, until nothing changes. "Its children go too" means *what only it
+  needed*: the course is a graph, so a prerequisite another item still needs
+  stays. Deleted items leave the known list, and an open one's panel closes.
+- **Where**: the panel's **Delete** (any item but the paper), and the
+  selection bar's **Delete** for several at once (shift-click, alt-drag or
+  the find's Enter), with the **Delete**/Backspace key as its shortcut
+  outside a text field. It is disabled with only the paper picked, and the
+  paper is skipped otherwise. A note where the bar was says how many went
+  ("Deleted 2 items and 3 more with them") and how to bring them back. No
+  confirmation, since nothing is lost.
+- **Bringing it back costs nothing, and it comes back as it was.** A
+  broken-down item keeps what its breakdown gave (`breakdown`, the tutor's
+  `{name, why}` list), so the prerequisites since deleted are known
+  (`missingChildren`). While there are any, its **"+ Break it down"** (or a
+  double-click) comes back with a count badge of how many return, its
+  tooltip naming them, and restores them (`withRestored`,
+  `knowledgeRestored`) with no call. Deleted concepts wait in the course's
+  `archive`, so one that returns, by a restore or by *any* breakdown naming
+  it, comes back as it was (`revived`): violet with its lesson if it had one
+  (Patrick: an explored one shouldn't come back grey), green if it was
+  known, and broken down, linked again to what of its breakdown is still on
+  the course, the rest behind its own count. So a deleted subtree comes back
+  one level at a time. A course from before v8.23.0 has no `breakdown` yet;
+  the first deletion fills it in from the edges still there (`remembered`).
+- **"↻ Break it down again"** (`withBreakdownAgain`): a breakdown the reader
+  doesn't like gets one fresh try, **a clean slate for its whole branch**
+  (Patrick). Everything below the item leaves the course, except what
+  something outside the branch still needs (the delete rule), and the new
+  breakdown's concepts start new, even ones the tutor names again: not
+  revived from the archive, and marked `freshLesson`, so each lesson is
+  written past the server's cache when next opened (the item's own at once),
+  with its "How it fits in" card. Check-offs survive. Breaking a new concept
+  down again uses the server's cached breakdown, so a level the reader liked
+  comes back free. The first cut kept the subtree of any concept the new
+  breakdown repeated, which left a grey, rewritten parent over violet
+  children with lessons written for the old one. That was
+  the point of a redo for Patrick, more than new concepts. The tutor isn't
+  told to change the concepts: the same breakdown is a fine answer, and a
+  redo stays reproducible (one round showed it the previous breakdown and
+  asked for a different one; Patrick turned it down). It is the same footer button's third
+  state, once nothing is missing (it was a small link above the lesson for
+  one round, which Patrick couldn't find). The request carries `fresh`, so the server
+  skips its cached answer and replaces it. The new prerequisites attach
+  before the old edges go, so one the new breakdown repeats keeps its lesson,
+  check-off and subtree, and whatever only the old one held up leaves. It is
+  one call, on purpose. On the **paper** it asks first, in a small
+  confirmation opening up from the footer (`lesson-confirm`, the settings
+  page's danger red), since a fresh paper breakdown replaces the course's
+  whole top level; elsewhere it just runs. The alternative was the settings page's cache clear,
+  which wipes every graph, search and lesson to redo one breakdown. **No
+  TTL** on breakdowns (Patrick's call): unlike the citation graph's data,
+  they don't go stale, and an expiry would only make a restore bill again
+  and bring back different concepts.
+
 ## The views
 
 - **Click** opens the item's lesson in the side panel and **centres it in
   view** (v8.17.0; so do Next lesson and the panel's links). In 2D that is a
   pan; in 3D the camera slides by the gap between what it looks at and the
   node, keeping its angle and distance, so the node lands in the middle of
-  the reader's own view. The request carries a `seq`, so re-clicking the
-  open node re-centres it after a pan. **Double-click**, the
+  the reader's own view. The request carries a `seq`, so Next lesson or a
+  panel link to the open item re-centres it after a pan. **A slower second
+  click on the open node closes it** (v8.23.0, Patrick, as on the citation
+  graph), letting go of its focus; until then it re-centred the node. To keep
+  the double-click breakdown, `useNodeClicks` waits out the 350 ms
+  double-click window before closing, so a quick second click still breaks
+  the item down. **Double-click**, the
   citation graph's re-seed gesture, breaks it down; so does the panel's
   "+ Break it down" button, in the panel's footer beside "Next lesson ›"
-  (v8.17.0; it sat above the lesson before). A click on empty canvas closes the panel.
+  (v8.17.0; it sat above the lesson before). A click on empty canvas leaves
+  the panel open (v8.23.0, Patrick: it closed the panel until then, which
+  lost the lesson to a stray click while panning); ✕ closes it, and so
+  does **Esc, in two steps as on the citation graph** (v8.23.0): the first
+  press drops a selection or a find, the next closes the panel. It runs
+  through the citation graph's `useEscapeClear`, which skips form controls,
+  so Esc typed in the find box only clears the box (the window listener it
+  replaced also dropped the selection then).
 - **Select several to check off at once** (v8.17.0), with the citation
   graph's own gestures: **shift-click** toggles a node, and an **alt-drag**
   box adds every node inside it (`ui/useBoxSelect`, the gesture the citation
   graph's `useMarquee` is built on; an alt-click on empty canvas clears).
   Picked nodes' outlines turn the selection blue. The
-  panel's own **"I know this"** is a switch (`ui/Switch`), green when on,
-  labelled "Known" to its right (small caps, muted
-  off and green on), with "I know this" as its tooltip. Switching it
+  panel's own **"I know this"** is a footer button like its neighbours
+  since v8.23.0 (Patrick: smaller, and consistent with Delete and Break it
+  down), reading "🤔 Unknown" a step greyer than its neighbours, and
+  "💡 Known" in the known green once pressed (`aria-pressed`; the marks are
+  `aria-hidden`, so its name stays the word). Pressing it pops the bulb in
+  with a short glow (`known-bulb`), and taking it back fades the 🤔 in from
+  below (`unknown-rise`), each only on the click, not on opening an item,
+  and both off under reduced motion. It was a switch (`ui/Switch`) labelled "Known" in small
+  caps until then. The footer's buttons share one size, Known on the left and the actions grouped right. Below 440px of panel (a container query on the panel's own width, not the window's) they become a 2×2 grid of equal cells, Unknown and Delete over the breakdown button and Next lesson, an odd last one spanning the row, rather than squeezing one row until it scrolled sideways (Patrick's pick over icon-only buttons, kept in reserve for narrower still). The breakdown button's restore count is a badge on its top-right corner, as a notification count sits on its icon. Pressing it
   animates the kicker in CSS alone: "Known" widens to push "Concept" right
   and then rises in, and switching off reverses it (`.kicker-known`). The panel no longer
   lists what an item needs (a "Needs" row of chips until v8.17.0): the
@@ -94,10 +284,44 @@ knowledge/
   clears too. The selection is component state, never saved: it's a gesture,
   not part of the course. Each view hands the box a `KnowledgeEngine`
   (`engineRef`) that hit-tests its own nodes on screen.
+- **The panel scrolls inside itself** (`.knowledge-panel-scroll`, v8.23.0).
+  The panel element used to be the scroller, and the resize handle, sized
+  and placed against it, scrolled away with the lesson, so it could only be
+  grabbed in the first screenful (Patrick). Now the handle and the ✕ sit on
+  the still panel, and the lesson and its sticky footer scroll inside.
+- **Connections** (v8.23.0, Patrick; "Where it fits" for a round, and a
+  bordered list of reasons before that): the item's *immediate* links, in a
+  card whose caret header folds it away with `ui/Fold`. It starts open,
+  and the choice is remembered per browser (`ca.knowledgeFitOpen`, the old
+  name kept so the choice survives). "Taxonomy" was Patrick's first name
+  for it, passed over because a taxonomy sorts things into kinds, and these
+  are dependencies. Its sections (`connectionsOf`, empty ones left out),
+  each headed with a count:
+  **Builds toward** and **Combines**, the same two for every kind
+  (Patrick; "Required for" and "Depends on" for a concept, for one round):
+  for a concept or the paper, what needs it and what it needs; for a
+  synthesis, its parent and its members.
+
+  Each row is one line: a dot in the node's own colour (`nodeLook`, a
+  diamond for a synthesis), its name as a link that opens it, and a ✓ when
+  known. No reasons: a tutor reason folded under each row's caret for one
+  round, but the lesson's "How it fits in" card (see Lessons) says it
+  better. Hovering a row lights its node on the 2D graph like a hover
+  (`pointedId`), everything else dimming, but only that node and the open
+  item, with the edge between them: a hover on the canvas lights the
+  hovered item's whole neighbourhood, which from the card buried the one
+  item being pointed at (Patrick). A selection-blue ring stood in for one
+  round, and Patrick preferred the hover's own look.
+  A section scrolls past about five rows, so a concept many items share
+  can't push the lesson off screen. A tree to explore in place (Patrick's
+  sketch) was left to the pyramid view's ticket: the card stays one level
+  deep.
 - **Colours:** gold for the paper, violet for a concept. **States**
   (`nodeLook`, v8.17.0): **green** once known, and a concept is **grey**
   until it has been explored (its lesson opened, or broken down), violet
-  after. **Outlines follow the citation graph**, on the node's own edge: a
+  after, and grey again while its lesson waits to be rewritten after a
+  "Break it down again" (`freshLesson`, v8.23.0, Patrick), even when the
+  tutor landed on the same breakdown, until it is opened. **Outlines follow the citation graph**, on the node's own edge: a
   thin black line on every node (`--node-outline`), the canvas's hard ink on
   the open one (white on dark, near-black on light), and the selection blue
   on picked ones. While a breakdown is in flight that edge turns into moving
@@ -117,6 +341,23 @@ knowledge/
   outlines need no entry. The panel's kicker takes its node's colour ("Paper"
   gold, "Concept" violet, and "Known concept" / "Known paper" green once
   known), through theme tokens deepened for the light panel.
+- **Focus, as on the citation graph** (v8.23.0, Patrick: "the same
+  hover/focus/dim logic and functionality"). `KnowledgeNetwork` works out
+  the lit items with the citation graph's own `focusOf` and `focusAnchor`
+  (`graph/model`), over `neighbourhood` (`model.ts`: what an item needs,
+  what needs it, and the syntheses joined to it). **Hovering** an item
+  lights it and its links; **the open item holds its links lit** while its
+  panel is open; **hovering one of those** shows that one's links until
+  the pointer leaves, and hovering a dimmed item changes nothing; **a find
+  outranks** both. Everything else dims **in a trace of its own colour**
+  (`dimLook`, the citation graph's `dimColor`: known, explored and new still
+  read), only the focused item's edges stay lit (`linkLit`, the citation
+  graph's `edgeLit` rule), and the focus names what it lights at any zoom.
+  The alt-drag box picks only lit items. **3D** takes the open item's focus
+  and the find but not hover, which would rebuild every sprite on each move
+  (the lag v8.17.0 fixed); `lit` is memoised for the same reason. Not
+  carried over: the citation graph's second click to close, since a quick
+  second click here is the double-click that breaks an item down.
 - **Find a concept by name** (v8.20.0) with the citation graph's own find
   bar (`graph/controls/FindBar`), in the same bottom-right corner, in its
   own wording (`FIND_COPY` in `KnowledgeNetwork`) and with its own tour
@@ -178,6 +419,23 @@ in-flight lessons are tracked at module level, so remounting the tool doesn't
 start the same lesson twice. The paper's own lesson is grounded in its
 abstract.
 
+**"How it fits in" has its own card** (v8.23.0, Patrick). Every lesson ends
+with a section under that exact heading on how its subject serves each item
+that needs it, the tutor being handed all of them with their reasons
+(`needed_by`); the paper's own lesson has none. `splitLesson` cuts the
+lesson there (loosely: any heading level or case) and the panel shows the
+closing part in a card with the accent stripe (`.lesson-fit`), a lesson
+without the heading (from before, or a model that skipped it) showing as one
+piece. This replaced the per-row reasons under a caret in Connections:
+Patrick found the caret easy to miss and the reason repeated by the lesson
+anyway. **When what needs an item changes, only that section is rewritten.**
+A lesson keeps the ids its section was written for (`fitFor`); once
+`fitNeeds` differs (another breakdown made it a shared prerequisite, or a
+parent was deleted), opening it, or the change itself while it's open, asks
+`POST /api/knowledge/fit` for the section alone (`refit` in `useLessons`,
+`fitIsStale`), and `joinLesson` puts it back on the kept lesson. A failed
+rewrite keeps the old section and tries again on the next open.
+
 **Lessons don't cite papers** (Patrick, v8.17.0). From v8.14.0 they cited the
 paper's real references as `[n]` links that opened the cited paper's thread.
 It was grounded but felt off ("bare numbers read as footnotes", and every
@@ -198,7 +456,13 @@ assistant docked here: since v8.15.0 it lives on the Citation Graph alone (see
 
 `test/knowledge/model.test.ts` covers identity, node kinds, shared concepts,
 loops, routes, course order, pruning, next-lesson, `lessonText` and
-`findItems`.
+`findItems`, syntheses (their target, their place in the teaching plan, their
+lines, and being found again by their members), and deleting: what only the
+deleted item needed going with it, a shared prerequisite staying, syntheses
+left short, the paper refused, a restore from the remembered breakdown (and
+one filled in for an old course), a concept coming back as it was (lesson,
+check-off, breakdown) by a restore or another breakdown, and a fresh
+breakdown keeping what it repeats.
 `test/knowledge/KnowledgeGraph.test.tsx` covers the 2D view's first fit,
 that a shift-click selects without opening, and a find dimming the edges
 away from its matches.
@@ -207,7 +471,10 @@ with the canvas swapped for a list of node buttons (jsdom can't draw). It
 covers the first expansion and its grounding, an old-shape course being
 replaced, a lesson streamed into the panel and kept, visiting, a check-off,
 checking off a selection (and taking it back, and Esc), a find whose
-Enter selects its matches,
+Enter selects its matches, synthesizing two concepts that opens with
+no check-off or breakdown (and synthesizing them again reopening it),
+deleting a selection with the Delete key (the paper refused) and bringing
+it back with no call, a fresh breakdown,
 the next lesson, a shared prerequisite becoming one node with two edges, a
 retry, and the course surviving a save round-trip. The 3D view, the canvas
 painting, the folding controls and the legend are checked in the browser.

@@ -33,24 +33,46 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { expandKnowledge, type KnowledgePaper } from '../api'
+import { expandKnowledge, synthesizeKnowledge, type KnowledgePaper } from '../api'
 import { useAppDispatch } from '../store'
 import {
+  knowledgeDeleted,
   knowledgeExpanded,
   knowledgeKnownSet,
   knowledgeKnownToggled,
   knowledgeOpened,
   knowledgeStarted,
+  knowledgeRestored,
+  knowledgeSynthesized,
   type ThreadRecord,
 } from '../store/explorations'
 import FindBar, { type FindCopy } from '../graph/controls/FindBar'
 import { usePresence } from '../ui/usePresence'
 import { useBoxSelect } from '../ui/useBoxSelect'
+import { useEscapeClear } from '../graph/hooks/useEscapeClear'
+import { focusAnchor, focusOf } from '../graph/model'
 import KnowledgeControls from './KnowledgeControls'
 import KnowledgeGraph, { type KnowledgeEngine } from './KnowledgeGraph'
 import KnowledgeLegend from './KnowledgeLegend'
 import KnowledgePanel from './KnowledgePanel'
-import { courseNames, createMap, findItems, isCurrentMap, tutorPath } from './model'
+import {
+  SYNTHESIS_PREFIX,
+  courseNames,
+  createMap,
+  neighbourhood,
+  findItems,
+  findSynthesis,
+  fitNeeds,
+  isCurrentMap,
+  missingChildren,
+  nameKey,
+  redundancy,
+  stepOf,
+  synthesisTarget,
+  synthesizable,
+  tutorPath,
+  withoutItems,
+} from './model'
 import { useLessons } from './useLessons'
 import './knowledge.css'
 
@@ -64,13 +86,30 @@ const FIND_COPY: FindCopy = {
   placeholder: 'Find a concept…',
   inputLabel: 'Find a concept on the graph by name',
   inputTitle:
-    'Spotlight the concepts whose names contain this. Enter selects them all, ready to check off.',
+    'Spotlight the concepts whose names contain this. Enter selects them all, ready to check off or delete.',
   selectTitle: (count) =>
-    `Select all ${count} matching item${count === 1 ? '' : 's'}, ready to check off`,
+    `Select all ${count} matching item${count === 1 ? '' : 's'}, ready to check off or delete`,
 }
 
 /** localStorage keys for the per-browser view preferences. */
 const MODE_KEY = 'ca.knowledge3d'
+
+/** How long the "Deleted …" note stays up, in ms. */
+const DELETED_NOTE_MS = 6000
+
+/**
+ * The note after a deletion (v8.23.0), with the way back.
+ *
+ * @param picked How many items the reader deleted.
+ * @param extra How many more went with them.
+ * @returns E.g. "Deleted 2 items and 3 more with them. …".
+ */
+function deletedMessage(picked: number, extra: number): string {
+  const them = picked === 1 ? 'it' : 'them'
+  const head = picked === 1 ? 'Deleted it' : `Deleted ${picked} items`
+  const tail = extra > 0 ? ` and ${extra} more with ${them}` : ''
+  return `${head}${tail}. Break down what needed ${them} to bring ${them} back.`
+}
 
 /**
  * The paper at the root of a thread's course.
@@ -146,11 +185,15 @@ export default function KnowledgeNetwork({
   const [focus, setFocus] = useState<{ id: string; seq: number } | null>(null)
   const [threeD, setThreeD] = useState(() => readPreference(MODE_KEY) === '1')
   const [fitSignal, setFitSignal] = useState(0)
-  const { drafts, write, writing } = useLessons(threadId)
+  const { drafts, write, writing, refit, refitting } = useLessons(threadId)
   // Items picked to check off together (v8.17.0): shift-click toggles one,
   // an alt-drag box adds the nodes inside it, as on the citation graph. Not
   // saved: a selection is a moment's gesture, not part of the course.
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  // A synthesis in flight, and why the last one failed (v8.23.0).
+  const [synthesizing, setSynthesizing] = useState(false)
+  const [synthesisError, setSynthesisError] = useState<string | null>(null)
+  useEffect(() => setSynthesisError(null), [selected])
   // The find bar's text. Not saved either, and a new course starts empty.
   const [findQuery, setFindQuery] = useState('')
   useEffect(() => setFindQuery(''), [threadId])
@@ -173,18 +216,15 @@ export default function KnowledgeNetwork({
   )
   const box = useBoxSelect({
     wrapRef,
-    hitTest: (bounds) => engineRef.current?.nodesIn(bounds) ?? [],
+    // Only what the focus lights, as on the citation graph: a dimmed item
+    // inside the box stays out of the selection.
+    hitTest: (bounds) =>
+      (engineRef.current?.nodesIn(bounds) ?? []).filter(
+        (nodeId) => !litRef.current || litRef.current.has(nodeId),
+      ),
     onPick: (ids) => setSelected((previous) => new Set([...previous, ...ids])),
     onClear: clearSelection,
   })
-  // Esc drops the selection, the way it drops the citation graph's highlights.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') clearSelection()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [clearSelection])
   const [size, setSize] = useState({ width: 800, height: 600 })
   useEffect(() => {
     const element = wrapRef.current
@@ -203,6 +243,42 @@ export default function KnowledgeNetwork({
   }, [dispatch, thread, threadId, map])
 
   const found = useMemo(() => (map ? findItems(map, findQuery) : null), [map, findQuery])
+  // The citation graph's focus (v8.23.0), by its own rules (`graph/model`):
+  // the open item holds its links lit; hovering one of them shows that
+  // one's links instead; hovering with nothing open lights the hovered
+  // item's; a find outranks them all. Only the anchor's edges stay lit.
+  const [hoverId, setHoverId] = useState<string | null>(null)
+  // The item a Connections row points at (v8.23.0): it lights like a hover,
+  // but alone with the open item (and the edge between them), not with its
+  // whole neighbourhood as a hover on the canvas does (Patrick).
+  const [pointedId, setPointedId] = useState<string | null>(null)
+  const heldId = map?.openId && map.nodes[map.openId] ? map.openId : null
+  const held = useMemo(() => (map && heldId ? neighbourhood(map, heldId) : null), [map, heldId])
+  const hover = useMemo(
+    () => (map && hoverId && map.nodes[hoverId] ? neighbourhood(map, hoverId) : null),
+    [map, hoverId],
+  )
+  const pointed = useMemo(
+    () =>
+      map && pointedId && map.nodes[pointedId]
+        ? new Set([pointedId, ...(heldId ? [heldId] : [])])
+        : null,
+    [map, pointedId, heldId],
+  )
+  // Memoised: the 3D view rebuilds its sprites whenever `lit` changes.
+  const litHoverId = hover ? hoverId : null
+  const focusLit = useMemo(
+    () => focusOf({ find: found, held, hover, hoverId: litHoverId, highlights: new Set() }),
+    [found, held, hover, litHoverId],
+  )
+  const focusAnchorId = useMemo(
+    () => focusAnchor({ find: found, held, heldId, hover, hoverId: litHoverId }),
+    [found, held, heldId, hover, litHoverId],
+  )
+  const lit = pointed ?? focusLit
+  const anchorId = pointed ? (heldId ?? pointedId) : focusAnchorId
+  const litRef = useRef(lit)
+  litRef.current = lit
   // "select" (or Enter) adds every match to the selection and clears the
   // find, so the selection's blue rings and its bar show what was picked.
   const selectFound = useCallback(() => {
@@ -215,24 +291,33 @@ export default function KnowledgeNetwork({
   const mapRef = useRef(map)
   mapRef.current = map
 
+  // Break an item down. One already broken down brings back what its
+  // breakdown gave and was since deleted, with no call (v8.23.0); `again`
+  // asks the tutor for a fresh breakdown instead, past the server's cache.
   const expand = useCallback(
-    (nodeId: string) => {
+    (nodeId: string, again = false) => {
       const current = mapRef.current
       const node = current?.nodes[nodeId]
-      if (!current || !node || node.expanded) return
+      // A synthesis is never broken down: it is made of concepts already here.
+      if (!current || !node || node.kind === 'synthesis') return
+      if (node.expanded && !again) {
+        if (missingChildren(current, nodeId).length)
+          dispatch(knowledgeRestored({ threadId, nodeId }))
+        return
+      }
       setExpanding((previous) => (previous.has(nodeId) ? previous : new Set(previous).add(nodeId)))
       setFailed(({ [nodeId]: _dropped, ...rest }) => rest)
       expandKnowledge({
         item: {
-          title: node.title,
-          kind: node.kind,
+          ...stepOf(node),
           ...(node.paper ? { paper_id: node.paper.id } : {}),
         },
         path: tutorPath(current, nodeId),
         existing: courseNames(current),
         provider,
+        ...(again && { fresh: true }),
       })
-        .then((found) => dispatch(knowledgeExpanded({ threadId, nodeId, children: found })))
+        .then((found) => dispatch(knowledgeExpanded({ threadId, nodeId, children: found, again })))
         .catch((error: unknown) =>
           setFailed((previous) => ({
             ...previous,
@@ -250,6 +335,52 @@ export default function KnowledgeNetwork({
     [dispatch, provider, threadId],
   )
 
+  // Delete items (v8.23.0): never the paper, and with them what only they
+  // needed and the syntheses they leave short. A note says how many went,
+  // and how to bring them back.
+  const [deletedNote, setDeletedNote] = useState<string | null>(null)
+  useEffect(() => {
+    if (!deletedNote) return undefined
+    const timer = window.setTimeout(() => setDeletedNote(null), DELETED_NOTE_MS)
+    return () => window.clearTimeout(timer)
+  }, [deletedNote])
+  const deleteItems = useCallback(
+    (nodeIds: string[]) => {
+      const current = mapRef.current
+      if (!current) return
+      const doomed = nodeIds.filter((nodeId) => current.nodes[nodeId] && nodeId !== current.rootId)
+      if (!doomed.length) return
+      const after = withoutItems(current, doomed)
+      const extra =
+        Object.keys(current.nodes).length - Object.keys(after.nodes).length - doomed.length
+      dispatch(knowledgeDeleted({ threadId, nodeIds: doomed }))
+      setSelected(new Set())
+      setDeletedNote(deletedMessage(doomed.length, extra))
+    },
+    [dispatch, threadId],
+  )
+
+  // Delete (or Backspace) deletes the selection, as the selection bar's
+  // Delete does; never while typing (the find box), and never the paper.
+  const selectedRef = useRef(selected)
+  selectedRef.current = selected
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return
+      const target = event.target
+      if (
+        target instanceof Element &&
+        target.closest('input, textarea, select, [contenteditable="true"]')
+      )
+        return
+      if (!selectedRef.current.size) return
+      event.preventDefault()
+      deleteItems([...selectedRef.current])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [deleteItems])
+
   // The paper breaks down on its own the first time: a graph of one node
   // would be a course with nothing in it.
   const rootId = map?.rootId
@@ -260,10 +391,21 @@ export default function KnowledgeNetwork({
 
   // Opening an item writes its lesson, the first time only.
   const openId = map?.openId ?? null
+  // Also when the open item's lesson is cleared under it ("Break it down
+  // again" rewrites it, v8.23.0).
+  const openHasLesson = !!(map && openId && map.nodes[openId]?.lesson)
   useEffect(() => {
     if (map && openId) write(map, openId)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- on open, not on every map edit
-  }, [openId, write])
+  }, [openId, openHasLesson, write])
+  // An open lesson whose "How it fits in" section was written for other
+  // items than need it now gets that section rewritten (v8.23.0), on open or
+  // when a breakdown or deletion changes what needs it.
+  const fitKey = map && openId ? fitNeeds(map, openId).join('|') : ''
+  useEffect(() => {
+    if (map && openId) refit(map, openId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on open or a change in what needs it
+  }, [openId, fitKey, refit])
 
   const open = useCallback(
     (nodeId: string) => dispatch(knowledgeOpened({ threadId, nodeId })),
@@ -283,11 +425,28 @@ export default function KnowledgeNetwork({
     [dispatch, threadId],
   )
 
+  // Esc in two steps, as on the citation graph (v8.23.0): the first press
+  // drops a selection or a find, and once neither is left, the next closes
+  // the panel. Until then Esc only dropped the selection, from a window
+  // listener that also fired on Esc typed in the find box; `useEscapeClear`
+  // skips form controls, so the box's own Esc just clears the box.
+  const anythingLit = selected.size > 0 || findQuery !== ''
+  useEscapeClear(
+    useCallback(() => {
+      if (anythingLit) {
+        clearSelection()
+        setFindQuery('')
+      } else close()
+    }, [anythingLit, clearSelection, close]),
+  )
+
   // The panel slides out rather than vanishing, showing the last item it held.
   const panel = usePresence(!!openId)
   const lastOpen = useRef(openId)
   if (openId) lastOpen.current = openId
   const shownId = openId ?? lastOpen.current
+  // A row unmounts without a mouseleave when its item opens.
+  useEffect(() => setPointedId(null), [shownId])
 
   // Same outer structure as below, so the canvas element (and its size
   // observer) survives the course arriving.
@@ -307,18 +466,54 @@ export default function KnowledgeNetwork({
     focus,
     fitSignal,
     selected,
-    found,
+    lit,
+    anchorId,
+    onHover: setHoverId,
     onOpen: openAndFocus,
     onExpand: expand,
     onSelect: toggleSelected,
-    onBackground: close,
+    onClose: close,
     engineRef,
     onPinned: setPinned,
   }
-  // The selection's one action marks them all known, or, when every one is
-  // already known, takes them all back.
+  // The selection's first action marks them all known, or, when every one is
+  // already known, takes them all back. Syntheses check off too.
   const picked = [...selected].filter((nodeId) => map.nodes[nodeId])
   const allKnown = picked.length > 0 && picked.every((nodeId) => map.known.includes(nodeId))
+  // Its second synthesizes two or more concepts or syntheses (v8.23.0): the tutor names
+  // what they become toward the deepest item needing them all, and the new
+  // synthesis opens. Synthesizing the same concepts again opens the one already made.
+  const synthesisMembers = picked.filter((nodeId) => synthesizable(map, nodeId))
+  // Its third deletes them, all but the paper (v8.23.0).
+  const deletable = picked.filter((nodeId) => nodeId !== map.rootId)
+  // A pick already inside another pick makes the group redundant.
+  const redundant = redundancy(map, synthesisMembers)
+  const synthesize = () => {
+    const existing = findSynthesis(map, synthesisMembers)
+    if (existing) {
+      clearSelection()
+      openAndFocus(existing)
+      return
+    }
+    const toward = synthesisTarget(map, synthesisMembers)
+    setSynthesizing(true)
+    setSynthesisError(null)
+    synthesizeKnowledge({
+      members: synthesisMembers.map((nodeId) => stepOf(map.nodes[nodeId])),
+      toward: stepOf(map.nodes[toward]),
+      path: tutorPath(map, toward),
+      paper_id: map.nodes[map.rootId]?.paper?.id,
+    })
+      .then((named) => {
+        dispatch(knowledgeSynthesized({ threadId, ...named, members: synthesisMembers, toward }))
+        clearSelection()
+        openAndFocus(SYNTHESIS_PREFIX + nameKey(named.name))
+      })
+      .catch((error: unknown) =>
+        setSynthesisError(error instanceof Error ? error.message : 'Could not synthesize these'),
+      )
+      .finally(() => setSynthesizing(false))
+  }
 
   return (
     <div className="knowledge" data-tour="knowledge">
@@ -342,6 +537,8 @@ export default function KnowledgeNetwork({
           onThreeD={(on) => {
             setThreeD(on)
             setPinned(0)
+            // 3D reports no hover: a 2D one would otherwise stay lit there.
+            setHoverId(null)
             writePreference(MODE_KEY, on ? '1' : '0')
           }}
           onFit={() => setFitSignal((count) => count + 1)}
@@ -381,6 +578,40 @@ export default function KnowledgeNetwork({
             >
               {allKnown ? 'Not known' : '✓ I know these'}
             </button>
+            {synthesisMembers.length >= 2 &&
+              (synthesizing ? (
+                <span className="lesson-status">
+                  <span className="spin" /> Synthesizing…
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="knowledge-selection-mark synthesis"
+                  onClick={synthesize}
+                  disabled={!!redundant}
+                  title={
+                    redundant
+                      ? `“${map.nodes[redundant.outer].title}” already ${redundant.how === 'includes' ? 'includes' : 'builds on'} “${map.nodes[redundant.inner].title}”: take one of them out of the selection`
+                      : 'Add a synthesis to the course: how these concepts (or syntheses) come together, taught just before what they build up to'
+                  }
+                >
+                  ◆ Synthesize
+                </button>
+              ))}
+            {synthesisError && <span className="lesson-error">{synthesisError}</span>}
+            <button
+              type="button"
+              className="knowledge-selection-mark delete"
+              onClick={() => deleteItems(picked)}
+              disabled={!deletable.length}
+              title={
+                deletable.length
+                  ? 'Delete these (Delete key), with what only they need and any synthesis left short. Break down what needed them to bring them back'
+                  : 'The paper can’t be deleted'
+              }
+            >
+              Delete
+            </button>
             <button
               type="button"
               className="link-btn"
@@ -391,7 +622,14 @@ export default function KnowledgeNetwork({
             </button>
           </div>
         )}
-        <KnowledgeLegend />
+        {picked.length === 0 && deletedNote && (
+          <div className="knowledge-selection knowledge-deleted" role="status">
+            <span>{deletedNote}</span>
+          </div>
+        )}
+        <KnowledgeLegend
+          hasSyntheses={Object.values(map.nodes).some((node) => node.kind === 'synthesis')}
+        />
         <FindBar
           query={findQuery}
           onQuery={setFindQuery}
@@ -417,6 +655,7 @@ export default function KnowledgeNetwork({
           nodeId={shownId}
           draft={drafts[shownId]}
           writing={writing(shownId)}
+          refitting={refitting.has(shownId)}
           expanding={expanding.has(shownId)}
           expandError={failed[shownId]}
           closing={panel.closing}
@@ -425,6 +664,8 @@ export default function KnowledgeNetwork({
           onExpand={expand}
           onToggleKnown={(nodeId) => dispatch(knowledgeKnownToggled({ threadId, nodeId }))}
           onRetry={() => write(map, shownId)}
+          onDelete={(nodeId) => deleteItems([nodeId])}
+          onHover={threeD ? undefined : setPointedId}
           onClose={close}
         />
       )}

@@ -11,8 +11,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { REL_COLOR } from '../graph/theme'
-import type { KnowledgeMap, KnowledgeNode } from './model'
+import { REL_COLOR, dimColor } from '../graph/theme'
+import { synthesisLinks, type KnowledgeMap, type KnowledgeNode } from './model'
 
 /** Fill per role: the paper in gold (as on the citation graph), concepts in violet. */
 export const KNOWLEDGE_COLOR = {
@@ -24,7 +24,13 @@ export const KNOWLEDGE_COLOR = {
   /** A known item's fill — the citation graph's citation green. Until v8.17.0
    *  a known item was grey with a ✓ on it. */
   known: REL_COLOR.citation,
+  /** A synthesis (v8.23.0): teal, a hue nothing else on the course uses. Green
+   *  once known, like a concept. */
+  synthesis: '#38d9a9',
 } as const
+
+/** A synthesis's line, a step fainter than its fill (v8.23.0). */
+export const SYNTHESIS_EDGE = 'rgba(56,217,169,0.55)'
 
 /** A node as the force engine holds it: our node plus the engine's position fields. */
 export interface CanvasNode {
@@ -35,6 +41,10 @@ export interface CanvasNode {
   y?: number
   // oxlint-disable-next-line id-length
   z?: number
+  /** The engine's velocity, which a custom force nudges. */
+  vx?: number
+  vy?: number
+  vz?: number
   /** The engine's fixed position: set by a drag to pin a node, cleared by Release. */
   fx?: number
   fy?: number
@@ -69,6 +79,8 @@ export function releaseNodes(nodes: CanvasNode[]): void {
 export interface CanvasLink {
   source: string | CanvasNode
   target: string | CanvasNode
+  /** A synthesis's line (v8.23.0), drawn dashed: never a "needs" edge. */
+  synthesis?: boolean
 }
 
 /**
@@ -86,7 +98,13 @@ export interface CanvasLink {
  * @returns Its fill colour.
  */
 export function nodeLook(map: KnowledgeMap, node: KnowledgeNode): { color: string } {
-  const explored = !!node.visited || !!node.expanded
+  if (node.kind === 'synthesis')
+    return {
+      color: map.known.includes(node.id) ? KNOWLEDGE_COLOR.known : KNOWLEDGE_COLOR.synthesis,
+    }
+  // A lesson waiting to be rewritten after a "Break it down again" reads as
+  // new again, whatever its breakdown, until it is opened (v8.23.0, Patrick).
+  const explored = (!!node.visited || !!node.expanded) && !node.freshLesson
   const base =
     node.id === map.rootId
       ? KNOWLEDGE_COLOR.root
@@ -96,6 +114,61 @@ export function nodeLook(map: KnowledgeMap, node: KnowledgeNode): { color: strin
   return {
     color: map.known.includes(node.id) ? KNOWLEDGE_COLOR.known : base,
   }
+}
+
+/**
+ * A node's fill when the focus has dimmed it (v8.23.0): its own colour
+ * faded, as on the citation graph, so known, explored and new still read
+ * behind a focus.
+ *
+ * @param map The course.
+ * @param node The item.
+ * @returns The faded fill.
+ */
+export function dimLook(map: KnowledgeMap, node: KnowledgeNode): string {
+  return dimColor(nodeLook(map, node).color)
+}
+
+/**
+ * The id at one end of an edge, before or after the engine resolves it.
+ *
+ * @param end The end: an id, or the engine's node.
+ * @returns The id.
+ */
+function endId(end: string | CanvasNode): string {
+  return typeof end === 'string' ? end : end.id
+}
+
+/**
+ * Whether an edge stays lit, by the citation graph's rule (`graph/model`'s
+ * `edgeLit`, v8.23.0 here): under a focused item only its own edges; under a
+ * find, those touching a match; with no focus, every edge.
+ *
+ * @param link The edge.
+ * @param lit The lit items, or null for no focus.
+ * @param anchorId The item in focus, or null.
+ * @returns True to draw it in full colour.
+ */
+export function linkLit(
+  link: CanvasLink,
+  lit: ReadonlySet<string> | null,
+  anchorId: string | null,
+): boolean {
+  if (!lit) return true
+  const ends = [endId(link.source), endId(link.target)]
+  if (anchorId) return ends.includes(anchorId)
+  return ends.some((end) => lit.has(end))
+}
+
+/**
+ * Whether an edge touches an item.
+ *
+ * @param link The edge.
+ * @param nodeId The item, or null.
+ * @returns True when one end is it.
+ */
+export function touches(link: CanvasLink, nodeId: string | null): boolean {
+  return !!nodeId && (endId(link.source) === nodeId || endId(link.target) === nodeId)
 }
 
 /** Zoom past which the 2D view names every node. Lower than the citation
@@ -137,6 +210,7 @@ export function labelled(
  * @returns The radius.
  */
 export function nodeRadius(map: KnowledgeMap, node: KnowledgeNode): number {
+  if (node.kind === 'synthesis') return 6.5
   return node.id === map.rootId ? 9 : 5.5
 }
 
@@ -165,9 +239,15 @@ export function useGraphData(map: KnowledgeMap): { nodes: CanvasNode[]; links: C
     const kept = objects.current
     for (const id of Object.keys(map.nodes)) {
       if (kept.has(id)) continue
+      // A synthesis starts beside its first concept.
       const parent = map.edges.find((edge) => edge.to === id)
-      const anchor = parent ? kept.get(parent.from) : undefined
+      const member = map.nodes[id].members?.[0]
+      const anchor = parent ? kept.get(parent.from) : member ? kept.get(member) : undefined
       const jitter = () => (Math.random() - 0.5) * 30
+      // A z only in 3D, where the anchor has one: a 2D node given a z made
+      // the centring force average z over the course, which turned every
+      // other node's missing z into NaN, and the hierarchy force spread it
+      // to x and y, so a synthesis blanked the graph (v8.23.0).
       kept.set(
         id,
         anchor?.x !== undefined
@@ -175,7 +255,7 @@ export function useGraphData(map: KnowledgeMap): { nodes: CanvasNode[]; links: C
               id,
               x: anchor.x + jitter(),
               y: (anchor.y ?? 0) + jitter(),
-              z: (anchor.z ?? 0) + jitter(),
+              ...(anchor.z !== undefined && { z: anchor.z + jitter() }),
             }
           : { id },
       )
@@ -183,8 +263,16 @@ export function useGraphData(map: KnowledgeMap): { nodes: CanvasNode[]; links: C
     for (const id of [...kept.keys()]) if (!map.nodes[id]) kept.delete(id)
     return {
       nodes: [...kept.values()],
-      links: map.edges.map((edge) => ({ source: edge.from, target: edge.to })),
+      links: [
+        ...map.edges.map((edge) => ({ source: edge.from, target: edge.to })),
+        ...synthesisLinks(map).map((link) => ({
+          source: link.from,
+          target: link.to,
+          synthesis: true,
+        })),
+      ],
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- synthesisLinks reads map.nodes only
   }, [map.nodes, map.edges])
 }
 
@@ -198,19 +286,37 @@ const DOUBLE_CLICK_MS = 350
  * shift-click adds the node to, or takes it out of, the selection (v8.17.0),
  * again as on the citation graph, and never opens or breaks anything down.
  *
+ * **A slower second click on the open item closes it** (v8.23.0, Patrick, as
+ * on the citation graph), letting go of its focus. So that it can't swallow
+ * the double-click, a click on the open item waits out the double-click
+ * window first: a second click inside it breaks the item down instead, and
+ * only a lone click closes. Until v8.23.0 it re-centred the item.
+ *
+ * @param openId The item whose lesson is open, if any.
  * @param onOpen Open an item's lesson.
  * @param onExpand Break an item down.
  * @param onSelect Toggle an item in the selection.
+ * @param onClose Close the open lesson.
  * @returns The engine's `onNodeClick` handler.
  */
 export function useNodeClicks(
+  openId: string | null,
   onOpen: (nodeId: string) => void,
   onExpand: (nodeId: string) => void,
   onSelect: (nodeId: string) => void,
+  onClose: () => void,
 ): (node: CanvasNode, event?: MouseEvent) => void {
   const last = useRef({ id: '', time: 0 })
+  const closing = useRef<number | null>(null)
+  const cancelClose = useCallback(() => {
+    if (closing.current === null) return
+    clearTimeout(closing.current)
+    closing.current = null
+  }, [])
+  useEffect(() => cancelClose, [cancelClose])
   return useCallback(
     (node: CanvasNode, event?: MouseEvent) => {
+      cancelClose()
       if (event?.shiftKey) {
         last.current = { id: '', time: 0 }
         onSelect(node.id)
@@ -223,9 +329,16 @@ export function useNodeClicks(
         return
       }
       last.current = { id: node.id, time: now }
+      if (node.id === openId) {
+        closing.current = window.setTimeout(() => {
+          closing.current = null
+          onClose()
+        }, DOUBLE_CLICK_MS)
+        return
+      }
       onOpen(node.id)
     },
-    [onOpen, onExpand, onSelect],
+    [openId, onOpen, onExpand, onSelect, onClose, cancelClose],
   )
 }
 
@@ -249,4 +362,235 @@ export function useFitButton(signal: number, fit: () => void): void {
     seen.current = signal
     latest.current()
   }, [signal])
+}
+
+/** The gap between the course's rings (v8.23.0): an item one step from the
+ *  paper sits this far out, two steps twice that, a radial tree. A little
+ *  more than the links' 48 at rest, so a ring has room between its items. */
+export const LEVEL_GAP = 70
+/** How hard an item is drawn to its ring, against the charge and links. */
+export const LEVEL_STRENGTH = 0.25
+/** Where a synthesis of plain concepts sits, in level gaps outward from the
+ *  item it builds toward; one more level of synthesis inside it divides it
+ *  (so a synthesis of syntheses sits closer: the more abstract, the nearer
+ *  its parent, Patrick). */
+export const SYNTHESIS_REACH = 0.6
+/** How hard a synthesis is drawn to its spot. */
+export const SYNTHESIS_STRENGTH = 0.3
+/** A synthesis's dashed lines to its members barely pull, so they don't
+ *  drag it out among them on the rings. */
+export const MEMBER_LINK_STRENGTH = 0.03
+/** A link's length at rest; a synthesis's line to its parent is shorter. */
+export const LINK_DISTANCE = 48
+
+/**
+ * Each item's ring: the fewest "needs" steps from the paper (its route's
+ * length, as `routeTo` measures it), the paper 0. Syntheses have none: they
+ * are placed by their parent instead.
+ *
+ * @param map The course.
+ * @returns Ring per item id.
+ */
+export function courseDepths(map: KnowledgeMap): Map<string, number> {
+  const depths = new Map([[map.rootId, 0]])
+  const queue = [map.rootId]
+  while (queue.length) {
+    const current = queue.shift()!
+    for (const edge of map.edges) {
+      if (edge.from !== current || depths.has(edge.to)) continue
+      depths.set(edge.to, depths.get(current)! + 1)
+      queue.push(edge.to)
+    }
+  }
+  return depths
+}
+
+/**
+ * How abstract a synthesis is: 1 for one of plain concepts, one more for
+ * each level of synthesis inside it.
+ *
+ * @param map The course.
+ * @param synthesisId The synthesis.
+ * @param seen Guards against a loop (none should exist; see `withSynthesis`).
+ * @returns Its height, at least 1.
+ */
+export function synthesisHeight(
+  map: KnowledgeMap,
+  synthesisId: string,
+  seen: Set<string> = new Set(),
+): number {
+  if (seen.has(synthesisId)) return 1
+  seen.add(synthesisId)
+  let inner = 0
+  for (const member of map.nodes[synthesisId]?.members ?? [])
+    if (map.nodes[member]?.kind === 'synthesis')
+      inner = Math.max(inner, synthesisHeight(map, member, seen))
+  return inner + 1
+}
+
+/**
+ * The force that keeps the course a tree (v8.23.0, Patrick: "keeping the
+ * nodes in a more hierarchical tree-like structure"). Two pulls:
+ *
+ * - **Rings.** Each item is drawn to the ring at its depth (`courseDepths`)
+ *   around the paper, so what an item needs sits outside it.
+ * - **Syntheses beside their parent.** A synthesis is drawn to a spot just
+ *   outside the item it builds toward, on the side its members lie,
+ *   `SYNTHESIS_REACH / height` level gaps out (`synthesisHeight`): the more
+ *   abstract, the nearer its parent, whatever that parent is. The first cut
+ *   (a spot 60% of the way from its members to the target) left a synthesis
+ *   of deep concepts far out among them.
+ *
+ * Works in 2D and 3D (z is used only when finite: see `hasZ`). d3 calls it
+ * with alpha.
+ *
+ * @param map The course.
+ * @param nodes The engine's nodes.
+ * @returns The force.
+ */
+export function hierarchyForce(map: KnowledgeMap, nodes: CanvasNode[]): (alpha: number) => void {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const depths = courseDepths(map)
+  const heights = new Map(
+    Object.values(map.nodes)
+      .filter((node) => node.kind === 'synthesis')
+      .map((node) => [node.id, synthesisHeight(map, node.id)]),
+  )
+  return (alpha: number) => {
+    const root = byId.get(map.rootId)
+    if (root?.x === undefined || root.y === undefined) return
+    for (const node of nodes) {
+      if (node.id === map.rootId || node.x === undefined || node.y === undefined) continue
+      const item = map.nodes[node.id]
+      if (!item) continue
+      if (item.kind === 'synthesis') {
+        placeSynthesis(
+          node,
+          item.members ?? [],
+          item.toward,
+          heights.get(node.id) ?? 1,
+          byId,
+          alpha,
+        )
+        continue
+      }
+      const depth = depths.get(node.id)
+      if (depth === undefined) continue
+      const offX = node.x - root.x
+      const offY = node.y - root.y
+      const inDepth = hasZ(node) && hasZ(root)
+      const offZ = inDepth ? node.z! - root.z! : 0
+      const distance = Math.hypot(offX, offY, offZ)
+      if (!(distance > 1e-6)) continue
+      const pull = ((depth * LEVEL_GAP - distance) / distance) * LEVEL_STRENGTH * alpha
+      node.vx = (node.vx ?? 0) + offX * pull
+      node.vy = (node.vy ?? 0) + offY * pull
+      if (inDepth) node.vz = (node.vz ?? 0) + offZ * pull
+    }
+  }
+}
+
+/**
+ * Whether a node has a real depth: in 3D it does; in 2D its z is missing, and
+ * a NaN one must never leak into x and y.
+ *
+ * @param node The node.
+ * @returns True when its z is a finite number.
+ */
+function hasZ(node: CanvasNode): boolean {
+  return Number.isFinite(node.z)
+}
+
+/**
+ * Draw one synthesis toward its spot beside its parent (see `hierarchyForce`).
+ *
+ * @param node The synthesis, as the engine holds it.
+ * @param members Its members' ids.
+ * @param towardId The item it builds toward.
+ * @param height How abstract it is.
+ * @param byId The engine's nodes by id.
+ * @param alpha The simulation's alpha.
+ */
+function placeSynthesis(
+  node: CanvasNode,
+  members: string[],
+  towardId: string | undefined,
+  height: number,
+  byId: Map<string, CanvasNode>,
+  alpha: number,
+): void {
+  const toward = towardId ? byId.get(towardId) : undefined
+  const placed = members
+    .map((id) => byId.get(id))
+    .filter((member): member is CanvasNode => member?.x !== undefined)
+  if (toward?.x === undefined || toward.y === undefined || !placed.length) return
+  const mean = (pick: (member: CanvasNode) => number) =>
+    placed.reduce((sum, member) => sum + pick(member), 0) / placed.length
+  const awayX = mean((member) => member.x ?? 0) - toward.x
+  const awayY = mean((member) => member.y ?? 0) - toward.y
+  const inDepth = hasZ(node) && hasZ(toward) && placed.every(hasZ)
+  const awayZ = inDepth ? mean((member) => member.z!) - toward.z! : 0
+  const length = Math.hypot(awayX, awayY, awayZ)
+  if (!(length > 1e-6)) return
+  const reach = (SYNTHESIS_REACH * LEVEL_GAP) / height / length
+  const pull = SYNTHESIS_STRENGTH * alpha
+  node.vx = (node.vx ?? 0) + (toward.x + awayX * reach - (node.x ?? 0)) * pull
+  node.vy = (node.vy ?? 0) + (toward.y + awayY * reach - (node.y ?? 0)) * pull
+  if (inDepth) node.vz = (node.vz ?? 0) + (toward.z! + awayZ * reach - node.z!) * pull
+}
+
+/**
+ * Register `hierarchyForce` on a view's engine and set every link's length
+ * and pull, again whenever the course or its nodes change:
+ *
+ * - **A synthesis's line to its parent** is a short, full-strength spring,
+ *   `SYNTHESIS_REACH / height` level gaps long. The spot alone was too soft:
+ *   the charge of the items around it pushed a synthesis two gaps out
+ *   (Patrick: "the diamond isn't close to the parent"). The spring holds the
+ *   distance; the spot still picks the side.
+ * - **Its lines to its members** barely pull (`MEMBER_LINK_STRENGTH`).
+ * - **Every other link** keeps d3's own strength, one over the busier end's
+ *   count, at `LINK_DISTANCE`.
+ *
+ * @param fgRef The engine's handle.
+ * @param map The course.
+ * @param data The engine's nodes and links.
+ * @param data.nodes Its nodes.
+ * @param data.links Its links.
+ */
+export function useHierarchyForce(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fgRef: { current: any },
+  map: KnowledgeMap,
+  data: { nodes: CanvasNode[]; links: CanvasLink[] },
+): void {
+  useEffect(() => {
+    const engine = fgRef.current
+    if (!engine) return
+    engine.d3Force('hierarchy', hierarchyForce(map, data.nodes))
+    const count = new Map<string, number>()
+    for (const link of data.links)
+      for (const end of [endId(link.source), endId(link.target)])
+        count.set(end, (count.get(end) ?? 0) + 1)
+    const toParent = (link: CanvasLink) =>
+      !!link.synthesis && map.nodes[endId(link.target)]?.toward === endId(link.source)
+    engine
+      .d3Force('link')
+      ?.distance((link: CanvasLink) =>
+        toParent(link)
+          ? (SYNTHESIS_REACH * LEVEL_GAP) / synthesisHeight(map, endId(link.target))
+          : LINK_DISTANCE,
+      )
+      .strength((link: CanvasLink) => {
+        if (toParent(link)) return 1
+        if (link.synthesis) return MEMBER_LINK_STRENGTH
+        return (
+          1 /
+          Math.max(
+            1,
+            Math.min(count.get(endId(link.source)) ?? 1, count.get(endId(link.target)) ?? 1),
+          )
+        )
+      })
+  }, [fgRef, map, data])
 }

@@ -3,8 +3,10 @@
 Description:
 The knowledge network's routes: the paper's expansion sees its real
 reference list (a lesson never fetches it), results are cached so a course is
-never paid for twice, a failed reference fetch degrades quietly, and bad
-input is a 400.
+never paid for twice (unless a breakdown is asked for fresh), a failed reference fetch degrades quietly, and bad
+input is a 400. A lesson hears every item that needs it, and its closing
+section can be rewritten alone (v8.23.0). A synthesis (v8.23.0) is named once per group, whatever order
+its members come in, and its lesson streams and replays like any other.
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
@@ -57,6 +59,19 @@ def test_expand_shows_the_paper_its_references_and_caches(client, monkeypatch):
     assert len(fetched) == 1  # served from the cache
 
 
+def test_a_fresh_breakdown_skips_and_replaces_the_cache(client, monkeypatch):
+    answers = iter([[tutor.Child(name="Q-learning", why="w")], [tutor.Child(name="MDPs", why="v")]])
+    monkeypatch.setattr(knowledge.tutor, "expand", lambda *_args: next(answers))
+    item = {"title": "Eigenvectors", "kind": "concept"}
+    body = {"item": item, "path": []}
+    assert client.post("/api/knowledge/expand", json=body).json["children"][0]["name"] == "Q-learning"
+    # "Break it down again" asks the tutor once more, on purpose ...
+    again = client.post("/api/knowledge/expand", json={**body, "fresh": True})
+    assert again.json["children"][0]["name"] == "MDPs"
+    # ... and the new breakdown is what the cache serves from then on.
+    assert client.post("/api/knowledge/expand", json=body).json["children"][0]["name"] == "MDPs"
+
+
 def test_a_failed_reference_fetch_still_expands(client, monkeypatch):
     def neighbors(*_args):
         raise RuntimeError("S2 down")
@@ -103,12 +118,14 @@ def test_malformed_bodies_are_rejected(client):
 
 def test_a_lesson_streams_without_references_and_replays_from_the_cache(client, monkeypatch):
     calls = []
+    seen_needs = []
 
     def neighbors(paper_id, relation, limit, provider):
         raise AssertionError("a lesson must not fetch the reference list")
 
-    def lesson(item, why, path, abstract):
+    def lesson(item, why, path, abstract, needed_by):
         calls.append(item.title)
+        seen_needs.append([need.title for need in needed_by])
         yield events.Token(text="Q-learning ")
         yield events.Token(text="learns values.")
 
@@ -118,6 +135,10 @@ def test_a_lesson_streams_without_references_and_replays_from_the_cache(client, 
         "item": {"title": "Q-learning", "kind": "concept"},
         "why": "w",
         "path": [],
+        "needed_by": [
+            {"title": "Playing Atari", "kind": "paper", "why": "DQN approximates Q."},
+            {"title": "Experience replay", "kind": "concept", "why": "It replays Q targets."},
+        ],
         "paper_id": "dqn",
     }
     first = _frames(client.post("/api/knowledge/lesson", json=body))
@@ -129,10 +150,21 @@ def test_a_lesson_streams_without_references_and_replays_from_the_cache(client, 
     again = _frames(client.post("/api/knowledge/lesson", json=body))
     assert again == [("token", {"text": "Q-learning learns values."}), ("done", {})]
     assert calls == ["Q-learning"]
+    # After a "Break it down again", a lesson is asked for fresh: written
+    # again, past the cache, and what the cache serves from then on.
+    _frames(client.post("/api/knowledge/lesson", json={**body, "fresh": True}))
+    assert calls == ["Q-learning", "Q-learning"]
+    calls.pop()
+    # Every item that needs it reaches the tutor, in a stable order.
+    assert seen_needs[0] == ["Experience replay", "Playing Atari"]
+    # The same set in another order is the same cached lesson.
+    swapped = {**body, "needed_by": list(reversed(body["needed_by"]))}
+    _frames(client.post("/api/knowledge/lesson", json=swapped))
+    assert calls == ["Q-learning"]
 
 
 def test_a_failed_lesson_is_not_cached(client, monkeypatch):
-    def lesson(item, why, path, abstract):
+    def lesson(item, why, path, abstract, needed_by):
         yield events.Token(text="half a les")
         raise RuntimeError("stream dropped")
 
@@ -145,3 +177,106 @@ def test_a_failed_lesson_is_not_cached(client, monkeypatch):
     )
     frames = _frames(client.post("/api/knowledge/lesson", json=body))
     assert frames[0] == ("token", {"text": "whole"})
+
+
+SYNTHESIS = {
+    "members": [
+        {"title": "Q-learning", "kind": "concept"},
+        {"title": "Experience replay", "kind": "concept"},
+    ],
+    "toward": {"title": "Playing Atari", "kind": "paper"},
+    "path": [],
+    "paper_id": "dqn",
+}
+
+
+def test_a_synthesis_is_named_once_per_group(client, monkeypatch):
+    calls = []
+
+    def name_synthesis(members, toward, path):
+        calls.append([member.title for member in members])
+        return tutor.SynthesisName(name="Stable value learning", why="DQN needs both.")
+
+    monkeypatch.setattr(knowledge.tutor, "name_synthesis", name_synthesis)
+    first = client.post("/api/knowledge/synthesis", json=SYNTHESIS)
+    assert first.get_json() == {"name": "Stable value learning", "why": "DQN needs both."}
+    # The same group in the other order is the same synthesis: cached.
+    swapped = {**SYNTHESIS, "members": list(reversed(SYNTHESIS["members"]))}
+    assert client.post("/api/knowledge/synthesis", json=swapped).get_json()["name"] == (
+        "Stable value learning"
+    )
+    assert len(calls) == 1
+
+
+def test_a_synthesis_needs_two_members_and_a_target(client):
+    lone = {**SYNTHESIS, "members": SYNTHESIS["members"][:1]}
+    assert client.post("/api/knowledge/synthesis", json=lone).status_code == 400
+    assert client.post("/api/knowledge/synthesis", json={**SYNTHESIS, "toward": {}}).status_code == 400
+    nameless = {**SYNTHESIS, "name": ""}
+    assert client.post("/api/knowledge/synthesis/lesson", json=nameless).status_code == 400
+
+
+def test_a_failed_synthesis_name_is_a_502(client, monkeypatch):
+    def name_synthesis(*_args):
+        raise RuntimeError("model down")
+
+    monkeypatch.setattr(knowledge.tutor, "name_synthesis", name_synthesis)
+    assert client.post("/api/knowledge/synthesis", json=SYNTHESIS).status_code == 502
+
+
+def test_a_synthesis_lesson_streams_and_replays_from_the_cache(client, monkeypatch):
+    calls = []
+
+    def synthesis_lesson(name, members, toward, path):
+        calls.append(name)
+        yield events.Token(text="Together, ")
+        yield events.Token(text="they stabilise learning.")
+
+    monkeypatch.setattr(knowledge.tutor, "synthesis_lesson", synthesis_lesson)
+    body = {**SYNTHESIS, "name": "Stable value learning"}
+    first = _frames(client.post("/api/knowledge/synthesis/lesson", json=body))
+    assert [frame[0] for frame in first] == ["token", "token", "done"]
+    again = _frames(client.post("/api/knowledge/synthesis/lesson", json=body))
+    assert again == [
+        ("token", {"text": "Together, they stabilise learning."}),
+        ("done", {}),
+    ]
+    assert calls == ["Stable value learning"]
+
+
+def test_a_fit_section_is_rewritten_once_per_change(client, monkeypatch):
+    calls = []
+
+    def fit_section(item, body, needed_by):
+        calls.append([need.title for need in needed_by])
+        return "It serves both."
+
+    monkeypatch.setattr(knowledge.tutor, "fit_section", fit_section)
+    body = {
+        "item": {"title": "Q-learning", "kind": "concept"},
+        "lesson": "Q-learning learns values.",
+        "needed_by": [
+            {"title": "Playing Atari", "kind": "paper", "why": "w"},
+            {"title": "Experience replay", "kind": "concept", "why": "v"},
+        ],
+    }
+    first = client.post("/api/knowledge/fit", json=body)
+    assert first.json == {"text": "It serves both."}
+    assert client.post("/api/knowledge/fit", json=body).json == first.json
+    assert calls == [["Experience replay", "Playing Atari"]]
+    # Nothing to fit into, or no lesson to draw on: refused.
+    assert client.post("/api/knowledge/fit", json={**body, "needed_by": []}).status_code == 400
+    assert client.post("/api/knowledge/fit", json={**body, "lesson": ""}).status_code == 400
+
+
+def test_a_failed_fit_section_is_a_502(client, monkeypatch):
+    def fit_section(*_args):
+        raise RuntimeError("model down")
+
+    monkeypatch.setattr(knowledge.tutor, "fit_section", fit_section)
+    body = {
+        "item": {"title": "Q-learning", "kind": "concept"},
+        "lesson": "Q-learning learns values.",
+        "needed_by": [{"title": "Playing Atari", "kind": "paper", "why": "w"}],
+    }
+    assert client.post("/api/knowledge/fit", json=body).status_code == 502

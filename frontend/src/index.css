@@ -54,6 +54,7 @@
   --knowledge-paper-ink: #ffd166;
   --knowledge-concept-ink: #b197fc;
   --knowledge-known-ink: #22c55e;
+  --knowledge-synthesis-ink: #38d9a9;
   /* A finished action's ✓ (the detail panel's Expand buttons). */
   --done-ink: #4ade80;
   --shadow: rgba(0, 0, 0, 0.45);
@@ -149,6 +150,7 @@
   --knowledge-paper-ink: #a86f00;
   --knowledge-concept-ink: #7048d4;
   --knowledge-known-ink: #15803d;
+  --knowledge-synthesis-ink: #0c8a66;
   --done-ink: #15803d;
   /* Softer on light — a 0.45 black shadow reads as grime on white. */
   --shadow: rgba(11, 21, 36, 0.12);
@@ -313,16 +315,21 @@ a:hover {
 /* Folding sections (ui/Fold): a one-cell grid whose row animates between
    0fr and 1fr — a fraction of the content's real height, which `height:
    auto` can't do — with the inner cell clipping. Only a change of state
-   plays (.opening / .closing); a fold that mounts open just appears. */
+   plays (.opening / .closing); a fold that mounts open just appears. Its
+   column is held to the fold's own width: a grid cell otherwise grows to
+   its widest unbreakable line, so a one-line, ellipsised name ran past the
+   knowledge panel's Connections card (v8.23.0). */
 .fold {
   display: grid;
   grid-template-rows: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 .fold[hidden] {
   display: none;
 }
 .fold-inner {
   min-height: 0;
+  min-width: 0;
 }
 .fold.opening > .fold-inner,
 .fold.closing > .fold-inner {

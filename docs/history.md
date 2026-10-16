@@ -3541,6 +3541,121 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **Syntheses, and a Knowledge Graph you can prune, redo and read
+      better** *(v8.23.0)* — the course's missing middle layer, workshopped
+      with Patrick on 2026-10-13 (the design is below, as it was parked), and
+      a long browser review (2026-10-14/15) that polished most of the
+      Knowledge Graph around it.
+
+      **Syntheses.** Select two or more concepts (or syntheses) and
+      "◆ Synthesize": the tutor names what they become together toward the
+      deepest item needing all of them (`synthesisTarget`), and the new
+      node opens with its lesson (`POST /api/knowledge/synthesis`, then
+      `/synthesis/lesson`; both cached on the members sorted). The design's
+      open questions settled as: the reader makes them for now, and the
+      tutor's suggestions moved to the Knowledge Graph assistant ticket;
+      they can appear at any time; the pyramid layout stays its own ticket.
+      A synthesis is a teal diamond with dashed lines, never a "needs" edge,
+      can hold other syntheses (a group already holding or building on
+      another is refused, `redundancy`), checks off like a concept, and,
+      since the last round, **is a lesson in the plan**: `courseOrder`
+      teaches it after what it combines and just before what it builds
+      toward. The code uses the reader's word, "synthesis", throughout.
+
+      **Focus as on the Paper Graph.** A click opens an item and holds its
+      links lit, the rest fading to a trace of their own colour; hovering a
+      lit neighbour shows its links; a slower second click on the open item
+      closes it (a quick one is still the double-click); a background click
+      no longer closes the panel; Esc goes in two steps. A Connections row
+      lights its node alone with the open item.
+
+      **A tree-shaped layout.** `hierarchyForce` draws each concept to a
+      ring by its depth from the paper, and each synthesis to a spot beside
+      its parent on its members' side, nearer the more abstract it is; its
+      line to the parent is a short, full-strength spring (the spot alone
+      lost to the charge). A synthesis once blanked the graph to the paper:
+      see [bugs.md](bugs.md).
+
+      **Delete, bring back, redo.** Any item but the paper deletes (the
+      panel, the selection bar, or the Delete key), taking what only it
+      needed and the syntheses it leaves short (`withoutItems`). An item
+      remembers its breakdown, so "+ Break it down", with a count badge of
+      what returns, restores deleted prerequisites with no call, and a
+      deleted concept waits in an archive to come back as it was (lesson,
+      check-off, breakdown). "↻ Break it down again" asks the tutor for a
+      fresh breakdown past the cache and is a clean slate for the branch:
+      everything below goes (what the rest still needs stays), the new
+      concepts start grey with their lessons rewritten when opened, and
+      check-offs survive; on the paper it asks first. No TTL on breakdowns
+      (Patrick's call). A first round also told the tutor to change the
+      concepts on a redo; Patrick turned that down for reproducibility.
+
+      **The lesson panel.** "How it fits in": every lesson ends with a
+      marked section on how it serves each item that needs it, shown in its
+      own card, and rewritten alone (`POST /api/knowledge/fit`) when what
+      needs it changes. The top card is **Connections**: one-line rows,
+      **Builds toward** and **Combines**, a dot in each node's colour. The
+      footer's Known switch became a button (🤔 Unknown, a 💡 that lights up
+      once Known), the buttons wrap to a 2×2 grid in a narrow panel, and
+      the panel scrolls inside itself so its resize handle reaches the
+      bottom (the Paper Graph's detail panel has the same bug, filed).
+
+      **The design, as it was parked (2026-10-13):**
+
+        *(Workshopped with Patrick 2026-10-13; open design, three questions
+        below still undecided.)* Patrick's picture is a pyramid: the paper's
+        new idea on top, **foundational knowledge** at the bottom, and between
+        them a layer that is **putting the knowledge together**, with an AI
+        summary that draws the intuition from several concepts into the
+        paper's larger theme. His example, *Attention Is All You Need*:
+        Transformers ← Supervised Learning + Deep Learning ← Calculus,
+        Statistics, Probability. Today the graph has concepts and one "needs"
+        edge, and nothing says how ideas *combine*.
+
+        **Overlap is not a problem for the model.** Patrick's worry was that
+        concepts overlap like a Venn diagram, or form cycles (Calculus
+        underneath both Supervised Learning and Deep Learning). That is a
+        **shared prerequisite**, not a cycle: the graph already holds it as
+        one node with two incoming edges, and real loops are already dropped.
+        A pyramid of stacked boxes breaks down here because a box sits under
+        exactly one parent, so Calculus has to be drawn twice. A graph doesn't.
+        So the data model is sound. What's missing is the middle layer.
+
+        **Proposal: synthesis nodes**, a second node kind. A synthesis groups 2+
+        concepts, and its lesson explains how they come together toward the
+        paper. If concepts are Venn circles, a synthesis is where they overlap,
+        and a concept can belong to several. It needs its members, and
+        whatever is above it needs the synthesis, so the no-loops rule and the
+        post-order course walk apply as they are: the walk already puts a
+        synthesis after its members and before the paper. It gets its own shape
+        (a diamond or small hub) and a legend entry. **A synthesis is not pruned
+        when its members are checked off**: "you know calculus and probability;
+        here's where they meet in this paper" is still worth teaching. Patrick
+        spoke of combining *learned* nodes, so checking off the members
+        may be what *unlocks* the synthesis.
+
+        **Separable and cheaper: a pyramid layout**, a layered view with
+        foundations at the bottom and the paper on top, each node placed by
+        the depth of its prerequisite chain. That is the pyramid drawn from
+        the graph we already have, with shared nodes at their natural level.
+        It needs no syntheses.
+
+        **Open questions (Patrick to decide):**
+        1. **Who creates syntheses?** Suggested: both. Either the reader
+           selects 2+ nodes (shift-click or alt-drag, which exist today) and
+           chooses "Synthesize", and the AI names the group, writes the
+           summary and attaches it under the lowest item that needs all of
+           them (usually the paper); or the AI proposes them after a breakdown
+           or from a whole-graph "Restructure" pass, for the reader to accept
+           or dismiss.
+        2. **When can a synthesis appear?** Either only once its members are
+           learned (a reward for progress), or at any time (part of the
+           planned course).
+        3. **Is the pyramid layout worth having on its own** as a third view
+           beside force and 3D, or does it only matter once syntheses exist?
+
+        *(From the `todos.md` inbox, 2026-10-13.)*
+
 - [x] **Knowledge Graph: a find bar for concepts** *(v8.20.0)* — from the
       2026-10-13 inbox ("add lexical search bar in the bottom right hand
       corner of the Knowledge Graph"). The Paper Graph's own find control

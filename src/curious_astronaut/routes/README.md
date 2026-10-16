@@ -233,11 +233,17 @@ sidecar (see `config.py`).
 
 | Endpoint | Job |
 | --- | --- |
-| `POST /api/knowledge/expand` | break one course item into the concepts it needs (JSON) |
-| `POST /api/knowledge/lesson` | stream one item's lesson: SSE `token` frames, then `paper_refs` |
+| `POST /api/knowledge/expand` | break one course item into the concepts it needs (JSON); `fresh: true` skips the cached breakdown and replaces it ("Break it down again", v8.23.0) |
+| `POST /api/knowledge/lesson` | stream one item's lesson: SSE `token` frames, then `done` (the `paper_refs` frame went with citations in v8.17.0); `needed_by` lists every item that needs it, for its closing "How it fits in", and `fresh: true` skips and replaces the cached lesson after a "Break it down again" (v8.23.0) |
+| `POST /api/knowledge/fit` | rewrite only a lesson's closing "How it fits in" section for what needs it now (JSON `{text}`, v8.23.0) |
+| `POST /api/knowledge/synthesis` | name a synthesis: what several concepts become together toward an item (JSON `{name, why}`, v8.23.0) |
+| `POST /api/knowledge/synthesis/lesson` | stream a synthesis's lesson: SSE `token` frames, then `done` (v8.23.0) |
 
-Both are thin over `agents/orchestrators/tutor`. What lives here is the
-grounding and the cache:
+All are thin over `agents/orchestrators/tutor`. What lives here is the
+grounding and the cache. A synthesis's two routes are cached permanently too,
+keyed on its members **sorted**, so the same group synthesized in any order is the
+same synthesis and never paid for twice; a synthesis needs two or more members
+(at most 12 are sent on) and a target, or it is a 400:
 
 - **The paper's real reference list grounds both.** The routes fetch up to
   40 references through `traversal.neighbors` (day-cached, provider-aware).
@@ -250,12 +256,18 @@ grounding and the cache:
 - **Both results are cached permanently**, like generated TL;DRs, because a
   course re-opened tomorrow should not be paid for twice. The keys include the
   tutor's `children`/`lesson_words` knobs, so a settings change misses the old
-  entries. The reader's "already in the course" list is deliberately not in
+  entries. The one way past it is a breakdown asked for `fresh` (v8.23.0),
+  which writes over its entry, so a redo costs one call and later opens see
+  the new breakdown; there is deliberately no TTL. The reader's "already in the course" list is deliberately not in
   the key: it only nudges naming, and the frontend merges repeats either way.
   A lesson is cached with its citations (`{text, refs}`), and only once its
   stream finishes cleanly; a dropped stream writes nothing. Both keys carry a
-  version (`tutor:expand:v2`, `tutor:lesson:v2`), bumped when 5b dropped paper
-  nodes. An old entry would otherwise serve a paper as a concept, or a lesson
+  version (`tutor:expand:v2`, `tutor:lesson:v4`), bumped when 5b dropped paper
+  nodes, when lessons stopped citing (v3), and when they gained a closing
+  section covering every item that needs them (v4, v8.23.0; `needed_by` is
+  in the key, sorted, so the same set in any order is one lesson). A
+  rewritten section (`tutor:fit:v1`) is keyed on the subject, the lesson
+  before it and that set, so the same change never bills twice. An old entry would otherwise serve a paper as a concept, or a lesson
   with no citations.
 
 ## `sessions.py` — explorations

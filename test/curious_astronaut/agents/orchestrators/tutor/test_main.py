@@ -4,7 +4,8 @@ Description:
 The tutor: children are concepts, cycles and duplicates are dropped, the
 width knob caps the list, the real reference list reaches both prompts, and a
 lesson streams as tokens that add up to the model's text, then resolves only
-the citations it used, in range, to the real papers.
+the citations it used, in range, to the real papers. A synthesis is named from
+its concepts and target, and its lesson streams like any other.
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
@@ -105,16 +106,78 @@ def test_a_lesson_streams_its_text_and_cites_nothing():
         raise RuntimeError("stop")
         yield ""  # pragma: no cover — makes this an async generator, as streaming needs
 
+    needs = [tutor.Need(title="Experience replay", kind="concept", why="It replays targets.")]
     with tutor_main.lesson_agent.override(model=FunctionModel(stream_function=record)):
         try:
-            list(tutor.lesson(DQN, "", [], "We present DQN."))
+            list(tutor.lesson(DQN, "", [], "We present DQN.", needs))
         except RuntimeError:
             pass
     # No reference list reaches a lesson, so there is nothing to cite by number.
     assert "REFERENCES" not in seen["prompt"]
     assert "ABSTRACT: We present DQN." in seen["prompt"]
+    # Every item that needs it is named, for the closing section.
+    assert "NEEDED BY:\n- Experience replay (concept): It replays targets." in seen["prompt"]
 
     with tutor_main.lesson_agent.override(model=TestModel(custom_output_args={"text": text})):
         streamed = list(tutor.lesson(DQN, "", [], "We present DQN."))
     assert all(isinstance(event, events.Token) for event in streamed)
     assert "".join(event.text for event in streamed) == text
+
+
+SYNTHESIS_MEMBERS = [
+    tutor.Step(title="Q-learning", kind="concept"),
+    tutor.Step(title="Experience replay", kind="concept"),
+]
+
+
+def test_a_synthesis_is_named_from_its_concepts_and_target():
+    seen = {}
+
+    def record(messages, info):
+        seen["prompt"] = messages[0].parts[-1].content
+        raise RuntimeError("stop after recording")
+
+    with tutor_main.synthesis_name_agent.override(model=FunctionModel(record)):
+        try:
+            tutor.name_synthesis(SYNTHESIS_MEMBERS, DQN, [])
+        except RuntimeError:
+            pass
+    assert "CONCEPTS:\n- Q-learning\n- Experience replay" in seen["prompt"]
+    assert f"THEY BUILD TOWARD: {DQN.title} (paper)" in seen["prompt"]
+
+    model = TestModel(custom_output_args={"name": " Stable value learning ", "why": "w"})
+    with tutor_main.synthesis_name_agent.override(model=model):
+        named = tutor.name_synthesis(SYNTHESIS_MEMBERS, DQN, [])
+    assert named.name == "Stable value learning"
+
+
+def test_a_synthesis_lesson_streams_its_text():
+    text = "Replay decorrelates what Q-learning bootstraps from."
+    model = TestModel(custom_output_args={"text": text})
+    with tutor_main.synthesis_agent.override(model=model):
+        streamed = list(tutor.synthesis_lesson("Stable value learning", SYNTHESIS_MEMBERS, DQN, []))
+    assert all(isinstance(event, events.Token) for event in streamed)
+    assert "".join(event.text for event in streamed) == text
+
+
+def test_a_fit_section_is_written_from_the_lesson_and_what_needs_it():
+    seen = {}
+
+    def record(messages, info):
+        seen["prompt"] = messages[0].parts[-1].content
+        raise RuntimeError("stop after recording")
+
+    needs = [
+        tutor.Need(title="Playing Atari", kind="paper", why="DQN approximates Q."),
+        tutor.Need(title="Experience replay", kind="concept", why="It replays targets."),
+    ]
+    with tutor_main.fit_agent.override(model=FunctionModel(record)):
+        try:
+            tutor.fit_section(DQN, "Q-learning learns values.", needs)
+        except RuntimeError:
+            pass
+    assert "NEEDED BY:\n- Playing Atari (paper): DQN approximates Q." in seen["prompt"]
+    assert "THE LESSON:\nQ-learning learns values." in seen["prompt"]
+
+    with tutor_main.fit_agent.override(model=TestModel(custom_output_args={"text": " Both. "})):
+        assert tutor.fit_section(DQN, "Q-learning learns values.", needs) == "Both."
