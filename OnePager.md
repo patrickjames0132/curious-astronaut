@@ -959,6 +959,17 @@ than deleted so the plan doesn't get re-proposed.
       row two is worse than one that appends. *(From the `todos.md` inbox,
       2026-08-28.)*
 
+- [ ] **Show a relevance score on each search result**, as Ai2's
+      [Asta](https://wiki.ubc.ca/Ai2_Asta) does: a visible per-hit score so
+      the reader can see *how well* each paper matches, not only where it
+      sits in the list. This is the same missing piece as the ticket above
+      (no per-hit score exists today), so design the two together: whichever
+      score is chosen to sort by is the one to display. That raises the bar,
+      though: a cheap lexical score is fine for ordering but misleading as a
+      displayed number, so showing it argues for a score the scout (or an
+      embedding similarity) actually justifies, and maybe a short reason
+      beside it as Asta gives. *(From the `todos.md` inbox, 2026-10-16.)*
+
 - [ ] **Make it clear that a lone `@paper` leaves the map** — this ticket
       was filed against the 🔍 **Find papers** toggle, which v7.18.0 replaced
       with `@` mentions (see `frontend/src/mentions/README.md`), so its
@@ -1650,6 +1661,31 @@ than deleted so the plan doesn't get re-proposed.
         reason in the panel) rather than a finished node. Raising one
         unprompted, say after a breakdown, is a question for the agent's
         design, not a new UI.
+      - **Break down a highlighted phrase in a concept's lesson.** Today a
+        breakdown starts from a whole node (double-click); Patrick wants to
+        select a word or passage in `KnowledgePanel`'s lesson text and expand
+        *that*, a term the lesson uses without explaining it. Nothing in the
+        frontend reads a text selection yet (no `getSelection` anywhere).
+        Open: whether the expansion becomes a new prerequisite node under
+        the concept (goes through the same breakdown path and its dedup, so
+        a term two lessons use stays one node) or an inline gloss in the
+        panel that never touches the graph, or the first leading to the
+        second on demand. *(From the `todos.md` inbox, 2026-10-16.)*
+      - **A paper-reader card: open the PDF in the browser, with reading
+        tools.** A third card on the thread's card home (beside Paper Graph
+        and Knowledge Graph) that opens the paper's PDF in the app and gives
+        the reader tools over it, after
+        [SpatialRead](https://www.producthunt.com/p/spatialread/spatialread)
+        (see the landscape sweep below). Patrick's word is "editing tools",
+        which needs pinning down before design: highlights and notes over the
+        PDF, or SpatialRead's expand/simplify explanations of a selected
+        passage (which would share its plumbing with the highlight-to-break-down
+        item above, and could feed the Knowledge Graph). Constraints to read
+        first: [docs/pdf-mining.md](docs/pdf-mining.md) settles that whole
+        PDFs sit on disk under `services/pdf` (so serving the stored file is
+        cheap), PyMuPDF is the optional `pdf` extra (so the card must degrade
+        without it), and only open-access papers have a PDF at all. *(From
+        the `todos.md` inbox, 2026-10-16.)*
 
       **Later stages, deliberately out of v1:**
       - **A challenger agent** that asks probe questions to learn what the
