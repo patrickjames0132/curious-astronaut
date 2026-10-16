@@ -1708,6 +1708,59 @@ than deleted so the plan doesn't get re-proposed.
         video, not interaction. If ever revived, only as an optional extra
         like `sources`/`pdf`.
 
+        **The long-term vision** (Patrick, 2026-10-16, as v1 started on
+        `feature/visuals`): interactive visuals *and worked examples*, like
+        Brilliant.org, and **as many per lesson as the tutor needs** to get
+        an idea across, not one fixed slot. Three sources, in order:
+        1. **Generated widgets** (v1, above): plain JS/SVG/canvas, no
+           libraries, no network, made on demand ("▶ Show me"), shown inline
+           in the lesson with an ⤢ to a large overlay.
+        2. **Images and GIFs found by web search**: an existing animation
+           often beats a generated one (the classic gradient-descent GIF),
+           and a static diagram is fine too. These fall under the "Verified
+           resources" rule below: never a URL taken straight from the model,
+           only one a real search returned and the server checked. They
+           render *outside* the sandbox, as plain images with their source
+           credited, so the widget sandbox stays network-free. **No image
+           search API or key is needed** (Patrick, 2026-10-16): the web
+           scout already finds pages through the vendor's own search; the
+           server then fetches each page itself, scrapes its images with
+           their alt text, captions and nearby prose (what tells the agent
+           what each shows), drops icons and logos, downloads and verifies
+           the rest, and hands them to a vision model to choose and read.
+           Limits: images loaded by script can be missed (read `data-src`
+           and `srcset` too), the source page is always credited and
+           linked, and a vendor without web search skips this source.
+        3. **Bring the library's static figures to life**: take a figure
+           from a reader's own uploads (a textbook diagram) or a paper's
+           mined figures, and rebuild it as an interactive or animated
+           widget, the original shown beside it for comparison. The figure
+           pipelines already exist (`services/pdf` floats, library
+           sources); the new part is a vision-capable call that reads the
+           figure and writes the widget.
+        v1 stores a lesson's visuals as a **list of typed entries** (`kind:
+        'widget'` for now) so the second and third sources, and several
+        visuals per lesson, slot in without reshaping saved courses.
+
+        **Parked, 2026-10-16: generated-only widgets aren't good enough.**
+        v1 (source 1 alone) was built on `feature/visuals` (local, never
+        merged) and reviewed in three browser rounds: cluttered and
+        confusing at first, then clean but lackluster, and through all of
+        it the model's own layouts read as awkward "AI slop", the opposite
+        of the goal. Patrick parked it rather than ship a visual he isn't
+        sure of. **The proposed direction flips the order:** the tutor
+        first looks for a real figure (the paper's mined figures, the
+        reader's library, then the web) and builds the interactive version
+        *from* it, so a human-designed figure sets the layout and the model
+        only adds the interaction. The figure is also shown as it is,
+        credited, so the reader always gets something good, with "Make it
+        interactive" building the widget from it; a generated widget is the
+        fallback when nothing matches. Work continues on
+        `feature/visuals`, unmerged. The branch's sandbox, streaming,
+        progress, theming and repair plumbing carry over unchanged; what
+        changes is where an idea comes from. D3 (inlined, network still
+        shut) remains a separate, smaller lever on rendering polish.
+
       **The landscape, swept 2026-10-06** (so it isn't re-searched; and per
       "Why it exists" above, overlap is not a reason to stop):
       [SpatialRead](https://www.producthunt.com/p/spatialread/spatialread)
