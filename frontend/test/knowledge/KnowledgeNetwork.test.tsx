@@ -24,7 +24,7 @@ import * as api from '../../src/api'
 
 // The canvas stands in as one button per node: click opens, the "+" breaks down.
 vi.mock('../../src/knowledge/KnowledgeGraph', () => ({
-  default: ({ map, selected, found, onOpen, onExpand, onSelect }: KnowledgeGraphProps) => (
+  default: ({ map, selected, lit, onOpen, onExpand, onSelect, onHover }: KnowledgeGraphProps) => (
     <div>
       {Object.values(map.nodes).map((node) => (
         <span key={node.id}>
@@ -35,10 +35,17 @@ vi.mock('../../src/knowledge/KnowledgeGraph', () => ({
           <button type="button" onClick={() => onExpand(node.id)}>
             expand: {node.title}
           </button>
+          <button
+            type="button"
+            onMouseEnter={() => onHover?.(node.id)}
+            onMouseLeave={() => onHover?.(null)}
+          >
+            hover: {node.title}
+          </button>
           <button type="button" onClick={() => onSelect(node.id)}>
             select: {node.title}
             {selected.has(node.id) ? ' (selected)' : ''}
-            {found?.has(node.id) ? ' (found)' : ''}
+            {lit?.has(node.id) ? ' (lit)' : ''}
           </button>
         </span>
       ))}
@@ -150,14 +157,31 @@ it('opens a lesson in the panel, marks it visited, and saves the course', async 
     paper_id: 'DQN',
   })
   expect(lesson.mock.calls[0][0]).not.toHaveProperty('provider')
-  // Where it fits: the item that needs it heads the reason, without the old
-  // "… needs it:" wording (v8.17.0).
-  const fits = screen.getByRole('list', { name: 'Where this fits in the course' })
-  expect(fits.textContent).toContain('Playing Atari')
-  expect(fits.textContent).toContain('DQN approximates Q.')
-  expect(screen.queryByText(/needs it:/)).toBeNull()
+  // Connections (v8.23.0): what needs it, as a plain link; the reason goes
+  // to the tutor (for the lesson's "How it fits in"), not the card.
+  const requiredFor = screen.getByRole('list', { name: 'Builds toward' })
+  expect(requiredFor.textContent).toContain('Playing Atari')
+  expect(screen.queryByText('DQN approximates Q.')).toBeNull()
+  expect(lesson.mock.calls[0][0].needed_by).toEqual([
+    { title: 'Playing Atari', kind: 'paper', why: 'DQN approximates Q.' },
+  ])
+  // A row's name opens that item; the card folds away.
+  const head = screen.getByRole('button', { name: 'Connections' })
+  expect(head.getAttribute('aria-expanded')).toBe('true')
+  fireEvent.click(head)
+  expect(head.getAttribute('aria-expanded')).toBe('false')
+  fireEvent.click(head)
 
-  fireEvent.click(screen.getByLabelText('I know this'))
+  // Esc in two steps (v8.23.0): a selection goes first, then the panel.
+  fireEvent.click(screen.getByText('select: TD learning'))
+  fireEvent.keyDown(window, { key: 'Escape' })
+  expect(screen.queryByText('1 selected')).toBeNull()
+  expect(store.getState().explorations.byId.saved.threads[1].knowledge!.openId).toBe('q learning')
+  fireEvent.keyDown(window, { key: 'Escape' })
+  expect(store.getState().explorations.byId.saved.threads[1].knowledge!.openId).toBeNull()
+  fireEvent.click(screen.getByText('node: Q-learning (visited)'))
+
+  fireEvent.click(screen.getByRole('button', { name: 'Unknown' }))
 
   // Next skips the checked item and the order puts TD learning before the paper.
   fireEvent.click(screen.getAllByRole('button', { name: /Next lesson/ })[0])
@@ -229,15 +253,236 @@ it('finds items by name, and Enter selects every match and clears the find', asy
   fireEvent.click(screen.getByLabelText('Find a concept on the graph'))
   const input = screen.getByLabelText('Find a concept on the graph by name')
   fireEvent.change(input, { target: { value: 'learn' } })
-  expect(screen.getByText('select: Q-learning (found)')).toBeTruthy()
-  expect(screen.getByText('select: TD learning (found)')).toBeTruthy()
+  expect(screen.getByText('select: Q-learning (lit)')).toBeTruthy()
+  expect(screen.getByText('select: TD learning (lit)')).toBeTruthy()
   expect(screen.getByText('select: Playing Atari')).toBeTruthy()
   expect(screen.getByText('2 hits', { exact: false })).toBeTruthy()
 
   fireEvent.keyDown(input, { key: 'Enter' })
   expect(screen.getByText('2 selected')).toBeTruthy()
   expect(screen.getByText('select: Q-learning (selected)')).toBeTruthy()
-  expect(screen.queryByText(/\(found\)/)).toBeNull()
+  expect(screen.queryByText(/\(lit\)/)).toBeNull()
+})
+
+it('synthesizes two concepts into a synthesis that opens, joins the plan, and checks off', async () => {
+  vi.spyOn(api, 'expandKnowledge').mockResolvedValue(ROOT_CHILDREN)
+  const synthesize = vi.spyOn(api, 'synthesizeKnowledge').mockResolvedValue({
+    name: 'Bootstrapped value learning',
+    why: 'DQN combines them.',
+  })
+  vi.spyOn(api, 'streamSynthesisLesson').mockImplementation(async (_body, handlers) => {
+    handlers.onToken('They combine.')
+    handlers.onDone()
+  })
+  const store = mount()
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('select: Q-learning'))
+  // One concept can't be synthesized.
+  expect(screen.queryByRole('button', { name: '◆ Synthesize' })).toBeNull()
+  fireEvent.click(screen.getByText('select: TD learning'))
+  fireEvent.click(screen.getByRole('button', { name: '◆ Synthesize' }))
+
+  await screen.findByText('node: Bootstrapped value learning (visited)')
+  expect(synthesize).toHaveBeenCalledWith(
+    expect.objectContaining({
+      members: [
+        { title: 'Q-learning', kind: 'concept' },
+        { title: 'TD learning', kind: 'concept' },
+      ],
+      toward: { title: 'Playing Atari', kind: 'paper' },
+    }),
+  )
+  const map = store.getState().explorations.byId.saved.threads[1].knowledge!
+  expect(map.openId).toBe('synthesis:bootstrapped value learning')
+  await waitFor(() =>
+    expect(
+      store.getState().explorations.byId.saved.threads[1].knowledge!.nodes[
+        'synthesis:bootstrapped value learning'
+      ].lesson,
+    ).toBe('They combine.'),
+  )
+  // Its Connections: what it builds toward, and what it combines.
+  expect(screen.getByRole('list', { name: 'Builds toward' }).textContent).toContain('Playing Atari')
+  const combines = screen.getByRole('list', { name: 'Combines' }).textContent
+  expect(combines).toContain('Q-learning')
+  expect(combines).toContain('TD learning')
+  // No breakdown, but it checks off like a concept.
+  expect(document.querySelector('.lesson-kicker.synthesis')?.textContent).toContain('Synthesis')
+  expect(screen.queryByRole('button', { name: '+ Break it down' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Unknown' }))
+  const knownNow = store.getState().explorations.byId.saved.threads[1].knowledge!
+  expect(knownNow.known).toContain('synthesis:bootstrapped value learning')
+  expect(document.querySelector('.lesson-kicker.known')?.textContent).toContain('Known')
+  const knownButton = screen.getByRole('button', { name: 'Known' })
+  expect(knownButton.getAttribute('aria-pressed')).toBe('true')
+  // Its bulb pops in on the click itself.
+  expect(knownButton.classList.contains('pop')).toBe(true)
+  expect(knownButton.textContent).toContain('💡')
+  // Taken back, it reads Unknown with its 🤔, which animates in too.
+  fireEvent.click(knownButton)
+  const unknownButton = screen.getByRole('button', { name: 'Unknown' })
+  expect(unknownButton.textContent).toContain('🤔')
+  expect(unknownButton.classList.contains('pop')).toBe(true)
+  fireEvent.click(unknownButton)
+  expect(document.querySelector('.lesson-kicker.known')?.textContent).toContain('Synthesis')
+
+  // Synthesizing the same two again opens it rather than asking the tutor twice.
+  // (Both are lit now: the open synthesis holds its members' focus.)
+  fireEvent.click(screen.getByText(/^select: TD learning/))
+  fireEvent.click(screen.getByText(/^select: Q-learning/))
+  fireEvent.click(screen.getByRole('button', { name: '◆ Synthesize' }))
+  expect(synthesize).toHaveBeenCalledTimes(1)
+
+  // Deleting it takes it off the course and closes its panel.
+  fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+  const after = store.getState().explorations.byId.saved.threads[1].knowledge!
+  expect(after.nodes['synthesis:bootstrapped value learning']).toBeUndefined()
+  expect(after.openId).toBeNull()
+})
+
+it('deletes several at once, never the paper, and brings them back without a call', async () => {
+  const expand = vi
+    .spyOn(api, 'expandKnowledge')
+    .mockResolvedValueOnce(ROOT_CHILDREN)
+    .mockResolvedValueOnce([{ name: 'Bellman equations', why: 'Q-learning solves them.' }])
+    .mockResolvedValueOnce([{ name: 'Value iteration', why: 'A fresh take.' }])
+  const lesson = vi.spyOn(api, 'streamLesson').mockImplementation(async (_body, handlers) => {
+    handlers.onToken('A lesson.')
+    handlers.onDone()
+  })
+  const store = mount()
+  const course = () => store.getState().explorations.byId.saved.threads[1].knowledge!
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('expand: Q-learning'))
+  await screen.findByText('node: Bellman equations')
+
+  // The paper alone can't be deleted.
+  fireEvent.click(screen.getByText('select: Playing Atari'))
+  expect(screen.getByRole('button', { name: 'Delete' }).hasAttribute('disabled')).toBe(true)
+  // With it, the rest go (Delete key), and what only Q-learning needed with them.
+  fireEvent.click(screen.getByText(/^select: Q-learning/))
+  fireEvent.click(screen.getByText(/^select: TD learning/))
+  fireEvent.keyDown(window, { key: 'Delete' })
+  expect(Object.keys(course().nodes)).toEqual(['playing atari'])
+  expect(screen.getByRole('status').textContent).toContain('Deleted 2 items and 1 more with them')
+
+  // The paper's "Break it down" says how many return, and brings them back
+  // from what it remembers; Q-learning's own breakdown waits behind its count.
+  fireEvent.click(screen.getByText('node: Playing Atari'))
+  fireEvent.click(screen.getByRole('button', { name: '+ Break it down 2' }))
+  expect(Object.keys(course().nodes).sort()).toEqual(['playing atari', 'q learning', 'td learning'])
+  expect(course().nodes['q learning'].expanded).toBe(true)
+  expect(expand).toHaveBeenCalledTimes(2)
+
+  // "Break it down again" asks for a fresh one, past the server's cache; on
+  // the paper it asks first, and Cancel leaves the course alone.
+  fireEvent.click(screen.getByRole('button', { name: '↻ Break it down again' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(screen.queryByRole('alertdialog')).toBeNull()
+  expect(expand).toHaveBeenCalledTimes(2)
+  fireEvent.click(screen.getByRole('button', { name: '↻ Break it down again' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Break it down again' }))
+  await screen.findByText('node: Value iteration')
+  expect(expand).toHaveBeenLastCalledWith(expect.objectContaining({ fresh: true }))
+  expect(course().nodes['q learning']).toBeUndefined()
+  // It rewrites the lessons too: the open paper's at once, past the cache;
+  // its new prerequisite's waits to be opened.
+  await waitFor(() =>
+    expect(lesson).toHaveBeenLastCalledWith(
+      expect.objectContaining({ item: { title: 'Playing Atari', kind: 'paper' }, fresh: true }),
+      expect.anything(),
+    ),
+  )
+  expect(course().nodes['value iteration'].freshLesson).toBe(true)
+  await waitFor(() => expect(course().nodes['playing atari'].freshLesson).toBeUndefined())
+})
+
+it('shows a lesson\'s "How it fits in" in its own card, rewritten alone when a parent joins', async () => {
+  vi.spyOn(api, 'expandKnowledge')
+    .mockResolvedValueOnce(ROOT_CHILDREN)
+    .mockResolvedValueOnce([{ name: 'Q-learning', why: 'TD needs Q targets.' }])
+  vi.spyOn(api, 'streamLesson').mockImplementation(async (_body, handlers) => {
+    handlers.onToken('Q-learning learns values.\n\n### How it fits in\n\nDQN fits Q.')
+    handlers.onDone()
+  })
+  const fit = vi.spyOn(api, 'fitLesson').mockResolvedValue('DQN fits Q; TD bootstraps on it.')
+  const store = mount()
+  const course = () => store.getState().explorations.byId.saved.threads[1].knowledge!
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('node: Q-learning'))
+  const card = await screen.findByRole('complementary', { name: 'How it fits in' })
+  expect(card.textContent).toContain('DQN fits Q.')
+  expect(course().nodes['q learning'].fitFor).toEqual(['playing atari'])
+  expect(fit).not.toHaveBeenCalled()
+
+  // TD learning's breakdown makes Q-learning a shared prerequisite: only the
+  // closing section is asked for again, the rest of the lesson kept.
+  fireEvent.click(screen.getByText('expand: TD learning'))
+  await waitFor(() => expect(fit).toHaveBeenCalledTimes(1))
+  expect(fit.mock.calls[0][0]).toMatchObject({
+    lesson: 'Q-learning learns values.',
+    needed_by: [
+      { title: 'Playing Atari', kind: 'paper', why: 'DQN approximates Q.' },
+      { title: 'TD learning', kind: 'concept', why: 'TD needs Q targets.' },
+    ],
+  })
+  await waitFor(() =>
+    expect(course().nodes['q learning'].lesson).toBe(
+      'Q-learning learns values.\n\n### How it fits in\n\nDQN fits Q; TD bootstraps on it.',
+    ),
+  )
+  expect(course().nodes['q learning'].fitFor).toEqual(['playing atari', 'td learning'])
+})
+
+it('focuses like the citation graph: the open item holds, a lit neighbour hovers', async () => {
+  vi.spyOn(api, 'expandKnowledge')
+    .mockResolvedValueOnce(ROOT_CHILDREN)
+    .mockResolvedValueOnce([{ name: 'Bellman equations', why: 'Q-learning solves them.' }])
+  vi.spyOn(api, 'streamLesson').mockImplementation(async (_body, handlers) => handlers.onDone())
+  mount()
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('expand: Q-learning'))
+  await screen.findByText('node: Bellman equations')
+  const isLit = (title: string) => !!screen.queryByText(`select: ${title} (lit)`)
+
+  // Hover with nothing open lights the hovered item's links.
+  fireEvent.mouseEnter(screen.getByText('hover: TD learning'))
+  expect([isLit('TD learning'), isLit('Playing Atari'), isLit('Q-learning')]).toEqual([
+    true,
+    true,
+    false,
+  ])
+  fireEvent.mouseLeave(screen.getByText('hover: TD learning'))
+  expect(isLit('TD learning')).toBe(false)
+
+  // Opening Q-learning holds its links lit.
+  fireEvent.click(screen.getByText('node: Q-learning'))
+  expect([isLit('Q-learning'), isLit('Bellman equations'), isLit('TD learning')]).toEqual([
+    true,
+    true,
+    false,
+  ])
+  // Hovering a dimmed item changes nothing; hovering a lit one shows its links.
+  fireEvent.mouseEnter(screen.getByText('hover: TD learning'))
+  expect(isLit('TD learning')).toBe(false)
+  fireEvent.mouseLeave(screen.getByText('hover: TD learning'))
+  fireEvent.mouseEnter(screen.getByText('hover: Playing Atari'))
+  expect(isLit('TD learning')).toBe(true)
+  fireEvent.mouseLeave(screen.getByText('hover: Playing Atari'))
+
+  // A Connections row lights its node like a hover, but alone with the open
+  // item: not Playing Atari's neighbourhood (TD learning), and not the rest
+  // of Q-learning's (Bellman equations).
+  const row = screen.getByRole('button', { name: 'Playing Atari' }).closest('li')!
+  fireEvent.mouseEnter(row)
+  expect([
+    isLit('Playing Atari'),
+    isLit('Q-learning'),
+    isLit('TD learning'),
+    isLit('Bellman equations'),
+  ]).toEqual([true, true, false, false])
+  fireEvent.mouseLeave(row)
+  expect(isLit('Bellman equations')).toBe(true)
 })
 
 it('a shared prerequisite becomes one node with two arrows into it', async () => {

@@ -11,6 +11,14 @@ Two jobs, one agent id (and so one configured model):
   the node and then the new nodes at once.
 * ``lesson`` teaches one item, streamed as ``Token`` events the way the
   researcher streams an answer.
+* ``name_synthesis`` and ``synthesis_lesson`` (v8.23.0) serve a **synthesis**: an optional
+  node the reader (or, later, the tutor) makes from several concepts, which
+  names what they become together and teaches how they combine toward the
+  item they build toward. Syntheses sit beside the course, never in its
+  teaching order, so nothing here touches ``expand``.
+* ``fit_section`` (v8.23.0) rewrites only a lesson's closing "How it fits
+  in" section (``FIT_HEADING``), when the items needing its subject have
+  changed since it was written; the rest of the lesson stays as it is.
 
 **The graph holds ideas; papers live in the lessons** (Patrick, 2026-10-09).
 The graph started with paper nodes too, grounded in the reference list.
@@ -41,7 +49,15 @@ from pydantic_ai.messages import PartDeltaEvent, PartStartEvent, ToolCallPart, T
 from pydantic_ai.run import AgentRunResultEvent
 
 from ... import events, factory, prompts, streams
-from .config import AGENT_ID, EXPAND_PROMPT, LESSON_PROMPT, SKILLS
+from .config import (
+    AGENT_ID,
+    EXPAND_PROMPT,
+    FIT_PROMPT,
+    LESSON_PROMPT,
+    SKILLS,
+    SYNTHESIS_NAME_PROMPT,
+    SYNTHESIS_PROMPT,
+)
 
 log = logging.getLogger(__name__)
 
@@ -83,6 +99,25 @@ class Child(BaseModel):
     why: str
 
 
+class Need(BaseModel):
+    """An item that needs a lesson's subject, and why (v8.23.0)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    kind: Kind
+    why: str
+
+
+class SynthesisName(BaseModel):
+    """A synthesis's name and what it gives the item it builds toward."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    why: str
+
+
 class Lesson(BaseModel):
     """The lesson's structured output — a typed field so no preamble leaks in."""
 
@@ -99,6 +134,18 @@ expand_agent: Agent[None, Prerequisites] = Agent(
 lesson_agent: Agent[None, Lesson] = Agent(
     output_type=Lesson,
     instructions=[LESSON_PROMPT, *(prompts.skill(name) for name in SKILLS)],
+)
+synthesis_name_agent: Agent[None, SynthesisName] = Agent(
+    output_type=SynthesisName,
+    instructions=[SYNTHESIS_NAME_PROMPT],
+)
+synthesis_agent: Agent[None, Lesson] = Agent(
+    output_type=Lesson,
+    instructions=[SYNTHESIS_PROMPT, *(prompts.skill(name) for name in SKILLS)],
+)
+fit_agent: Agent[None, Lesson] = Agent(
+    output_type=Lesson,
+    instructions=[FIT_PROMPT, *(prompts.skill(name) for name in SKILLS)],
 )
 
 
@@ -188,7 +235,28 @@ def expand(
     return children
 
 
-def lesson(item: Step, why: str, path: list[Step], abstract: str) -> Iterator[events.Event]:
+def _needs_block(needed_by: list[Need]) -> str:
+    """The items that need a subject, each with why, as a prompt block.
+
+    Args:
+        needed_by: Those items.
+
+    Returns:
+        The block, or '' for none.
+    """
+    if not needed_by:
+        return ""
+    lines = "\n".join(f"- {need.title} ({need.kind}): {need.why}" for need in needed_by)
+    return f"NEEDED BY:\n{lines}\n\n"
+
+
+def lesson(
+    item: Step,
+    why: str,
+    path: list[Step],
+    abstract: str,
+    needed_by: list[Need] | None = None,
+) -> Iterator[events.Event]:
     """Teach one course item, streamed.
 
     Args:
@@ -196,6 +264,8 @@ def lesson(item: Step, why: str, path: list[Step], abstract: str) -> Iterator[ev
         why: What the item above it needs it for ('' at the root).
         path: The course path above it, root first.
         abstract: The paper's abstract when the item is the paper ('' otherwise).
+        needed_by: Every item that needs it, each with why (v8.23.0), for the
+            closing "How it fits in" section.
 
     Yields:
         ``Token`` events carrying the lesson's Markdown as it is written. The
@@ -209,15 +279,36 @@ def lesson(item: Step, why: str, path: list[Step], abstract: str) -> Iterator[ev
     parts = [f"SUBJECT: {item.title} ({item.kind})\n\n", _path_block(path)]
     if why:
         parts.append(f"WHY THE COURSE NEEDS IT: {why}\n\n")
+    parts.append(_needs_block(needed_by or []))
     if abstract:
         parts.append(f"ABSTRACT: {abstract}\n\n")
     parts.append(f"Aim for about {words} words.")
 
+    yield from _stream_text(lesson_agent, "".join(parts))
+
+
+def _stream_text(agent: Agent[None, Lesson], prompt: str) -> Iterator[events.Event]:
+    """Run a lesson-shaped agent and stream its ``text`` field as it is written.
+
+    The output arrives as a tool call's JSON arguments; the text so far is
+    read out of the partial JSON (``streams.partial_text``) and emitted as it
+    grows.
+
+    Args:
+        agent: The lesson or synthesis agent.
+        prompt: The run's user prompt.
+
+    Yields:
+        ``Token`` events carrying the Markdown as it is written.
+
+    Raises:
+        RuntimeError: When the run ends without a result.
+    """
     output_part: int | None = None
     args_buffer = ""
     emitted = ""
     final: Lesson | None = None
-    for event in streams.drive(lesson_agent, "".join(parts), model=factory.model_for(AGENT_ID)):
+    for event in streams.drive(agent, prompt, model=factory.model_for(AGENT_ID)):
         grew = False
         if isinstance(event, PartStartEvent) and isinstance(event.part, ToolCallPart):
             if event.part.tool_name == streams.OUTPUT_TOOL:
@@ -245,3 +336,89 @@ def lesson(item: Step, why: str, path: list[Step], abstract: str) -> Iterator[ev
     remainder = final.text[len(emitted) :]
     if remainder:
         yield events.Token(text=remainder)
+
+
+def _members_block(members: list[Step]) -> str:
+    """A synthesis's concepts as a prompt block.
+
+    Args:
+        members: The concepts synthesized.
+
+    Returns:
+        The block.
+    """
+    return "CONCEPTS:\n" + "\n".join(f"- {member.title}" for member in members) + "\n\n"
+
+
+def name_synthesis(members: list[Step], toward: Step, path: list[Step]) -> SynthesisName:
+    """Name what several concepts become together, toward one item.
+
+    Args:
+        members: The concepts synthesized (two or more).
+        toward: The item they build toward (the paper, or a concept).
+        path: The course path above ``toward``, root first.
+
+    Returns:
+        The synthesis's name and what it gives ``toward``.
+
+    Raises:
+        Exception: Model failures propagate; the route answers 502.
+    """
+    prompt = (
+        _members_block(members)
+        + f"THEY BUILD TOWARD: {toward.title} ({toward.kind})\n\n"
+        + _path_block(path)
+    )
+    result = streams.run(synthesis_name_agent.run(prompt, model=factory.model_for(AGENT_ID)))
+    return SynthesisName(name=result.output.name.strip(), why=result.output.why.strip())
+
+
+def synthesis_lesson(
+    name: str, members: list[Step], toward: Step, path: list[Step]
+) -> Iterator[events.Event]:
+    """Teach how a synthesis's concepts come together, streamed.
+
+    Args:
+        name: The synthesis's name.
+        members: The concepts it synthesizes.
+        toward: The item they build toward.
+        path: The course path above ``toward``, root first.
+
+    Yields:
+        ``Token`` events carrying the lesson's Markdown as it is written; the
+        caller wraps this in ``streams.terminated``.
+    """
+    words = factory.agent_entry(AGENT_ID).extras["lesson_words"]
+    prompt = (
+        f"SYNTHESIS: {name}\n\n"
+        + _members_block(members)
+        + f"THEY BUILD TOWARD: {toward.title} ({toward.kind})\n\n"
+        + _path_block(path)
+        + f"Aim for about {words} words."
+    )
+    yield from _stream_text(synthesis_agent, prompt)
+
+
+def fit_section(item: Step, body: str, needed_by: list[Need]) -> str:
+    """Rewrite a lesson's closing "How it fits in" section for the items that
+    need its subject now (v8.23.0): one call, returned whole, since the
+    section is a few sentences.
+
+    Args:
+        item: The lesson's subject.
+        body: The lesson without its closing section.
+        needed_by: The items that need the subject now, each with why.
+
+    Returns:
+        The section's body, without its heading.
+
+    Raises:
+        Exception: Model failures propagate; the route answers 502.
+    """
+    prompt = (
+        f"SUBJECT: {item.title} ({item.kind})\n\n"
+        + _needs_block(needed_by)
+        + f"THE LESSON:\n{body}"
+    )
+    result = streams.run(fit_agent.run(prompt, model=factory.model_for(AGENT_ID)))
+    return result.output.text.strip()

@@ -766,6 +766,28 @@ than deleted so the plan doesn't get re-proposed.
 
 ### UI & rendering polish
 
+- [ ] **The Paper Graph's detail panel can only be resized near its top.**
+      Its resize handle (`.panel-resize-handle`, `app.css`) is placed against
+      `.detail`, which is itself the scroller, so the handle covers the first
+      screenful and scrolls up out of reach with a long abstract or figures.
+      The Knowledge Graph's lesson panel had the same bug and got an inner
+      scroller in v8.23.0 (`.knowledge-panel-scroll`, see
+      `frontend/src/knowledge/README.md`): the handle and the ✕ stay on the
+      still panel. The same move fits `detail/DetailPanel.tsx`; check the
+      assistant panel (`teacher/`) while there, though it already scrolls an
+      inner pane. Found by Patrick, 2026-10-15.
+- [ ] **Bring the double-click re-seed back to the Paper Graph?** v8.21.0
+      removed it: a second click on the open paper closes its panel, and the
+      two fought over one gesture (the double-click got hard to land). The
+      Knowledge Graph then showed they can live together (v8.23.0): a click
+      on the open item waits out the 350 ms double-click window before
+      closing, so a quick second click is still the double-click. Patrick,
+      2026-10-14: "maybe we should bring the double click back to citation
+      graph (perhaps I was wrong to remove it so quickly)". The same wait in
+      `detail/useSelection`'s click would restore it; "Explore in a thread"
+      stays in the panel either way. Update the hint line and the tour with
+      it.
+
 - [ ] **Cross-tool thread references: how should `@thread` read a thread
       made of several tools?** — parked by Patrick 2026-10-09, when the
       broader "rethink the chat surfaces and threads" ticket was put to rest
@@ -1590,66 +1612,44 @@ than deleted so the plan doesn't get re-proposed.
       - **Let the tutor draw on the reader's library**, not only the paper's
         references, when it writes a lesson: the researcher's
         `search_sources` already does this for answers. *(From the `todos.md` inbox, 2026-10-09.)*
-      - **Tie the concepts together: the course's missing middle layer.**
-        *(Workshopped with Patrick 2026-10-13; open design, three questions
-        below still undecided.)* Patrick's picture is a pyramid: the paper's
-        new idea on top, **foundational knowledge** at the bottom, and between
-        them a layer that is **putting the knowledge together**, with an AI
-        summary that draws the intuition from several concepts into the
-        paper's larger theme. His example, *Attention Is All You Need*:
-        Transformers ← Supervised Learning + Deep Learning ← Calculus,
-        Statistics, Probability. Today the graph has concepts and one "needs"
-        edge, and nothing says how ideas *combine*.
-
-        **Overlap is not a problem for the model.** Patrick's worry was that
-        concepts overlap like a Venn diagram, or form cycles (Calculus
-        underneath both Supervised Learning and Deep Learning). That is a
-        **shared prerequisite**, not a cycle: the graph already holds it as
-        one node with two incoming edges, and real loops are already dropped.
-        A pyramid of stacked boxes breaks down here because a box sits under
-        exactly one parent, so Calculus has to be drawn twice. A graph doesn't.
-        So the data model is sound. What's missing is the middle layer.
-
-        **Proposal: tie-in nodes**, a second node kind. A tie-in groups 2+
-        concepts, and its lesson explains how they come together toward the
-        paper. If concepts are Venn circles, a tie-in is where they overlap,
-        and a concept can belong to several. It needs its members, and
-        whatever is above it needs the tie-in, so the no-loops rule and the
-        post-order course walk apply as they are: the walk already puts a
-        tie-in after its members and before the paper. It gets its own shape
-        (a diamond or small hub) and a legend entry. **A tie-in is not pruned
-        when its members are checked off**: "you know calculus and probability;
-        here's where they meet in this paper" is still worth teaching. Patrick
-        spoke of tying together *learned* nodes, so checking off the members
-        may be what *unlocks* the tie-in.
-
-        **Separable and cheaper: a pyramid layout**, a layered view with
+      - **A pyramid layout for the Knowledge Graph**, a layered view with
         foundations at the bottom and the paper on top, each node placed by
-        the depth of its prerequisite chain. That is the pyramid drawn from
-        the graph we already have, with shared nodes at their natural level.
-        It needs no tie-ins.
+        the depth of its prerequisite chain, shared nodes at their natural
+        level. Patrick's picture from the synthesis workshop (2026-10-13):
+        the paper's new idea on top, foundational knowledge at the bottom,
+        and the syntheses (v8.23.0) between them, "putting the knowledge
+        together". Kept separate from syntheses on purpose (Patrick: a
+        later ticket). v8.23.0 went part of the way inside the force view:
+        `hierarchyForce` draws concepts to rings by depth around the paper
+        and each synthesis beside its parent (`frontend/src/knowledge/README.md`).
+        Open: a third view beside force and 3D, or a mode of the force view;
+        and whether the Connections card should grow a tree to explore in
+        place (Patrick sketched one, 2026-10-15, and left it to this view).
+      - **An assistant for the Knowledge Graph, which also proposes
+        syntheses.** *(From the `todos.md` inbox: "bring a new, separate AI
+        assistant, similar to the research agent in the Citation Graph,
+        into the Knowledge Graph. Perhaps we just need to generalize the
+        researcher agent in some way?" Widened by Patrick on 2026-10-14.)*
+        Since v8.15.0 the assistant docks beside the Paper Graph alone; the
+        course has none. Open question: a new agent, or the researcher
+        generalised (it already streams grounded answers, scopes by
+        selection, and carries `search_sources`)?
 
-        **Open questions (Patrick to decide):**
-        1. **Who creates tie-ins?** Suggested: both. Either the reader
-           selects 2+ nodes (shift-click or alt-drag, which exist today) and
-           chooses "Tie together", and the AI names the group, writes the
-           summary and attaches it under the lowest item that needs all of
-           them (usually the paper); or the AI proposes them after a breakdown
-           or from a whole-graph "Restructure" pass, for the reader to accept
-           or dismiss.
-        2. **When can a tie-in appear?** Either only once its members are
-           learned (a reward for progress), or at any time (part of the
-           planned course).
-        3. **Is the pyramid layout worth having on its own** as a third view
-           beside force and 3D, or does it only matter once tie-ins exist?
-
-        *(From the `todos.md` inbox, 2026-10-13.)*
-      - **Fade dimmed concepts in their own colour**, as the Paper Graph does
-        since v8.22.0 (`graph/theme.dimColor`): the Knowledge Graph's find
-        still dims every non-match to a flat grey (`DIM_NODE`, in both
-        `KnowledgeGraph.tsx` and `KnowledgeGraph3D.tsx`), losing which
-        concepts are known (green), explored (violet) or new (grey).
-        *(Patrick, 2026-10-14, at the v8.22.0 ship.)*
+        **The tutor's suggested syntheses live here, not behind a button**
+        (settled 2026-10-14). The v8.23.0 syntheses are made by the reader
+        (◆ Synthesize); the AI half, planned as "after a breakdown" or a
+        "Suggest syntheses" button, was folded into this ticket instead. An
+        assistant you can ask "what brings these together?" or "what am I
+        missing between MDPs and DQN?" needs a tool that makes a synthesis
+        anyway, so a separate button would be a second path to the same
+        thing. A conversation can also take the reader's intent ("group the
+        RL foundations") and explain its grouping, which a button can't.
+        The tool must keep the reader's rules (`synthesizable`, `redundancy`,
+        `synthesisTarget`, two or more members, never the paper), and a proposal
+        should arrive as a suggestion to keep or dismiss (a faint ◆, its
+        reason in the panel) rather than a finished node. Raising one
+        unprompted, say after a breakdown, is a question for the agent's
+        design, not a new UI.
 
       **Later stages, deliberately out of v1:**
       - **A challenger agent** that asks probe questions to learn what the

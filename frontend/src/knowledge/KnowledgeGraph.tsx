@@ -8,7 +8,8 @@
  * green ✓), an item not yet broken down wears a dashed ring — there is more beneath
  * it — and the open lesson's item gets the selection ring. Only the
  * neighbourhood in focus is named by default (`labelled` in `look.ts`), so a
- * growing course stays readable. While the find bar holds a query, the
+ * growing course stays readable. A synthesis (v8.23.0) is a teal diamond, its
+ * lines to its concepts and target dashed. While the find bar holds a query, the
  * items that don't match it dim and the matches keep their names (v8.20.0).
  *
  * Authors:
@@ -17,12 +18,17 @@
 
 import { useEffect, useRef, useState } from 'react'
 import ForceGraph2DImport from 'react-force-graph-2d'
-import { DIM_EDGE, DIM_NODE, SELECTION_RING, UNKNOWN_EDGE, useCanvasInk } from '../graph/theme'
+import { DIM_EDGE, SELECTION_RING, UNKNOWN_EDGE, useCanvasInk } from '../graph/theme'
 import {
   labelled,
   nodeLook,
   nodeRadius,
   shortLabel,
+  SYNTHESIS_EDGE,
+  dimLook,
+  linkLit,
+  touches,
+  useHierarchyForce,
   useGraphData,
   pinNode,
   releaseNodes,
@@ -56,14 +62,21 @@ export interface KnowledgeGraphProps {
   fitSignal: number
   /** Items picked to check off together (shift-click, alt-drag). */
   selected: ReadonlySet<string>
-  /** The find bar's matches; everything else dims. Null while no find runs. */
-  found: ReadonlySet<string> | null
+  /** The lit items, everything else dimming (v8.23.0, the citation graph's
+   *  focus: a find, the open item's links, the hovered item's): null for none. */
+  lit: ReadonlySet<string> | null
+  /** The item the focus is centred on, whose edges alone stay lit; null
+   *  under a find or with no focus. */
+  anchorId: string | null
+  /** The pointer moved onto an item, or off every one (2D only: 3D keeps no
+   *  hover state, see `KnowledgeGraph3D`). */
+  onHover?: (nodeId: string | null) => void
   onOpen: (nodeId: string) => void
   onExpand: (nodeId: string) => void
   /** Shift-click: add an item to the selection, or take it out. */
   onSelect: (nodeId: string) => void
-  /** A click on empty canvas closes the lesson. */
-  onBackground: () => void
+  /** A slower second click on the open item: close its lesson (v8.23.0). */
+  onClose: () => void
   /** Filled in by the view so the alt-drag box can hit-test its nodes. */
   engineRef?: { current: KnowledgeEngine | null }
   /** How many nodes are pinned, whenever a drag or a Release changes it. */
@@ -78,18 +91,46 @@ export interface KnowledgeEngine {
 }
 
 /**
+ * Trace a node's outline: a disc, or a diamond for a synthesis (v8.23.0), the
+ * same size across so the two sit together. The caller fills and strokes.
+ *
+ * @param ctx The canvas.
+ * @param diamond True for a synthesis.
+ * @param centreX The node's x.
+ * @param centreY The node's y.
+ * @param radius Its radius (a diamond's half-width).
+ */
+function traceShape(
+  ctx: CanvasRenderingContext2D,
+  diamond: boolean,
+  centreX: number,
+  centreY: number,
+  radius: number,
+): void {
+  if (!diamond) {
+    ctx.arc(centreX, centreY, radius, 0, 2 * Math.PI)
+    return
+  }
+  ctx.moveTo(centreX, centreY - radius)
+  ctx.lineTo(centreX + radius, centreY)
+  ctx.lineTo(centreX, centreY + radius)
+  ctx.lineTo(centreX - radius, centreY)
+  ctx.closePath()
+}
+
+/**
  * Render the 2D knowledge graph.
  *
  * @param props See {@link KnowledgeGraphProps}.
  * @returns The force-graph canvas.
  */
 export default function KnowledgeGraph(props: KnowledgeGraphProps) {
-  const { map, width, height, expanding, focus, fitSignal, found } = props
-  const { selected, onOpen, onExpand, onSelect, onBackground, engineRef, onPinned } = props
+  const { map, width, height, expanding, focus, fitSignal, lit, anchorId } = props
+  const { selected, onOpen, onExpand, onSelect, onClose, engineRef, onPinned, onHover } = props
   const ink = useCanvasInk()
   const [hoverId, setHoverId] = useState<string | null>(null)
   const data = useGraphData(map)
-  const onNodeClick = useNodeClicks(onOpen, onExpand, onSelect)
+  const onNodeClick = useNodeClicks(map.openId, onOpen, onExpand, onSelect, onClose)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null)
   const fitted = useRef(false)
@@ -118,11 +159,13 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
     }
   }, [engineRef, data, onPinned])
 
-  // A little more room than the engine's default: labels sit under the discs.
+  // A little more room than the engine's default: labels sit under the discs
+  // (the links' lengths are useHierarchyForce's).
   useEffect(() => {
     fgRef.current?.d3Force('charge')?.strength(-160)
-    fgRef.current?.d3Force('link')?.distance(48)
   }, [])
+  // The course keeps a tree: rings by depth, syntheses beside their parent.
+  useHierarchyForce(fgRef, map, data)
 
   useFitButton(fitSignal, () => {
     if (data.nodes.length > 1) fgRef.current?.zoomToFit(400, 80)
@@ -151,8 +194,10 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
         return item ? nodeRadius(map, item) ** 2 : 1
       }}
       onNodeClick={onNodeClick}
-      onNodeHover={(node: CanvasNode | null) => setHoverId(node ? node.id : null)}
-      onBackgroundClick={onBackground}
+      onNodeHover={(node: CanvasNode | null) => {
+        setHoverId(node ? node.id : null)
+        onHover?.(node ? node.id : null)
+      }}
       // A drag pins the node where it is dropped; Release unpins them all.
       onNodeDragEnd={(node: CanvasNode) => {
         pinNode(node)
@@ -172,21 +217,17 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
       }}
       // Keep repainting while something is being broken down, so its ring turns.
       autoPauseRedraw={expanding.size === 0}
+      // Under a focus only the focused item's own edges stay lit, as on the
+      // citation graph; the open item's lit edges take the selection blue.
       linkColor={(link: CanvasLink) => {
-        const ends = [link.source, link.target].map((end) =>
-          typeof end === 'string' ? end : end.id,
-        )
-        if (ends.includes(map.openId ?? '')) return SELECTION_RING
-        // A find dims every edge but those touching a match.
-        if (found && !ends.some((end) => found.has(end))) return DIM_EDGE
-        return UNKNOWN_EDGE
+        if (!linkLit(link, lit, anchorId)) return DIM_EDGE
+        if (touches(link, map.openId)) return SELECTION_RING
+        return link.synthesis ? SYNTHESIS_EDGE : UNKNOWN_EDGE
       }}
+      // A synthesis's lines are dashed: drawn, never a "needs" edge (v8.23.0).
+      linkLineDash={(link: CanvasLink) => (link.synthesis ? [2, 1.5] : null)}
       linkWidth={(link: CanvasLink) =>
-        [link.source, link.target].some(
-          (end) => (typeof end === 'string' ? end : end.id) === map.openId,
-        )
-          ? 1.4
-          : 0.8
+        touches(link, map.openId) && linkLit(link, lit, anchorId) ? 1.4 : 0.8
       }
       linkDirectionalArrowLength={3.5}
       linkDirectionalArrowRelPos={1}
@@ -198,11 +239,12 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
         const nodeX = node.x
         const nodeY = node.y
         const picked = selected.has(item.id)
-        const dim = !!found && !found.has(item.id)
+        const dim = !!lit && !lit.has(item.id)
 
         ctx.beginPath()
-        ctx.arc(nodeX, nodeY, radius, 0, 2 * Math.PI)
-        ctx.fillStyle = dim ? DIM_NODE : color
+        traceShape(ctx, item.kind === 'synthesis', nodeX, nodeY, radius)
+        // A dimmed item keeps a trace of its own colour (v8.23.0).
+        ctx.fillStyle = dim ? dimLook(map, item) : color
         ctx.fill()
 
         // One outline, on the disc's own edge, as on the citation graph:
@@ -224,8 +266,8 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
 
         // Every name once zoomed in, as on the citation graph; zoomed out,
         // only the paper, the open item, picked items and the hovered one. A
-        // find names its matches at any zoom, and only them.
-        if (found ? dim : !labelled(map, item.id, hoverId, picked, scale)) return
+        // focus (or a find) names what it lights at any zoom, and only that.
+        if (lit ? dim : !labelled(map, item.id, hoverId, picked, scale)) return
         const fontSize = Math.max(11 / scale, 2.4)
         ctx.font = `${item.id === map.rootId ? '600 ' : ''}${fontSize}px sans-serif`
         ctx.textAlign = 'center'

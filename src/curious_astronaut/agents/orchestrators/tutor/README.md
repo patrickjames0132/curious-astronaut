@@ -7,8 +7,12 @@ course, into the concepts it needs, and teaches each one.
 
 ```
 tutor/
-  config.py — AGENT_ID, the two prompts (EXPAND_PROMPT, LESSON_PROMPT), skills
-  main.py   — the two Agents, their output models, expand(), lesson()
+  config.py — AGENT_ID, FIT_HEADING, the prompts (EXPAND_PROMPT,
+              LESSON_PROMPT, FIT_PROMPT, and a synthesis's
+              SYNTHESIS_NAME_PROMPT and SYNTHESIS_PROMPT), skills
+  main.py   — the Agents, their output models, expand(), lesson(),
+              fit_section(), and a synthesis's name_synthesis() and
+              synthesis_lesson()
 ```
 
 ## Two jobs, one agent id
@@ -17,13 +21,36 @@ tutor/
   and returns `Child`ren: a concept `name` and the `why` the item needs it.
   The result comes back whole, not streamed: an expansion is a short list,
   and the frontend shows a turning ring on the node until it arrives.
-- **`lesson(item, why, path, abstract)`** streams `Token` events and
-  nothing else: lessons don't cite (v8.17.0). It uses the same
+- **`lesson(item, why, path, abstract, needed_by)`** streams `Token` events
+  and nothing else: lessons don't cite (v8.17.0). It uses the same
   structured-output streaming as the researcher (a `Lesson.text` field read
   out of the output tool's partial JSON), so no preamble can leak into the
   page.
+- **Every lesson ends with a marked closing section** (v8.23.0, Patrick).
+  The prompt asks for `FIT_HEADING` (`### How it fits in`) verbatim, then
+  how the subject serves each item under **NEEDED BY** (`needed_by`, every
+  item that needs it, each with its reason), and none on the paper's own
+  lesson. The prompt always ended on how the item above it on the path uses
+  it, which Patrick noticed read as the lesson's link back to its parent; marking it lets
+  the panel show it in its own card without guessing at a last paragraph,
+  and handing over every parent, not just the path's, covers a shared
+  prerequisite. **`fit_section(item, body, needed_by)`** rewrites that
+  section alone (one structured call, `FIT_PROMPT`) when what needs the
+  subject has changed since; the rest of the lesson stays as written.
 
-Both read the tutor's `config.llm.agents` entry **per call**: the model
+- **A synthesis** (v8.23.0; the reader sees it as a **synthesis**) is an
+  optional node made of several concepts the course already holds, or of
+  earlier syntheses, synthesized toward the item they build toward.
+  **`name_synthesis(members, toward, path)`** names what they become together and
+  what that gives the target (one structured `SynthesisName` call), and
+  **`synthesis_lesson(name, members, toward, path)`** streams how they combine.
+  Its prompt assumes the reader has met each concept, so it says what each
+  contributes and where they meet rather than re-teaching them. It streams
+  through the same `_stream_text` as `lesson`. Syntheses never touch
+  `expand`: they sit beside the course, not in it (see
+  `frontend/src/knowledge/README.md`).
+
+All read the tutor's `config.llm.agents` entry **per call**: the model
 through `factory.model_for` and the two knobs from `extras` (`children`, the
 most concepts one expansion lists, and `lesson_words`, the target lesson
 length; see `config.TutorExtras`). A settings edit therefore applies to the
@@ -67,6 +94,8 @@ settings modal's "Apply Default Models" gives it the vendor's advanced model.
 
 `test/curious_astronaut/agents/orchestrators/tutor/test_main.py` covers the
 concept children, cycle and repeat dropping, the width cap, the references
-and course list in the expansion prompt, and a lesson's prompt carrying no
-references and its tokens adding up to its text. The routes' grounding,
+and course list in the expansion prompt, a lesson's prompt carrying no
+references but every item that needs it, its tokens adding up to its text,
+the closing section's rewrite seeing the lesson and what needs it, and a synthesis's naming
+prompt and streamed lesson. The routes' grounding,
 caching and degradation are tested in `test/curious_astronaut/routes/test_knowledge.py`.

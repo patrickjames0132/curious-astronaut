@@ -19,8 +19,9 @@ ui/
                          corner buttons are one button
   useBoxSelect.ts      — the alt-drag box over a graph canvas (below)
   Switch.tsx           — the on/off switch (a hidden real checkbox under a
-                         painted track and knob), from the settings modal;
-                         the knowledge panel's "I know this" uses it too.
+                         painted track and knob), from the settings modal
+                         (the knowledge panel's "I know this" used it too,
+                         until it became a footer button in v8.23.0).
                          `--switch-on` on an ancestor recolours "on";
                          visible text is `.switch-label`, after the input
 ```
@@ -184,6 +185,9 @@ cut off at rest.
 
 - **Only a change animates.** A fold that mounts already open just appears.
   Without that, a restored conversation would unfold every trace at once.
+- **Its column is held to its own width** (`minmax(0, 1fr)`, v8.23.0). A
+  grid cell otherwise grows to its widest unbreakable line, so an
+  ellipsised one-line name inside ran past the knowledge panel's card.
 - **Closed means unmounted, or `keepMounted`.** The default unmounts the
   content after the close plays (via `usePresence`); `keepMounted` keeps it
   behind `hidden`, for content that is costly to rebuild — a lecture's beats
@@ -191,6 +195,7 @@ cut off at rest.
 
 Users: the trace steps and lecture beats in a chat turn
 (`teacher/transcript/ChatMessage`) and the folding groups in Settings
-(`settings/SettingsModal`). (The graph controls used it briefly, and moved
+(`settings/SettingsModal`), and the knowledge panel's Connections card and
+its folded reasons (`knowledge/KnowledgePanel`). (The graph controls used it briefly, and moved
 to a fade-into-a-button instead — see `graph/controls/README.md`.) Verified by
 `test/ui/Fold.test.tsx`.

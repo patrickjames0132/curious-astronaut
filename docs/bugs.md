@@ -22,6 +22,28 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### A synthesis blanked the Knowledge Graph down to the paper (v8.23.0, pre-release)
+
+- **Symptom.** Sometimes, right after "◆ Synthesize", the 2D Knowledge
+  Graph showed one dimmed disc on an empty canvas; a reload brought the
+  course back. No error, nothing in the console.
+- **Root cause.** NaN positions, from three innocent pieces. `useGraphData`
+  starts a new item beside its anchor and gave it a `z` even in 2D. d3's
+  centring force then averaged `z` over every node and subtracted it, so
+  every node with no `z` got `undefined − mean = NaN`. Nothing in 2D read
+  `z` until the new `hierarchyForce`, which used it whenever it wasn't
+  `undefined`, NaN included, and so spread NaN into every `x` and `y`. The
+  canvas skips NaN discs, and the camera fit the one node left. It struck
+  "sometimes" because only a new item placed beside an existing one sets a
+  `z`, which a synthesis always is.
+- **Fix.** A 2D node never gets a `z` (`look.ts`, `useGraphData`), and
+  `hierarchyForce` reads `z` only when it is finite (`hasZ`).
+- **Lesson / guard.** Found in the browser by trapping NaN writes on the
+  live node objects (a property setter logging the stack), after a headless
+  simulation without the centring force failed to reproduce it. Tests:
+  `KnowledgeGraph.test.tsx` checks that a new 2D node has no `z` and that a
+  NaN `z` never reaches `vx`/`vy`.
+
 ### Opening any thread blanked the screen (v8.19.0, pre-release)
 
 - **Symptom.** Clicking a thread in the sidebar left the whole app blank,

@@ -6,7 +6,8 @@
  * its `.legend` styles): the paper and a concept, the one kind of edge, and a
  * concept's states (v8.17.0): known (green) and new (grey, never opened or
  * broken down; it turns violet once you do). Outlines follow the citation
- * graph and need no entry.
+ * graph and need no entry. A synthesis (v8.23.0) gets its entry once the course
+ * has one.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -17,9 +18,11 @@ import { KNOWLEDGE_COLOR } from './look'
 /**
  * Render the legend.
  *
+ * @param props Component props.
+ * @param props.hasSyntheses The course has a synthesis, so its entry shows.
  * @returns The legend row.
  */
-export default function KnowledgeLegend() {
+export default function KnowledgeLegend({ hasSyntheses = false }: { hasSyntheses?: boolean }) {
   return (
     <div className="legend knowledge-legend" data-tour="knowledge-legend">
       <span>
@@ -44,6 +47,12 @@ export default function KnowledgeLegend() {
         <i style={{ background: KNOWLEDGE_COLOR.fresh }} />
         New
       </span>
+      {hasSyntheses && (
+        <span title="How several concepts or syntheses come together, taught just before what they build toward. Select two or more, then ◆ Synthesize">
+          <i className="diamond" style={{ background: KNOWLEDGE_COLOR.synthesis }} />
+          Synthesis
+        </span>
+      )}
     </div>
   )
 }

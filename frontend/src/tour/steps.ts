@@ -201,9 +201,17 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
     title: 'Click a node for its lesson',
     body:
       'A panel opens with what it is, why the course needs it, and its lesson — written ' +
-      'for this course the first time you open it and kept after that. Switch on “I know ' +
-      'this” and the course skips it, with everything beneath it. Already know several? ' +
-      'Shift-click them, or hold Alt and drag a box around them, then “✓ I know these”.',
+      'for this course the first time you open it and kept after that. Its links stay lit ' +
+      'while it’s open: point at a lit one to see its links in turn. Click it again, or press ' +
+      'Esc, to close it. Press “Unknown” to make it “Known”, and the course skips it, with ' +
+      'everything beneath it. Already know several? ' +
+      'Shift-click them, or hold Alt and drag a box around them, then “✓ I know these”. ' +
+      'Pick two or more concepts (or syntheses) and “◆ Synthesize” adds a synthesis to ' +
+      'the course: how they combine, taught just before what they build toward. Don’t ' +
+      'want some? Delete them from the panel or the ' +
+      'selection (or press Delete), and what only they needed goes too; “Break it down” ' +
+      'on the item above brings them back, and “↻ Break it down again” asks for a fresh ' +
+      'breakdown.',
   },
 ]
 

@@ -7,7 +7,10 @@
  * view (`look.ts`): spheres instead of discs, a floating label over each,
  * drag to orbit, scroll to zoom. **Loaded on demand** (`React.lazy` in
  * `KnowledgeNetwork`): three.js is several hundred kilobytes that nobody
- * should download until they flip the switch. A find dims the spheres
+ * should download until they flip the switch. A synthesis is a ◆ sprite
+ * rather than a sphere (v8.23.0). The open item holds the citation graph's
+ * focus here too; hover doesn't, because rebuilding every sprite on each
+ * hover made 3D lag (v8.17.0). A find dims the spheres
  * that don't match and hides their names, as the 2D view does (v8.20.0).
  *
  * Authors:
@@ -17,7 +20,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import ForceGraph3DImport from 'react-force-graph-3d'
 import SpriteText from 'three-spritetext'
-import { DIM_NODE, SELECTION_RING, useCanvasInk } from '../graph/theme'
+import { DIM_EDGE, SELECTION_RING, useCanvasInk } from '../graph/theme'
 import type { KnowledgeGraphProps } from './KnowledgeGraph'
 import type { KnowledgeMap, KnowledgeNode } from './model'
 import { inBox } from '../ui/useBoxSelect'
@@ -26,6 +29,10 @@ import {
   nodeLook,
   nodeRadius,
   shortLabel,
+  SYNTHESIS_EDGE,
+  dimLook,
+  linkLit,
+  useHierarchyForce,
   useGraphData,
   pinNode,
   releaseNodes,
@@ -90,6 +97,26 @@ function outlineRing(radius: number, color: string): SpriteText {
   return ring
 }
 
+/** A synthesis's ◆ height in world units: about a concept sphere across. */
+const DIAMOND_HEIGHT = 11
+
+/**
+ * A synthesis's shape (v8.23.0): a ◆ glyph, which a sprite keeps facing the
+ * camera, so it reads as the 2D view's diamond from every angle.
+ *
+ * @param fill Its colour.
+ * @param stroke Its outline (black, the open item's ink, the selection blue).
+ * @returns The sprite.
+ */
+function diamond(fill: string, stroke: string): SpriteText {
+  const glyph = new SpriteText('◆')
+  glyph.textHeight = DIAMOND_HEIGHT
+  glyph.color = fill
+  glyph.strokeWidth = 1
+  glyph.strokeColor = stroke
+  return glyph
+}
+
 /**
  * The bits of a three.js sprite this file touches. `three-spritetext`'s own
  * typings extend three's `Sprite`, which has no types here (no
@@ -112,11 +139,11 @@ interface SpriteParts {
  * @returns The three.js scene.
  */
 export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
-  const { map, width, height, expanding, focus, fitSignal, found } = props
-  const { selected, onOpen, onExpand, onSelect, onBackground, engineRef, onPinned } = props
+  const { map, width, height, expanding, focus, fitSignal, lit, anchorId } = props
+  const { selected, onOpen, onExpand, onSelect, onClose, engineRef, onPinned } = props
   const ink = useCanvasInk()
   const data = useGraphData(map)
-  const onNodeClick = useNodeClicks(onOpen, onExpand, onSelect)
+  const onNodeClick = useNodeClicks(map.openId, onOpen, onExpand, onSelect, onClose)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null)
   const fitted = useRef(false)
@@ -150,8 +177,9 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
 
   useEffect(() => {
     fgRef.current?.d3Force('charge')?.strength(-160)
-    fgRef.current?.d3Force('link')?.distance(48)
   }, [])
+  // The course keeps a tree: rings by depth, syntheses beside their parent.
+  useHierarchyForce(fgRef, map, data)
 
   useFitButton(fitSignal, () => {
     if (data.nodes.length > 1) fgRef.current?.zoomToFit(600, 60)
@@ -202,7 +230,8 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
       // 3D names every node (`labelled` with no zoom): no hover state, since
       // rebuilding every node's sprites on each hover made the view lag.
       // A find names its matches only.
-      const dim = !!found && !found.has(node.id)
+      // A focus names only what it lights.
+      const dim = !!lit && !lit.has(node.id)
       label.visible = !dim && labelled(map, node.id, null, false)
 
       if (!item) {
@@ -210,16 +239,20 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
         return sprite
       }
       const busyOrPicked = selected.has(item.id) || expanding.has(item.id)
-      const ringSprite = outlineRing(
-        sphereRadius(map, item) + RING_WIDTH / 2,
-        busyOrPicked
-          ? SELECTION_RING
-          : item.id === map.openId
-            ? ink.hard
-            : dim
-              ? ink.outlineDim
-              : ink.outline,
-      )
+      const outline = busyOrPicked
+        ? SELECTION_RING
+        : item.id === map.openId
+          ? ink.hard
+          : dim
+            ? ink.outlineDim
+            : ink.outline
+      // A synthesis is a camera-facing ◆, the 2D view's diamond from any
+      // angle (v8.23.0), drawn instead of the sphere (`nodeThreeObjectExtend`
+      // below), its glyph's own stroke the outline.
+      const ringSprite =
+        item.kind === 'synthesis'
+          ? diamond(dim ? dimLook(map, item) : nodeLook(map, item).color, outline)
+          : outlineRing(sphereRadius(map, item) + RING_WIDTH / 2, outline)
       const ring = ringSprite as unknown as SpriteParts
       label.position.y = lift / ring.scale.y
       label.scale.x /= ring.scale.x
@@ -227,7 +260,7 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
       ring.add(sprite)
       return ringSprite
     },
-    [map, ink.ink, ink.hard, ink.outline, ink.outlineDim, selected, expanding, found],
+    [map, ink.ink, ink.hard, ink.outline, ink.outlineDim, selected, expanding, lit],
   )
 
   const touchesOpen = (link: CanvasLink) =>
@@ -254,14 +287,23 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
         // Its own colour unless a find dims it; open, picked and busy show
         // on the ring.
         if (!item) return ink.soft
-        return found && !found.has(item.id) ? DIM_NODE : nodeLook(map, item).color
+        return lit && !lit.has(item.id) ? dimLook(map, item) : nodeLook(map, item).color
       }}
       nodeOpacity={0.92}
       nodeThreeObject={nodeObject}
-      nodeThreeObjectExtend
+      // The sphere stays under every node but a synthesis, whose ◆ replaces it.
+      nodeThreeObjectExtend={(node: CanvasNode) => map.nodes[node.id]?.kind !== 'synthesis'}
       onNodeClick={onNodeClick}
-      onBackgroundClick={onBackground}
-      linkColor={(link: CanvasLink) => (touchesOpen(link) ? SELECTION_RING : ink.soft)}
+      // A synthesis's lines in its teal (v8.23.0); three has no dashes to spare.
+      linkColor={(link: CanvasLink) =>
+        !linkLit(link, lit, anchorId)
+          ? DIM_EDGE
+          : touchesOpen(link)
+            ? SELECTION_RING
+            : link.synthesis
+              ? SYNTHESIS_EDGE
+              : ink.soft
+      }
       linkOpacity={0.45}
       linkWidth={(link: CanvasLink) => (touchesOpen(link) ? 0.5 : 0)}
       linkDirectionalArrowLength={3}
