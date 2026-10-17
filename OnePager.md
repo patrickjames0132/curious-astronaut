@@ -1761,6 +1761,24 @@ than deleted so the plan doesn't get re-proposed.
         changes is where an idea comes from. D3 (inlined, network still
         shut) remains a separate, smaller lever on rendering polish.
 
+        **Built, then parked again, 2026-10-16** (`feature/visuals` at
+        `5e77a24`, local, unmerged). The figure-grounded version shipped to
+        the branch whole: ▶ Show me searches the reader's library (figures
+        near the passages that match), the web (the scout's pages, their
+        images read through a new guarded fetch, public addresses only,
+        behind opaque handles) and the paper, and a vision call picks one or
+        none. The figure shows as it is, credited and linked to its source;
+        ✦ Make it interactive rebuilds it from its pixels; the search
+        narrates its steps in one fading status line; and the tutor's own
+        drawing is opt-in (✎ Have the tutor draw one). Patrick's verdict:
+        better grounded, but **the visuals still need work, even with the
+        web and library sources**, so it stays parked rather than ship.
+        Next time, start by pinning down what still falls short (the picks,
+        the interactive rebuilds, or both) before adding sources; the
+        branch's READMEs (`frontend/src/knowledge/README.md`,
+        `agents/orchestrators/tutor/README.md`, `integrations/web/README.md`)
+        record every review round. D3 is still untried.
+
       **The landscape, swept 2026-10-06** (so it isn't re-searched; and per
       "Why it exists" above, overlap is not a reason to stop):
       [SpatialRead](https://www.producthunt.com/p/spatialread/spatialread)
