@@ -155,6 +155,22 @@
   padding: 20px 22px 24px;
   overflow-y: auto;
   box-sizing: border-box;
+  /* Never a horizontal scroller — the docked chat's fix (teacher.css,
+     `.teacher-scroll`), which the lesson panel never got: `overflow-y: auto`
+     makes the x-axis `auto` too, so one wide display equation scrolled the
+     whole lesson, footer and all, sideways. `anywhere` wraps bare URLs and
+     long identifiers; the equation scrolls inside its own box below. */
+  overflow-wrap: anywhere;
+}
+.lesson-body {
+  max-width: 100%;
+}
+/* Display math can't wrap, so it scrolls in place, like `.md pre` and
+   `.md table`. KaTeX ships no overflow of its own. */
+.knowledge-panel-scroll .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
 }
 .knowledge-panel.closing {
   animation: panel-out var(--motion-panel) var(--ease-fade) both;
