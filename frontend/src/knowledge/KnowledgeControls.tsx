@@ -15,7 +15,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import SlidersGlyph from '../ui/SlidersGlyph'
 import { usePresence } from '../ui/usePresence'
 
@@ -136,10 +136,62 @@ export default function KnowledgeControls({
             Click a node for its lesson · double-click to break it down · drag a node to pin it ·
             shift-click or alt-drag to select several, then check them off, synthesize or delete
             them
-            {threeD ? ' · drag to orbit, scroll to zoom' : ' · drag to pan, scroll to zoom'}
+            {threeD
+              ? ' · left-drag to orbit, scroll or middle-drag to zoom, right-drag to pan'
+              : ' · drag to pan, scroll to zoom'}
           </p>
         </div>
       </div>
     </>
+  )
+}
+
+/** The same navigation instructions in the wide hint and compact help. */
+export const NAVIGATION_HINT = 'Rotate: left-drag · Zoom: scroll or middle-drag · Pan: right-drag'
+
+/**
+ * Show compact 3D navigation help on hover or focus; a click pins it open.
+ *
+ * @returns The help button and its tooltip.
+ */
+export function KnowledgeNavigationHelp() {
+  const [pinned, setPinned] = useState(false)
+  const [preview, setPreview] = useState(false)
+  const tooltipId = useId()
+  const visible = pinned || preview
+
+  return (
+    <div
+      className="knowledge-navigation-help"
+      onMouseEnter={() => setPreview(true)}
+      onMouseLeave={() => setPreview(false)}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return
+        event.stopPropagation()
+        setPinned(false)
+        setPreview(false)
+      }}
+    >
+      <button
+        type="button"
+        className="knowledge-navigation-button"
+        aria-label="3D navigation help"
+        aria-expanded={visible}
+        aria-describedby={visible ? tooltipId : undefined}
+        onFocus={() => setPreview(true)}
+        onBlur={() => setPreview(false)}
+        onClick={() => {
+          setPinned(!pinned)
+          setPreview(false)
+        }}
+      >
+        ⓘ
+      </button>
+      {visible && (
+        <div className="knowledge-navigation-tooltip" role="tooltip" id={tooltipId}>
+          {NAVIGATION_HINT}
+        </div>
+      )}
+    </div>
   )
 }

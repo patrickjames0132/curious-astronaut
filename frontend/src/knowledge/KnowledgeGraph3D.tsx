@@ -274,6 +274,7 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
       width={width}
       height={height}
       graphData={data}
+      showNavInfo={false}
       backgroundColor={ink.background}
       nodeId="id"
       nodeLabel={(node: CanvasNode) => map.nodes[node.id]?.title ?? ''}

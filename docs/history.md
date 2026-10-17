@@ -4193,6 +4193,18 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Knowledge Graph overlays fit narrow panels** *(v8.23.2)* — the
+      legend and lexical search share one bottom row instead of covering each
+      other. The legend starts as a single line, wraps into a rounded bubble
+      as space tightens, then becomes a vertical list with ellipses on labels
+      that no longer fit. In 3D, panels at least 640px wide keep a navigation
+      hint below the raised overlays; narrower panels replace it with an ⓘ
+      beside search and restore the normal bottom margin. Hover or keyboard
+      focus previews the help, click pins it open, and Escape closes it.
+      The tour and course-control hints describe the same gestures. Verified
+      in Patrick's browser and by the build, full quality gate, and an
+      interaction test for hover, focus, pinning and Escape.
+
 - [x] **Quick polish: the Citation Graph, cards from the rail, outlines, and
       masked keys** *(v8.16.0)* — seven Backlog items from the 2026-10-09
       `todos.md` inbox, plus three asks from Patrick's browser round, shipped

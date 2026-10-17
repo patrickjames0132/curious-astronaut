@@ -392,7 +392,15 @@ bring a deleted concept back.
 - **3D**, added "just for kicks" (Patrick), uses the same data, colours,
   labels and gestures through `look.ts`. three.js is several hundred
   kilobytes, so `KnowledgeGraph3D` is behind `React.lazy` and only downloads
-  when the switch is flipped. The 2D/3D choice is remembered per browser.
+  when the switch is flipped. The 2D/3D choice is remembered per browser. In 3D, the legend and find
+  control sit 14px higher on graph panels at least 640px wide, with a single
+  navigation hint below. Narrower panels replace the hint with an ⓘ beside
+  search: hover or focus to read it, click to pin it open, Escape to close.
+  The footer returns to its normal bottom margin in that compact view.
+  They share a single footer row: the legend stays on the left, starting as
+  one long line when space allows. As space tightens it wraps into a rounded
+  bubble, then a vertical list, then truncates labels with ellipses. Search
+  stays beside it on the right.
 - **Fitting the view.** Each view fits itself once when its layout first
   settles, but never around the lone paper a new course starts with. The
   Fit button's counter lives in `KnowledgeNetwork` and survives a 2D/3D

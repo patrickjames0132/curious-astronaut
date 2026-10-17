@@ -40,9 +40,67 @@
 .knowledge-actions {
   margin-top: 4px;
 }
-.knowledge-legend {
+/* Share layout space so the legend and an expanded find never cover each other. */
+.knowledge-footer {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  right: 14px;
+  z-index: 4;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px 14px;
+  pointer-events: none;
+}
+.knowledge-footer > * {
+  pointer-events: auto;
+}
+.knowledge-footer .knowledge-legend {
+  position: static;
+  flex: 0 1 auto;
+  width: max-content;
+  min-width: 0;
+  display: flex;
   flex-wrap: wrap;
-  max-width: calc(100% - 28px);
+  gap: 8px 14px;
+  box-sizing: border-box;
+  border-radius: 20px;
+  padding: 10px 14px;
+}
+.knowledge-legend > span {
+  min-width: 0;
+  max-width: 100%;
+}
+.knowledge-legend i,
+.knowledge-legend .legend-arrow {
+  flex-shrink: 0;
+}
+.knowledge-legend .knowledge-legend-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.knowledge-footer .graph-find,
+.knowledge-footer .graph-find-toggle {
+  position: static;
+  margin-left: auto;
+}
+.knowledge-footer .graph-find-toggle {
+  flex-shrink: 0;
+}
+.knowledge-footer .graph-find {
+  max-width: 65%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.knowledge-footer .graph-find input {
+  min-width: 0;
+}
+/* Leave the 3D navigation hints visible beneath both bottom overlays. */
+.knowledge-canvas-3d-wide .knowledge-footer {
+  bottom: 28px;
 }
 /* The synthesis's swatch, turned into its diamond. */
 .legend i.diamond {
@@ -628,4 +686,50 @@
   .knowledge-panel {
     animation: none;
   }
+}
+
+/* Navigation stays readable without competing with the legend on narrow graphs. */
+.knowledge-navigation-hint {
+  position: absolute;
+  bottom: 4px;
+  left: 14px;
+  right: 14px;
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+.knowledge-navigation-help {
+  flex-shrink: 0;
+}
+.knowledge-navigation-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+.knowledge-navigation-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.knowledge-navigation-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  max-width: min(260px, 100%);
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+  box-shadow: 0 6px 18px var(--shadow);
 }

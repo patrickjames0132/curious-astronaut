@@ -186,7 +186,8 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
     body:
       'Open these controls to fly through the course in 3D, or for ' +
       'Release (unpin the nodes you dragged), Fit (the whole course in view) and Clear ' +
-      '(drop a selection).',
+      '(drop a selection). In 3D, navigation hints appear below the graph; on narrow ' +
+      'panels, hover or focus the ⓘ beside search, or click it to keep the hints open.',
   },
   {
     target: '[data-tour="knowledge-find"]',

@@ -51,7 +51,7 @@ import { usePresence } from '../ui/usePresence'
 import { useBoxSelect } from '../ui/useBoxSelect'
 import { useEscapeClear } from '../graph/hooks/useEscapeClear'
 import { focusAnchor, focusOf } from '../graph/model'
-import KnowledgeControls from './KnowledgeControls'
+import KnowledgeControls, { KnowledgeNavigationHelp, NAVIGATION_HINT } from './KnowledgeControls'
 import KnowledgeGraph, { type KnowledgeEngine } from './KnowledgeGraph'
 import KnowledgeLegend from './KnowledgeLegend'
 import KnowledgePanel from './KnowledgePanel'
@@ -517,7 +517,10 @@ export default function KnowledgeNetwork({
 
   return (
     <div className="knowledge" data-tour="knowledge">
-      <div className="knowledge-canvas" ref={wrapRef}>
+      <div
+        className={`knowledge-canvas${threeD && size.width >= 640 ? ' knowledge-canvas-3d-wide' : ''}`}
+        ref={wrapRef}
+      >
         {threeD ? (
           <Suspense
             fallback={
@@ -627,17 +630,23 @@ export default function KnowledgeNetwork({
             <span>{deletedNote}</span>
           </div>
         )}
-        <KnowledgeLegend
-          hasSyntheses={Object.values(map.nodes).some((node) => node.kind === 'synthesis')}
-        />
-        <FindBar
-          query={findQuery}
-          onQuery={setFindQuery}
-          count={found ? found.size : null}
-          onSelectAll={selectFound}
-          copy={FIND_COPY}
-          tour="knowledge-find"
-        />
+        <div className="knowledge-footer">
+          <KnowledgeLegend
+            hasSyntheses={Object.values(map.nodes).some((node) => node.kind === 'synthesis')}
+          />
+          <FindBar
+            query={findQuery}
+            onQuery={setFindQuery}
+            count={found ? found.size : null}
+            onSelectAll={selectFound}
+            copy={FIND_COPY}
+            tour="knowledge-find"
+          />
+          {threeD && size.width < 640 && <KnowledgeNavigationHelp />}
+        </div>
+        {threeD && size.width >= 640 && (
+          <p className="knowledge-navigation-hint">{NAVIGATION_HINT}</p>
+        )}
         {failed[map.rootId] && (
           <div className="overlay overlay-card knowledge-failed">
             {failed[map.rootId]}{' '}
