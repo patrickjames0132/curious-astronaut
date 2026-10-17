@@ -3541,6 +3541,16 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **The lesson panel stops scrolling sideways** *(v8.23.1)* — from
+      Patrick's browser check (2026-10-16): a wide display equation (a KL
+      divergence worked out term by term) let the whole lesson, footer and
+      all, scroll right. The scroller's `overflow-y: auto` makes its x-axis
+      `auto` too, and the docked chat had already been fixed for exactly this
+      (`.teacher-scroll`) while the lesson panel never was. Same fix:
+      `overflow-wrap: anywhere` on `.knowledge-panel-scroll`, and
+      `.katex-display` scrolls inside its own box like `.md pre` and
+      `.md table`.
+
 - [x] **Syntheses, and a Knowledge Graph you can prune, redo and read
       better** *(v8.23.0)* — the course's missing middle layer, workshopped
       with Patrick on 2026-10-13 (the design is below, as it was parked), and
