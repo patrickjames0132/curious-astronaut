@@ -10,6 +10,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { Provider, useSelector } from 'react-redux'
 import { afterEach, expect, it, vi } from 'vitest'
 import KnowledgeNetwork from '../../src/knowledge/KnowledgeNetwork'
+import { KnowledgeNavigationHelp } from '../../src/knowledge/KnowledgeControls'
 import type { KnowledgeGraphProps } from '../../src/knowledge/KnowledgeGraph'
 import workspace from '../../src/store/workspace'
 import transcript from '../../src/store/transcript'
@@ -511,4 +512,33 @@ it('offers a retry when breaking the paper down fails', async () => {
   expect(await screen.findByText(/couldn’t break this down/)).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
   await waitFor(() => expect(expand).toHaveBeenCalledTimes(2))
+})
+
+it('previews navigation help on hover and focus, pins it on click, and closes with Escape', () => {
+  render(<KnowledgeNavigationHelp />)
+  const button = screen.getByRole('button', { name: '3D navigation help' })
+  expect(screen.queryByRole('tooltip')).toBeNull()
+
+  fireEvent.mouseEnter(button.parentElement!)
+  expect(screen.getByRole('tooltip').textContent).toContain('Pan: right-drag')
+  fireEvent.mouseLeave(button.parentElement!)
+  expect(screen.queryByRole('tooltip')).toBeNull()
+
+  fireEvent.focus(button)
+  expect(screen.getByRole('tooltip')).toBeTruthy()
+  fireEvent.blur(button)
+  expect(screen.queryByRole('tooltip')).toBeNull()
+
+  fireEvent.click(button)
+  fireEvent.mouseLeave(button.parentElement!)
+  fireEvent.blur(button)
+  expect(screen.getByRole('tooltip')).toBeTruthy()
+  fireEvent.keyDown(button, { key: 'Escape' })
+  expect(screen.queryByRole('tooltip')).toBeNull()
+  expect(button.getAttribute('aria-expanded')).toBe('false')
+
+  fireEvent.click(button)
+  expect(screen.getByRole('tooltip')).toBeTruthy()
+  fireEvent.click(button)
+  expect(screen.queryByRole('tooltip')).toBeNull()
 })

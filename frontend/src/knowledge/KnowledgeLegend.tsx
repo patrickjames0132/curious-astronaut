@@ -27,30 +27,30 @@ export default function KnowledgeLegend({ hasSyntheses = false }: { hasSyntheses
     <div className="legend knowledge-legend" data-tour="knowledge-legend">
       <span>
         <i style={{ background: KNOWLEDGE_COLOR.root }} />
-        Paper
+        <span className="knowledge-legend-label">Paper</span>
       </span>
       <span>
         <i style={{ background: KNOWLEDGE_COLOR.concept }} />
-        Concept
+        <span className="knowledge-legend-label">Concept</span>
       </span>
       <span title="An arrow from A to B: understanding A depends on B">
         <b className="legend-arrow" aria-hidden="true">
           →
         </b>
-        Depends on
+        <span className="knowledge-legend-label">Depends on</span>
       </span>
       <span>
         <i style={{ background: KNOWLEDGE_COLOR.known }} />
-        Known
+        <span className="knowledge-legend-label">Known</span>
       </span>
       <span title="Not opened or broken down yet: it turns violet once you do">
         <i style={{ background: KNOWLEDGE_COLOR.fresh }} />
-        New
+        <span className="knowledge-legend-label">New</span>
       </span>
       {hasSyntheses && (
         <span title="How several concepts or syntheses come together, taught just before what they build toward. Select two or more, then ◆ Synthesize">
           <i className="diamond" style={{ background: KNOWLEDGE_COLOR.synthesis }} />
-          Synthesis
+          <span className="knowledge-legend-label">Synthesis</span>
         </span>
       )}
     </div>
