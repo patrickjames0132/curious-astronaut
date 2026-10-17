@@ -1686,6 +1686,26 @@ than deleted so the plan doesn't get re-proposed.
         cheap), PyMuPDF is the optional `pdf` extra (so the card must degrade
         without it), and only open-access papers have a PDF at all. *(From
         the `todos.md` inbox, 2026-10-16.)*
+      - **Inline images in a lesson, credited and described** — the tutor
+        places real images in a lesson's text where they support the
+        explanation, the way the citation-graph assistant does today (a
+        `<<FIG n>>` marker, drawn by `FigCard`). Not interactive: this is a
+        fresh start beside the parked "Interactive visuals" item below, not
+        a continuation of `feature/visuals`. Settled with Patrick
+        2026-10-17:
+        **three sources** — the reader's library (mined PDF figures, as
+        `show_source_figure`), the paper's own figures (as `show_figure`),
+        and the web (images scraped from the pages the web search returns;
+        vendors without web search skip it). Every image carries its
+        **source credited and linked** and a **description** from the tutor
+        of what it shows and why it's there, beside the original caption.
+        **Web images are fetched through our server**, never hot-linked, and
+        never cached, matching [docs/pdf-mining.md](docs/pdf-mining.md).
+        The guarded fetch and image scraper are **copied from
+        `feature/visuals`** (`integrations/web/fetch.py` + `images.py` and
+        their tests), the widget work left behind. The tutor shows a few at
+        most per lesson, and none when nothing helps. *(From the `todos.md`
+        inbox, 2026-10-17.)*
 
       **Later stages, deliberately out of v1:**
       - **A challenger agent** that asks probe questions to learn what the
