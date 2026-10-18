@@ -17,9 +17,12 @@ knowledge/
   KnowledgeLegend.tsx   — node kinds, the edge, and node states (bottom-left)
                           (the find bar, bottom-right, is ../graph/controls/FindBar)
   KnowledgePanel.tsx    — the side panel: why it's needed, what it needs, the lesson
+  SelectionMenu.tsx     — Explain · Expand over a passage highlighted in a lesson (v8.25.0)
+  useLessonSelection.ts — reads that selection and places the menu
   look.ts               — shared by both views: colours, sizes, labels, stable data, clicks
   useLessons.ts         — lesson streaming that outlives the tool's mount
   model.ts              — the graph and the pure rules over it (no React, no store)
+  assistant/            — the course assistant, docked beside the course (v8.25.0)
   knowledge.css
 ```
 
@@ -166,6 +169,8 @@ has a "Bridge two topics" phase).
   half and moved to the Knowledge Graph assistant ticket instead (the
   OnePager, Phase 5's follow-ups): an assistant needs a synthesis-making
   tool anyway, so a separate button would be a second path to one thing.
+  The assistant shipped in v8.25.0 without that tool (`assistant/`); it is
+  still to come.
 - **Its id carries `SYNTHESIS_PREFIX`** (`synthesis:`), so a synthesis named like a concept
   never collides with it, and `courseNames` leaves syntheses out so the tutor
   doesn't reuse their names for concepts. The saved shape stays `version: 3`:
@@ -519,13 +524,41 @@ branch, the way the assistant shows figures in its answers.
   lesson. A lesson written before images keeps none, and gets them only if
   it is written again.
 
+## A highlighted passage: Explain and Expand (v8.25.0)
+
+Select a word or passage in a **finished** lesson and a small pill appears
+over it (`SelectionMenu`, after SpatialRead's, which Patrick pointed at;
+only these two of its options for now). `useLessonSelection` is the
+frontend's first reader of a text selection: it opens the pill when the
+reader lets go (not mid-drag), places it above the passage in fixed
+coordinates (below it near the top of the window), follows a scroll, and
+closes it when the selection collapses or leaves the lesson.
+
+- **Explain** asks the course assistant (`assistant/`) about the passage:
+  the shell opens the panel (`onAssistant`) and `askCourse` sends "Explain
+  this passage from the lesson on *X*: “…”", with the whole course, the open
+  lesson whole, as context. **Nothing is added to the graph.**
+- **Expand** asks the tutor to name the one concept the passage is about
+  (`POST /api/knowledge/phrase`, `tutor.name_phrase`, cached), then hangs it
+  under the lesson's item with `withPrerequisite`, which uses the same
+  linking as a breakdown. That settles the ticket's open question in favour
+  of a node (Patrick): a term two lessons use stays one node with two edges,
+  one deleted before comes back as it was, and an edge that would close a
+  loop is refused. The item is not marked broken down (double-clicking still
+  breaks it down), and the concept joins its remembered `breakdown`, which a
+  later breakdown keeps, so deleting it can be undone like any other. A note
+  above the lesson says what happened and links the concept: "Added *X* as
+  something this needs", "Already in the course: *X*", or why nothing was
+  added (the passage names the lesson's own subject, or *X* already builds on
+  this item).
+
 ## Not yet (later Phase 5 stages, see the OnePager)
 
 There is no challenger agent, no memory of known concepts across papers, no
 verified external resources, and no interactive visuals (lesson images, since
-v8.24.0, are real figures shown as they are). There is no
-assistant docked here: since v8.15.0 it lives on the Citation Graph alone (see
-`teacher/README.md`).
+v8.24.0, are real figures shown as they are). The course assistant
+(`assistant/`) doesn't propose syntheses yet: that half of its ticket is
+still open.
 
 ## Verified by
 
@@ -558,5 +591,10 @@ text streaming with its image already in place, the image landing right after it
 description and linked credit, a closing-section rewrite reading the lesson
 without its markers, and a quick response stopping the slow run and writing
 the lesson at once, the ↻ rewriting a finished lesson past the cache, and
-the status line unfolding into every step so far. The 3D view, the canvas
+the status line unfolding into every step so far, and a highlighted
+passage: Expand adding its concept under the lesson's item (and the note
+opening it), Explain asking the course assistant with the graph untouched.
+`model.test.ts` covers `withPrerequisite`: a new concept, an existing one
+linked, an edge already there or closing a loop refused, and a later
+breakdown keeping it. The 3D view, the canvas
 painting, the folding controls and the legend are checked in the browser.

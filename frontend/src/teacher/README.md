@@ -3,19 +3,20 @@
 One composer serves General and paper threads. General is graphless: searches,
 broad questions and comparisons can live there. In a paper thread the panel
 **docks beside the Citation Graph only** (since v8.15.0): assistants are
-encapsulated per tool, so the card home and the Knowledge Graph have none, and
-there Teacher stays mounted but hidden, so a running answer keeps streaming
+encapsulated per tool. The card home has none, and the Knowledge Graph has its
+own since v8.25.0 (`knowledge/assistant/`, with a chat of its own); elsewhere
+Teacher stays mounted but hidden, so a running answer keeps streaming
 into the thread. With the graph up, the composer names its subject and scoped
 paper count. Questions and lectures belong to the active thread; opening
 another paper switches to its discussion rather than carrying this transcript
 onto a different canvas.
 
 **Why the graph alone** (Patrick, 2026-10-09). Beside the cards and the
-Knowledge Graph the assistant could only answer seedless, and `@thread`
-borrowing assumes a thread *is* its graph conversation. Now that a thread is
-several tools, how one tool's assistant should read another thread is an open
-design question (OnePager, "Cross-tool thread references"); until it is
-answered, the assistant stays with the one tool it was built for.
+Knowledge Graph this assistant could only answer seedless. `@thread`
+borrowing assumed a thread *was* its graph conversation; v8.25.0 answered
+that by making a reference address a **chat**, a thread and a tool
+(`store/chats.ts`), so the Knowledge Graph got an assistant of its own rather
+than this one.
 
 ## Sending and streaming
 
@@ -93,8 +94,12 @@ and `<<FIG n>>` placement markers are stripped. Every research request carries
 client history; the backend no longer maintains endpoint-specific copies.
 
 Each request also carries a sibling index: titles and summaries from this
-exploration only. Explicit `@thread[Title]` references attach that discussion's completed
-history. The server bounds sibling count, summary length, history turns and total
+exploration only, **one entry per chat** since v8.25.0 (a paper thread's
+Citation Graph and Knowledge Graph each, labelled `PPO › Citation Graph` and
+`PPO › Knowledge Graph`; `store/chats.ts`). The `@` dropdown lists the same
+chats. Explicit `@thread[Label]` references attach that chat's completed
+history, a course chat with its course's outline; a bare `@thread[Title]`
+from before still means the thread's Citation Graph chat. The server bounds sibling count, summary length, history turns and total
 borrowed text; it labels the result as quoted background with independent paper
 numbering. Replies show a `Context from` line linking to explicitly attached
 threads. Borrowing a discussion never silently swaps the canvas.
@@ -122,6 +127,31 @@ streamed tool traces, inline figures and expandable lecture beats. All of that
 stays on its turn across save and restore. `transcript/README.md` describes the
 rendering boundary; `../figures/README.md` (the shared folder, since v8.24.0)
 describes figure placement.
+
+## The composer's notes and the 📚 picker, shared (v8.25.0)
+
+Two pieces of the composer are shared with the Knowledge Graph Assistant
+(`knowledge/assistant/`), so the two bars read as one:
+
+- **`ComposerNotes.tsx`**, the quiet lines over the bar: what the message is
+  about ("Asking about PPO · 18 papers"), a hand-picked selection, and what
+  answers also draw on. In a narrow panel they used to wrap into a block of
+  grey text crowding the bar (Patrick, 2026-10-17). Each now keeps to one
+  line, ending in an ellipsis with its full text on hover, and an ⓘ
+  (`ui/InfoTip`, the 3D course's narrow-panel help) appears beside them,
+  holding them all in full, whenever one is cut. That is **measured**, not
+  read off the panel's width. The bar's placeholder keeps to one line the
+  same way (`teacher.css`), where it used to wrap under a one-line bar. The
+  ⓘ also always holds **the `@` tip** in full (how to name a paper or bring
+  in another chat), and the placeholders name `@` again, cut short by a
+  narrow panel (Patrick, 2026-10-17).
+- **`SourcePicker.tsx`** and **`useSourceScope.ts`**, the 📚 picker and its
+  choice (tracked by exclusion, so a new upload is searchable by default).
+  Each panel keeps its own choice.
+
+The panel's title is "Citation Graph Assistant" since v8.25.0 ("AI Teacher &
+Discovery" until then), matching the "Knowledge Graph Assistant" beside the
+course.
 
 ## Docked: closing and reopening
 

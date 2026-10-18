@@ -31,6 +31,7 @@ import {
   tutorPath,
   type KnowledgeMap,
   withChildren,
+  withPrerequisite,
   withSynthesis,
   missingChildren,
   withBreakdownAgain,
@@ -587,5 +588,42 @@ describe("a lesson's image markers", () => {
     const placed = 'Core idea.\n\n<<FIG 1>>\n\nAn example.\n\n<<FIG 2>>'
     expect(withoutImageMarks(placed)).toBe('Core idea.\n\nAn example.')
     expect(withoutImageMarks('See <<FIG 1>> here.')).toBe('See <<FIG 1>> here.')
+  })
+})
+
+describe("withPrerequisite (a lesson's Expand, v8.25.0)", () => {
+  it('hangs a new concept under the item, leaving it unbroken and remembering it', () => {
+    const map = withPrerequisite(dqnCourse(), 'experience replay', concept('Replay buffers'))
+    expect(map.nodes['replay buffers']).toMatchObject({ title: 'Replay buffers', kind: 'concept' })
+    expect(needs(map, 'experience replay').map((edge) => edge.to)).toEqual(['replay buffers'])
+    expect(map.nodes['experience replay'].expanded).toBeUndefined()
+    expect(map.nodes['experience replay'].breakdown).toEqual([concept('Replay buffers')])
+  })
+  it('links a concept already on the course instead of adding a second node', () => {
+    const before = dqnCourse()
+    const map = withPrerequisite(before, 'experience replay', concept('MDPs'))
+    expect(Object.keys(map.nodes).length).toBe(Object.keys(before.nodes).length)
+    expect(neededBy(map, 'mdps').map((edge) => edge.from)).toEqual([
+      'q learning',
+      'experience replay',
+    ])
+  })
+  it('changes nothing for an edge already there, or one that would close a loop', () => {
+    const map = dqnCourse()
+    expect(withPrerequisite(map, 'q learning', concept('MDPs'))).toBe(map)
+    expect(withPrerequisite(map, 'mdps', concept('Q-learning'))).toBe(map)
+  })
+  it('survives a later breakdown, which keeps it in what the item remembers', () => {
+    const expanded = withPrerequisite(dqnCourse(), 'experience replay', concept('Replay buffers'))
+    const map = withChildren(expanded, 'experience replay', [concept('Sampling')])
+    expect(map.nodes['experience replay'].breakdown?.map((child) => child.name)).toEqual([
+      'Sampling',
+      'Replay buffers',
+    ])
+    // Deleted, it can be brought back like any prerequisite.
+    const deleted = withoutItems(map, ['replay buffers'])
+    expect(missingChildren(deleted, 'experience replay').map((child) => child.name)).toEqual([
+      'Replay buffers',
+    ])
   })
 })

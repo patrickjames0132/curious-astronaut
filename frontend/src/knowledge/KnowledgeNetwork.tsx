@@ -14,6 +14,10 @@
  * (v8.20.0): it dims every item whose name doesn't match, and "select"
  * (or Enter) adds the matches to the check-off selection.
  *
+ * Since v8.25.0 a passage highlighted in a lesson can be explained by the
+ * course's assistant (`assistant/`, docked by the shell) or expanded into a
+ * concept the lesson's item needs.
+ *
  * This component owns the in-flight state (which items are being broken
  * down, which failed) and the calls; the course itself lives on the thread
  * (`ThreadRecord.knowledge`), so it saves with the exploration and survives
@@ -35,6 +39,7 @@ import {
 } from 'react'
 import {
   expandKnowledge,
+  expandPhrase,
   synthesizeKnowledge,
   type AnswerFigure,
   type KnowledgePaper,
@@ -44,6 +49,7 @@ import { useAppDispatch } from '../store'
 import {
   knowledgeDeleted,
   knowledgeExpanded,
+  knowledgePrerequisiteAdded,
   knowledgeKnownSet,
   knowledgeKnownToggled,
   knowledgeLessonCleared,
@@ -61,7 +67,8 @@ import { focusAnchor, focusOf } from '../graph/model'
 import KnowledgeControls, { KnowledgeNavigationHelp, NAVIGATION_HINT } from './KnowledgeControls'
 import KnowledgeGraph, { type KnowledgeEngine } from './KnowledgeGraph'
 import KnowledgeLegend from './KnowledgeLegend'
-import KnowledgePanel from './KnowledgePanel'
+import KnowledgePanel, { type PhraseNote } from './KnowledgePanel'
+import { askCourse, explainMessage } from './assistant/askCourse'
 import {
   SYNTHESIS_PREFIX,
   courseNames,
@@ -78,6 +85,7 @@ import {
   synthesisTarget,
   synthesizable,
   tutorPath,
+  withPrerequisite,
   withoutItems,
 } from './model'
 import { useLessons } from './useLessons'
@@ -174,14 +182,17 @@ function writePreference(key: string, value: string): void {
  * @param props Component props.
  * @param props.thread The active paper thread.
  * @param props.children The shell's floating overlays (the ‹ pill, errors).
+ * @param props.onAssistant Open the course's assistant (a lesson's Explain).
  * @returns The network.
  */
 export default function KnowledgeNetwork({
   thread,
   children,
+  onAssistant,
 }: {
   thread: ThreadRecord
   children?: ReactNode
+  onAssistant?: () => void
 }) {
   const dispatch = useAppDispatch()
   const threadId = thread.id
@@ -343,6 +354,65 @@ export default function KnowledgeNetwork({
         )
     },
     [dispatch, provider, threadId],
+  )
+
+  // A lesson's Explain (v8.25.0): the course's assistant opens and answers
+  // about the passage. Nothing is added to the graph.
+  const explain = useCallback(
+    (nodeId: string, passage: string) => {
+      const node = mapRef.current?.nodes[nodeId]
+      if (!node) return
+      onAssistant?.()
+      void dispatch(
+        askCourse({ threadId, question: explainMessage(passage, node.title), provider }),
+      )
+    },
+    [dispatch, onAssistant, provider, threadId],
+  )
+
+  // A lesson's Expand (v8.25.0): the tutor names the idea the passage is
+  // about, and it hangs under the lesson's item like a breakdown's concept
+  // (a concept already on the course gets an edge, not a second node).
+  const [phrase, setPhrase] = useState<PhraseNote | null>(null)
+  useEffect(() => setPhrase(null), [threadId])
+  const expandPassage = useCallback(
+    (nodeId: string, passage: string) => {
+      const current = mapRef.current
+      const node = current?.nodes[nodeId]
+      if (!current || !node || node.kind === 'synthesis') return
+      setPhrase({ nodeId, state: 'working', text: passage.slice(0, 60) })
+      expandPhrase({
+        phrase: passage,
+        item: stepOf(node),
+        path: tutorPath(current, nodeId),
+        existing: courseNames(current),
+        paper_id: current.nodes[current.rootId]?.paper?.id,
+      })
+        .then((child) => {
+          if (!child) {
+            setPhrase({ nodeId, state: 'self', text: passage.slice(0, 60) })
+            return
+          }
+          const before = mapRef.current
+          if (!before) return
+          const childId = nameKey(child.name)
+          const after = withPrerequisite(before, nodeId, child)
+          const edged = after.edges.some((edge) => edge.from === nodeId && edge.to === childId)
+          // Unchanged with the edge there: it already was. Unchanged without
+          // it: the concept already needs this item, and the course keeps its order.
+          const state = after !== before ? 'added' : edged ? 'linked' : 'loop'
+          if (state === 'added') dispatch(knowledgePrerequisiteAdded({ threadId, nodeId, child }))
+          setPhrase({ nodeId, state, text: child.name, childId })
+        })
+        .catch((error: unknown) =>
+          setPhrase({
+            nodeId,
+            state: 'error',
+            text: error instanceof Error ? error.message : 'Could not expand this',
+          }),
+        )
+    },
+    [dispatch, threadId],
   )
 
   // Delete items (v8.23.0): never the paper, and with them what only they
@@ -688,6 +758,9 @@ export default function KnowledgeNetwork({
           onDelete={(nodeId) => deleteItems([nodeId])}
           onHover={threeD ? undefined : setPointedId}
           onEnlarge={setEnlarged}
+          onExplain={(passage) => explain(shownId, passage)}
+          onExpandPhrase={(passage) => expandPassage(shownId, passage)}
+          phrase={phrase}
           onClose={close}
         />
       )}

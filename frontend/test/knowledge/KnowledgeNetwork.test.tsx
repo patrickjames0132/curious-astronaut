@@ -6,7 +6,7 @@
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { configureStore } from '@reduxjs/toolkit'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Provider, useSelector } from 'react-redux'
 import { afterEach, expect, it, vi } from 'vitest'
 import KnowledgeNetwork from '../../src/knowledge/KnowledgeNetwork'
@@ -22,6 +22,7 @@ import explorations, {
 import { explorationBody, migrateExploration } from '../../src/store/threadPersistence'
 import type { SavedSession } from '../../src/api'
 import * as api from '../../src/api'
+import { createMap, withChildren } from '../../src/knowledge/model'
 
 // The canvas stands in as one button per node: click opens, the "+" breaks down.
 vi.mock('../../src/knowledge/KnowledgeGraph', () => ({
@@ -710,4 +711,112 @@ it('previews navigation help on hover and focus, pins it on click, and closes wi
   expect(screen.getByRole('tooltip')).toBeTruthy()
   fireEvent.click(button)
   expect(screen.queryByRole('tooltip')).toBeNull()
+})
+
+/** A course with the paper broken down and Q-learning's lesson open.
+ * @returns The course.
+ */
+function openLessonCourse() {
+  const course = withChildren(
+    createMap({ id: 'DQN', title: 'Playing Atari' }),
+    'playing atari',
+    ROOT_CHILDREN,
+  )
+  return {
+    ...course,
+    openId: 'q learning',
+    nodes: {
+      ...course.nodes,
+      'q learning': {
+        ...course.nodes['q learning'],
+        visited: true,
+        lesson: 'Q-learning updates values with the Bellman backup.',
+        fitFor: ['playing atari'],
+      },
+    },
+  }
+}
+
+/** Highlight a phrase in the open lesson, as a reader's drag would, and let go.
+ * @param phrase Text inside the lesson.
+ */
+async function highlight(phrase: string) {
+  // jsdom lays nothing out; the pill only needs a box to sit by.
+  Range.prototype.getBoundingClientRect ??= () => new DOMRect(100, 200, 80, 16)
+  const paragraph = screen.getByText(/Q-learning updates values/)
+  const textNode = paragraph.firstChild!
+  const start = textNode.textContent!.indexOf(phrase)
+  const range = document.createRange()
+  range.setStart(textNode, start)
+  range.setEnd(textNode, start + phrase.length)
+  const selection = window.getSelection()!
+  selection.removeAllRanges()
+  selection.addRange(range)
+  fireEvent.mouseUp(paragraph)
+  await screen.findByRole('toolbar', { name: 'Highlighted text' })
+}
+
+it('expands a highlighted passage into a concept the lesson needs (v8.25.0)', async () => {
+  const phrase = vi
+    .spyOn(api, 'expandPhrase')
+    .mockResolvedValue({ name: 'Bellman equations', why: 'Its update rule.' })
+  const store = mount(openLessonCourse())
+  await highlight('Bellman backup')
+  fireEvent.mouseDown(screen.getByRole('button', { name: 'Expand' }))
+  expect(phrase.mock.calls[0][0]).toMatchObject({
+    phrase: 'Bellman backup',
+    item: { title: 'Q-learning', kind: 'concept' },
+    path: [{ title: 'Playing Atari', kind: 'paper' }],
+  })
+  expect(await screen.findByText('node: Bellman equations')).toBeTruthy()
+  const map = store.getState().explorations.byId.saved.threads[1].knowledge!
+  expect(map.edges).toContainEqual({
+    from: 'q learning',
+    to: 'bellman equations',
+    why: 'Its update rule.',
+  })
+  // The note names it, as a way to open it.
+  const note = screen.getByText(/as something this needs/)
+  fireEvent.click(within(note).getByRole('button', { name: 'Bellman equations' }))
+  expect(store.getState().explorations.byId.saved.threads[1].knowledge!.openId).toBe(
+    'bellman equations',
+  )
+})
+
+it('explains a highlighted passage in the course assistant without touching the graph', async () => {
+  const ask = vi.spyOn(api, 'streamAskCourse').mockImplementation(async (_body, handlers) => {
+    handlers.onToken('It is the update.')
+  })
+  const store = configureStore({ reducer: { workspace, transcript, explorations } })
+  const record = newExploration('saved')
+  record.threads.push({ ...structuredClone(THREAD), knowledge: openLessonCourse() })
+  record.activeThreadId = THREAD.id
+  store.dispatch(explorationOpened(record))
+  const opened = vi.fn()
+  /** As App renders it. */
+  function Harness() {
+    const thread = useSelector((state: ReturnType<typeof store.getState>) =>
+      state.explorations.byId.saved.threads.find((item) => item.id === THREAD.id),
+    )!
+    return <KnowledgeNetwork thread={thread} onAssistant={opened} />
+  }
+  render(
+    <Provider store={store}>
+      <Harness />
+    </Provider>,
+  )
+  const before = store.getState().explorations.byId.saved.threads[1].knowledge!.edges.length
+  await highlight('Bellman backup')
+  fireEvent.mouseDown(screen.getByRole('button', { name: 'Explain' }))
+  expect(opened).toHaveBeenCalled()
+  await waitFor(() =>
+    expect(
+      store.getState().transcript.byKey['dqn:knowledge'].chat.map((turn) => turn.text),
+    ).toEqual([
+      'Explain this passage from the lesson on Q-learning:\n\n“Bellman backup”',
+      'It is the update.',
+    ]),
+  )
+  expect(ask.mock.calls[0][0].course.open).toBe('Q-learning')
+  expect(store.getState().explorations.byId.saved.threads[1].knowledge!.edges.length).toBe(before)
 })

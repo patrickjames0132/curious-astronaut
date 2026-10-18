@@ -5,7 +5,9 @@
  * The knowledge network's calls (Phase 5b): expand one course item into
  * its prerequisites, and stream one item's lesson, since v8.24.0 written with
  * inline images unless a quick response is asked for. Both are cached
- * server-side for good, so re-opening a course costs nothing.
+ * server-side for good, so re-opening a course costs nothing. Since v8.25.0,
+ * also name the concept behind a passage highlighted in a lesson
+ * (`expandPhrase`); the course's assistant streams through `agents`.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -76,6 +78,38 @@ export async function expandKnowledge(
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || `Could not expand (${res.status})`)
   return (data as { children: KnowledgeChild[] }).children
+}
+
+/**
+ * Name the concept behind a passage highlighted in a lesson (v8.25.0, the
+ * lesson's "Expand"), to hang under the lesson's item.
+ *
+ * @param body The passage, the lesson's item, the path above it, the names
+ *             already in the course, and the course's paper (for the cache).
+ * @param body.phrase The highlighted text.
+ * @param body.item The lesson's item, which will need the concept.
+ * @param body.path The course path above the item, root first.
+ * @param body.existing Names already in the course, so the tutor reuses them.
+ * @param body.paper_id The course's paper.
+ * @returns The concept and why the item needs it, or null when the passage
+ *          names the item itself or something above it.
+ * @throws With the server's message when the tutor fails.
+ */
+export async function expandPhrase(body: {
+  phrase: string
+  item: KnowledgeStep
+  path: KnowledgeStep[]
+  existing: string[]
+  paper_id?: string
+}): Promise<KnowledgeChild | null> {
+  const res = await fetch('/api/knowledge/phrase', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Could not expand this (${res.status})`)
+  return (data as { child: KnowledgeChild | null }).child
 }
 
 /** An item that needs a lesson's subject, and why (v8.23.0). */

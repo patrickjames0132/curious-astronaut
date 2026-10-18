@@ -8,6 +8,8 @@ POST /api/route/papers -> which graph papers a lecture request named (JSON)
 POST /api/lecture      -> streamed AI lecture over the visible graph
 POST /api/ask          -> the research agent, streamed over the visible graph
 POST /api/ask_sources  -> streamed chat with no graph open (library + search)
+POST /api/ask_course   -> the Knowledge Graph's assistant: the researcher,
+                          graph-free, over a thread's course (v8.25.0)
 
 Each endpoint validates the request, builds typed inputs, and hands off to
 the agent that serves it; the typed event stream comes back as SSE
@@ -265,6 +267,93 @@ def api_lecture() -> ResponseReturnValue:
     )
 
 
+#: The most course items laid out for a prompt; a course is a few dozen.
+COURSE_ITEMS = 200
+#: The open lesson is shown whole up to this many characters…
+OPEN_LESSON_CHARS = 12000
+#: …and every other written lesson up to this many, its opening.
+LESSON_EXCERPT_CHARS = 1200
+#: The whole course block's ceiling, lessons included.
+COURSE_CHARS = 40000
+
+
+def _clip(value: object, limit: int) -> str:
+    """A string field from the client, or '' when it is not one, cut to a limit.
+
+    Args:
+        value: The raw field.
+        limit: The most characters kept.
+
+    Returns:
+        The string, at most ``limit`` characters.
+    """
+    return value[:limit] if isinstance(value, str) else ""
+
+
+def _course_line(item: dict) -> str:
+    """One course item as an outline line: its kind, check-off and links.
+
+    Args:
+        item: ``{title, kind, known?, needs?: [{title, why}], members?:
+            [titles], toward?}`` from the client.
+
+    Returns:
+        The line, with an indented line per prerequisite.
+    """
+    kind = _clip(item.get("kind"), 20) or "concept"
+    line = f"- {_clip(item.get('title'), 200)} ({kind})"
+    if item.get("known") is True:
+        line += " [checked off as known]"
+    members = [_clip(member, 200) for member in item.get("members") or []][:12]
+    if members:
+        line += f": combines {', '.join(members)} toward {_clip(item.get('toward'), 200)}"
+    for need in (item.get("needs") or [])[:20]:
+        if isinstance(need, dict):
+            line += f"\n    needs {_clip(need.get('title'), 200)}: {_clip(need.get('why'), 300)}"
+    return line
+
+
+def _course_context(raw: object, lessons: bool = True) -> str:
+    """Lay a Knowledge Graph course out for the researcher's prompt (v8.25.0).
+
+    The client sends the course as structure; the bounds are kept here, as
+    for sibling threads, so a large course cannot crowd out the question.
+
+    Args:
+        raw: ``{paper, open?, items: [{title, kind, known?, needs?,
+            members?, toward?, lesson?}]}``.
+        lessons: Include the lessons; False gives the outline alone (a
+            course attached from another chat).
+
+    Returns:
+        The course block, or '' when ``raw`` is not a course.
+    """
+    if not isinstance(raw, dict) or not isinstance(raw.get("items"), list):
+        return ""
+    items = [item for item in raw["items"][:COURSE_ITEMS] if isinstance(item, dict)]
+    block = f"THE COURSE, on the paper {_clip(raw.get('paper'), 300)!r}:\n"
+    block += "\n".join(_course_line(item) for item in items)
+    if not lessons:
+        return block[:COURSE_CHARS]
+    opened = _clip(raw.get("open"), 200)
+    for item in items:
+        if opened and item.get("title") == opened:
+            text = _clip(item.get("lesson"), OPEN_LESSON_CHARS)
+            block += f"\n\nTHE LESSON THE STUDENT HAS OPEN: {opened}\n"
+            block += text or "(not written yet)"
+    written = [
+        item
+        for item in items
+        if item.get("title") != opened and isinstance(item.get("lesson"), str) and item["lesson"]
+    ]
+    if written:
+        block += "\n\nOTHER LESSONS WRITTEN SO FAR (their openings):"
+        for item in written:
+            block += f"\n\n## {_clip(item.get('title'), 200)}\n"
+            block += _clip(item.get("lesson"), LESSON_EXCERPT_CHARS)
+    return block[:COURSE_CHARS]
+
+
 def _sibling_context(payload: dict) -> str:
     """Bound explicitly labelled background material from sibling threads.
 
@@ -285,6 +374,11 @@ def _sibling_context(payload: dict) -> str:
         summary = item.get("summary", "")
         summary = summary[:1500] if isinstance(summary, str) else ""
         section = f"From sibling thread {item['title'][:200]!r}:\n{summary}"
+        # A Knowledge Graph chat brings its course's outline along (v8.25.0):
+        # its turns are about a course, and read poorly without it.
+        course = _course_context(item.get("course"), lessons=False)
+        if item.get("mentioned") is True and course:
+            section += "\nIts course:\n" + course
         if item.get("mentioned") is True:
             turns = _resumed_history(item)
             section += "\nExplicitly attached discussion:\n" + "\n".join(
@@ -429,6 +523,50 @@ def api_ask_sources() -> ResponseReturnValue:
                     source_ids=source_ids,
                     provider=provider,
                     **_opt_filters(payload, provider),
+                )
+            ),
+        )
+    )
+
+
+@bp.post("/api/ask_course")
+def api_ask_course() -> ResponseReturnValue:
+    """Answer a question about a thread's Knowledge Graph course (v8.25.0).
+
+    The course's own assistant: the same researcher as ``/api/ask_sources``,
+    graph-free, with the course laid out where a graph would be (its
+    concepts, what each needs, the reader's check-offs, and the lessons
+    written so far, the open one whole). Its tools still reach the library,
+    the literature and the web.
+
+    Body:
+        ``{question, course, history?, thread_context?, provider?,
+        source_ids?}`` — ``course`` as ``_course_context`` reads it; the rest
+        as for ``/api/ask_sources``.
+
+    Returns:
+        An SSE stream as for ``/api/ask_sources``. HTTP 400 when the question
+        or the course is missing.
+    """
+    payload = request.get_json(silent=True) or {}
+    question = (payload.get("question") or "").strip()
+    if not question:
+        return jsonify({"error": "question is required"}), 400
+    course = _course_context(payload.get("course"))
+    if not course:
+        return jsonify({"error": "course is required"}), 400
+    provider = resolve_provider(payload.get("provider"))
+
+    return sse_response(
+        _relay(
+            streams.terminated(
+                researcher.answer(
+                    question=question,
+                    history=_resumed_history(payload),
+                    sibling_context=_sibling_context(payload),
+                    source_ids=_opt_source_ids(payload),
+                    provider=provider,
+                    course=course,
                 )
             ),
         )

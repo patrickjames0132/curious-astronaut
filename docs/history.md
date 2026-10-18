@@ -3541,6 +3541,62 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **A Knowledge Graph Assistant, Explain and Expand on a highlighted
+      passage, and `@` references to a chat** *(v8.25.0)* — three Backlog
+      items shipped together (Patrick, 2026-10-17), because the second needs
+      the first and the first forced the third.
+
+      **The Knowledge Graph Assistant.** *(From the `todos.md` inbox: "bring
+      a new, separate AI assistant, similar to the research agent in the
+      Citation Graph, into the Knowledge Graph.")* The course docks its own
+      chat (`knowledge/assistant/`), with a 🎓 to reopen it. Patrick chose
+      **the researcher, generalized** over a new agent: `POST
+      /api/ask_course` runs the graph-free researcher with the course where a
+      graph would be (`routes/agents.py`, `_course_context`): every item in
+      teaching order with its kind, check-off, needs and why, and every
+      lesson written so far, the open one whole and the others' openings,
+      under a ceiling. So it keeps library, paper and web search, the
+      citation chips and the trace, and shares Teacher's transcript. Its
+      prompt answers a question about the course from the course and
+      searches only when the question reaches past it. **The tutor's
+      suggested syntheses were deferred** (Patrick) and stay open in the
+      OnePager.
+
+      **Explain and Expand.** *(From the `todos.md` inbox, 2026-10-16.)*
+      Highlighting a passage in a finished lesson raises a dark pill, after
+      SpatialRead's, with two choices split by a pipe. **Explain** asks the
+      assistant about the passage and adds nothing to the graph. **Expand**
+      names the passage's concept (`tutor.name_phrase`, `POST
+      /api/knowledge/phrase`) and adds it as a prerequisite of the lesson's
+      item through the breakdown's own dedup (`withPrerequisite`), so a term
+      two lessons use stays one node; the panel says whether it was added,
+      linked to one already there, or refused as the item itself or a loop.
+      The frontend's first reader of a text selection
+      (`useLessonSelection`).
+
+      **References name a chat, not a thread.** A paper thread now has two
+      assistants, so `@thread` borrowing (built when a thread *was* its
+      graph conversation) addresses a **chat**, a thread and a tool
+      (`store/chats.ts`): `@thread[PPO › Knowledge Graph]`. Patrick's pick,
+      over whole-thread references. The Citation Graph chat keeps the
+      thread's id as its key and a bare `@thread[PPO]` still means it, so
+      nothing saved needed migrating; the Knowledge Graph chat is
+      `<threadId>:knowledge`, saved as `ThreadRecord.courseChat` with its own
+      rolling summary. The sibling index carries one entry per chat, and a
+      mentioned course chat brings its course's outline.
+
+      **From the browser review** (2026-10-17). The panels are renamed
+      **Citation Graph Assistant** ("AI Teacher & Discovery") and
+      **Knowledge Graph Assistant**; the 📚 source picker, missing from the
+      course's at first, is shared (`teacher/SourcePicker`,
+      `useSourceScope`). The notes over the bar, which wrapped into a block
+      of grey text in a narrow panel, keep to one line each with an
+      ellipsis, and an ⓘ (`ui/InfoTip`, now also the 3D course's help) holds
+      them in full when one is cut, measured rather than guessed from the
+      width (`teacher/ComposerNotes`); it always holds the `@` tip too, and
+      the placeholders name `@` again. The pill got its pipes and a darker
+      grey that reads in both themes.
+
 - [x] **Lessons come with real images, credited and described** *(v8.24.0)*
       — from the `todos.md` inbox (2026-10-17): the tutor places images in a
       lesson where they help, the way the citation-graph assistant shows

@@ -235,6 +235,7 @@ sidecar (see `config.py`).
 | --- | --- |
 | `POST /api/knowledge/expand` | break one course item into the concepts it needs (JSON); `fresh: true` skips the cached breakdown and replaces it ("Break it down again", v8.23.0) |
 | `POST /api/knowledge/lesson` | stream one item's lesson: SSE `token` frames, then `done` (the `paper_refs` frame went with citations in v8.17.0); `needed_by` lists every item that needs it, for its closing "How it fits in", and `fresh: true` skips and replaces the cached lesson after a "Break it down again" (v8.23.0). Since v8.24.0 it is written **with images** unless `quick: true`: `paper` and `provider` say where the course paper's figures are, and the stream adds `step` frames (one status line each) and an `image` frame per image placed |
+| `POST /api/knowledge/phrase` | name the concept behind a passage highlighted in a lesson, for its "Expand" (JSON `{child: {name, why}}`, or `{child: null}` when it names the lesson's own item or one above it; cached, v8.25.0) |
 | `POST /api/knowledge/fit` | rewrite only a lesson's closing "How it fits in" section for what needs it now (JSON `{text}`, v8.23.0) |
 | `POST /api/knowledge/synthesis` | name a synthesis: what several concepts become together toward an item (JSON `{name, why}`, v8.23.0) |
 | `POST /api/knowledge/synthesis/lesson` | stream a synthesis's lesson: SSE `token` frames, then `done` (v8.23.0); with images or `quick` as for a lesson, and `fresh: true` to skip and replace the cached copy (v8.24.0, ↻ "Rewrite this lesson") |
@@ -373,6 +374,13 @@ Thin wrappers over `services/sources`. Points worth knowing:
 | `POST /api/lecture` | streamed lecture over the reader's scoped graph |
 | `POST /api/ask` | agentic Q&A over the graph |
 | `POST /api/ask_sources` | chat with no graph open (library + search) |
+| `POST /api/ask_course` | the Knowledge Graph's course assistant (v8.25.0): the same graph-free researcher, with the thread's course laid out and bounded by `_course_context` (the open lesson whole, the others' openings) |
+
+Since v8.25.0 the sibling index (`thread_context`) has one entry per
+**chat**, not per thread (a paper thread's Citation Graph and Knowledge
+Graph each, see `frontend/src/store/chats.ts`), and a mentioned Knowledge
+Graph chat carries its course, which `_sibling_context` adds as an outline
+(no lessons) after the chat's turns.
 
 (The route face of the `agents` package — a deliberate name-cousin,
 different full paths.) Each streaming endpoint validates, builds typed

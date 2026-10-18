@@ -3,7 +3,8 @@
  *
  * Description:
  * The transcript slice: the reader's conversations — their turns, lectures
- * included — **several at once**, keyed by exploration.
+ * included — **several at once**, keyed by thread (and since v8.25.0 by a
+ * thread's tool too: the Knowledge Graph's assistant, `store/chats`).
  *
  * This slice is why the old `onStateChange`/`teacherStateRef` plumbing died:
  * the transcript used to live in Teacher.tsx with a live duplicate hoisted
@@ -45,10 +46,11 @@ import type {
   TraceEvent,
   TurnScope,
 } from '../api'
-import { explorationOpened, threadActivated } from './explorations'
+import { chatKey } from './chats'
+import { explorationOpened, threadActivated, type ThreadRecord } from './explorations'
 import { restoreSession, workspaceCleared } from './workspace'
 
-/** One exploration's conversation. */
+/** One conversation: a thread's, or since v8.25.0 one of its tools' (`store/chats`). */
 export interface Conversation {
   /**
    * Every turn, lectures included.
@@ -155,6 +157,23 @@ function keyed<Payload>() {
  */
 const lastMsg = (conversation: Conversation) => conversation.chat[conversation.chat.length - 1]
 
+/**
+ * Hold a thread's conversations, as saved, unless this sitting already does:
+ * its own (the Citation Graph's, or General's) and, since v8.25.0, its
+ * Knowledge Graph assistant's (`store/chats`).
+ *
+ * @param state The slice state (mutated via immer).
+ * @param thread The thread.
+ */
+function seedThread(state: TranscriptState, thread: ThreadRecord): void {
+  state.byKey[thread.id] ??= { ...emptyConversation(), chat: thread.data.chat }
+  if (thread.identity)
+    state.byKey[chatKey(thread.id, 'knowledge')] ??= {
+      ...emptyConversation(),
+      chat: thread.courseChat?.chat ?? [],
+    }
+}
+
 const transcriptSlice = createSlice({
   name: 'transcript',
   initialState,
@@ -181,6 +200,17 @@ const transcriptSlice = createSlice({
      */
     conversationActivated(state, action: PayloadAction<string>) {
       if (state.byKey[action.payload]) state.activeKey = action.payload
+    },
+    /**
+     * Make sure a conversation exists, without showing it or touching one that
+     * does: a Knowledge Graph chat (v8.25.0) is never the active key, and a
+     * stream must have somewhere to write.
+     *
+     * @param state  The slice state (mutated via immer).
+     * @param action Carries the key.
+     */
+    conversationEnsured(state, action: PayloadAction<string>) {
+      state.byKey[action.payload] ??= emptyConversation()
     },
     /**
      * Forget a conversation entirely (its exploration was deleted).
@@ -646,14 +676,12 @@ const transcriptSlice = createSlice({
     builder
       // Navigation selects a thread without disturbing streams owned by siblings.
       .addCase(explorationOpened, (state, action) => {
-        for (const thread of action.payload.threads) {
-          state.byKey[thread.id] ??= { ...emptyConversation(), chat: thread.data.chat }
-        }
+        for (const thread of action.payload.threads) seedThread(state, thread)
         state.activeKey = action.payload.activeThreadId
       })
       .addCase(threadActivated, (state, action) => {
         const thread = action.payload.thread
-        state.byKey[thread.id] ??= { ...emptyConversation(), chat: thread.data.chat }
+        seedThread(state, thread)
         state.activeKey = thread.id
       })
       .addCase(workspaceCleared, (state, action) => {
@@ -677,6 +705,7 @@ export const {
   failedTurnDropped,
   conversationStarted,
   conversationActivated,
+  conversationEnsured,
   conversationDropped,
   pendingDiscoveriesDrained,
   streamStarted,

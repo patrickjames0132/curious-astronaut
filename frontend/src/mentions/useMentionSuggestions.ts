@@ -77,9 +77,16 @@ function rowKey(choice: MentionChoice): string {
  *                 graph's own id space.
  * @param threads  The other threads in the current exploration, offered as
  *                 rows above the papers.
+ * @param withPapers Look papers up too. The Knowledge Graph's assistant
+ *                 (v8.25.0) offers its chats alone: a paper picked there would
+ *                 only be its title in the question.
  * @returns The dropdown's state plus the handlers the composer wires up.
  */
-export function useMentionSuggestions(provider: Provider, threads: MentionThread[] = []) {
+export function useMentionSuggestions(
+  provider: Provider,
+  threads: MentionThread[] = [],
+  withPapers = true,
+) {
   const [active, setActive] = useState<ActiveMention | null>(null)
   const [papers, setPapers] = useState<MentionPaper[]>([])
   const [loading, setLoading] = useState(false)
@@ -140,7 +147,7 @@ export function useMentionSuggestions(provider: Provider, threads: MentionThread
   // The threads show for any live mention; the paper lookups below wait for
   // the backend's minimum length, and a shorter query holds no papers at all.
   const matchedThreads = active ? threadMatches(threads, query) : []
-  const lookup = query.length >= MENTION_MIN_CHARS ? query : ''
+  const lookup = withPapers && query.length >= MENTION_MIN_CHARS ? query : ''
 
   // The query whose FULL results we already hold. Each new query aborts both
   // requests before it, so a stale response can't arrive — but within one

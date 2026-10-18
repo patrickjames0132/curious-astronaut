@@ -4,7 +4,8 @@ Description:
 The tutor — the knowledge network's agent: breaks a paper or concept into
 its prerequisites, and teaches each one as a lesson.
 
-* ``main``   — the ``Agent``s, their output models, ``expand``, the
+* ``main``   — the ``Agent``s, their output models, ``expand`` and
+  ``name_phrase`` (v8.25.0, a highlighted passage's concept), the
   streamed ``lesson``, and a synthesis's ``name_synthesis`` and streamed
   ``synthesis_lesson`` (v8.23.0), and ``fit_section``, which rewrites
   only a lesson's closing "How it fits in" section (v8.23.0).
@@ -36,6 +37,7 @@ from .main import (
     expand,
     fit_section,
     lesson,
+    name_phrase,
     name_synthesis,
     synthesis_lesson,
 )
@@ -54,6 +56,7 @@ __all__ = [
     "fit_section",
     "images",
     "lesson",
+    "name_phrase",
     "name_synthesis",
     "synthesis_lesson",
 ]

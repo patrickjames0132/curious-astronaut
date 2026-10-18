@@ -33,7 +33,9 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 overlays get their own layer; a paper
    │                                 thread shows its card home or the tool a
    │                                 card opened; the assistant docks beside
-   │                                 the Citation Graph only (hidden elsewhere).
+   │                                 the Citation Graph, the course assistant
+   │                                 (v8.25.0) beside the Knowledge Graph, each
+   │                                 hidden elsewhere with its own chat.
    │                                 Teacher stays at one position in the tree
    │                                 across all three, so the switch never
    │                                 remounts it — see teacher/README.md.
@@ -48,8 +50,13 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │  ├─ legend                    knowledge/KnowledgeLegend.tsx
    │  ├─ find control (🔍 → pill)  graph/controls/FindBar.tsx (shared)
    │  ├─ lesson panel (on click)   knowledge/KnowledgePanel.tsx
-   │  │  └─ lesson images          figures/FigCard.tsx (shared, v8.24.0)
+   │  │  ├─ lesson images          figures/FigCard.tsx (shared, v8.24.0)
+   │  │  └─ highlight menu         knowledge/SelectionMenu.tsx (Explain ·
+   │  │                              Expand over a selected passage, v8.25.0)
    │  └─ image lightbox            figures/Lightbox.tsx
+   ├─ Knowledge Graph Assistant    knowledge/assistant/CourseAssistant.tsx —
+   │                                 docked beside the Knowledge Graph; its
+   │                                 own chat (store/chats.ts)
    ├─ graph area                   graph/GraphExplorer.tsx
    │  ├─ overlays (from the shell): loading / error, and the ↑ back up to
    │  │                              the paper's cards  (App.tsx)
@@ -67,6 +74,8 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
       │                             caret whose only job was hiding the panel's
       │                             contents (the command itself went in
       │                             v7.23.0: a lecture is asked for in words)
+      ├─ notes over the bar        teacher/ComposerNotes.tsx (one line each,
+      │                             an ⓘ with them in full when cut, v8.25.0)
       ├─ chat turns                teacher/transcript/ChatMessage.tsx
       │  ├─ lecture beats          teacher/transcript/BeatList.tsx (a turn
       │  │                          whose answer IS a lecture, behind its own
@@ -83,7 +92,9 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
       │                             field picker). Moved OUT of the pill in
       │                             v7.11.0 with three others and back in on
       │                             2026-09-14, once the other three were gone
-      ├─ tool row                   teacher/ScopePicker.tsx (📚 source scope)
+      ├─ tool row                   teacher/SourcePicker.tsx over ScopePicker.tsx
+      │                             (📚 source scope, useSourceScope.ts; shared
+      │                             with the Knowledge Graph Assistant, v8.25.0)
       │                             as a chip under the bar (`.ask-tools`) —
       │                             one home now, not one per panel shape
       ├─ "working" dots            teacher/HopDots.tsx (the send control, and

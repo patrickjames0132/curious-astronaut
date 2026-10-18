@@ -15,7 +15,11 @@ import workspace, {
   seedPaper,
 } from '../../src/store/workspace'
 import * as api from '../../src/api'
-import transcript, { tokenAppended, turnStarted } from '../../src/store/transcript'
+import transcript, {
+  conversationEnsured,
+  tokenAppended,
+  turnStarted,
+} from '../../src/store/transcript'
 import explorations, {
   explorationOpened,
   newExploration,
@@ -281,5 +285,33 @@ describe('legacy migration', () => {
       'question',
     )
     expect(restored.threads.every((thread) => !thread.workspace)).toBe(true)
+  })
+
+  it("saves a thread's Knowledge Graph chat beside its own and restores it (v8.25.0)", async () => {
+    const store = makeStore()
+    await store.dispatch(loadGraph({ seed: 'DQN' }))
+    const threadId = store.getState().transcript.activeKey
+    store.dispatch(turnStarted('graph question'))
+    store.dispatch(conversationEnsured(`${threadId}:knowledge`))
+    store.dispatch(turnStarted('course question', `${threadId}:knowledge`))
+    store.dispatch(tokenAppended('course answer', `${threadId}:knowledge`))
+    const state = store.getState()
+    const body = explorationBody(state, state.explorations.byId[state.explorations.activeId])
+    const saved = body.exploration!.threads.find((thread) => thread.id === threadId)!
+    expect(saved.data.chat[0].text).toBe('graph question')
+    expect(saved.courseChat?.chat.map((turn) => turn.text)).toEqual([
+      'course question',
+      'course answer',
+    ])
+    // Opened again in a fresh sitting, each chat lands under its own key.
+    const fresh = makeStore()
+    fresh.dispatch(
+      explorationOpened(
+        migrateExploration({ id: body.id, name: body.name, data: body } as SavedSession),
+      ),
+    )
+    const conversations = fresh.getState().transcript.byKey
+    expect(conversations[threadId].chat[0].text).toBe('graph question')
+    expect(conversations[`${threadId}:knowledge`].chat[1].text).toBe('course answer')
   })
 })

@@ -788,21 +788,6 @@ than deleted so the plan doesn't get re-proposed.
       stays in the panel either way. Update the hint line and the tour with
       it.
 
-- [ ] **Cross-tool thread references: how should `@thread` read a thread
-      made of several tools?** — parked by Patrick 2026-10-09, when the
-      broader "rethink the chat surfaces and threads" ticket was put to rest
-      (he's happy with the exploration → thread → tool setup as it stands).
-      What survived is one open question. `@thread` borrowing and the sibling
-      index were built when a thread *was* its graph conversation. Since 5a a
-      thread is a paper with several tools (the Paper Graph, the Knowledge
-      Graph, and whatever comes next), so it isn't clear what borrowing
-      "another thread" should mean: its graph conversation, its course
-      progress, or both. **Settled meanwhile (v8.15.0): assistants are
-      encapsulated per tool, and only the Paper Graph has one.** The cards and
-      the Knowledge Graph dock nothing. Revisit when a second tool wants its
-      own assistant, or when `@thread` starts to read wrong. Read
-      `docs/history.md`'s v7.22.0 threads entry and the v8.15.0 entry first.
-
 - [ ] **Draw the Curious Astronaut full-figure mascot properly** — the
       **helmet mark is done and usable** (favicon, app tile, dock) and nothing
       is blocked on this. What is *not* done is the whole-body character: three
@@ -1636,20 +1621,13 @@ than deleted so the plan doesn't get re-proposed.
         Open: a third view beside force and 3D, or a mode of the force view;
         and whether the Connections card should grow a tree to explore in
         place (Patrick sketched one, 2026-10-15, and left it to this view).
-      - **An assistant for the Knowledge Graph, which also proposes
-        syntheses.** *(From the `todos.md` inbox: "bring a new, separate AI
-        assistant, similar to the research agent in the Citation Graph,
-        into the Knowledge Graph. Perhaps we just need to generalize the
-        researcher agent in some way?" Widened by Patrick on 2026-10-14.)*
-        Since v8.15.0 the assistant docks beside the Paper Graph alone; the
-        course has none. Open question: a new agent, or the researcher
-        generalised (it already streams grounded answers, scopes by
-        selection, and carries `search_sources`)?
-
-        **The tutor's suggested syntheses live here, not behind a button**
-        (settled 2026-10-14). The v8.23.0 syntheses are made by the reader
-        (◆ Synthesize); the AI half, planned as "after a breakdown" or a
-        "Suggest syntheses" button, was folded into this ticket instead. An
+      - **The tutor's suggested syntheses, as the Knowledge Graph
+        Assistant's tool.** The assistant shipped in v8.25.0 (the researcher
+        generalized, `knowledge/assistant/`); its synthesis half was deferred
+        (Patrick, 2026-10-17). **They live in the assistant, not behind a
+        button** (settled 2026-10-14). The v8.23.0 syntheses are made by the
+        reader (◆ Synthesize); the AI half, planned as "after a breakdown" or
+        a "Suggest syntheses" button, was folded in here instead. An
         assistant you can ask "what brings these together?" or "what am I
         missing between MDPs and DQN?" needs a tool that makes a synthesis
         anyway, so a separate button would be a second path to the same
@@ -1660,17 +1638,9 @@ than deleted so the plan doesn't get re-proposed.
         should arrive as a suggestion to keep or dismiss (a faint ◆, its
         reason in the panel) rather than a finished node. Raising one
         unprompted, say after a breakdown, is a question for the agent's
-        design, not a new UI.
-      - **Break down a highlighted phrase in a concept's lesson.** Today a
-        breakdown starts from a whole node (double-click); Patrick wants to
-        select a word or passage in `KnowledgePanel`'s lesson text and expand
-        *that*, a term the lesson uses without explaining it. Nothing in the
-        frontend reads a text selection yet (no `getSelection` anywhere).
-        Open: whether the expansion becomes a new prerequisite node under
-        the concept (goes through the same breakdown path and its dedup, so
-        a term two lessons use stays one node) or an inline gloss in the
-        panel that never touches the graph, or the first leading to the
-        second on demand. *(From the `todos.md` inbox, 2026-10-16.)*
+        design, not a new UI. The researcher runs graph-free here, so the
+        tool needs the course's ids, which `_course_context` only shows as
+        text today.
       - **A paper-reader card: open the PDF in the browser, with reading
         tools.** A third card on the thread's card home (beside Paper Graph
         and Knowledge Graph) that opens the paper's PDF in the app and gives
@@ -1679,8 +1649,9 @@ than deleted so the plan doesn't get re-proposed.
         (see the landscape sweep below). Patrick's word is "editing tools",
         which needs pinning down before design: highlights and notes over the
         PDF, or SpatialRead's expand/simplify explanations of a selected
-        passage (which would share its plumbing with the highlight-to-break-down
-        item above, and could feed the Knowledge Graph). Constraints to read
+        passage (which would share its plumbing with the lessons' Explain and
+        Expand pill, v8.25.0's `useLessonSelection`, and could feed the
+        Knowledge Graph). Constraints to read
         first: [docs/pdf-mining.md](docs/pdf-mining.md) settles that whole
         PDFs sit on disk under `services/pdf` (so serving the stored file is
         cheap), PyMuPDF is the optional `pdf` extra (so the card must degrade

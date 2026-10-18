@@ -35,6 +35,13 @@ vi.mock('../src/knowledge/KnowledgeNetwork', () => ({
     <main data-testid="knowledge">{children}</main>
   ),
 }))
+vi.mock('../src/knowledge/assistant/CourseAssistant', () => ({
+  default: ({ collapsed, onClose }: { collapsed: boolean; onClose: () => void }) => (
+    <aside data-testid="course-assistant" data-collapsed={String(collapsed)}>
+      <button onClick={onClose}>Close course assistant</button>
+    </aside>
+  ),
+}))
 vi.mock('../src/shell/SideBar', () => ({ default: () => null }))
 vi.mock('../src/library/Sources', () => ({ default: () => null }))
 vi.mock('../src/settings/SettingsModal', () => ({ default: () => null }))
@@ -119,4 +126,42 @@ it('docks the assistant beside the Citation Graph and nowhere else in a paper th
   })
   expect(teacher().dataset.collapsed).toBe('false')
   expect(screen.getAllByTestId('teacher')).toHaveLength(1)
+})
+
+it('docks the course assistant beside the Knowledge Graph alone (v8.25.0)', async () => {
+  const store = configureStore({ reducer: { workspace, transcript, explorations } })
+  render(
+    <Provider store={store}>
+      <App />
+    </Provider>,
+  )
+  // General has no course, so no course assistant.
+  expect(screen.queryByTestId('course-assistant')).toBeNull()
+  await act(async () => {
+    await store.dispatch(loadGraph({ seed: 'paper' }))
+  })
+  const course = () => screen.getByTestId('course-assistant')
+  const opener = () => screen.queryByRole('button', { name: 'Open the Knowledge Graph Assistant' })
+  // Beside the Citation Graph it stays tucked away, with no 🎓 of its own.
+  expect(course().dataset.collapsed).toBe('true')
+  expect(opener()).toBeNull()
+  await act(async () => {
+    await store.dispatch(openTool('knowledge'))
+  })
+  expect(course().dataset.collapsed).toBe('true')
+  fireEvent.click(opener()!)
+  expect(course().dataset.collapsed).toBe('false')
+  // The Citation Graph's assistant stays put while it is open.
+  expect(screen.getByTestId('teacher').dataset.collapsed).toBe('true')
+  // Remembered across tools: away on the cards, open again on the course.
+  await act(async () => {
+    await store.dispatch(openTool('cards'))
+  })
+  expect(course().dataset.collapsed).toBe('true')
+  await act(async () => {
+    await store.dispatch(openTool('knowledge'))
+  })
+  expect(course().dataset.collapsed).toBe('false')
+  fireEvent.click(screen.getByRole('button', { name: 'Close course assistant' }))
+  expect(course().dataset.collapsed).toBe('true')
 })

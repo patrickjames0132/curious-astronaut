@@ -8,10 +8,10 @@ course, into the concepts it needs, and teaches each one.
 ```
 tutor/
   config.py — AGENT_ID, FIT_HEADING, the prompts (EXPAND_PROMPT,
-              LESSON_PROMPT, FIT_PROMPT, a synthesis's
+              PHRASE_PROMPT, LESSON_PROMPT, FIT_PROMPT, a synthesis's
               SYNTHESIS_NAME_PROMPT and SYNTHESIS_PROMPT, and
               IMAGES_PROMPT, added when a lesson has its image tools), skills
-  main.py   — the Agents, their output models, expand(), lesson(),
+  main.py   — the Agents, their output models, expand(), name_phrase(), lesson(),
               fit_section(), and a synthesis's name_synthesis() and
               synthesis_lesson()
   images.py — a lesson's image tools (v8.24.0): find_images() and
@@ -42,6 +42,14 @@ tutor/
   prerequisite. **`fit_section(item, body, needed_by)`** rewrites that
   section alone (one structured call, `FIT_PROMPT`) when what needs the
   subject has changed since; the rest of the lesson stays as written.
+
+- **`name_phrase(phrase, item, path, existing)`** (v8.25.0) names the one
+  concept behind a passage the reader highlighted in a lesson (its
+  "Expand"): one structured call (`PHRASE_PROMPT`) returning a `Child`, or
+  None when the model names the item itself or something above it (that
+  would be a cycle). The frontend hangs it under the lesson's item as a
+  breakdown would, so the same name dedup applies, and `existing` lets the
+  model reuse a name already in the course.
 
 - **A synthesis** (v8.23.0; the reader sees it as a **synthesis**) is an
   optional node made of several concepts the course already holds, or of
@@ -215,8 +223,9 @@ which built and reviewed it on 2026-10-16.
 concept children, cycle and repeat dropping, the width cap, the references
 and course list in the expansion prompt, a lesson's prompt carrying no
 references but every item that needs it, its tokens adding up to its text,
-the closing section's rewrite seeing the lesson and what needs it, and a synthesis's naming
-prompt and streamed lesson. `test_images.py` covers lesson images: library
+the closing section's rewrite seeing the lesson and what needs it, a synthesis's naming
+prompt and streamed lesson, and a highlighted phrase named as one concept
+(never the item or its path, the passage and the course in its prompt). `test_images.py` covers lesson images: library
 figures near the matching passage, the course paper's PDF fallback, searched
 papers' best-matching figures (and a failed search giving none), web images
 behind opaque handles and downloaded once, a key reading only what it may, a

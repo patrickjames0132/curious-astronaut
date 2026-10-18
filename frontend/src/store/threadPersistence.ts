@@ -5,6 +5,7 @@
  */
 import { nanoid } from '@reduxjs/toolkit'
 import type { SavedSession, SaveSessionBody, SessionData, ChatMsg } from '../api'
+import { chatKey } from './chats'
 import type { ExplorationRecord, ExplorationsState, ThreadRecord } from './explorations'
 import type { TranscriptState } from './transcript'
 import { buildSaveBody, restoredLectureTurn, withGraphRefs } from './workspace'
@@ -107,6 +108,14 @@ export function explorationBody(
         discovered_edges: [...(data.discovered_edges ?? []), ...pending.edges],
       }
     const { workspace: _workspace, ...metadata } = thread
+    // The Knowledge Graph assistant's chat (v8.25.0), as this sitting has it.
+    const courseChat = state.transcript.byKey[chatKey(thread.id, 'knowledge')]?.chat
+    if (courseChat?.length || thread.courseChat)
+      return {
+        ...metadata,
+        data,
+        courseChat: { ...thread.courseChat, chat: courseChat ?? thread.courseChat?.chat ?? [] },
+      }
     return { ...metadata, data }
   })
   return {

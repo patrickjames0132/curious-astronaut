@@ -437,3 +437,67 @@ def test_sibling_context_is_bounded_and_labelled(monkeypatch):
     assert "assistant: A finding" in context
     assert "system: bad" not in context
     assert len(context) <= 24000
+
+
+COURSE = {
+    "paper": "Playing Atari",
+    "open": "Q-learning",
+    "items": [
+        {"title": "Playing Atari", "kind": "paper",
+         "needs": [{"title": "Q-learning", "why": "DQN learns Q."}]},
+        {"title": "Q-learning", "kind": "concept", "lesson": "Q-learning learns values."},
+        {"title": "MDPs", "kind": "concept", "known": True, "lesson": "An MDP is" + " x" * 2000},
+        {"title": "Value learning", "kind": "synthesis", "members": ["Q-learning", "MDPs"],
+         "toward": "Playing Atari"},
+    ],
+}
+
+
+def test_ask_course_runs_the_researcher_over_the_course(client, monkeypatch):
+    """The Knowledge Graph's assistant (v8.25.0): the graph-free researcher,
+    handed the course laid out, with history and sibling chats as for the
+    others."""
+    seen: dict = {}
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        yield events.Token(text="ok")
+
+    patch_agents(monkeypatch, fake_run)
+    history = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}]
+    response = client.post(
+        "/api/ask_course", json={"question": "what next?", "course": COURSE, "history": history}
+    )
+    assert frames(response) == [("token", {"text": "ok"}), ("done", {})]
+    assert "seed" not in seen and "nodes" not in seen
+    assert seen["history"] == history
+    course = seen["course"]
+    assert "- MDPs (concept) [checked off as known]" in course
+    assert "needs Q-learning: DQN learns Q." in course
+    assert "combines Q-learning, MDPs toward Playing Atari" in course
+    assert "THE LESSON THE STUDENT HAS OPEN: Q-learning\nQ-learning learns values." in course
+    # Other lessons are excerpts.
+    assert "## MDPs" in course and len(course) < 3000
+
+
+def test_ask_course_needs_a_question_and_a_course(client, monkeypatch):
+    patch_agents(monkeypatch, lambda **_kwargs: iter(()))
+    assert client.post("/api/ask_course", json={"course": COURSE}).status_code == 400
+    assert client.post("/api/ask_course", json={"question": "q"}).status_code == 400
+    assert client.post("/api/ask_course", json={"question": "q", "course": "x"}).status_code == 400
+
+
+def test_a_mentioned_knowledge_graph_chat_brings_its_course_outline():
+    from curious_astronaut.routes.agents import _sibling_context
+
+    context = _sibling_context({"thread_context": [
+        {"title": "DQN › Knowledge Graph", "summary": "s", "mentioned": True,
+         "course": COURSE, "history": []},
+        {"title": "PPO › Knowledge Graph", "summary": "t", "mentioned": False, "course": COURSE},
+    ]})
+    first, second = context.split("\n\nFrom sibling thread ")
+    assert "Its course:\nTHE COURSE, on the paper 'Playing Atari'" in first
+    # The outline alone: lessons stay home.
+    assert "Q-learning learns values." not in first
+    # An unmentioned chat is its summary only.
+    assert "THE COURSE" not in second

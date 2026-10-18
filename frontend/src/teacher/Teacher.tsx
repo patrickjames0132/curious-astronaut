@@ -1,4 +1,4 @@
-import { openThread, selectScope } from '../store/workspace'
+import { openChat, selectScope } from '../store/workspace'
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
@@ -51,7 +51,7 @@ import { openThread, selectScope } from '../store/workspace'
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { AnimationEvent, CSSProperties, FormEvent, KeyboardEvent } from 'react'
 import {
   DEFAULT_SEARCH_OPTIONS,
@@ -60,10 +60,12 @@ import {
   type SearchOptions,
 } from '../api'
 import { useAppDispatch, useAppSelector } from '../store'
-import { loadLibrary, selectLibrary } from '../store/library'
 import { selectConversation } from '../store/transcript'
+import { explorationChats } from '../store/chats'
 import HopDots from './HopDots'
-import ScopePicker from './ScopePicker'
+import ComposerNotes from './ComposerNotes'
+import SourcePicker from './SourcePicker'
+import { useSourceScope } from './useSourceScope'
 import SearchControls from '../search/SearchControls'
 import { useDirectSearch } from '../search/useDirectSearch'
 import { ID_RE } from '../graph/model'
@@ -80,12 +82,12 @@ import { usePresence } from '../ui/usePresence'
 import './teacher.css'
 
 /**
- * The bin the two Clear controls share — the composer's (which wipes the
- * conversation) and the Lectures row's (which drops the shown lecture).
+ * The bin the composer's Clear wears — here and, since v8.25.0, in the
+ * Knowledge Graph's assistant.
  *
  * @returns The inline glyph.
  */
-function ClearGlyph() {
+export function ClearGlyph() {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
       <path
@@ -172,29 +174,30 @@ export default function Teacher({
     clearChat,
   } = useConversation()
 
-  // The other discussions in this exploration, offered as `@` rows above the
-  // paper results so a question can carry one of them along.
-  const siblingThreads = useAppSelector(
-    (state) =>
-      state.explorations.byId[state.explorations.activeId]?.threads.filter(
-        (thread) => thread.id !== state.transcript.activeKey,
-      ) ?? [],
+  // The other chats in this exploration (`store/chats`: a paper thread's
+  // Citation Graph and Knowledge Graph each have one since v8.25.0), offered
+  // as `@` rows above the paper results so a question can carry one along.
+  const explorationRecord = useAppSelector(
+    (state) => state.explorations.byId[state.explorations.activeId],
+  )
+  const conversations = useAppSelector((state) => state.transcript.byKey)
+  const activeKey = useAppSelector((state) => state.transcript.activeKey)
+  const siblingThreads = useMemo(
+    () =>
+      explorationRecord
+        ? explorationChats(explorationRecord, { byKey: conversations })
+            .filter((entry) => entry.key !== activeKey)
+            .map((entry) => ({ id: entry.key, title: entry.label }))
+        : [],
+    [explorationRecord, conversations, activeKey],
   )
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  // The uploaded library, powering the source-scope picker (shown whenever
-  // there is anything to scope — see the render site for why one source
-  // counts). Read LIVE from the library slice — the Sources drawer reloads
-  // the slice on every upload/delete, so the picker appears the moment a
-  // source lands (it used to sit on a stale mount-time fetch until a page
-  // reload).
   const dispatch = useAppDispatch()
-  const { sources: libraryItems, loaded: libraryLoaded } = useAppSelector(selectLibrary)
-  // Sources the assistant may NOT search — tracked by EXCLUSION so a source
-  // uploaded after the user last touched the picker is searchable by default.
-  // Checked = current sources minus these; a deleted source's lingering id
-  // here is inert.
-  const [excludedSources, setExcludedSources] = useState<string[]>([])
+  // Which uploaded sources the assistant may search (the 📚 picker), shared
+  // with the Knowledge Graph's assistant since v8.25.0: `useSourceScope`.
+  const sources = useSourceScope()
+  const libraryItems = sources.items
   // The papers picked from the `@` dropdown in the message being composed,
   // keyed by the text inserted for each. A ref rather than state because
   // nothing renders from it — it is read once, at send — and re-rendering the
@@ -247,21 +250,10 @@ export default function Teacher({
   // spinner, and neither can be fired while the other is running.
   const { searching, runSearch } = useDirectSearch(provider, searchOptions, setSearchError)
 
-  // First reader fetches; the loaded flag keeps the drawer (and the remounts
-  // that Home and a session restore still cause) from re-fetching a library
-  // the store already holds.
-  useEffect(() => {
-    if (!libraryLoaded) dispatch(loadLibrary())
-  }, [libraryLoaded, dispatch])
-
-  // Checked = the assistant may search that source (everything not excluded).
-  const scopeIds = libraryItems
-    .filter((source) => !excludedSources.includes(source.id))
-    .map((source) => source.id)
   // "No scope" (search the whole library) only when every source is checked;
   // any other state is sent as an explicit id list (empty = search nothing).
-  const scopeAll = libraryItems.length === 0 || scopeIds.length === libraryItems.length
-  const scopeArg = scopeAll ? undefined : scopeIds
+  const scopeIds = sources.checkedIds
+  const scopeArg = sources.scope
 
   // One bar, four destinations. The first three are decided HERE on plain
   // facts — a pasted id is exact, a picked mention is a paper they already
@@ -537,17 +529,18 @@ export default function Teacher({
   // one does — a lecture needs papers on screen to be about, so offering it
   // with no graph would advertise something the bar cannot do.
   //
-  // **No prefix is named.** All three used to end "…or @ a paper", and for a
-  // while the graph variant taught `/` — a verb and two prefixes in one line
-  // of grey text read as a legend, not an invitation. `@` teaches itself the
-  // moment it is typed (the dropdown opens on the third character) and the
-  // tour covers it; the lecture is asked for in words, which needs no
-  // teaching beyond saying so.
+  // **`@` is named again** (v8.25.0, Patrick). All three used to end "…or @
+  // a paper", and for a while the graph variant taught `/` too; a verb and
+  // two prefixes in one line read as a legend, so the prefix went, leaving
+  // the tour to teach it. With chats per tool, `@` reaches more (a paper, or
+  // another chat), and Patrick wanted it in view again. One prefix, no `/`
+  // (a lecture is asked for in words); a narrow panel cuts the line with an
+  // ellipsis, and the ⓘ over the bar (`ComposerNotes`) keeps the full tip.
   const askPlaceholder = hasGraph
-    ? 'Ask about these papers, or for a lecture…'
+    ? 'Ask about these papers or for a lecture; @ a paper or chat…'
     : libraryItems.length > 0
-      ? 'Ask your books, PDFs, or the literature…'
-      : 'Ask a research question…'
+      ? 'Ask your books, PDFs or the literature; @ a paper or chat…'
+      : 'Ask a research question, or @ a paper or chat…'
 
   // The one-line "Answers also draw on …" note above the ask bar, naming the
   // 📚 picker's state. It had a second half until v7.21.0 — "the lecture
@@ -579,29 +572,12 @@ export default function Teacher({
   // and it's the one a reader with a single uploaded book most wants: without
   // the picker there was no way to ask a question *without* their textbook in
   // play. The empty scope (`scopeArg = []`) was already plumbed end to end.
-  const sourcePicker = libraryItems.length > 0 && (
-    <ScopePicker
-      items={libraryItems}
-      checkedIds={scopeIds}
+  const sourcePicker = (
+    <SourcePicker
+      scope={sources}
       dataTour="source-scope"
       open={openScope === 'sources'}
       onOpenChange={(nowOpen) => setOpenScope(nowOpen ? 'sources' : null)}
-      onToggle={(id) =>
-        setExcludedSources((prev) =>
-          prev.includes(id) ? prev.filter((other) => other !== id) : [...prev, id],
-        )
-      }
-      onSelectAll={() => setExcludedSources([])}
-      onDeselectAll={() => setExcludedSources(libraryItems.map((source) => source.id))}
-      labels={{
-        icon: '📚',
-        unit: 'source',
-        heading: 'Search in',
-        allHint: 'All sources are searched.',
-        someHint: 'Only the checked sources are searched.',
-        noneHint: "No sources selected — the assistant won't search your library.",
-        buttonTitle: 'Choose which of your sources the assistant may search',
-      }}
     />
   )
 
@@ -670,7 +646,7 @@ export default function Teacher({
       <ChatMessage
         key={`c${index}`}
         message={message}
-        onThreadOpen={(id) => void dispatch(openThread(id))}
+        onThreadOpen={(id) => void dispatch(openChat(id))}
         active={activeChat === index}
         streaming={asking || searching}
         // Only the LAST turn can be the one being generated, so only it gets
@@ -740,7 +716,7 @@ export default function Teacher({
         {!landing && (
           <div className="teacher-head-top">
             <span className="teacher-title">
-              {hasGraph ? 'AI Teacher & Discovery' : 'Ask the assistant'}
+              {hasGraph ? 'Citation Graph Assistant' : 'Ask the assistant'}
             </span>
             <div className="teacher-head-right">
               {onClose && (
@@ -763,7 +739,8 @@ export default function Teacher({
           two things in it that had to be able to coexist. Deleting the lecture
           half left one section, and a caret whose only job was folding away
           the whole point of the panel: a "CHAT" header over the chat, in a
-          panel already titled "AI Teacher & Discovery", with a ✕ next to it
+          panel already titled "AI Teacher & Discovery" (since v8.25.0 "Citation
+          Graph Assistant"), with a ✕ next to it
           that does the same job more honestly. So the sections are gone and
           the two shapes are now the same shape. The follow-the-bottom effect
           above watches this box, so a streaming answer keeps itself in view. */}
@@ -801,27 +778,30 @@ export default function Teacher({
         {(error || searchError) && <div className="teacher-error">{error ?? searchError}</div>}
       </div>
 
-      {hasGraph && pickedCount > 0 && (
-        <p className="ask-context-note">
-          Scoped to {pickedCount} hand-picked paper{pickedCount > 1 ? 's' : ''} — lectures and
-          answers focus on your selection, whatever the filters show (clear it on the graph to
-          widen), unless a message names its own papers.
-        </p>
-      )}
-      {askContextParts.length > 0 && (
-        <p className="ask-context-note">Answers also draw on {askContextParts.join(' · ')}.</p>
-      )}
       {/* Bar and tool row move as one thing — which is why the FLIP below
           measures this wrapper rather than the form: on the landing surface
           the whole group drops from the optical centre to the bottom on the
           first question, and a row that snapped down while the bar above it
           slid would read as two separate controls. */}
       <div className="ask-dock" ref={askRef}>
-        <p className="ask-context-note thread-subject">
-          {subject?.identity
-            ? `Asking about ${subject.title} · ${scopeCount} papers`
-            : 'General · Search and discuss across your exploration'}
-        </p>
+        {/* One line each, cut short with an ⓘ for the whole when the panel
+            is narrow (v8.25.0, `ComposerNotes`). */}
+        <ComposerNotes
+          notes={[
+            ...(hasGraph && pickedCount > 0
+              ? [
+                  `Scoped to ${pickedCount} hand-picked paper${pickedCount > 1 ? 's' : ''} — lectures and answers focus on your selection, whatever the filters show (clear it on the graph to widen), unless a message names its own papers.`,
+                ]
+              : []),
+            ...(askContextParts.length > 0
+              ? [`Answers also draw on ${askContextParts.join(' · ')}.`]
+              : []),
+            subject?.identity
+              ? `Asking about ${subject.title} · ${scopeCount} papers`
+              : 'General · Search and discuss across your exploration',
+          ]}
+          tip="Type @ to name a paper (alone, it opens; in a question, the answer reads it) or to bring in another chat from this exploration, such as a paper’s Knowledge Graph conversation."
+        />
         <form className="teacher-ask" data-tour="ask" onSubmit={onAsk}>
           {/* The `@` dropdown, anchored to the bar (which is positioned) and
               opening upward — the composer sits at the bottom of the panel, so

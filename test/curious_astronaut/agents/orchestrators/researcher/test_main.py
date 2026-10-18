@@ -1081,3 +1081,17 @@ def test_filters_scope_discovery_and_leave_citation_hops_alone(monkeypatch):
     # neighbors takes no filter arguments at all — the hop is unfiltered by
     # construction, which is the guarantee this test pins.
     assert seen["relation"] == "references"
+
+
+def test_a_course_stands_where_the_graph_would(monkeypatch):
+    """The Knowledge Graph's assistant (v8.25.0): graph-free, with the course
+    laid out in the prompt and the student told whose assistant this is."""
+    seen: dict = {}
+    monkeypatch.setattr(researcher.main.store, "list_sources", lambda: [])
+    model = scripted([final("ok", [], kind="conversational")], seen=seen)
+    with researcher.agent.override(model=model):
+        list(researcher.answer("what next?", course="THE COURSE, on the paper 'DQN':\n- DQN (paper)"))
+    prompt = seen["turns"][0][-1].parts[-1].content
+    assert "the course's assistant" in prompt
+    assert "THE COURSE, on the paper 'DQN'" in prompt
+    assert "No citation graph is open" not in prompt

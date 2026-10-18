@@ -15,7 +15,8 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useId, useState } from 'react'
+import { useState } from 'react'
+import InfoTip from '../ui/InfoTip'
 import SlidersGlyph from '../ui/SlidersGlyph'
 import { usePresence } from '../ui/usePresence'
 
@@ -155,43 +156,9 @@ export const NAVIGATION_HINT = 'Rotate: left-drag · Zoom: scroll or middle-drag
  * @returns The help button and its tooltip.
  */
 export function KnowledgeNavigationHelp() {
-  const [pinned, setPinned] = useState(false)
-  const [preview, setPreview] = useState(false)
-  const tooltipId = useId()
-  const visible = pinned || preview
-
   return (
-    <div
-      className="knowledge-navigation-help"
-      onMouseEnter={() => setPreview(true)}
-      onMouseLeave={() => setPreview(false)}
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape') return
-        event.stopPropagation()
-        setPinned(false)
-        setPreview(false)
-      }}
-    >
-      <button
-        type="button"
-        className="knowledge-navigation-button"
-        aria-label="3D navigation help"
-        aria-expanded={visible}
-        aria-describedby={visible ? tooltipId : undefined}
-        onFocus={() => setPreview(true)}
-        onBlur={() => setPreview(false)}
-        onClick={() => {
-          setPinned(!pinned)
-          setPreview(false)
-        }}
-      >
-        ⓘ
-      </button>
-      {visible && (
-        <div className="knowledge-navigation-tooltip" role="tooltip" id={tooltipId}>
-          {NAVIGATION_HINT}
-        </div>
-      )}
-    </div>
+    <InfoTip label="3D navigation help" className="knowledge-navigation-help">
+      {NAVIGATION_HINT}
+    </InfoTip>
   )
 }

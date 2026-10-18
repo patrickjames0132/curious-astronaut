@@ -42,6 +42,8 @@ import './shell/shell.css'
 const RAIL_KEY = 'ca.railOpen'
 /** localStorage key remembering whether the docked assistant is open. */
 const ASSISTANT_KEY = 'ca.assistantOpen'
+/** Whether the Knowledge Graph's assistant docks open (v8.25.0), remembered apart. */
+const COURSE_ASSISTANT_KEY = 'ca.courseAssistantOpen'
 import GraphExplorer from './graph/GraphExplorer'
 import Teacher from './teacher/Teacher'
 import Sources from './library/Sources'
@@ -50,6 +52,7 @@ import Tour from './tour/Tour'
 import { CARDS_TOUR, GRAPH_TOUR, HOME_TOUR, KNOWLEDGE_TOUR, TOUR_KEYS } from './tour/steps'
 import ToolCards from './tools/ToolCards'
 import KnowledgeNetwork from './knowledge/KnowledgeNetwork'
+import CourseAssistant from './knowledge/assistant/CourseAssistant'
 import './app.css'
 
 /**
@@ -72,12 +75,13 @@ export default function App() {
   const tool = threadTool(activeThread)
   const paperThread = tool !== null
   const showGraph = !!graph && tool === 'graph'
-  // The assistant belongs to the Citation Graph alone (Patrick, 2026-10-09):
-  // assistants are encapsulated per tool, and until there's a design for how
-  // `@thread` borrowing reads a thread made of several tools, the graph is the
-  // only tool with one. Elsewhere in a paper thread Teacher stays mounted but
-  // hidden, so a running answer keeps streaming.
+  // Assistants are encapsulated per tool (Patrick, 2026-10-09): Teacher docks
+  // beside the Citation Graph, and since v8.25.0 the course's own assistant
+  // beside the Knowledge Graph, each with its own chat (`store/chats`).
+  // Elsewhere in a paper thread both stay mounted but hidden, so a half-typed
+  // question survives and the remembered open/closed state comes back.
   const assistantDocks = tool === 'graph'
+  const courseAssistantDocks = tool === 'knowledge'
 
   // Moving between a paper's cards and one of its tools reads as a scroll:
   // the cards come down from above, a tool comes up from below. Only within
@@ -110,6 +114,11 @@ export default function App() {
   // there the assistant is the landing surface and never collapses.
   const [assistantOpen, setAssistantOpen] = useState(
     () => localStorage.getItem(ASSISTANT_KEY) === '1',
+  )
+  // The course's assistant, closed by default and remembered the same way
+  // (v8.25.0). A lesson's Explain opens it.
+  const [courseAssistantOpen, setCourseAssistantOpen] = useState(
+    () => localStorage.getItem(COURSE_ASSISTANT_KEY) === '1',
   )
   // Latest graph, readable from the mount-only effect below without making it
   // a dependency (that would re-fire the settings fetch on every graph load).
@@ -234,6 +243,7 @@ export default function App() {
     setTourStage(stage)
     setShowLibrary(stage === 'library')
     if (stage === 'assistant') setAssistantOpen(true)
+    if (stage === 'course-assistant') setCourseAssistantOpen(true)
   }, [])
 
   useEffect(() => {
@@ -242,6 +252,9 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(ASSISTANT_KEY, assistantOpen ? '1' : '0')
   }, [assistantOpen])
+  useEffect(() => {
+    localStorage.setItem(COURSE_ASSISTANT_KEY, courseAssistantOpen ? '1' : '0')
+  }, [courseAssistantOpen])
 
   // The saved-graph list in the rail, and which of them is on screen. The id
   // is tracked here rather than in the store because it is a fact about this
@@ -275,8 +288,20 @@ export default function App() {
           className="pane-assistant"
           data-tour="assistant-btn"
           onClick={() => setAssistantOpen(true)}
-          title="The AI assistant — a lecture and Q&A over the graph"
+          title="The Citation Graph Assistant — a lecture and Q&A over the graph"
           aria-label="Open the assistant"
+        >
+          🎓
+        </button>
+      )}
+      {courseAssistantDocks && !courseAssistantOpen && (
+        <button
+          type="button"
+          className="pane-assistant"
+          data-tour="course-assistant-btn"
+          onClick={() => setCourseAssistantOpen(true)}
+          title="The Knowledge Graph Assistant — ask about the concepts and lessons in this course"
+          aria-label="Open the Knowledge Graph Assistant"
         >
           🎓
         </button>
@@ -423,7 +448,11 @@ export default function App() {
                   {overlays}
                 </ToolCards>
               ) : tool === 'knowledge' && activeThread ? (
-                <KnowledgeNetwork key={`knowledge:${epoch}`} thread={activeThread}>
+                <KnowledgeNetwork
+                  key={`knowledge:${epoch}`}
+                  thread={activeThread}
+                  onAssistant={() => setCourseAssistantOpen(true)}
+                >
                   {overlays}
                 </KnowledgeNetwork>
               ) : (
@@ -442,6 +471,14 @@ export default function App() {
             collapsed={paperThread && !(assistantDocks && assistantOpen)}
             onClose={assistantDocks ? () => setAssistantOpen(false) : undefined}
           />
+          {paperThread && activeThread && (
+            <CourseAssistant
+              key={`course:${activeThread.id}`}
+              thread={activeThread}
+              collapsed={!(courseAssistantDocks && courseAssistantOpen)}
+              onClose={() => setCourseAssistantOpen(false)}
+            />
+          )}
         </div>
       </div>
     </div>
