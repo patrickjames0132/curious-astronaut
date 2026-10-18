@@ -144,10 +144,12 @@ def test_source_pdf_route_serves_only_a_stored_source(client, monkeypatch, tmp_p
         lambda source_id: {"id": source_id} if source_id == "book" else None,
     )
     monkeypatch.setattr(sources_routes.sources_store, "pdf_path", lambda source_id: stored)
-    response = client.get("/api/sources/book/pdf")
-    assert response.status_code == 200
-    assert response.mimetype == "application/pdf"
-    assert response.data == b"%PDF-1.4 fake"
+    # Closed before the file is deleted below: send_file holds it open until
+    # the response is, and Windows refuses to delete an open file (WinError 32).
+    with client.get("/api/sources/book/pdf") as response:
+        assert response.status_code == 200
+        assert response.mimetype == "application/pdf"
+        assert response.data == b"%PDF-1.4 fake"
     # Not a source the library holds: nothing is served, whatever the path
     # would be (an id is never turned into one unless the library knows it).
     assert client.get("/api/sources/..config/pdf").status_code == 404
