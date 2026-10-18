@@ -20,7 +20,8 @@ transcript/
 ## The pieces
 
 - **`BeatList`** — each beat is a card: heading, prose, optionally one real
-  paper figure (adapted to the `AnswerFigure` shape `FigCard` renders).
+  paper figure (adapted to the `AnswerFigure` shape the shared
+  `figures/FigCard` renders).
   Click a beat to light its papers on the graph; click the active one again
   to clear. Which beat is lit is panel-local UI state — only the resulting
   highlight ids are global (the store's highlight slice).
@@ -37,7 +38,7 @@ transcript/
   (graph-free mode), the researcher's live trace chips (reads / expansions
   / searches — a failed search explains *why* in plain words:
   `searchFailReason` maps the backend's `reason` codes), the prose
-  interleaved with its `<<FIG n>>` figures (via `../figures/split`), and
+  interleaved with its `<<FIG n>>` figures (via the shared `figures/split`), and
   the cited-papers footer — clickable to re-light the answer's whole
   grounding set.
 

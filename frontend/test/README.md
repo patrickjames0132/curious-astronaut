@@ -63,19 +63,21 @@ test/
     ScopePicker.test.tsx      — the controlled open/close contract (popover
                                 only when `open`; trigger and ✕ report via
                                 `onOpenChange`)
-    figures/split.test.ts     — the <<FIG n>> interleaver's edge cases
     transcript/ChatMessage.test.tsx — a turn the router placed: beats where the
                                 prose goes, and the one-click correction
     transcript/remarkCite.test.ts — [n] markers → citeref nodes, on mdast
     transcript/AnswerMarkdown.test.tsx — clickable `[n]` chips, end to end
     transcript/provenance.test.ts — the grounding line's honest cases
+  figures/
+    split.test.ts             — the <<FIG n>> interleaver's edge cases
   knowledge/
     model.test.ts             — the course rules: identity, shared
                                 prerequisites, loops, routes, teaching
                                 order, pruning, next lesson
     KnowledgeNetwork.test.tsx — the tool end to end over a real store, with
                                 the tutor's calls stubbed and the canvas
-                                swapped for node buttons
+                                swapped for node buttons; a written lesson's
+                                images land inline, described and credited
   tools/
     ToolCards.test.tsx        — the card home's paper header, both cards,
                                 and the one-time paper fetch

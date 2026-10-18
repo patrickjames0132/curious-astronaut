@@ -7,6 +7,10 @@ never paid for twice (unless a breakdown is asked for fresh), a failed reference
 input is a 400. A lesson hears every item that needs it, and its closing
 section can be rewritten alone (v8.23.0). A synthesis (v8.23.0) is named once per group, whatever order
 its members come in, and its lesson streams and replays like any other.
+A lesson is written with images (v8.24.0): its steps and images stream and
+replay from the cache, a quick response is its own lesson without them (as
+is every lesson with the knob at 0), and the web-image proxy serves only a
+handle a search registered.
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
@@ -123,7 +127,7 @@ def test_a_lesson_streams_without_references_and_replays_from_the_cache(client, 
     def neighbors(paper_id, relation, limit, provider):
         raise AssertionError("a lesson must not fetch the reference list")
 
-    def lesson(item, why, path, abstract, needed_by):
+    def lesson(item, why, path, abstract, needed_by, pictures=None):
         calls.append(item.title)
         seen_needs.append([need.title for need in needed_by])
         yield events.Token(text="Q-learning ")
@@ -164,7 +168,7 @@ def test_a_lesson_streams_without_references_and_replays_from_the_cache(client, 
 
 
 def test_a_failed_lesson_is_not_cached(client, monkeypatch):
-    def lesson(item, why, path, abstract, needed_by):
+    def lesson(item, why, path, abstract, needed_by, pictures=None):
         yield events.Token(text="half a les")
         raise RuntimeError("stream dropped")
 
@@ -227,7 +231,7 @@ def test_a_failed_synthesis_name_is_a_502(client, monkeypatch):
 def test_a_synthesis_lesson_streams_and_replays_from_the_cache(client, monkeypatch):
     calls = []
 
-    def synthesis_lesson(name, members, toward, path):
+    def synthesis_lesson(name, members, toward, path, pictures=None):
         calls.append(name)
         yield events.Token(text="Together, ")
         yield events.Token(text="they stabilise learning.")
@@ -280,3 +284,103 @@ def test_a_failed_fit_section_is_a_502(client, monkeypatch):
         "needed_by": [{"title": "Playing Atari", "kind": "paper", "why": "w"}],
     }
     assert client.post("/api/knowledge/fit", json=body).status_code == 502
+
+
+LESSON_BODY = {
+    "item": {"title": "Q-learning", "kind": "concept"},
+    "why": "w",
+    "path": [{"title": "Playing Atari", "kind": "paper"}],
+    "paper_id": "s2id",
+    "paper": {"id": "s2id", "arxiv_id": "1312.5602", "title": "Playing Atari"},
+    "provider": "openalex",
+}
+
+PLACED = tutor.images.LessonImage(
+    slot=1,
+    image="/api/web_image/abc",
+    caption="The Q table",
+    label="Image",
+    title="RL notes",
+    link="https://notes.example",
+    description="What to see.",
+    origin="web",
+)
+
+
+def test_a_lesson_with_images_streams_its_steps_and_replays_them(client, monkeypatch):
+    seen = []
+
+    def lesson(item, why, path, abstract, needed_by, pictures=None):
+        seen.append(pictures)
+        yield tutor.images.Step(text="Searching the web for a Q table…")
+        yield events.Token(text="Q-learning fills a table.\n\n<<FIG 1>>")
+        yield PLACED
+
+    monkeypatch.setattr(knowledge.tutor, "lesson", lesson)
+    first = _frames(client.post("/api/knowledge/lesson", json=LESSON_BODY))
+    image = PLACED.model_dump(exclude={"type"})
+    assert first == [
+        ("step", {"text": "Searching the web for a Q table…"}),
+        ("token", {"text": "Q-learning fills a table.\n\n<<FIG 1>>"}),
+        ("image", image),
+        ("done", {}),
+    ]
+    # The arXiv id is the paper's reference when it has one.
+    assert seen == [tutor.Pictures(paper_ref="1312.5602", paper_title="Playing Atari", provider="openalex")]
+    again = _frames(client.post("/api/knowledge/lesson", json=LESSON_BODY))
+    assert again == [
+        ("token", {"text": "Q-learning fills a table.\n\n<<FIG 1>>"}),
+        ("image", image),
+        ("done", {}),
+    ]
+    assert len(seen) == 1
+
+
+def test_a_quick_response_is_its_own_lesson_written_without_images(client, monkeypatch):
+    seen = []
+
+    def lesson(item, why, path, abstract, needed_by, pictures=None):
+        seen.append(pictures)
+        yield events.Token(text="Quick." if pictures is None else "With images.")
+
+    monkeypatch.setattr(knowledge.tutor, "lesson", lesson)
+    quick = _frames(client.post("/api/knowledge/lesson", json={**LESSON_BODY, "quick": True}))
+    assert quick[0] == ("token", {"text": "Quick."})
+    full = _frames(client.post("/api/knowledge/lesson", json=LESSON_BODY))
+    assert full[0] == ("token", {"text": "With images."})
+    assert seen == [None, seen[1]] and seen[1] is not None
+    # With the knob at 0 every lesson is quick, and served from the quick copy.
+    entry = knowledge.factory.agent_entry("tutor")
+    monkeypatch.setitem(entry.extras, "images", 0)
+    off = _frames(client.post("/api/knowledge/lesson", json=LESSON_BODY))
+    assert off[0] == ("token", {"text": "Quick."})
+    assert len(seen) == 2
+
+
+def test_a_synthesis_lesson_is_written_with_images_too(client, monkeypatch):
+    seen = []
+
+    def synthesis_lesson(name, members, toward, path, pictures=None):
+        seen.append(pictures)
+        yield events.Token(text="Together.")
+        yield PLACED
+
+    monkeypatch.setattr(knowledge.tutor, "synthesis_lesson", synthesis_lesson)
+    body = {**SYNTHESIS, "name": "Deep Q", "paper": LESSON_BODY["paper"], "provider": "s2"}
+    frames = _frames(client.post("/api/knowledge/synthesis/lesson", json=body))
+    assert [kind for kind, _ in frames] == ["token", "image", "done"]
+    assert seen[0].paper_ref == "1312.5602"
+
+
+def test_the_web_image_proxy_serves_only_registered_handles(client, monkeypatch):
+    assert client.get("/api/web_image/0123456789abcdef").status_code == 404
+    knowledge.cache.set("webimg:abc", {"url": "https://notes.example/loop.png"})
+    monkeypatch.setattr(
+        knowledge.tutor.images, "_read_image", lambda url: (b"png-bytes", "image/png")
+    )
+    response = client.get("/api/web_image/abc")
+    assert response.status_code == 200
+    assert (response.mimetype, response.data) == ("image/png", b"png-bytes")
+    # An image that is gone, or no longer an image, is a 404.
+    monkeypatch.setattr(knowledge.tutor.images, "_read_image", lambda url: None)
+    assert client.get("/api/web_image/abc").status_code == 404

@@ -33,13 +33,20 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { expandKnowledge, synthesizeKnowledge, type KnowledgePaper } from '../api'
+import {
+  expandKnowledge,
+  synthesizeKnowledge,
+  type AnswerFigure,
+  type KnowledgePaper,
+} from '../api'
+import Lightbox from '../figures/Lightbox'
 import { useAppDispatch } from '../store'
 import {
   knowledgeDeleted,
   knowledgeExpanded,
   knowledgeKnownSet,
   knowledgeKnownToggled,
+  knowledgeLessonCleared,
   knowledgeOpened,
   knowledgeStarted,
   knowledgeRestored,
@@ -185,7 +192,10 @@ export default function KnowledgeNetwork({
   const [focus, setFocus] = useState<{ id: string; seq: number } | null>(null)
   const [threeD, setThreeD] = useState(() => readPreference(MODE_KEY) === '1')
   const [fitSignal, setFitSignal] = useState(0)
-  const { drafts, write, writing, refit, refitting } = useLessons(threadId)
+  const { drafts, write, quick, writing, refit, refitting } = useLessons(threadId, provider)
+  // A lesson image enlarged full-screen (v8.24.0); held here, outside the
+  // sliding panel, like the other tools' lightboxes.
+  const [enlarged, setEnlarged] = useState<AnswerFigure | null>(null)
   // Items picked to check off together (v8.17.0): shift-click toggles one,
   // an alt-drag box adds the nodes inside it, as on the citation graph. Not
   // saved: a selection is a moment's gesture, not part of the course.
@@ -673,11 +683,15 @@ export default function KnowledgeNetwork({
           onExpand={expand}
           onToggleKnown={(nodeId) => dispatch(knowledgeKnownToggled({ threadId, nodeId }))}
           onRetry={() => write(map, shownId)}
+          onQuick={() => quick(map, shownId)}
+          onRewrite={() => dispatch(knowledgeLessonCleared({ threadId, nodeId: shownId }))}
           onDelete={(nodeId) => deleteItems([nodeId])}
           onHover={threeD ? undefined : setPointedId}
+          onEnlarge={setEnlarged}
           onClose={close}
         />
       )}
+      <Lightbox figure={enlarged} onClose={() => setEnlarged(null)} />
     </div>
   )
 }

@@ -10,7 +10,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import type { AnswerFigure } from '../../api'
+import type { AnswerFigure } from '../api'
 
 /** A complete inline-figure marker the agent placed in its prose ("<<FIG 2>>"). */
 const FIG_MARKER = /<<FIG (\d+)>>/g

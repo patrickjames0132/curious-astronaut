@@ -5,7 +5,7 @@
  */
 import { createAction, createSlice, nanoid } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
-import type { KnowledgeChild, PaperDetails, SessionData } from '../api'
+import type { AnswerFigure, KnowledgeChild, PaperDetails, SessionData } from '../api'
 import {
   isCurrentMap,
   withChildren,
@@ -287,9 +287,11 @@ const slice = createSlice({
       updateKnowledge(state, threadId, (map) => withoutItems(map, nodeIds))
     },
     /** Keep a finished lesson, so reopening it costs nothing; also how a
-     * lesson's rewritten "How it fits in" section lands (v8.23.0).
+     * lesson's rewritten "How it fits in" section lands (v8.23.0). A new
+     * lesson lands with its images (v8.24.0); a rewrite keeps the ones it has.
      * @param state Exploration state.
-     * @param action The thread, the item, the lesson's Markdown, and the items its closing section was written for.
+     * @param action The thread, the item, the lesson's Markdown, the items its
+     *   closing section was written for, and its images.
      */
     knowledgeLessonWritten(
       state,
@@ -298,9 +300,10 @@ const slice = createSlice({
         nodeId: string
         text: string
         fitFor?: string[]
+        images?: AnswerFigure[]
       }>,
     ) {
-      const { threadId, nodeId, text, fitFor } = action.payload
+      const { threadId, nodeId, text, fitFor, images } = action.payload
       updateKnowledge(state, threadId, (map) =>
         map.nodes[nodeId]
           ? {
@@ -311,6 +314,7 @@ const slice = createSlice({
                   ...map.nodes[nodeId],
                   lesson: text,
                   ...(fitFor && { fitFor }),
+                  ...(images && { images }),
                   freshLesson: undefined,
                 },
               },
@@ -348,6 +352,21 @@ const slice = createSlice({
             ? [...map.known, ...real.filter((nodeId) => !map.known.includes(nodeId))]
             : map.known.filter((nodeId) => !real.includes(nodeId)),
         }
+      })
+    },
+    /** Clear a lesson to be written again (v8.24.0, ↻ "Rewrite this lesson"):
+     * its text, images and what its closing section was written for go, and
+     * it is marked `freshLesson`, so it is written past the server's cache.
+     * @param state Exploration state.
+     * @param action The thread and the item.
+     */
+    knowledgeLessonCleared(state, action: PayloadAction<{ threadId: string; nodeId: string }>) {
+      const { threadId, nodeId } = action.payload
+      updateKnowledge(state, threadId, (map) => {
+        const node = map.nodes[nodeId]
+        if (!node?.lesson) return map
+        const { lesson: _lesson, fitFor: _fitFor, images: _images, ...rest } = node
+        return { ...map, nodes: { ...map.nodes, [nodeId]: { ...rest, freshLesson: true } } }
       })
     },
     /** Open an item's lesson (marking it visited), or close the panel with null.
@@ -441,6 +460,7 @@ export const {
   knowledgeDeleted,
   knowledgeRestored,
   knowledgeLessonWritten,
+  knowledgeLessonCleared,
   knowledgeKnownToggled,
   knowledgeKnownSet,
   knowledgeOpened,

@@ -13,8 +13,8 @@ api/
   search.ts    — direct search (SSE), field vocabulary (routes/search.py)
   graph.ts     — graph, expand, links between papers, paper detail, figures,
                  code links, category tags (routes/graph.py)
-  knowledge.ts — the knowledge network: expand an item, stream its lesson
-                 (routes/knowledge.py)
+  knowledge.ts — the knowledge network: expand an item, stream its lesson,
+                 find a written lesson's images (routes/knowledge.py)
   sessions.ts  — saved workspaces                          (routes/sessions.py)
   settings.ts  — the settings modal's config read/write     (routes/settings.py)
   sources.ts   — the local semantic library                (routes/sources.py)

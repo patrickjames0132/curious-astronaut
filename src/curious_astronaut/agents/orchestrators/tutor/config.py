@@ -5,8 +5,9 @@ The tutor's words: its agent id, skills, and its prompts — one that
 breaks the paper or a concept into the concepts it needs, one that teaches a
 single concept as a lesson (no citations since v8.17.0), and since v8.23.0 the
 two for a synthesis: one that names a group of concepts, one that writes how
-they come together. Model choice
-and the two knobs (``children``, ``lesson_words``) live in its
+they come together, and since v8.24.0 ``IMAGES_PROMPT``, added to either
+lesson prompt when it is written with its image tools. Model choice
+and the three knobs (``children``, ``lesson_words``, ``images``) live in its
 ``config.llm.agents`` entry, validated at load against ``config.TutorExtras``;
 ``main`` reads them per call, so a settings edit applies to the next expansion
 without a restart.
@@ -121,4 +122,38 @@ FIT_PROMPT = (
     "heading. Say how the subject serves each item under NEEDED BY, by name, a "
     "sentence or two apiece, drawing on the lesson rather than repeating it. "
     "Use LaTeX between $…$ where it helps. No citations, and no lead-in."
+)
+
+# Appended to a lesson's or a synthesis's prompt when it is written with
+# images (v8.24.0): the prose stays the model's own; the tools only find and
+# place pictures, each one chosen by the paragraph it sits beside.
+IMAGES_PROMPT = (
+    "IMAGES. You can show the reader real images: figures from their own "
+    "books, research papers' figures, and pictures from the web. Teach from "
+    "your own knowledge as usual; the images illustrate it.\n"
+    "Before you write the lesson, ALWAYS call find_images at least once: "
+    "think of the one picture that would most help a reader see this idea (a "
+    "diagram of its mechanism, a plot of its behaviour, a picture of the "
+    "thing itself) and ask for it specifically, not by the subject's name "
+    "alone: 'a backup diagram for the Bellman optimality equation', not "
+    "'Bellman equations'. Look at every candidate it shows you. If none fits, "
+    "you may search again with a different description.\n"
+    "Several images are welcome. Where more than one paragraph would be "
+    "clearer with a picture (the idea itself, then how it behaves, then a "
+    "worked case, say), search for each one's picture and place it after "
+    "its paragraph, up to the limit, from any mix of sources. One image is "
+    "the least, not the goal.\n"
+    "When a candidate shows what a paragraph explains, place it: call "
+    "show_image with its number (and a description only if it was shown with "
+    "no caption), put the marker it gives you on its own line right after "
+    "that paragraph, and write the paragraph so it points the reader at the "
+    "image ('In the diagram below, …'). Judge every candidate on its merits, "
+    "whatever its source (the reader's own books, papers, or the web): place "
+    "the ones that best show the idea. A clear textbook, Wikipedia or lecture "
+    "diagram of the idea is exactly what to place. "
+    "Skip an image that is decorative, a logo or a photo of a person, mostly "
+    "text, unreadably small, or about something else; a paper's results "
+    "table or benchmark plot rarely teaches a concept. Every lesson shows at "
+    "least one image: if nothing fits, search again with a different "
+    "description before giving up. Never put a marker in the closing section."
 )

@@ -499,7 +499,8 @@ class WebScoutExtras(ConfigModel):
 
 
 class TutorExtras(ConfigModel):
-    """The tutor's knobs: how wide one expansion is, and how long a lesson runs.
+    """The tutor's knobs: how wide one expansion is, how long a lesson runs, and
+    how many images it shows.
 
     The tutor writes the knowledge network (Phase 5b): it breaks a paper or a
     concept into the prerequisites needed to understand it, and writes the
@@ -519,6 +520,22 @@ class TutorExtras(ConfigModel):
         le=1500,
         description="Roughly how long a lesson runs, in words. A target the prompt "
         "asks for, not a hard cap. Longer lessons cost more and take longer to stream.",
+    )
+    images: NonNegativeInt = Field(
+        default=3,
+        le=6,
+        description="Most images a lesson shows (v8.24.0), which the tutor finds in your "
+        "library, papers and the web while it writes. Every lesson shows at least one, "
+        "unless nothing found shows the idea. 0 turns lesson images off: every lesson is "
+        "a quick response.",
+    )
+    image_searches: PositiveInt = Field(
+        default=4,
+        le=8,
+        description="find_images calls per lesson (v8.24.0), like the researcher's search "
+        "limits. Each one looks in your library, papers and the web at once and shows the "
+        "tutor its candidates' pixels, so more searches find more images but cost more "
+        "tokens and time.",
     )
 
 

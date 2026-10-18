@@ -234,10 +234,11 @@ sidecar (see `config.py`).
 | Endpoint | Job |
 | --- | --- |
 | `POST /api/knowledge/expand` | break one course item into the concepts it needs (JSON); `fresh: true` skips the cached breakdown and replaces it ("Break it down again", v8.23.0) |
-| `POST /api/knowledge/lesson` | stream one item's lesson: SSE `token` frames, then `done` (the `paper_refs` frame went with citations in v8.17.0); `needed_by` lists every item that needs it, for its closing "How it fits in", and `fresh: true` skips and replaces the cached lesson after a "Break it down again" (v8.23.0) |
+| `POST /api/knowledge/lesson` | stream one item's lesson: SSE `token` frames, then `done` (the `paper_refs` frame went with citations in v8.17.0); `needed_by` lists every item that needs it, for its closing "How it fits in", and `fresh: true` skips and replaces the cached lesson after a "Break it down again" (v8.23.0). Since v8.24.0 it is written **with images** unless `quick: true`: `paper` and `provider` say where the course paper's figures are, and the stream adds `step` frames (one status line each) and an `image` frame per image placed |
 | `POST /api/knowledge/fit` | rewrite only a lesson's closing "How it fits in" section for what needs it now (JSON `{text}`, v8.23.0) |
 | `POST /api/knowledge/synthesis` | name a synthesis: what several concepts become together toward an item (JSON `{name, why}`, v8.23.0) |
-| `POST /api/knowledge/synthesis/lesson` | stream a synthesis's lesson: SSE `token` frames, then `done` (v8.23.0) |
+| `POST /api/knowledge/synthesis/lesson` | stream a synthesis's lesson: SSE `token` frames, then `done` (v8.23.0); with images or `quick` as for a lesson, and `fresh: true` to skip and replace the cached copy (v8.24.0, ↻ "Rewrite this lesson") |
+| `GET /api/web_image/<handle>` | an image a lesson's tutor found on the web, fetched afresh through the guarded fetch and never stored; only a handle a search registered resolves (v8.24.0) |
 
 All are thin over `agents/orchestrators/tutor`. What lives here is the
 grounding and the cache. A synthesis's two routes are cached permanently too,
@@ -269,6 +270,18 @@ same synthesis and never paid for twice; a synthesis needs two or more members
   rewritten section (`tutor:fit:v1`) is keyed on the subject, the lesson
   before it and that set, so the same change never bills twice. An old entry would otherwise serve a paper as a concept, or a lesson
   with no citations.
+- **A lesson's images come with it** (v8.24.0): the tutor finds and places
+  them while it writes (`tutor.images`), so the route relays its `step`
+  and `image` events alongside the tokens and caches the lesson as `{text,
+  images}`, replaying both. A quick response (`quick: true`, or the
+  tutor's `images` knob at 0) keeps the key lessons always had, so lessons
+  written before v8.24.0 still serve as quick ones; a lesson with images
+  adds the knob and the paper to it, so the two are never served for each
+  other. A web image is served through `/api/web_image/<handle>`, so the
+  browser never hotlinks a stranger's host, the host never sees the
+  reader, and nothing but the address is kept; "Drop cache" forgets those
+  addresses (and the lessons), after which a saved lesson's web image is a
+  404.
 
 ## `sessions.py` — explorations
 
@@ -325,6 +338,7 @@ failure is a canned 500 with details in the log.
 | `POST /api/sources` | ingest a PDF upload or a `{url}`, streaming SSE progress |
 | `DELETE /api/sources/<id>` | remove a source — `{deleted: bool}`, idempotent |
 | `GET /api/sources/<id>/figure/<n>` | one figure mined from the source's stored PDF, as PNG |
+| `GET /api/sources/<id>/pdf` | the source's stored PDF itself, so a lesson image's credit opens the book at its page (`#page=N`, v8.24.0); 404 for an unknown source or one with no stored file |
 
 Thin wrappers over `services/sources`. Points worth knowing:
 

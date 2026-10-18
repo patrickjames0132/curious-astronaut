@@ -120,7 +120,8 @@ remains for migration and lecture scope counts; observed grounding provenance
 The transcript renders Markdown and KaTeX math, structured source references,
 streamed tool traces, inline figures and expandable lecture beats. All of that
 stays on its turn across save and restore. `transcript/README.md` describes the
-rendering boundary; `figures/README.md` describes figure placement.
+rendering boundary; `../figures/README.md` (the shared folder, since v8.24.0)
+describes figure placement.
 
 ## Docked: closing and reopening
 

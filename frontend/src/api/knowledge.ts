@@ -3,13 +3,15 @@
  *
  * Description:
  * The knowledge network's calls (Phase 5b): expand one course item into
- * its prerequisites, and stream one item's lesson. Both are cached
+ * its prerequisites, and stream one item's lesson, since v8.24.0 written with
+ * inline images unless a quick response is asked for. Both are cached
  * server-side for good, so re-opening a course costs nothing.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
+import type { AnswerFigure } from './agents'
 import type { Provider } from './graph'
 import { readSSE } from './sse'
 
@@ -81,6 +83,42 @@ export interface KnowledgeNeed extends KnowledgeStep {
   why: string
 }
 
+/** Where a lesson written with images finds the course paper's figures (v8.24.0). */
+export interface LessonPictures {
+  /** True for a quick response: the lesson alone, no image search. */
+  quick?: boolean
+  paper?: { id: string; arxiv_id?: string | null; title: string }
+  provider?: Provider
+}
+
+/** A lesson stream's callbacks. */
+export interface LessonHandlers {
+  onToken: (text: string) => void
+  /** What the tutor is doing now, one status line (v8.24.0, with images). */
+  onStep?: (text: string) => void
+  /** An image the tutor placed, paired with its `<<FIG n>>` marker by slot (v8.24.0). */
+  onImage?: (image: AnswerFigure) => void
+  onDone: () => void
+  onError: (message: string) => void
+  signal?: AbortSignal
+}
+
+/**
+ * Read a lesson's SSE frames into its handlers.
+ *
+ * @param res The streaming response.
+ * @param handlers The callbacks.
+ */
+async function readLesson(res: Response, handlers: LessonHandlers): Promise<void> {
+  await readSSE(res, (event, data) => {
+    if (event === 'token') handlers.onToken((data as { text: string }).text)
+    else if (event === 'step') handlers.onStep?.((data as { text: string }).text)
+    else if (event === 'image') handlers.onImage?.(data as AnswerFigure)
+    else if (event === 'done') handlers.onDone()
+    else if (event === 'error') handlers.onError((data as { message: string }).message)
+  })
+}
+
 /**
  * Stream one course item's lesson.
  *
@@ -96,11 +134,10 @@ export interface KnowledgeNeed extends KnowledgeStep {
  * @param body.paper_id The course's paper.
  * @param body.fresh Skip the server's cached lesson and replace it (after a
  *                   "Break it down again", v8.23.0).
- * @param handlers Token, done and error callbacks, plus an abort signal.
- * @param handlers.onToken Called with each chunk of the lesson's Markdown.
- * @param handlers.onDone Called once the lesson is complete.
- * @param handlers.onError Called with the server's message on failure.
- * @param handlers.signal Abort the stream.
+ * @param body.quick A quick response: no image search (v8.24.0).
+ * @param body.paper The course paper, whose figures are image candidates.
+ * @param body.provider Who resolves the paper's PDF.
+ * @param handlers Token, step, image, done and error callbacks, plus an abort signal.
  */
 export async function streamLesson(
   body: {
@@ -111,13 +148,8 @@ export async function streamLesson(
     abstract: string
     paper_id?: string
     fresh?: boolean
-  },
-  handlers: {
-    onToken: (text: string) => void
-    onDone: () => void
-    onError: (message: string) => void
-    signal?: AbortSignal
-  },
+  } & LessonPictures,
+  handlers: LessonHandlers,
 ): Promise<void> {
   const res = await fetch('/api/knowledge/lesson', {
     method: 'POST',
@@ -125,11 +157,7 @@ export async function streamLesson(
     body: JSON.stringify(body),
     signal: handlers.signal,
   })
-  await readSSE(res, (event, data) => {
-    if (event === 'token') handlers.onToken((data as { text: string }).text)
-    else if (event === 'done') handlers.onDone()
-    else if (event === 'error') handlers.onError((data as { message: string }).message)
-  })
+  await readLesson(res, handlers)
 }
 
 /** What a synthesis is about: its concepts, the item they build toward, and the
@@ -168,30 +196,22 @@ export async function synthesizeKnowledge(body: SynthesisRequest): Promise<Synth
 /**
  * Stream a synthesis's lesson (v8.23.0): how its concepts come together.
  *
- * @param body Its name, concepts, target and path.
- * @param handlers Token, done and error callbacks.
- * @param handlers.onToken Called with each chunk of the lesson's Markdown.
- * @param handlers.onDone Called once the lesson is complete.
- * @param handlers.onError Called with the server's message on failure.
+ * @param body Its name, concepts, target and path, and as for a lesson
+ *             whether it is quick, where the paper's figures are, and
+ *             `fresh` to skip and replace the cached copy (v8.24.0).
+ * @param handlers Token, step, image, done and error callbacks, plus an abort signal.
  */
 export async function streamSynthesisLesson(
-  body: SynthesisRequest & { name: string },
-  handlers: {
-    onToken: (text: string) => void
-    onDone: () => void
-    onError: (message: string) => void
-  },
+  body: SynthesisRequest & { name: string; fresh?: boolean } & LessonPictures,
+  handlers: LessonHandlers,
 ): Promise<void> {
   const res = await fetch('/api/knowledge/synthesis/lesson', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal: handlers.signal,
   })
-  await readSSE(res, (event, data) => {
-    if (event === 'token') handlers.onToken((data as { text: string }).text)
-    else if (event === 'done') handlers.onDone()
-    else if (event === 'error') handlers.onError((data as { message: string }).message)
-  })
+  await readLesson(res, handlers)
 }
 
 /**

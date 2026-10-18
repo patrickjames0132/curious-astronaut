@@ -157,7 +157,8 @@ it('opens a lesson in the panel, marks it visited, and saves the course', async 
     path: [{ title: 'Playing Atari', kind: 'paper' }],
     paper_id: 'DQN',
   })
-  expect(lesson.mock.calls[0][0]).not.toHaveProperty('provider')
+  // The provider goes along only for the image tools, to find the paper's figures (v8.24.0).
+  expect(lesson.mock.calls[0][0].provider).toBe('s2')
   // Connections (v8.23.0): what needs it, as a plain link; the reason goes
   // to the tutor (for the lesson's "How it fits in"), not the card.
   const requiredFor = screen.getByRole('list', { name: 'Builds toward' })
@@ -433,6 +434,174 @@ it('shows a lesson\'s "How it fits in" in its own card, rewritten alone when a p
     ),
   )
   expect(course().nodes['q learning'].fitFor).toEqual(['playing atari', 'td learning'])
+})
+
+const PLACED = {
+  slot: 1,
+  image: '/api/web_image/abc',
+  caption: 'The Q table',
+  label: 'Image',
+  title: 'RL notes',
+  link: 'https://notes.example/q',
+  description: 'Each cell holds a value.',
+}
+
+it('streams a lesson once the tutor writes, its images already in place', async () => {
+  vi.spyOn(api, 'expandKnowledge')
+    .mockResolvedValueOnce(ROOT_CHILDREN)
+    .mockResolvedValueOnce([{ name: 'Q-learning', why: 'TD needs Q targets.' }])
+  let write: () => void = () => undefined
+  let finish: () => void = () => undefined
+  const lesson = vi.spyOn(api, 'streamLesson').mockImplementation(
+    (_body, handlers) =>
+      new Promise<void>((resolve) => {
+        handlers.onStep?.('Searching the web for a Q table…')
+        // The image is placed before the text is written.
+        write = () => {
+          handlers.onImage?.(PLACED)
+          handlers.onToken('Q-learning learns values.\n\n<<FIG 1>>\n\nIt updates a table.')
+        }
+        finish = () => {
+          handlers.onToken('\n\n### How it fits in\n\nDQN fits Q.')
+          handlers.onDone()
+          resolve()
+        }
+      }),
+  )
+  const fit = vi.spyOn(api, 'fitLesson').mockResolvedValue('DQN fits Q; TD bootstraps on it.')
+  const store = mount()
+  const course = () => store.getState().explorations.byId.saved.threads[1].knowledge!
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('node: Q-learning'))
+
+  // One status line while the tutor works, with the quick way out beside it.
+  await screen.findByText('Searching the web for a Q table…')
+  expect(screen.getByRole('button', { name: 'Quick response' })).toBeTruthy()
+  // Written with images: told where the course paper's figures are.
+  expect(lesson.mock.calls[0][0]).toMatchObject({
+    item: { title: 'Q-learning', kind: 'concept' },
+    paper: { id: 'DQN', arxiv_id: '1312.5602', title: 'Playing Atari' },
+    provider: 's2',
+  })
+  expect(lesson.mock.calls[0][0].quick).toBeUndefined()
+  expect(screen.queryByText('It updates a table.')).toBeNull()
+
+  // Then it streams, the image already where it goes, before the lesson ends.
+  act(() => write())
+  expect(await screen.findByText('It updates a table.')).toBeTruthy()
+  expect(screen.getByRole('figure')).toBeTruthy()
+  expect(course().nodes['q learning'].lesson).toBeUndefined()
+  act(() => finish())
+
+  // Inline, after the paragraph it shows: described, with its credit linked.
+  await waitFor(() => expect(course().nodes['q learning'].lesson).toBeDefined())
+  const figure = screen.getByRole('figure')
+  expect(figure.textContent).toContain('Each cell holds a value.')
+  const credit = screen.getByRole('link', { name: 'RL notes' })
+  expect(credit.getAttribute('href')).toBe('https://notes.example/q')
+  const body = figure.closest('.lesson-body')!
+  const order = Array.from(body.querySelectorAll('p, figure')).map((element) =>
+    element.tagName === 'FIGURE' ? 'figure' : element.textContent,
+  )
+  expect(order.indexOf('figure')).toBe(order.indexOf('Q-learning learns values.') + 1)
+  expect(screen.queryByText('Searching the web for a Q table…')).toBeNull()
+  expect(course().nodes['q learning'].images).toEqual([PLACED])
+
+  // A rewrite of the closing section reads the lesson without its markers,
+  // and keeps them where they were.
+  fireEvent.click(screen.getByText('expand: TD learning'))
+  await waitFor(() => expect(fit).toHaveBeenCalledTimes(1))
+  expect(fit.mock.calls[0][0].lesson).toBe('Q-learning learns values.\n\nIt updates a table.')
+  await waitFor(() =>
+    expect(course().nodes['q learning'].lesson).toContain('DQN fits Q; TD bootstraps on it.'),
+  )
+  expect(course().nodes['q learning'].lesson).toContain('<<FIG 1>>')
+  expect(course().nodes['q learning'].images).toEqual([PLACED])
+})
+
+it('a quick response stops the image search and writes the lesson now', async () => {
+  vi.spyOn(api, 'expandKnowledge').mockResolvedValueOnce(ROOT_CHILDREN)
+  const signals: (AbortSignal | undefined)[] = []
+  const lesson = vi.spyOn(api, 'streamLesson').mockImplementation((body, handlers) => {
+    signals.push(handlers.signal)
+    if (body.quick) {
+      handlers.onToken('Quick lesson.')
+      handlers.onDone()
+      return Promise.resolve()
+    }
+    handlers.onStep?.('Looking at 4 images…')
+    // The slow run, until it is stopped; a stopped fetch rejects.
+    return new Promise<void>((_resolve, reject) =>
+      handlers.signal?.addEventListener('abort', () => reject(new Error('aborted'))),
+    )
+  })
+  const store = mount()
+  const course = () => store.getState().explorations.byId.saved.threads[1].knowledge!
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('node: Q-learning'))
+  fireEvent.click(await screen.findByRole('button', { name: 'Quick response' }))
+
+  expect(await screen.findByText('Quick lesson.')).toBeTruthy()
+  expect(lesson).toHaveBeenCalledTimes(2)
+  expect(lesson.mock.calls[1][0].quick).toBe(true)
+  expect(signals[0]?.aborted).toBe(true)
+  // The stopped run's failure isn't shown, and no image search is offered again.
+  expect(screen.queryByText('aborted')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Quick response' })).toBeNull()
+  expect(course().nodes['q learning'].images).toEqual([])
+})
+
+it('shows the tutor working as one line that unfolds into every step so far', async () => {
+  vi.spyOn(api, 'expandKnowledge').mockResolvedValueOnce(ROOT_CHILDREN)
+  let finish: () => void = () => undefined
+  vi.spyOn(api, 'streamLesson').mockImplementation(
+    (_body, handlers) =>
+      new Promise<void>((resolve) => {
+        handlers.onStep?.('Searching your library, papers and the web for a Q table…')
+        handlers.onStep?.('Looking at 6 images…')
+        finish = () => {
+          handlers.onToken('Done.')
+          handlers.onDone()
+          resolve()
+        }
+      }),
+  )
+  mount()
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('node: Q-learning'))
+  // One line: the step now; the earlier ones folded away behind it.
+  const line = await screen.findByRole('button', { name: /Looking at 6 images…/ })
+  expect(screen.queryByRole('list', { name: 'Steps so far' })).toBeNull()
+  fireEvent.click(line)
+  const steps = screen.getByRole('list', { name: 'Steps so far' })
+  expect(steps.textContent).toContain('Searching your library, papers and the web for a Q table…')
+  expect(line.getAttribute('aria-expanded')).toBe('true')
+  // Lessons in flight are tracked app-wide: finish this one so the next test starts clean.
+  act(() => finish())
+  await screen.findByText('Done.')
+})
+
+it('rewrites a finished lesson from the ↻ beside the ✕, past the cache', async () => {
+  vi.spyOn(api, 'expandKnowledge').mockResolvedValueOnce(ROOT_CHILDREN)
+  const written = ['First lesson.', 'Second lesson.']
+  const lesson = vi.spyOn(api, 'streamLesson').mockImplementation(async (_body, handlers) => {
+    handlers.onImage?.(PLACED)
+    handlers.onToken(`${written.shift()}\n\n<<FIG 1>>`)
+    handlers.onDone()
+  })
+  const store = mount()
+  const course = () => store.getState().explorations.byId.saved.threads[1].knowledge!
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('node: Q-learning'))
+  expect(await screen.findByText('First lesson.')).toBeTruthy()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Rewrite this lesson' }))
+  expect(await screen.findByText('Second lesson.')).toBeTruthy()
+  expect(lesson).toHaveBeenCalledTimes(2)
+  expect(lesson.mock.calls[1][0].fresh).toBe(true)
+  // The new lesson brings its own images; nothing stays marked for a rewrite.
+  expect(course().nodes['q learning'].images).toEqual([PLACED])
+  expect(course().nodes['q learning'].freshLesson).toBeUndefined()
 })
 
 it('focuses like the citation graph: the open item holds, a lit neighbour hovers', async () => {

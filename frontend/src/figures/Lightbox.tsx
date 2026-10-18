@@ -18,6 +18,7 @@ import { useEffect, useRef } from 'react'
 import type { AnswerFigure } from '../api'
 import MathText from '../notation/MathText'
 import { usePresence } from '../ui/usePresence'
+import './figures.css'
 
 /**
  * Render a figure enlarged full-screen (click/Escape to dismiss).
@@ -67,8 +68,13 @@ export default function Lightbox({
         alt={shown.caption || 'Figure'}
         onClick={(event) => event.stopPropagation()}
       />
-      {(shown.title || shown.caption || typeof shown.figure === 'number') && (
+      {(shown.title || shown.caption || shown.description || typeof shown.figure === 'number') && (
         <div className="fig-lightbox-cap" onClick={(event) => event.stopPropagation()}>
+          {shown.description && (
+            <span className="fig-lightbox-desc">
+              <MathText>{shown.description}</MathText>
+            </span>
+          )}
           {shown.label ? (
             <b>{shown.label}</b>
           ) : (
@@ -76,7 +82,7 @@ export default function Lightbox({
           )}
           {shown.title && (
             <span>
-              {typeof shown.figure === 'number' ? ' · ' : ''}
+              {shown.label || typeof shown.figure === 'number' ? ' · ' : ''}
               <b>
                 <MathText>{shown.title}</MathText>
               </b>
@@ -84,7 +90,7 @@ export default function Lightbox({
           )}
           {shown.caption && (
             <span>
-              {typeof shown.figure === 'number' || shown.title ? ' — ' : ''}
+              {shown.label || typeof shown.figure === 'number' || shown.title ? ' — ' : ''}
               <MathText>{shown.caption}</MathText>
             </span>
           )}

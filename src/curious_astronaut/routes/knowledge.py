@@ -4,7 +4,9 @@ Description:
 The knowledge network's routes (Phase 5b): expand one course item into
 the concepts it needs, stream one item's lesson, and since v8.23.0 name a
 **synthesis** (several concepts synthesized toward the item they build
-toward) and stream its lesson. All are thin over the ``tutor`` agent. What lives here is the grounding (fetching the paper's real
+toward) and stream its lesson. Since v8.24.0 a lesson is written with
+inline images unless the reader asks for a quick response, and a web image
+it placed is served here (``/api/web_image/<handle>``). All are thin over the ``tutor`` agent. What lives here is the grounding (fetching the paper's real
 reference list, which informs the paper's expansion; lessons stopped citing
 it in v8.17.0) and the caching.
 
@@ -29,12 +31,13 @@ import json
 import logging
 from typing import Any, Iterator
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
 
 from ..agents import events, factory, streams, traversal
 from ..agents.orchestrators import tutor
+from ..services.graph import Provider
 from ..storage import cache
 from .sse import sse, sse_response
 
@@ -189,6 +192,85 @@ def api_expand() -> ResponseReturnValue:
     return jsonify({"children": dumped})
 
 
+def _pictures(payload: dict) -> tutor.Pictures | None:
+    """What a lesson written with images needs, or None for a quick response.
+
+    Args:
+        payload: The request body: ``quick``, ``paper: {id, arxiv_id?,
+            title}``, ``provider``.
+
+    Returns:
+        The tutor's ``Pictures``; None when ``quick`` is set or the tutor's
+        ``images`` knob is 0.
+    """
+    if payload.get("quick") is True or factory.agent_entry("tutor").extras["images"] <= 0:
+        return None
+    raw_paper = payload.get("paper")
+    paper: dict = raw_paper if isinstance(raw_paper, dict) else {}
+    provider: Provider = "openalex" if payload.get("provider") == "openalex" else "s2"
+    return tutor.Pictures(
+        paper_ref=str(paper.get("arxiv_id") or paper.get("id") or ""),
+        paper_title=str(paper.get("title") or ""),
+        provider=provider,
+    )
+
+
+def _with_images(pictures: tutor.Pictures | None) -> list[Any]:
+    """The part of a lesson's cache key that says how it was written.
+
+    A quick lesson and one with images are different lessons: the first
+    must not be served when images are wanted, nor the second for a quick
+    response. ``images`` is in it so a new cap misses the old lessons.
+
+    Args:
+        pictures: The lesson's ``Pictures``, or None for a quick response.
+
+    Returns:
+        ``[]`` for a quick lesson (its key is the one quick lessons always
+        had, so lessons written before v8.24.0 still serve), else the knob
+        and the paper.
+    """
+    if pictures is None:
+        return []
+    return ["images", factory.agent_entry("tutor").extras["images"], pictures.paper_ref]
+
+
+def _relay(key: str, cached: Any, lesson: Iterator[tutor.LessonEvent]) -> Iterator[str]:
+    """Stream a lesson as SSE, or replay its cached copy; cache it once clean.
+
+    Args:
+        key: Its cache key.
+        cached: What the cache holds under it (None for a miss, or a fresh
+            write).
+        lesson: The tutor's stream, started only on a miss.
+
+    Yields:
+        ``token`` frames, with images ``step`` and ``image`` frames, then
+        ``done``; or ``error``. A cached lesson is one ``token`` and its
+        ``image`` frames.
+    """
+    if isinstance(cached, dict) and isinstance(cached.get("text"), str):
+        yield sse("token", {"text": cached["text"]})
+        for placed in cached.get("images") or []:
+            yield sse("image", placed)
+        yield sse("done", {})
+        return
+    written: list[str] = []
+    placed_images: list[dict] = []
+    try:
+        for event in streams.terminated(lesson):
+            if isinstance(event, events.Token):
+                written.append(event.text)
+            elif isinstance(event, tutor.images.LessonImage):
+                placed_images.append(event.model_dump(exclude={"type"}))
+            elif isinstance(event, events.Done) and written:
+                cache.set(key, {"text": "".join(written), "images": placed_images})
+            yield sse(event.type, event.model_dump(exclude={"type"}))
+    except Exception:
+        log.exception("lesson stream failed")
+        yield sse("error", {"message": "The tutor hit an unexpected error."})
+
+
 @bp.post("/api/knowledge/lesson")
 def api_lesson() -> ResponseReturnValue:
     """Stream one course item's lesson as SSE ``token`` events.
@@ -201,11 +283,16 @@ def api_lesson() -> ResponseReturnValue:
         ``needed_by`` (v8.23.0) is
         every item that needs the subject, for the lesson's closing "How it
         fits in" section. Lessons no longer cite the reference list (v8.17.0),
-        so none is fetched here.
+        so none is fetched here. Since v8.24.0 a lesson is written **with
+        images** unless ``quick`` is set: ``paper: {id, arxiv_id?, title}``
+        and ``provider`` tell its image tools where the course paper's
+        figures are.
 
     Returns:
-        An SSE stream of ``token`` frames, then ``done`` or ``error``. A
-        cached lesson arrives as one ``token``. HTTP 400 for a malformed body.
+        An SSE stream of ``token`` frames (with images, ``step`` frames, one
+        status line each, and an ``image`` frame per image placed), then
+        ``done`` or ``error``. A cached lesson arrives as one ``token`` and
+        its ``image`` frames. HTTP 400 for a malformed body.
     """
     payload = request.get_json(silent=True) or {}
     raw_item = payload.get("item") or {}
@@ -222,6 +309,7 @@ def api_lesson() -> ResponseReturnValue:
     paper_id = payload.get("paper_id")
 
     words = factory.agent_entry("tutor").extras["lesson_words"]
+    pictures = _pictures(payload)
     # v4: lessons end with a marked "How it fits in" section covering every
     # item that needs them (v8.23.0). A v3 entry has no such section.
     key = "tutor:lesson:v4:" + _digest(
@@ -232,33 +320,15 @@ def api_lesson() -> ResponseReturnValue:
             [step.model_dump() for step in path],
             [need.model_dump() for need in needed_by],
             paper_id,
+            *_with_images(pictures),
         ]
     )
     cached = None if payload.get("fresh") is True else cache.get(key)
-
-    def stream() -> Iterator[str]:
-        """Relay the lesson, caching it once it finished cleanly.
-
-        Yields:
-            SSE frames.
-        """
-        if isinstance(cached, dict) and isinstance(cached.get("text"), str):
-            yield sse("token", {"text": cached["text"]})
-            yield sse("done", {})
-            return
-        written: list[str] = []
-        try:
-            for event in streams.terminated(tutor.lesson(item, why, path, abstract, needed_by)):
-                if isinstance(event, events.Token):
-                    written.append(event.text)
-                elif isinstance(event, events.Done) and written:
-                    cache.set(key, {"text": "".join(written)})
-                yield sse(event.type, event.model_dump(exclude={"type"}))
-        except Exception:
-            log.exception("lesson stream failed")
-            yield sse("error", {"message": "The tutor hit an unexpected error."})
-
-    return sse_response(stream())
+    if isinstance(cached, dict) and isinstance(cached.get("text"), str):
+        return sse_response(_relay(key, cached, iter([])))
+    return sse_response(
+        _relay(key, None, tutor.lesson(item, why, path, abstract, needed_by, pictures))
+    )
 
 
 @bp.post("/api/knowledge/fit")
@@ -395,11 +465,14 @@ def api_synthesis_lesson() -> ResponseReturnValue:
 
     Body:
         ``{name, members: [{title, kind}], toward: {title, kind}, path:
-        [{title, kind}], paper_id?}``.
+        [{title, kind}], paper_id?}``, and since v8.24.0 ``quick``, ``paper``
+        and ``provider`` as for a lesson (written with images unless quick),
+        and ``fresh`` to skip the cached copy and replace it.
 
     Returns:
-        An SSE stream of ``token`` frames, then ``done`` or ``error``; a
-        cached lesson arrives as one ``token``. HTTP 400 for a malformed body.
+        An SSE stream as for a lesson: ``token``, with images ``step`` and
+        ``image`` frames, then ``done`` or ``error``; a cached lesson arrives
+        as one ``token`` and its ``image`` frames. HTTP 400 for a malformed body.
     """
     payload = request.get_json(silent=True) or {}
     name = str(payload.get("name") or "").strip()
@@ -411,6 +484,7 @@ def api_synthesis_lesson() -> ResponseReturnValue:
         return jsonify({"error": "name is required"}), 400
 
     words = factory.agent_entry("tutor").extras["lesson_words"]
+    pictures = _pictures(payload)
     key = _synthesis_key(
         "lesson",
         [
@@ -420,30 +494,41 @@ def api_synthesis_lesson() -> ResponseReturnValue:
             toward.model_dump(),
             [step.model_dump() for step in path],
             payload.get("paper_id"),
+            *_with_images(pictures),
         ],
     )
-    cached = cache.get(key)
+    # ``fresh`` (v8.24.0, ↻ "Rewrite this lesson") skips the cached copy and replaces it.
+    cached = None if payload.get("fresh") is True else cache.get(key)
+    if isinstance(cached, dict) and isinstance(cached.get("text"), str):
+        return sse_response(_relay(key, cached, iter([])))
+    return sse_response(
+        _relay(key, None, tutor.synthesis_lesson(name, members, toward, path, pictures))
+    )
 
-    def stream() -> Iterator[str]:
-        """Relay the synthesis's lesson, caching it once it finished cleanly.
 
-        Yields:
-            SSE frames.
-        """
-        if isinstance(cached, dict) and isinstance(cached.get("text"), str):
-            yield sse("token", {"text": cached["text"]})
-            yield sse("done", {})
-            return
-        written: list[str] = []
-        try:
-            for event in streams.terminated(tutor.synthesis_lesson(name, members, toward, path)):
-                if isinstance(event, events.Token):
-                    written.append(event.text)
-                elif isinstance(event, events.Done) and written:
-                    cache.set(key, {"text": "".join(written)})
-                yield sse(event.type, event.model_dump(exclude={"type"}))
-        except Exception:
-            log.exception("synthesis lesson stream failed")
-            yield sse("error", {"message": "The tutor hit an unexpected error."})
+@bp.get("/api/web_image/<handle>")
+def api_web_image(handle: str) -> ResponseReturnValue:
+    """Serve an image a lesson's image search found on the web (v8.24.0).
 
-    return sse_response(stream())
+    Through our origin, so a page's hotlink rules and the browser's
+    mixed-content rules don't break the card, and the host never sees the
+    reader. The image is fetched afresh (with a day-long browser cache) and
+    never stored: only its address is kept.
+
+    Args:
+        handle: The image's handle. Only a handle a search registered
+            resolves, so this is no open proxy, and the fetch itself is the
+            guarded one (public addresses only).
+
+    Returns:
+        The image bytes; 404 for an unknown handle or an image that is gone
+        or no longer an image.
+    """
+    if tutor.images.web_image_url(handle) is None:
+        return Response(status=404)
+    try:
+        data, media_type = tutor.images.image_bytes(f"web:{handle}")
+    except Exception:
+        log.info("web image proxy failed for %s", handle, exc_info=True)
+        return Response(status=404)
+    return Response(data, mimetype=media_type, headers={"Cache-Control": "public, max-age=86400"})

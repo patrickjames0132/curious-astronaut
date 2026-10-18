@@ -18,7 +18,14 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import type { KnowledgeChild, KnowledgeKind, KnowledgePaper, KnowledgeStep, PaperRef } from '../api'
+import type {
+  AnswerFigure,
+  KnowledgeChild,
+  KnowledgeKind,
+  KnowledgePaper,
+  KnowledgeStep,
+  PaperRef,
+} from '../api'
 
 /** A node's kind: the paper, a concept, or a synthesis (v8.23.0). */
 export type KnowledgeNodeKind = KnowledgeKind | 'synthesis'
@@ -50,8 +57,16 @@ export interface KnowledgeNode {
   breakdown?: KnowledgeChild[]
   /** True once its lesson has been opened — the graph greys it out. */
   visited?: boolean
-  /** The finished lesson's Markdown, once written. */
+  /** The finished lesson's Markdown, once written. Since v8.24.0 it may hold
+   *  `<<FIG n>>` markers, one per image in `images`, each on its own line. */
   lesson?: string
+  /**
+   * Its lesson's inline images (v8.24.0), slot-tagged to pair with the
+   * lesson's `<<FIG n>>` markers: placed by the tutor as it wrote the lesson,
+   * and an empty list when it placed none (or wrote a quick response).
+   * Absent on a lesson written before images.
+   */
+  images?: AnswerFigure[]
   /**
    * The items its lesson's closing "How it fits in" section was written for
    * (v8.23.0), sorted ids: when the items needing it change, that section
@@ -145,6 +160,20 @@ export function splitLesson(text: string): { body: string; fit: string | null } 
   }
   if (start < 0) return { body: text, fit: null }
   return { body: text.slice(0, start).trimEnd(), fit: text.slice(end).trim() }
+}
+
+/** An image's marker on its own line, with the blank lines around it. */
+const IMAGE_MARK = /\n*^<<FIG \d+>>$\n*/gm
+
+/**
+ * A lesson's Markdown without its images' markers (v8.24.0), for the tutor:
+ * a rewrite of the closing section reads the lesson, not where its images sit.
+ *
+ * @param text The lesson's Markdown.
+ * @returns It without `<<FIG n>>` lines.
+ */
+export function withoutImageMarks(text: string): string {
+  return text.replace(IMAGE_MARK, '\n\n').trim()
 }
 
 /**
@@ -677,7 +706,8 @@ export function withRestored(map: KnowledgeMap, nodeId: string): KnowledgeMap {
  *   old lessons back), marked `freshLesson` so their lessons are written past
  *   the server's cache. Breaking one down again uses the cached breakdown, so
  *   a level the reader liked comes back free. Check-offs survive.
- * - **The item's own lesson** is cleared and rewritten the same way.
+ * - **The item's own lesson** is cleared (with its images, v8.24.0) and
+ *   rewritten the same way.
  *
  * What goes is archived, as for a delete.
  *
@@ -700,7 +730,7 @@ export function withBreakdownAgain(
     new Set(),
   )
   const before = new Set(Object.keys(cleared.nodes))
-  const { lesson: _lesson, fitFor: _fitFor, ...item } = cleared.nodes[nodeId]
+  const { lesson: _lesson, fitFor: _fitFor, images: _images, ...item } = cleared.nodes[nodeId]
   const relinked = attached(
     {
       ...cleared,

@@ -29,10 +29,11 @@ import threading
 from pathlib import Path
 from typing import Callable, Iterator
 
-from flask import Blueprint, Response, current_app, jsonify, request
+from flask import Blueprint, Response, current_app, jsonify, request, send_file
 from flask.typing import ResponseReturnValue
 
 from ..services import sources as sources_service
+from ..services.sources import store as sources_store
 from .sse import sse, sse_response
 
 bp = Blueprint("sources", __name__)
@@ -177,6 +178,29 @@ def api_source_figure(source_id: str, figure_index: int) -> ResponseReturnValue:
         mimetype="image/png",
         headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+@bp.get("/api/sources/<source_id>/pdf")
+def api_source_pdf(source_id: str) -> ResponseReturnValue:
+    """Serve a source's stored PDF, so a credit can open the book (v8.24.0).
+
+    A lesson image from a library figure links its credit here with
+    ``#page=N``, which the browser's own PDF viewer opens at the page.
+
+    Args:
+        source_id: The source's id. Only a source the library holds is
+            served, so an id can't reach any other file.
+
+    Returns:
+        The PDF inline; 404 for an unknown source or one with no stored file
+        (URL sources, pre-v5.28 uploads).
+    """
+    if sources_service.get_source(source_id) is None:
+        return Response(status=404)
+    path = sources_store.pdf_path(source_id)
+    if not path.exists():
+        return Response(status=404)
+    return send_file(path, mimetype="application/pdf")
 
 
 @bp.delete("/api/sources/<source_id>")

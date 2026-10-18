@@ -80,9 +80,10 @@ there are two entry points sharing one parser:
 own paper figures' captions), `teacher/transcript/BeatList.tsx` (beat heading +
 text), `teacher/transcript/ChatMessage.tsx` (answer prose),
 `teacher/transcript/AnswerMarkdown.tsx` (paper titles in a direct-search list —
-lists), `teacher/figures/FigCard.tsx` + `figures/Lightbox.tsx` (figure title +
-caption). Every figure-caption render path is covered — the detail panel's
-inline captions, the teacher's inline `FigCard`, and the shared enlarged
+lists), `figures/FigCard.tsx` + `figures/Lightbox.tsx` (figure title,
+caption, and a lesson image's description). Every figure-caption render path is
+covered — the detail panel's inline captions, the shared inline `FigCard` (the
+assistant's answers and the knowledge panel's lessons), and the shared enlarged
 `Lightbox`.
 
 `prepareMath` (Markdown): `teacher/transcript/AnswerMarkdown.tsx`, the one

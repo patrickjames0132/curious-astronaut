@@ -14,12 +14,28 @@
  * item that needs it (v8.23.0), and remembers which items those were
  * (`fitFor`). When they change later, `refit` rewrites that section alone.
  *
+ * A lesson is written with its inline images (v8.24.0): the tutor searches
+ * the reader's library, papers and the web for the pictures it wants while
+ * it writes, and places them before its text. Until the text starts, the
+ * draft's `step` is one status line that says where the tutor is; then the
+ * text streams with its images already in place (Patrick: stream it), and
+ * lesson and images land on the course together when it's done. `quick` gives up on the images
+ * for a lesson still being written: it stops that run and writes the lesson
+ * from the tutor's own knowledge alone, the quick response.
+ *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
 import { useCallback, useState } from 'react'
-import { fitLesson, streamLesson, streamSynthesisLesson, type KnowledgeNeed } from '../api'
+import {
+  fitLesson,
+  streamLesson,
+  streamSynthesisLesson,
+  type AnswerFigure,
+  type KnowledgeNeed,
+  type Provider,
+} from '../api'
 import { useAppDispatch } from '../store'
 import { knowledgeLessonWritten } from '../store/explorations'
 import {
@@ -31,14 +47,29 @@ import {
   splitLesson,
   stepOf,
   tutorPath,
+  withoutImageMarks,
   type KnowledgeMap,
 } from './model'
 
-/** A lesson being written: the text so far, or why it failed. */
+/** A lesson being written: its text and images so far, the step it is on,
+ *  whether it is a quick response, or why it failed. */
 export interface LessonDraft {
   text: string
+  /** The images placed so far (v8.24.0): placed before the text is written,
+   *  so they are in hand by the time it streams. */
+  images: AnswerFigure[]
+  /** What the tutor is doing now, as the panel's one status line (v8.24.0). */
+  step: string
+  /** Every step so far, oldest first: the line unfolds into them, the tutor's
+   *  train of thought (v8.24.0). */
+  steps: string[]
+  /** Written without images, so there is no quicker way to offer. */
+  quick?: boolean
   error?: string
 }
+
+/** The status line while the lesson's own text is being written. */
+const WRITING_STEP = 'Writing the lesson…'
 
 /**
  * Lessons being written, app-wide, as `threadId:nodeId`. Module-level rather
@@ -47,6 +78,9 @@ export interface LessonDraft {
  * same lesson a second time.
  */
 const IN_FLIGHT = new Set<string>()
+
+/** How to stop a lesson being written, by the same key, for a quick response. */
+const STOPS = new Map<string, AbortController>()
 
 /**
  * The items that need an item, with why, as the tutor is told them.
@@ -65,21 +99,30 @@ function needsOf(map: KnowledgeMap, nodeId: string): KnowledgeNeed[] {
  * Stream lessons for one thread's course.
  *
  * @param threadId The thread the course belongs to.
- * @returns The drafts in flight by node id, `write` to start one,
- *   `writing` — true for a lesson still streaming from an earlier mount —
- *   and `refit` / `refitting`, to rewrite a stale "How it fits in" section.
+ * @param provider The graph's provider, which resolves the paper's PDF for
+ *   its figures.
+ * @returns The drafts in flight by node id, `write` to start one, `quick`
+ *   to give up on a lesson's images and have it now (v8.24.0), `writing` —
+ *   true for a lesson still being written from an earlier mount — and
+ *   `refit` / `refitting`, to rewrite a stale "How it fits in" section.
  */
-export function useLessons(threadId: string) {
+export function useLessons(threadId: string, provider: Provider) {
   const dispatch = useAppDispatch()
   const [drafts, setDrafts] = useState<Record<string, LessonDraft>>({})
 
-  const write = useCallback(
-    (map: KnowledgeMap, nodeId: string) => {
+  // The tutor finds its images first, then writes (v8.24.0): the draft's step
+  // is the panel's one status line until the text starts, and the text then
+  // streams with its images in place.
+  const start = useCallback(
+    (map: KnowledgeMap, nodeId: string, quick: boolean) => {
       const node = map.nodes[nodeId]
       const flightKey = `${threadId}:${nodeId}`
       if (!node || node.lesson || IN_FLIGHT.has(flightKey)) return
       IN_FLIGHT.add(flightKey)
+      const stop = new AbortController()
+      STOPS.set(flightKey, stop)
       let text = ''
+      const images: AnswerFigure[] = []
       const update = (draft: LessonDraft | null) =>
         setDrafts((previous) => {
           const next = { ...previous }
@@ -87,25 +130,50 @@ export function useLessons(threadId: string) {
           else delete next[nodeId]
           return next
         })
-      update({ text })
+      const steps: string[] = []
+      update({ text, images, step: WRITING_STEP, steps, quick })
       // The items the closing section is written for, as of now.
       const fitFor = fitNeeds(map, nodeId)
+      const release = () => {
+        IN_FLIGHT.delete(flightKey)
+        if (STOPS.get(flightKey) === stop) STOPS.delete(flightKey)
+      }
+      const fail = (message: string) => {
+        // Stopped for a quick response: that one carries on, this one is moot.
+        if (stop.signal.aborted) return
+        release()
+        update({ text, images, step: '', steps, quick, error: message })
+      }
       const handlers = {
         onToken: (chunk: string) => {
           text += chunk
-          update({ text })
+          update({ text, images: [...images], step: WRITING_STEP, steps, quick })
+        },
+        onStep: (step: string) => {
+          if (steps[steps.length - 1] !== step) steps.push(step)
+          update({ text, images: [...images], step, steps: [...steps], quick })
+        },
+        onImage: (image: AnswerFigure) => {
+          images.push(image)
         },
         onDone: () => {
-          IN_FLIGHT.delete(flightKey)
-          if (text) dispatch(knowledgeLessonWritten({ threadId, nodeId, text, fitFor }))
+          if (stop.signal.aborted) return
+          release()
+          if (text) dispatch(knowledgeLessonWritten({ threadId, nodeId, text, fitFor, images }))
           update(null)
         },
-        onError: (message: string) => {
-          IN_FLIGHT.delete(flightKey)
-          update({ text, error: message })
-        },
+        onError: fail,
+        signal: stop.signal,
       }
-      const paperId = map.nodes[map.rootId]?.paper?.id
+      const paperNode = map.nodes[map.rootId]?.paper
+      const pictures = {
+        ...(quick && { quick: true }),
+        ...(paperNode && {
+          paper: { id: paperNode.id, arxiv_id: paperNode.arxiv_id, title: paperNode.title },
+        }),
+        provider,
+      }
+      const paperId = paperNode?.id
       const toward = node.toward ? map.nodes[node.toward] : undefined
       const streaming =
         node.kind === 'synthesis' && toward
@@ -119,6 +187,8 @@ export function useLessons(threadId: string) {
                 toward: stepOf(toward),
                 path: tutorPath(map, toward.id),
                 paper_id: paperId,
+                ...(node.freshLesson && { fresh: true }),
+                ...pictures,
               },
               handlers,
             )
@@ -131,15 +201,33 @@ export function useLessons(threadId: string) {
                 abstract: node.paper?.abstract ?? '',
                 paper_id: paperId,
                 ...(node.freshLesson && { fresh: true }),
+                ...pictures,
               },
               handlers,
             )
-      void streaming.catch((error: unknown) => {
-        IN_FLIGHT.delete(flightKey)
-        update({ text, error: error instanceof Error ? error.message : 'The lesson failed' })
-      })
+      void streaming.catch((error: unknown) =>
+        fail(error instanceof Error ? error.message : 'The lesson failed'),
+      )
     },
-    [dispatch, threadId],
+    [dispatch, threadId, provider],
+  )
+
+  const write = useCallback(
+    (map: KnowledgeMap, nodeId: string) => start(map, nodeId, false),
+    [start],
+  )
+
+  // A quick response (v8.24.0): stop the lesson being written with images
+  // and write it from the tutor's own knowledge, now.
+  const quick = useCallback(
+    (map: KnowledgeMap, nodeId: string) => {
+      const flightKey = `${threadId}:${nodeId}`
+      STOPS.get(flightKey)?.abort()
+      STOPS.delete(flightKey)
+      IN_FLIGHT.delete(flightKey)
+      start(map, nodeId, true)
+    },
+    [start, threadId],
   )
 
   // Items whose closing section is being rewritten, by node id.
@@ -162,7 +250,7 @@ export function useLessons(threadId: string) {
       setFlight(true)
       fitLesson({
         item: stepOf(node),
-        lesson: body,
+        lesson: withoutImageMarks(body),
         needed_by: needsOf(map, nodeId),
         paper_id: map.nodes[map.rootId]?.paper?.id,
       })
@@ -186,5 +274,5 @@ export function useLessons(threadId: string) {
     [threadId],
   )
 
-  return { drafts, write, writing, refit, refitting }
+  return { drafts, write, quick, writing, refit, refitting }
 }

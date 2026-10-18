@@ -202,7 +202,12 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
     title: 'Click a node for its lesson',
     body:
       'A panel opens with what it is, why the course needs it, and its lesson — written ' +
-      'for this course the first time you open it and kept after that. Its links stay lit ' +
+      'for this course the first time you open it and kept after that. It comes with a few ' +
+      'images from your library, the paper or the web where they help, each credited and ' +
+      'described (click one to enlarge it); a line says what the tutor is doing until it’s ready ' +
+      '(click it for every step so far), ' +
+      'and “Quick response” skips the images to have the lesson now. ↻ beside the ✕ ' +
+      'writes a finished lesson again. Its links stay lit ' +
       'while it’s open: point at a lit one to see its links in turn. Click it again, or press ' +
       'Esc, to close it. Press “Unknown” to make it “Known”, and the course skips it, with ' +
       'everything beneath it. Already know several? ' +

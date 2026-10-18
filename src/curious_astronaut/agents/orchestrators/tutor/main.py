@@ -41,18 +41,28 @@ Charles Patrick James <charles.patrick.james@gmail.com>
 from __future__ import annotations
 
 import logging
-from typing import Iterator, Literal
+from dataclasses import dataclass
+from typing import Any, Iterator, Literal
 
 from pydantic import BaseModel, ConfigDict
 from pydantic_ai import Agent
-from pydantic_ai.messages import PartDeltaEvent, PartStartEvent, ToolCallPart, ToolCallPartDelta
+from pydantic_ai.messages import (
+    PartDeltaEvent,
+    PartEndEvent,
+    PartStartEvent,
+    ToolCallPart,
+    ToolCallPartDelta,
+)
 from pydantic_ai.run import AgentRunResultEvent
 
+from ....services.graph import Provider
 from ... import events, factory, prompts, streams
+from . import images
 from .config import (
     AGENT_ID,
     EXPAND_PROMPT,
     FIT_PROMPT,
+    IMAGES_PROMPT,
     LESSON_PROMPT,
     SKILLS,
     SYNTHESIS_NAME_PROMPT,
@@ -143,10 +153,49 @@ synthesis_agent: Agent[None, Lesson] = Agent(
     output_type=Lesson,
     instructions=[SYNTHESIS_PROMPT, *(prompts.skill(name) for name in SKILLS)],
 )
+# A lesson or a synthesis written with images (v8.24.0): the same prompt, plus
+# the image tools and how to use them. Separate agents, because the tools need
+# the run-state their plain twins don't carry.
+illustrated_lesson_agent: Agent[images.LessonDeps, Lesson] = Agent(
+    output_type=Lesson,
+    deps_type=images.LessonDeps,
+    instructions=[LESSON_PROMPT, IMAGES_PROMPT, *(prompts.skill(name) for name in SKILLS)],
+    tools=[images.find_images, images.show_image],
+    retries=images.NUDGES,
+)
+illustrated_synthesis_agent: Agent[images.LessonDeps, Lesson] = Agent(
+    output_type=Lesson,
+    deps_type=images.LessonDeps,
+    instructions=[SYNTHESIS_PROMPT, IMAGES_PROMPT, *(prompts.skill(name) for name in SKILLS)],
+    tools=[images.find_images, images.show_image],
+    retries=images.NUDGES,
+)
+# Images aren't optional (Patrick, 2026-10-17): a lesson is sent back until
+# it has searched and placed one, unless nothing it found shows the idea.
+illustrated_lesson_agent.output_validator(images.must_show_an_image)
+illustrated_synthesis_agent.output_validator(images.must_show_an_image)
 fit_agent: Agent[None, Lesson] = Agent(
     output_type=Lesson,
     instructions=[FIT_PROMPT, *(prompts.skill(name) for name in SKILLS)],
 )
+
+
+@dataclass(frozen=True)
+class Pictures:
+    """What a lesson written with images needs to know (v8.24.0).
+
+    Its absence is a quick response: the lesson as the tutor knows it, with
+    no tools and no images.
+    """
+
+    paper_ref: str
+    paper_title: str
+    provider: Provider
+
+
+LessonEvent = events.Token | images.Step | images.LessonImage
+"""What a lesson's stream yields: its text, and with images, the tutor's
+steps and each image it places."""
 
 
 def _path_block(path: list[Step]) -> str:
@@ -256,7 +305,8 @@ def lesson(
     path: list[Step],
     abstract: str,
     needed_by: list[Need] | None = None,
-) -> Iterator[events.Event]:
+    pictures: Pictures | None = None,
+) -> Iterator[LessonEvent]:
     """Teach one course item, streamed.
 
     Args:
@@ -266,11 +316,13 @@ def lesson(
         abstract: The paper's abstract when the item is the paper ('' otherwise).
         needed_by: Every item that needs it, each with why (v8.23.0), for the
             closing "How it fits in" section.
+        pictures: Write it with images (v8.24.0); None for a quick response.
 
     Yields:
-        ``Token`` events carrying the lesson's Markdown as it is written. The
-        caller wraps this in
-        ``streams.terminated`` for the closing ``Done``/``Error``.
+        ``Token`` events carrying the lesson's Markdown as it is written, and
+        with images the tutor's ``Step``s and each ``LessonImage`` it places.
+        The caller wraps this in ``streams.terminated`` for the closing
+        ``Done``/``Error``.
 
     Raises:
         RuntimeError: When the run ends without a lesson.
@@ -284,22 +336,66 @@ def lesson(
         parts.append(f"ABSTRACT: {abstract}\n\n")
     parts.append(f"Aim for about {words} words.")
 
-    yield from _stream_text(lesson_agent, "".join(parts))
+    deps = _image_deps(item.title, pictures, paper_lesson=item.kind == "paper")
+    if deps is None:
+        yield from _stream_text(lesson_agent, "".join(parts))
+    else:
+        parts.append(f" Show at most {deps.images_left} images.")
+        yield from _stream_text(illustrated_lesson_agent, "".join(parts), deps)
 
 
-def _stream_text(agent: Agent[None, Lesson], prompt: str) -> Iterator[events.Event]:
+def _image_deps(
+    subject: str, pictures: Pictures | None, *, paper_lesson: bool = False
+) -> images.LessonDeps | None:
+    """A lesson's image run-state, or None when it is written without images.
+
+    Args:
+        subject: The lesson's subject.
+        pictures: What a lesson with images needs, or None (a quick response).
+        paper_lesson: The lesson is the course paper's own, so its figures
+            are offered.
+
+    Returns:
+        The run-state; None for a quick response or the ``images`` knob at 0.
+    """
+    extras = factory.agent_entry(AGENT_ID).extras
+    limit = extras["images"]
+    if pictures is None or limit <= 0:
+        return None
+    return images.LessonDeps(
+        subject=subject,
+        paper_ref=pictures.paper_ref,
+        paper_title=pictures.paper_title,
+        provider=pictures.provider,
+        images_left=limit,
+        searches=extras["image_searches"],
+        paper_lesson=paper_lesson,
+    )
+
+
+def _stream_text(
+    agent: Agent[Any, Lesson], prompt: str, deps: images.LessonDeps | None = None
+) -> Iterator[LessonEvent]:
     """Run a lesson-shaped agent and stream its ``text`` field as it is written.
 
     The output arrives as a tool call's JSON arguments; the text so far is
     read out of the partial JSON (``streams.partial_text``) and emitted as it
-    grows.
+    grows. With images (``deps``), a search's status line is said the moment
+    the tutor writes the call (``images.pending_step``: nothing streams while
+    a tool runs), and whatever the tools queued is drained between events. A
+    draft that will be sent back (``images.send_back``: it hasn't searched or
+    placed an image yet) is held, never streamed; whether it will be is fixed
+    by what the tools did before it starts, so a draft that streams is the
+    one kept.
 
     Args:
-        agent: The lesson or synthesis agent.
+        agent: The lesson or synthesis agent, plain or with images.
         prompt: The run's user prompt.
+        deps: The image run-state, for an agent with images.
 
     Yields:
-        ``Token`` events carrying the Markdown as it is written.
+        ``Token`` events carrying the Markdown as it is written; with images,
+        ``Step``s and ``LessonImage``s too.
 
     Raises:
         RuntimeError: When the run ends without a result.
@@ -308,7 +404,25 @@ def _stream_text(agent: Agent[None, Lesson], prompt: str) -> Iterator[events.Eve
     args_buffer = ""
     emitted = ""
     final: Lesson | None = None
-    for event in streams.drive(agent, prompt, model=factory.model_for(AGENT_ID)):
+    streaming = deps is None  # without images every draft is kept
+    extra: dict[str, Any] = {} if deps is None else {"deps": deps}
+    for event in streams.drive(agent, prompt, model=factory.model_for(AGENT_ID), **extra):
+        if deps is not None:
+            yield from deps.drain()
+            if (
+                isinstance(event, PartEndEvent)
+                and isinstance(event.part, ToolCallPart)
+                and event.part.tool_name != streams.OUTPUT_TOOL
+            ):
+                step = images.pending_step(event.part.tool_name, event.part.args_as_dict())
+                if step is not None:
+                    yield step
+            if (
+                isinstance(event, PartStartEvent)
+                and isinstance(event.part, ToolCallPart)
+                and event.part.tool_name == streams.OUTPUT_TOOL
+            ):
+                streaming = images.send_back(deps) is None
         grew = False
         if isinstance(event, PartStartEvent) and isinstance(event.part, ToolCallPart):
             if event.part.tool_name == streams.OUTPUT_TOOL:
@@ -326,11 +440,20 @@ def _stream_text(agent: Agent[None, Lesson], prompt: str) -> Iterator[events.Eve
             grew = True
         elif isinstance(event, AgentRunResultEvent):
             final = event.result.output
-        if grew:
+        if grew and streaming:
             grown = streams.partial_text(args_buffer)
             if len(grown) > len(emitted):
                 yield events.Token(text=grown[len(emitted) :])
                 emitted = grown
+    if deps is not None:
+        yield from deps.drain()
+        log.info(
+            "lesson images %r: %d search(es), %d candidate(s) seen, %d placed",
+            deps.subject,
+            deps.searches - deps.searches_left,
+            len(deps.candidates),
+            len(deps.images),
+        )
     if final is None:  # pragma: no cover — the run raises before this
         raise RuntimeError("tutor lesson ended without a result")
     remainder = final.text[len(emitted) :]
@@ -374,8 +497,12 @@ def name_synthesis(members: list[Step], toward: Step, path: list[Step]) -> Synth
 
 
 def synthesis_lesson(
-    name: str, members: list[Step], toward: Step, path: list[Step]
-) -> Iterator[events.Event]:
+    name: str,
+    members: list[Step],
+    toward: Step,
+    path: list[Step],
+    pictures: Pictures | None = None,
+) -> Iterator[LessonEvent]:
     """Teach how a synthesis's concepts come together, streamed.
 
     Args:
@@ -383,10 +510,12 @@ def synthesis_lesson(
         members: The concepts it synthesizes.
         toward: The item they build toward.
         path: The course path above ``toward``, root first.
+        pictures: Write it with images (v8.24.0); None for a quick response.
 
     Yields:
-        ``Token`` events carrying the lesson's Markdown as it is written; the
-        caller wraps this in ``streams.terminated``.
+        ``Token`` events carrying the lesson's Markdown as it is written, and
+        with images the tutor's ``Step``s and ``LessonImage``s; the caller
+        wraps this in ``streams.terminated``.
     """
     words = factory.agent_entry(AGENT_ID).extras["lesson_words"]
     prompt = (
@@ -396,7 +525,12 @@ def synthesis_lesson(
         + _path_block(path)
         + f"Aim for about {words} words."
     )
-    yield from _stream_text(synthesis_agent, prompt)
+    deps = _image_deps(name, pictures)
+    if deps is None:
+        yield from _stream_text(synthesis_agent, prompt)
+    else:
+        prompt += f" Show at most {deps.images_left} images."
+        yield from _stream_text(illustrated_synthesis_agent, prompt, deps)
 
 
 def fit_section(item: Step, body: str, needed_by: list[Need]) -> str:

@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { REL_COLOR, dimColor } from '../graph/theme'
+import { REL_COLOR, SELECTION_RING, dimColor, type CanvasInk } from '../graph/theme'
 import { synthesisLinks, type KnowledgeMap, type KnowledgeNode } from './model'
 
 /** Fill per role: the paper in gold (as on the citation graph), concepts in violet. */
@@ -31,6 +31,8 @@ export const KNOWLEDGE_COLOR = {
 
 /** A synthesis's line, a step fainter than its fill (v8.23.0). */
 export const SYNTHESIS_EDGE = 'rgba(56,217,169,0.55)'
+/** The same line where a focus has dimmed it (v8.24.0): its teal, faint. */
+export const SYNTHESIS_EDGE_DIM = 'rgba(56,217,169,0.2)'
 
 /** A node as the force engine holds it: our node plus the engine's position fields. */
 export interface CanvasNode {
@@ -169,6 +171,39 @@ export function linkLit(
  */
 export function touches(link: CanvasLink, nodeId: string | null): boolean {
   return !!nodeId && (endId(link.source) === nodeId || endId(link.target) === nodeId)
+}
+
+/**
+ * An edge's colour (v8.24.0), the one rule both views paint by. A "needs"
+ * edge is a neutral slate, a hue no node uses (Patrick: violet read as a
+ * concept, and a synthesis's line is teal): fainter where a focus dims it,
+ * brighter where a focus that isn't its own lights it (a hovered neighbour,
+ * a find), and the selection blue on the open item's own edges. A synthesis's
+ * line keeps its teal, faint when dimmed.
+ *
+ * @param link The edge.
+ * @param lit The lit items, or null with no focus.
+ * @param anchorId The focused item, whose own edges alone stay lit.
+ * @param openId The item whose lesson is open.
+ * @param ink The theme's canvas inks.
+ * @param bright Paint every undimmed edge the brighter slate: 3D, which has
+ *   no hover to brighten one and draws its lines at reduced opacity, so the
+ *   plain slate read as permanently dark there (Patrick).
+ * @returns The colour.
+ */
+export function edgeColor(
+  link: CanvasLink,
+  lit: ReadonlySet<string> | null,
+  anchorId: string | null,
+  openId: string | null,
+  ink: CanvasInk,
+  bright = false,
+): string {
+  if (!linkLit(link, lit, anchorId))
+    return link.synthesis ? SYNTHESIS_EDGE_DIM : ink.knowledgeEdgeDim
+  if (touches(link, openId)) return SELECTION_RING
+  if (link.synthesis) return SYNTHESIS_EDGE
+  return lit || bright ? ink.knowledgeEdgeLit : ink.knowledgeEdge
 }
 
 /** Zoom past which the 2D view names every node. Lower than the citation

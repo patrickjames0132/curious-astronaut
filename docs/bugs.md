@@ -22,6 +22,29 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### Every Wikipedia image was dropped as page furniture (v8.24.0, pre-release)
+
+- **Symptom.** Lesson images almost never came from the web, though the web
+  scout kept returning Wikipedia articles whose figures were exactly right
+  (the KL divergence article's two densities, the MDP state diagram). A
+  probe found 0 images on either article.
+- **Root cause.** `integrations/web/images.py` drops page furniture by
+  matching words like `logo`, `icon` and `thumbnail` against an image's
+  address, and matched the **whole URL**. Wikipedia's figures are served as
+  `…/500px-Markov_Decision_Process.svg.png?utm_source=…&utm_content=thumbnail`,
+  so the query string's tracking tag marked every one of them as furniture.
+  Nothing failed: the page just "had no figures".
+- **Fix.** The furniture pattern is matched against the URL's **path** only.
+  Along the way the scraper also learned to take a `srcset`'s largest size
+  (and a `<picture>`'s `<source>`s) before `src`, which is often a
+  thumbnail under the 200px minimum, and to read backslashes in an address
+  as slashes; and the tutor now reads Wikipedia directly through its search
+  and REST APIs rather than only when the scout happens to return it.
+- **Lesson / guard.** A filter on URLs should look at the part that names the
+  resource, not at tracking parameters anyone can append.
+  `test/curious_astronaut/integrations/web/test_images.py` keeps a figure
+  whose query says `thumbnail`, and drops one whose path says `logo`.
+
 ### A synthesis blanked the Knowledge Graph down to the paper (v8.23.0, pre-release)
 
 - **Symptom.** Sometimes, right after "◆ Synthesize", the 2D Knowledge

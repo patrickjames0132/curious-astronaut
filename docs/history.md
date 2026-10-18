@@ -3541,6 +3541,65 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **Lessons come with real images, credited and described** *(v8.24.0)*
+      — from the `todos.md` inbox (2026-10-17): the tutor places images in a
+      lesson where they help, the way the citation-graph assistant shows
+      figures in its answers. Not interactive: a fresh start beside the
+      parked `feature/visuals` branch, keeping only its guarded web fetch and
+      image scraper (`integrations/web`). Built and reworked over one long
+      browser review the same day:
+
+      **Where it landed.** The lesson's prose is still the tutor's own
+      knowledge, uncited. While writing, the tutor holds two tools:
+      `find_images(what)`, which searches the reader's library, papers
+      (S2/OpenAlex on the subject, their ar5iv figures ranked by caption) and
+      the web (Wikipedia read directly, then the web scout's pages) at once,
+      and shows it each candidate **with its pixels** (shrunk to 768px); and
+      `show_image(n)`, which places one with a `<<FIG n>>` marker after the
+      paragraph it shows. Each image keeps its own caption, the tutor
+      describing only one that has none, and its credit links to the page,
+      the paper, or the reader's own book at the figure's page (a new
+      `/api/sources/<id>/pdf`). Web images come through
+      `/api/web_image/<handle>`, never hot-linked and never stored. The
+      lesson streams once the images are placed, behind one status line that
+      rises in step by step, cuts long searches short with an ellipsis and
+      unfolds into every step so far; ⚡ **Quick response** beside it stops
+      the search and writes the lesson from the tutor's knowledge alone, and
+      a ↻ beside the panel's ✕ rewrites a finished lesson. Two knobs, like
+      the researcher's: "Images per lesson" (3) and "Image searches per
+      lesson" (4).
+
+      **What it took to get there**, so none of it is re-tried. (1) *Write
+      first, then pick*: the lesson streamed, then one search on the
+      subject's name and a second model fit images into prose that never
+      knew them; almost no lesson got one (a dry run ranked Sutton & Barto's
+      backup diagrams sixth of seven). (2) *All at once*: Patrick found
+      images popping in under a lesson he was reading worse than a wait,
+      then wanted the text streamed again; both hold now. (3) *Tools while
+      writing*, the tutor asking for the picture each paragraph needs, fixed
+      the ranking, but left optional it searched in one lesson of four, so a
+      lesson is now sent back (an output validator, at most three times)
+      until it has searched and placed an image, unless nothing found shows
+      the idea. (4) Required images then placed SAC's Hopper results plot in
+      a concept lesson: the course paper's own figures are now offered only
+      in its own lesson. (5) The web gave little because every Wikipedia
+      figure was being dropped as page furniture (see
+      [bugs.md](bugs.md)), Medium refuses server fetches (403, not worked
+      around), and the scraper took thumbnails over a `srcset`'s largest
+      size. (6) Left to choose where to look, the tutor searched one or two
+      sources and the cap squeezed papers out; every search now covers all
+      three, each source sure of its share, interleaved so none outranks
+      another (Patrick: the tutor judges). Google's image API was ruled out:
+      closed to new customers, shut down 2027-01-01.
+
+      **Also in this release.** `FigCard`, its splitter and their styles
+      moved to the shared `figures/` folder (a third consumer); the
+      Knowledge Graph's edges became a neutral slate (fainter when dimmed,
+      brighter when a hovered neighbour lights them, blue on the open item's
+      own; always the brighter slate in 3D, which has no hover), and nodes
+      paint over their own lines instead of letting a dimmed one show them
+      running into its middle.
+
 - [x] **The lesson panel stops scrolling sideways** *(v8.23.1)* — from
       Patrick's browser check (2026-10-16): a wide display equation (a KL
       divergence worked out term by term) let the whole lesson, footer and

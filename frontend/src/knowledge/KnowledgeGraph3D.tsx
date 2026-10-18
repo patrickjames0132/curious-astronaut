@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import ForceGraph3DImport from 'react-force-graph-3d'
 import SpriteText from 'three-spritetext'
-import { DIM_EDGE, SELECTION_RING, useCanvasInk } from '../graph/theme'
+import { SELECTION_RING, useCanvasInk } from '../graph/theme'
 import type { KnowledgeGraphProps } from './KnowledgeGraph'
 import type { KnowledgeMap, KnowledgeNode } from './model'
 import { inBox } from '../ui/useBoxSelect'
@@ -29,9 +29,8 @@ import {
   nodeLook,
   nodeRadius,
   shortLabel,
-  SYNTHESIS_EDGE,
   dimLook,
-  linkLit,
+  edgeColor,
   useHierarchyForce,
   useGraphData,
   pinNode,
@@ -296,15 +295,9 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
       nodeThreeObjectExtend={(node: CanvasNode) => map.nodes[node.id]?.kind !== 'synthesis'}
       onNodeClick={onNodeClick}
       // A synthesis's lines in its teal (v8.23.0); three has no dashes to spare.
-      linkColor={(link: CanvasLink) =>
-        !linkLit(link, lit, anchorId)
-          ? DIM_EDGE
-          : touchesOpen(link)
-            ? SELECTION_RING
-            : link.synthesis
-              ? SYNTHESIS_EDGE
-              : ink.soft
-      }
+      // The brighter slate throughout (v8.24.0): 3D has no hover to light an
+      // edge, and its lines are drawn at reduced opacity.
+      linkColor={(link: CanvasLink) => edgeColor(link, lit, anchorId, map.openId, ink, true)}
       linkOpacity={0.45}
       linkWidth={(link: CanvasLink) => (touchesOpen(link) ? 0.5 : 0)}
       linkDirectionalArrowLength={3}

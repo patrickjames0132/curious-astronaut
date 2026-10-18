@@ -18,14 +18,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import ForceGraph2DImport from 'react-force-graph-2d'
-import { DIM_EDGE, SELECTION_RING, UNKNOWN_EDGE, useCanvasInk } from '../graph/theme'
+import { SELECTION_RING, useCanvasInk } from '../graph/theme'
 import {
   labelled,
   nodeLook,
   nodeRadius,
   shortLabel,
-  SYNTHESIS_EDGE,
   dimLook,
+  edgeColor,
   linkLit,
   touches,
   useHierarchyForce,
@@ -219,11 +219,8 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
       autoPauseRedraw={expanding.size === 0}
       // Under a focus only the focused item's own edges stay lit, as on the
       // citation graph; the open item's lit edges take the selection blue.
-      linkColor={(link: CanvasLink) => {
-        if (!linkLit(link, lit, anchorId)) return DIM_EDGE
-        if (touches(link, map.openId)) return SELECTION_RING
-        return link.synthesis ? SYNTHESIS_EDGE : UNKNOWN_EDGE
-      }}
+      // A neutral slate, dimmed or brightened by the focus (`edgeColor`, v8.24.0).
+      linkColor={(link: CanvasLink) => edgeColor(link, lit, anchorId, map.openId, ink)}
       // A synthesis's lines are dashed: drawn, never a "needs" edge (v8.23.0).
       linkLineDash={(link: CanvasLink) => (link.synthesis ? [2, 1.5] : null)}
       linkWidth={(link: CanvasLink) =>
@@ -243,6 +240,11 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
 
         ctx.beginPath()
         traceShape(ctx, item.kind === 'synthesis', nodeX, nodeY, radius)
+        // The background first (v8.24.0): every line is drawn centre to centre
+        // beneath the nodes, and a dimmed node's fill is see-through, so its
+        // edges showed running into the middle of it.
+        ctx.fillStyle = ink.background
+        ctx.fill()
         // A dimmed item keeps a trace of its own colour (v8.23.0).
         ctx.fillStyle = dim ? dimLook(map, item) : color
         ctx.fill()

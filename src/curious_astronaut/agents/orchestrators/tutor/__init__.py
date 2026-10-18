@@ -8,6 +8,9 @@ its prerequisites, and teaches each one as a lesson.
   streamed ``lesson``, and a synthesis's ``name_synthesis`` and streamed
   ``synthesis_lesson`` (v8.23.0), and ``fit_section``, which rewrites
   only a lesson's closing "How it fits in" section (v8.23.0).
+* ``images`` — a lesson's image tools (v8.24.0): ``find_images`` and
+  ``show_image``, which a lesson written with images carries, and
+  ``image_bytes`` / ``web_image_url``, which serve what they found.
 * ``config`` — the agent id, the prompts, and the skill list.
 
 The entry points are re-exported here — callers use ``tutor.expand(...)``
@@ -19,10 +22,13 @@ Charles Patrick James <charles.patrick.james@gmail.com>
 
 from __future__ import annotations
 
+from . import images
 from .main import (
     Child,
     Lesson,
+    LessonEvent,
     Need,
+    Pictures,
     Prerequisite,
     Prerequisites,
     Step,
@@ -37,13 +43,16 @@ from .main import (
 __all__ = [
     "Child",
     "Lesson",
+    "LessonEvent",
     "Need",
+    "Pictures",
     "Prerequisite",
     "Prerequisites",
     "Step",
     "SynthesisName",
     "expand",
     "fit_section",
+    "images",
     "lesson",
     "name_synthesis",
     "synthesis_lesson",

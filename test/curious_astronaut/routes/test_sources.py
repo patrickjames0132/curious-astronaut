@@ -133,3 +133,23 @@ def test_source_figure_route_serves_png_and_404s(client, monkeypatch):
 
     monkeypatch.setattr(sources_routes.sources_service, "render_source_figure", refuse)
     assert client.get("/api/sources/ghost/figure/0").status_code == 404
+
+
+def test_source_pdf_route_serves_only_a_stored_source(client, monkeypatch, tmp_path):
+    stored = tmp_path / "book.pdf"
+    stored.write_bytes(b"%PDF-1.4 fake")
+    monkeypatch.setattr(
+        sources_routes.sources_service,
+        "get_source",
+        lambda source_id: {"id": source_id} if source_id == "book" else None,
+    )
+    monkeypatch.setattr(sources_routes.sources_store, "pdf_path", lambda source_id: stored)
+    response = client.get("/api/sources/book/pdf")
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+    assert response.data == b"%PDF-1.4 fake"
+    # Not a source the library holds: nothing is served, whatever the path
+    # would be (an id is never turned into one unless the library knows it).
+    assert client.get("/api/sources/..config/pdf").status_code == 404
+    stored.unlink()
+    assert client.get("/api/sources/book/pdf").status_code == 404  # no stored file
