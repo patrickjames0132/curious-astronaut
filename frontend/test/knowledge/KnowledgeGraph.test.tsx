@@ -24,7 +24,14 @@ import {
   useGraphData,
   useHierarchyForce,
 } from '../../src/knowledge/look'
-import { DIM_EDGE, UNKNOWN_EDGE } from '../../src/graph/theme'
+import { SELECTION_RING } from '../../src/graph/theme'
+import { SYNTHESIS_EDGE_DIM } from '../../src/knowledge/look'
+
+/** A "needs" edge's slate (v8.24.0) as `useCanvasInk` reads it with no
+ *  stylesheet loaded (jsdom): the `--knowledge-edge*` fallbacks. */
+const EDGE = 'rgba(148,163,184,0.38)'
+const DIMMED = 'rgba(148,163,184,0.16)'
+const BRIGHTER = 'rgba(203,213,225,0.8)'
 
 // The engine stands in as its handle and the props it was last given, so the
 // test can stop the "simulation" at will and watch the camera calls.
@@ -179,8 +186,23 @@ it('a find dims every edge except those touching a match', () => {
   ])
   renderGraph(course, { lit: new Set(['q learning']) })
   const color = engine.props.linkColor!
-  expect(color({ source: course.rootId, target: 'q learning' })).toBe(UNKNOWN_EDGE)
-  expect(color({ source: course.rootId, target: 'experience replay' })).toBe(DIM_EDGE)
+  // Lit by a focus that isn't its own: a brighter slate.
+  expect(color({ source: course.rootId, target: 'q learning' })).toBe(BRIGHTER)
+  expect(color({ source: course.rootId, target: 'experience replay' })).toBe(DIMMED)
+  // A synthesis's line stays teal, fainter when dimmed, never the slate.
+  expect(color({ source: course.rootId, target: 'experience replay', synthesis: true })).toBe(
+    SYNTHESIS_EDGE_DIM,
+  )
+})
+
+it('paints edges a plain slate with no focus, and the open item’s own in blue', () => {
+  const course = withChildren(PAPER, PAPER.rootId, [{ name: 'Q-learning', why: 'w' }])
+  renderGraph(course, {})
+  expect(engine.props.linkColor!({ source: course.rootId, target: 'q learning' })).toBe(EDGE)
+  renderGraph({ ...course, openId: 'q learning' }, { lit: new Set(['q learning', course.rootId]) })
+  expect(engine.props.linkColor!({ source: course.rootId, target: 'q learning' })).toBe(
+    SELECTION_RING,
+  )
 })
 
 it('under a focused item, lights only its own edges, as on the citation graph', () => {
@@ -194,10 +216,10 @@ it('under a focused item, lights only its own edges, as on the citation graph', 
     anchorId: 'q learning',
   })
   const color = engine.props.linkColor!
-  expect(color({ source: course.rootId, target: 'q learning' })).toBe(UNKNOWN_EDGE)
-  expect(color({ source: 'q learning', target: 'bellman equations' })).toBe(UNKNOWN_EDGE)
+  expect(color({ source: course.rootId, target: 'q learning' })).toBe(BRIGHTER)
+  expect(color({ source: 'q learning', target: 'bellman equations' })).toBe(BRIGHTER)
   // The paper is lit, but its edge to replay isn't Q-learning's: dimmed.
-  expect(color({ source: course.rootId, target: 'experience replay' })).toBe(DIM_EDGE)
+  expect(color({ source: course.rootId, target: 'experience replay' })).toBe(DIMMED)
 })
 
 it('keeps the course a tree: rings by depth, syntheses beside their parent', () => {

@@ -36,6 +36,7 @@ import {
   withBreakdownAgain,
   withRestored,
   withoutItems,
+  withoutImageMarks,
 } from '../../src/knowledge/model'
 
 /** A concept child.
@@ -516,7 +517,14 @@ describe('deleting and bringing back', () => {
     const read = {
       ...map,
       nodes: Object.fromEntries(
-        Object.entries(map.nodes).map(([id, node]) => [id, { ...node, lesson: 'Old.' }]),
+        Object.entries(map.nodes).map(([id, node]) => [
+          id,
+          {
+            ...node,
+            lesson: 'Old.\n\n<<FIG 1>>',
+            images: [{ image: '/i', caption: '', title: null }],
+          },
+        ]),
       ),
     }
     const again = withBreakdownAgain(read, 'q learning', [
@@ -525,10 +533,11 @@ describe('deleting and bringing back', () => {
     ])
     for (const id of ['q learning', 'mdps', 'value iteration']) {
       expect(again.nodes[id].lesson).toBeUndefined()
+      expect(again.nodes[id].images).toBeUndefined()
       expect(again.nodes[id].freshLesson).toBe(true)
     }
     // Lessons outside the redone breakdown are left alone.
-    expect(again.nodes['experience replay'].lesson).toBe('Old.')
+    expect(again.nodes['experience replay'].lesson).toBe('Old.\n\n<<FIG 1>>')
     // Waiting on a rewrite reads as new again, broken down or not; known stays green.
     expect(nodeLook(again, again.nodes['q learning']).color).toBe(KNOWLEDGE_COLOR.fresh)
     const known = { ...again, known: ['mdps'] }
@@ -570,5 +579,13 @@ describe('a lesson\'s "How it fits in" section', () => {
       },
     }
     expect(fitIsStale(legacy, 'q learning')).toBe(false)
+  })
+})
+
+describe("a lesson's image markers", () => {
+  it('come out for the tutor, and only markers on their own line', () => {
+    const placed = 'Core idea.\n\n<<FIG 1>>\n\nAn example.\n\n<<FIG 2>>'
+    expect(withoutImageMarks(placed)).toBe('Core idea.\n\nAn example.')
+    expect(withoutImageMarks('See <<FIG 1>> here.')).toBe('See <<FIG 1>> here.')
   })
 })

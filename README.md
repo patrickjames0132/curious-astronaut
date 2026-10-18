@@ -18,7 +18,9 @@ assistant (🎓) docks beside the Citation Graph; the cards and the Knowledge Gr
 have none. The
 **Knowledge Graph** is a short course on the ideas a paper rests on: the paper
 at the centre, the concepts it needs around it. Double-click any concept to
-break it down further, click one for a lesson written for this course, and tick off
+break it down further, click one for a lesson written for this course (with real images from
+your library, papers and the web where they help, each credited, or ⚡ Quick response for the lesson
+alone; ↻ rewrites one), and tick off
 what you already know (shift-click or alt-drag to tick off several at once, or 🔍 find concepts
 by name and select every match). There's a
 3D mode too. Paper citations highlight the current graph; graph icons open or resume that paper's thread

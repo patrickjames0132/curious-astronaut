@@ -353,6 +353,16 @@ bring a deleted concept back.
   (`dimLook`, the citation graph's `dimColor`: known, explored and new still
   read), only the focused item's edges stay lit (`linkLit`, the citation
   graph's `edgeLit` rule), and the focus names what it lights at any zoom.
+  **Edges are a neutral slate** (`edgeColor` in `look.ts`, the one rule both
+  views paint by; `--knowledge-edge*` per theme, v8.24.0, Patrick): a hue no
+  node uses, since violet read as a concept and teal is a synthesis's. Plain
+  with no focus, fainter where a focus dims them (the citation graph's grey
+  `DIM_EDGE` all but vanished here), brighter where a focus that isn't their
+  own lights them (a hovered neighbour, a find), and the selection blue on
+  the open item's own edges. A synthesis's line keeps its teal, faint when
+  dimmed. Lines run centre to centre beneath the nodes, so each node is
+  painted on the background first: a dimmed node's fill is see-through, and
+  its edges once showed running into its middle.
   The alt-drag box picks only lit items. **3D** takes the open item's focus
   and the find but not hover, which would rebuild every sprite on each move
   (the lag v8.17.0 fixed); `lit` is memoised for the same reason. Not
@@ -364,8 +374,8 @@ bring a deleted concept back.
   anchor (`knowledge-find`). `findItems` (`model.ts`) is a plain,
   case-insensitive substring match over **names only**: lesson text would
   match nearly any word. While a query is live, every item that doesn't
-  match dims (the citation graph's `DIM_NODE`, edges `DIM_EDGE` unless they
-  touch a match) and only the matches are named, at any zoom; in 3D the
+  match dims (the citation graph's `DIM_NODE`, edges the faint slate unless
+  they touch a match) and only the matches are named, at any zoom; in 3D the
   other spheres dim and their labels hide. **"select", or Enter, adds the
   matches to the check-off selection** and clears the find, so the
   selection's blue rings and its "✓ I know these" bar take over: find →
@@ -413,8 +423,9 @@ course. This component holds only what is in flight.
 
 ## Lessons
 
-A lesson is written **the first time its item is opened**, streamed into the
-panel, and kept on the node. Moving on never aborts it (`useLessons`), and
+A lesson is written **the first time its item is opened**, shown in the
+panel with its images once both are ready (v8.24.0; see below), and kept on
+the node. Moving on never aborts it (`useLessons`), and
 in-flight lessons are tracked at module level, so remounting the tool doesn't
 start the same lesson twice. The paper's own lesson is grounded in its
 abstract.
@@ -445,10 +456,64 @@ replacement. A course saved before then still holds lessons with markers and
 their `refs`: `lessonText` (`model.ts`) hides just the markers those `refs`
 resolved, so a bracketed range like `[0, 1]` in the prose survives.
 
+**A lesson comes with a few real images** (v8.24.0, Patrick), inline after
+the paragraphs they illustrate, each credited (a link to the web page, the
+paper, or the reader's own book at the page) and described in the tutor's
+words. The prose is still the tutor's own knowledge; only the pictures are
+found. Not interactive: a fresh start beside the parked `feature/visuals`
+branch, the way the assistant shows figures in its answers.
+
+- **Found first, then streamed** (Patrick, after trying text first and
+  images after, then all at once: images popping in under a lesson already
+  being read felt worse, and the text should still stream). The tutor
+  searches your library, Wikipedia and the web, and papers for the pictures
+  it wants and places them before it writes (see
+  `agents/orchestrators/tutor/README.md`). `useLessons` streams the lesson
+  with `paper` and `provider` (where the course paper's figures are),
+  collecting `image` frames into the draft, so when the text streams its
+  images are already in place; text and `images` land on the course
+  together when it's done. While streaming, an image whose marker hasn't
+  arrived yet waits for it instead of flashing at the end.
+- **One status line until the text starts** (`StepLine`, the draft's
+  `step`: each search as the tutor asks for it, "Looking at 4 images…",
+  "Placing an image from …"), whose words rise in from below as each step
+  replaces the last, like a chat app's thinking line (ported from the
+  parked `feature/visuals`, slowed to 520ms in review). A search's line can
+  run long (the tutor's whole picture description), so it is cut to one
+  line with an ellipsis (Patrick: it read awkwardly over six), and a click
+  unfolds every step so far (`steps`) as plain lines, the researcher's
+  trace without its chips.
+- **The lesson follows its own writing**: while the text streams, the
+  panel scrolls with it, but only while the reader is at the bottom, so
+  scrolling up to re-read stops the chase (the assistant transcript's rule,
+  instant rather than smooth so it keeps up with the stream).
+- **Quick response**, a link at the line's end behind an outline bolt
+  that lights up on hover (`--bolt`: the title's blue in dark mode, the
+  gold accent in light): `quick` stops the run
+  (an `AbortController` kept per lesson at module level, beside
+  `IN_FLIGHT`) and writes the lesson from the tutor's own knowledge alone,
+  `quick: true`, with no image search. The stopped run's failure is
+  ignored, and a quick draft offers no link. It looks like any other
+  lesson once written.
+- **↻ Rewrite this lesson** (v8.24.0): the footer is full, so a captionless
+  ↻ sits beside the panel's ✕, there only once the lesson is finished.
+  `knowledgeLessonCleared` drops the lesson, its images and `fitFor` and
+  marks it `freshLesson`, so the open-lesson effect writes it again past
+  the server's cache (`fresh: true`; a synthesis's route honours it too).
+- **Markers in the lesson, like an answer's.** The tutor writes a
+  `<<FIG n>>` line after each image's paragraph, the slot-tagged `images`
+  sit on the node, and the panel splits it with the shared `figures/split`
+  exactly as the chat splits an answer. A rewrite of the closing section
+  reads the lesson without its markers (`withoutImageMarks`) and keeps
+  them where they were; "Break it down again" clears `images` with the
+  lesson. A lesson written before images keeps none, and gets them only if
+  it is written again.
+
 ## Not yet (later Phase 5 stages, see the OnePager)
 
 There is no challenger agent, no memory of known concepts across papers, no
-verified external resources, and no interactive visuals. There is no
+verified external resources, and no interactive visuals (lesson images, since
+v8.24.0, are real figures shown as they are). There is no
 assistant docked here: since v8.15.0 it lives on the Citation Graph alone (see
 `teacher/README.md`).
 
@@ -462,7 +527,8 @@ deleted item needed going with it, a shared prerequisite staying, syntheses
 left short, the paper refused, a restore from the remembered breakdown (and
 one filled in for an old course), a concept coming back as it was (lesson,
 check-off, breakdown) by a restore or another breakdown, and a fresh
-breakdown keeping what it repeats.
+breakdown keeping what it repeats; a lesson's image markers coming out for the
+tutor, and a fresh breakdown clearing its images.
 `test/knowledge/KnowledgeGraph.test.tsx` covers the 2D view's first fit,
 that a shift-click selects without opening, and a find dimming the edges
 away from its matches.
@@ -476,5 +542,11 @@ no check-off or breakdown (and synthesizing them again reopening it),
 deleting a selection with the Delete key (the paper refused) and bringing
 it back with no call, a fresh breakdown,
 the next lesson, a shared prerequisite becoming one node with two edges, a
-retry, and the course surviving a save round-trip. The 3D view, the canvas
+retry, the course surviving a save round-trip, and a lesson's images: one
+status line with Quick response beside it until the text starts, then the
+text streaming with its image already in place, the image landing right after its paragraph with its
+description and linked credit, a closing-section rewrite reading the lesson
+without its markers, and a quick response stopping the slow run and writing
+the lesson at once, the ↻ rewriting a finished lesson past the cache, and
+the status line unfolding into every step so far. The 3D view, the canvas
 painting, the folding controls and the legend are checked in the browser.

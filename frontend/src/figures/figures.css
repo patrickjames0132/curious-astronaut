@@ -1,0 +1,108 @@
+/* The shared figure styles: a figure card (FigCard) and the full-screen
+   lightbox, moved out of teacher.css in v8.24.0 when lesson images made the
+   knowledge panel a third place figures appear. The lightbox's fade lives in
+   index.css with the other motion rules. */
+
+/* One figure: the image, then its caption line. */
+.chat-fig {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+.chat-fig-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+.chat-fig-btn img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.chat-fig-cap {
+  padding: 6px 9px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+  background: var(--panel);
+}
+.chat-fig-cap b {
+  color: var(--accent);
+  font-weight: 600;
+}
+/* A lesson image's description (v8.24.0): the tutor's words on what to see,
+   read before the credit, so it gets the body's colour and its own line. */
+.chat-fig-desc {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 12px;
+  color: var(--text);
+}
+/* A lesson image's credit, a link to where it came from. */
+.chat-fig-credit {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.chat-fig-credit:hover {
+  text-decoration: underline;
+}
+
+/* Click-to-enlarge lightbox for an answer figure. */
+.fig-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 40px;
+  cursor: zoom-out;
+}
+.fig-lightbox img {
+  max-width: 92vw;
+  max-height: 82vh;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 6px;
+  cursor: default;
+}
+.fig-lightbox-cap {
+  max-width: 820px;
+  color: #e8e8e8;
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: center;
+  cursor: default;
+}
+.fig-lightbox-cap b {
+  color: var(--accent);
+}
+.fig-lightbox-desc {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: #f4f4f4;
+}
+.fig-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 22px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+.fig-lightbox-close:hover {
+  color: var(--accent);
+}

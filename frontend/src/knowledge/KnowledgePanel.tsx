@@ -18,7 +18,10 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useState, type AnimationEvent, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type AnimationEvent, type CSSProperties } from 'react'
+import type { AnswerFigure } from '../api'
+import FigCard from '../figures/FigCard'
+import { splitAnswer } from '../figures/split'
 import Fold from '../ui/Fold'
 import AnswerMarkdown from '../teacher/transcript/AnswerMarkdown'
 import { useResizablePanel } from '../ui/useResizablePanel'
@@ -194,12 +197,96 @@ function ConnectionsCard({
 }
 
 /**
+ * The Quick response bolt: an outline that lights up on hover (`--bolt`)
+ * (knowledge.css), drawn inline so it takes the link's colour.
+ *
+ * @returns The icon.
+ */
+function Bolt() {
+  return (
+    <svg className="lesson-quick-bolt" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M13.5 2 5 13.5h6L9.5 22 19 9.5h-6.2L13.5 2Z" />
+    </svg>
+  )
+}
+
+/**
+ * What the tutor is doing (v8.24.0): one line, each new step rising in from
+ * below in place of the last (Patrick: like a chat app's "thinking" line;
+ * ported from the parked `feature/visuals`), cut short with an ellipsis. A
+ * click unfolds every step so far, the tutor's train of thought, as plain
+ * lines (the researcher's trace, without its chips).
+ *
+ * @param props Component props.
+ * @param props.text The step now.
+ * @param props.steps Every step so far, oldest first.
+ * @param props.onQuick Give up on the images and have the lesson now, when
+ *   that is still on offer.
+ * @returns The line.
+ */
+function StepLine({
+  text,
+  steps = [],
+  onQuick,
+}: {
+  text: string
+  steps?: string[]
+  onQuick?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const earlier = steps.filter((step, index) => index < steps.length - 1 || step !== text)
+  return (
+    <div className={`lesson-step${open ? ' open' : ''}`}>
+      <div className="lesson-step-row">
+        <span className="spin" />
+        <button
+          type="button"
+          className="lesson-step-toggle"
+          onClick={() => setOpen((previous) => !previous)}
+          aria-expanded={open}
+          title={open ? 'Hide the steps' : 'Show every step so far'}
+          disabled={!earlier.length}
+        >
+          {earlier.length > 0 && (
+            <span className={`trace-caret${open ? ' open' : ''}`} aria-hidden="true">
+              ▸
+            </span>
+          )}
+          {/* Keyed by its words, so each new step mounts and plays the rise. */}
+          <span key={text} className="lesson-step-text" aria-live="polite">
+            {text}
+          </span>
+        </button>
+        {onQuick && (
+          <button
+            type="button"
+            className="link-btn lesson-quick"
+            onClick={onQuick}
+            title="Skip the image search: the lesson now, from the tutor's own knowledge"
+          >
+            <Bolt />
+            Quick response
+          </button>
+        )}
+      </div>
+      {open && earlier.length > 0 && (
+        <ol className="lesson-steps" aria-label="Steps so far">
+          {earlier.map((step, index) => (
+            <li key={index}>{step}</li>
+          ))}
+        </ol>
+      )}
+    </div>
+  )
+}
+
+/**
  * Render the panel for the open item.
  *
  * @param props Component props.
  * @param props.map The course.
  * @param props.nodeId The item on show.
- * @param props.draft Its lesson's stream, while being written.
+ * @param props.draft Its lesson while being written: the step it is on, or why it failed.
  * @param props.writing True when its lesson is still streaming from an earlier visit.
  * @param props.refitting True while its "How it fits in" section is being rewritten.
  * @param props.expanding True while it is being broken down.
@@ -211,8 +298,13 @@ function ConnectionsCard({
  *                       back what was deleted, and `again` asks for a fresh breakdown.
  * @param props.onToggleKnown Check it off, or un-check it.
  * @param props.onRetry Write its lesson again after a failure.
+ * @param props.onRewrite Write its finished lesson again, past the cache
+ *   (v8.24.0, the ↻ beside the ✕).
+ * @param props.onQuick Stop writing its lesson with images and write it now,
+ *   from the tutor's own knowledge (a quick response, v8.24.0).
  * @param props.onDelete Delete the item (any but the paper).
  * @param props.onHover Point at an item on the graph from its Connections row, or let go.
+ * @param props.onEnlarge Show one of its lesson's images full-screen.
  * @param props.onClose Close the panel.
  * @returns The panel.
  */
@@ -230,8 +322,11 @@ export default function KnowledgePanel({
   onExpand,
   onToggleKnown,
   onRetry,
+  onRewrite,
+  onQuick,
   onDelete,
   onHover,
+  onEnlarge,
   onClose,
 }: {
   map: KnowledgeMap
@@ -247,8 +342,11 @@ export default function KnowledgePanel({
   onExpand: (nodeId: string, again?: boolean) => void
   onToggleKnown: (nodeId: string) => void
   onRetry: () => void
+  onRewrite: () => void
+  onQuick: () => void
   onDelete: (nodeId: string) => void
   onHover?: (nodeId: string | null) => void
+  onEnlarge: (figure: AnswerFigure) => void
   onClose: () => void
 }) {
   const { width, onHandlePointerDown, dragging } = useResizablePanel('ca.knowledgeWidth', 400)
@@ -266,6 +364,26 @@ export default function KnowledgePanel({
   // an item is opened.
   const [justToggled, setJustToggled] = useState<string | null>(null)
   const node = map.nodes[nodeId]
+  // The lesson follows its own writing (v8.24.0), the way the assistant's
+  // transcript does: only while the reader is at the bottom, so scrolling up
+  // to re-read stops the chase and scrolling back down resumes it. Instant,
+  // never smooth: a smooth scroll can't keep up with the stream.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const following = useRef(true)
+  const onScroll = () => {
+    const box = scrollRef.current
+    if (box) following.current = box.scrollHeight - box.scrollTop - box.clientHeight < 40
+  }
+  const streamed = draft?.text.length ?? 0
+  useEffect(() => {
+    // A new lesson starts at its top, ready to follow.
+    following.current = true
+  }, [nodeId])
+  useEffect(() => {
+    const box = scrollRef.current
+    if (!box || !streamed || !following.current) return
+    box.scrollTop = box.scrollHeight
+  }, [streamed])
   if (!node) return null
   const isRoot = node.id === map.rootId
   const isSynthesis = node.kind === 'synthesis'
@@ -274,9 +392,14 @@ export default function KnowledgePanel({
   const missing = missingChildren(map, node.id)
   const known = map.known.includes(node.id)
   const next = nextLesson(map, node.id)
+  // A lesson streams once the tutor starts writing, its images already placed
+  // (v8.24.0); until then the draft's step is the one status line.
   const text = lessonText(node) ?? draft?.text ?? ''
   // Its closing "How it fits in" section shows in its own card (v8.23.0).
   const { body, fit } = splitLesson(text)
+  // Its images sit at their `<<FIG n>>` markers, after the paragraphs they
+  // illustrate (v8.24.0); one whose marker went missing shows at the end.
+  const { parts, leftover } = splitAnswer(body, node.images ?? draft?.images)
   const meta = node.paper ? [node.paper.authors, node.paper.year].filter(Boolean).join(' · ') : ''
 
   return (
@@ -296,10 +419,23 @@ export default function KnowledgePanel({
       <button type="button" className="link-btn close" onClick={onClose} aria-label="Close">
         ✕
       </button>
+      {/* Rewrite this lesson (v8.24.0): the footer is full, so a captionless
+          ↻ beside the ✕, there only once the lesson is finished. */}
+      {node.lesson && !draft && !writing && (
+        <button
+          type="button"
+          className="link-btn rewrite"
+          onClick={onRewrite}
+          title="Rewrite this lesson"
+          aria-label="Rewrite this lesson"
+        >
+          ↻
+        </button>
+      )}
       {/* The panel scrolls inside this, not itself (v8.23.0): the resize
           handle, sized to the panel, scrolled away with the lesson, leaving
           nothing to grab below the first screenful. */}
-      <div className="knowledge-panel-scroll">
+      <div className="knowledge-panel-scroll" ref={scrollRef} onScroll={onScroll}>
         <p
           className={`lesson-kicker ${known ? 'known' : isSynthesis ? 'synthesis' : isRoot ? 'paper' : 'concept'}`}
         >
@@ -341,7 +477,22 @@ export default function KnowledgePanel({
         <div className="lesson-body">
           {text ? (
             <>
-              <AnswerMarkdown text={body} />
+              {parts.map((part, index) =>
+                typeof part === 'string' ? (
+                  <AnswerMarkdown key={index} text={part} />
+                ) : (
+                  <div key={index} className="lesson-image">
+                    <FigCard figure={part} onEnlarge={onEnlarge} />
+                  </div>
+                ),
+              )}
+              {/* While streaming, an image whose marker hasn't arrived yet
+                  waits for it rather than flashing at the end. */}
+              {(node.lesson ? leftover : []).map((figure, index) => (
+                <div key={`left-${index}`} className="lesson-image">
+                  <FigCard figure={figure} onEnlarge={onEnlarge} />
+                </div>
+              ))}
               {fit !== null && (
                 <aside className="lesson-fit" aria-label="How it fits in">
                   <h3>How it fits in</h3>
@@ -357,9 +508,11 @@ export default function KnowledgePanel({
           ) : (
             !draft?.error &&
             (draft || writing) && (
-              <p className="lesson-status">
-                <span className="spin" /> Writing the lesson…
-              </p>
+              <StepLine
+                text={draft?.step || 'Writing the lesson…'}
+                steps={draft?.steps}
+                onQuick={draft?.quick ? undefined : onQuick}
+              />
             )
           )}
           {draft?.error && (

@@ -8,11 +8,16 @@ course, into the concepts it needs, and teaches each one.
 ```
 tutor/
   config.py — AGENT_ID, FIT_HEADING, the prompts (EXPAND_PROMPT,
-              LESSON_PROMPT, FIT_PROMPT, and a synthesis's
-              SYNTHESIS_NAME_PROMPT and SYNTHESIS_PROMPT), skills
+              LESSON_PROMPT, FIT_PROMPT, a synthesis's
+              SYNTHESIS_NAME_PROMPT and SYNTHESIS_PROMPT, and
+              IMAGES_PROMPT, added when a lesson has its image tools), skills
   main.py   — the Agents, their output models, expand(), lesson(),
               fit_section(), and a synthesis's name_synthesis() and
               synthesis_lesson()
+  images.py — a lesson's image tools (v8.24.0): find_images() and
+              show_image() over LessonDeps, the library/paper/web candidate
+              gatherers, shrink(), and image_bytes()/web_image_url(), which
+              serve what was found
 ```
 
 ## Two jobs, one agent id
@@ -50,10 +55,18 @@ tutor/
   `expand`: they sit beside the course, not in it (see
   `frontend/src/knowledge/README.md`).
 
+- **A lesson is written with images** (v8.24.0; `images.py`) unless the
+  reader asks for a quick response: `lesson` and `synthesis_lesson` take
+  `pictures` (where the course paper's figures are), and with it run
+  `illustrated_lesson_agent` / `illustrated_synthesis_agent`, the same
+  prompts plus `IMAGES_PROMPT` and the image tools. See "Lesson images".
+
 All read the tutor's `config.llm.agents` entry **per call**: the model
-through `factory.model_for` and the two knobs from `extras` (`children`, the
-most concepts one expansion lists, and `lesson_words`, the target lesson
-length; see `config.TutorExtras`). A settings edit therefore applies to the
+through `factory.model_for` and the knobs from `extras` (`children`, the
+most concepts one expansion lists, `lesson_words`, the target lesson
+length, `images`, the most images a lesson shows, 0 for none, and
+`image_searches`, the searches a lesson may make for them; see
+`config.TutorExtras`). A settings edit therefore applies to the
 next expansion without a restart. The tutor sits on the lecturer's tier: the
 settings modal's "Apply Default Models" gives it the vendor's advanced model.
 
@@ -90,6 +103,112 @@ settings modal's "Apply Default Models" gives it the vendor's advanced model.
   empty list for an elementary concept rather than padding. The cap is also
   enforced after the call.
 
+## Lesson images
+
+Real images placed in a lesson where they help, each credited and described
+(Patrick, 2026-10-17). **The prose stays the model's own**: it teaches from
+what it knows and cites nothing, as lessons have since v8.17.0. The tools
+ground only the pictures. Not interactive, and a fresh start beside the
+parked `feature/visuals` branch, whose generated widgets never read well
+enough to ship.
+
+- **The tutor finds its images while it writes** (Patrick's call, after
+  trying it the other way). It holds two tools: `find_images(what, where)`
+  searches for one picture it wants, described specifically ("a backup
+  diagram for the Bellman optimality equation"), in the reader's
+  **library**, **papers** and the **web**, and returns the candidates
+  numbered **with their pixels** (shrunk to 768px a side first), so it
+  looks at each one; `show_image(number, description)` places one and
+  answers with the `<<FIG n>>` marker it writes on its own line after the
+  paragraph the image shows, a paragraph it then writes to point at it. So
+  each image is chosen by the writing that explains it.
+- **Why not after the lesson** (the first build, kept here so it isn't
+  re-tried): it wrote the lesson, searched once on the subject's name, and
+  had a second model fit images into prose that never knew about them.
+  Almost no lesson got one. A dry run for "Bellman equations" showed why:
+  the name alone ranked Sutton & Barto's backup diagrams sixth of seven in
+  the library (three reached the picker), the web gave one usable page, and
+  the only paper searched was the course paper, whose figures are results
+  plots. The tutor's own phrase for the picture fixes the ranking, and it
+  can only write that while writing the lesson.
+- **Every search looks everywhere, and no source outranks another**
+  (Patrick, 2026-10-17). Left to choose where (an early `where` argument),
+  the tutor named one or two places a search, the web most, and a 4/3/5 cap
+  over 8 slots left papers no room at all, so the reader's library and
+  papers were rarely seen. Now each search covers all three; each source is
+  sure of a share (`LIBRARY_SHARE` 3, `PAPER_SHARE` 2, `WEB_SHARE` 3 of
+  `PER_SEARCH` 8), slots a source can't fill go to the others in turn, and
+  the candidates are interleaved, one from each source in turn, so their
+  order favours none. The tutor judges them on their merits.
+- **Several images are welcome** where more than one paragraph would be
+  clearer with a picture, each searched for on its own, up to the `images`
+  knob; one is the least, not the goal.
+- **Where candidates come from**: figures within a page of the library passages
+  `sources.search` matches; **Wikipedia**, read directly through its search
+  and REST APIs (no key, no scout: the subject's article, then the best one
+  for `what`, figures ranked by caption match), then the web scout's pages,
+  their pictures read with `integrations.web` and downloaded through its
+  guarded fetch (a vendor without web search gets Wikipedia alone); and
+  papers, an S2/OpenAlex search on the lesson's **subject** (a long picture
+  description finds noise) and the ar5iv figures of the first hits with a
+  render, ranked by caption match to `what`. The **course paper's
+  own figures are offered only in its own lesson** (`paper_lesson`): in a
+  concept lesson, required to place something, the tutor placed SAC's
+  Hopper results plot. Tables and algorithm boxes are no picture. A failing
+  source gives none, never an error, and a later search never re-offers an
+  image.
+- **Why Wikipedia is read directly** (2026-10-17): a dry run found every
+  Wikipedia figure had been dropped as page furniture, because its image
+  addresses end `?utm_content=thumbnail` and the furniture filter matched the
+  whole URL (now the path only: `integrations/web`). And Medium answers
+  server-side fetches with 403; we don't dress the fetch up as a browser to
+  get past that. Wikipedia's figures are the canonical ones a lesson wants,
+  captioned and free to reuse: with it, KL divergence placed Wikipedia's two
+  densities, MDPs Sutton & Barto's agent–environment loop.
+- **One description per image** (Patrick): a figure keeps its own caption,
+  and the tutor's `description` stands in only for an image with no real
+  caption (fewer than three words: an `alt` is often a file name like
+  `maze_one_path`).
+- **Images aren't optional** (Patrick, 2026-10-17). Left to choose, the
+  tutor searched in one lesson of four and wrote the rest from memory (the
+  `lesson images` log lines showed `0 search(es)`). `must_show_an_image`,
+  an output validator on both illustrated agents, sends a lesson back until
+  it has searched (`SEARCH_FIRST`) and placed an image (`PLACE_ONE`: place
+  the best candidate, or search again with a different description). It
+  goes out without one only when its searches are spent with nothing found,
+  or after `NUDGES` returns, so a model that won't comply still gives the
+  reader a lesson. With it, the three lessons that had placed nothing each
+  placed a fitting image. A rejected draft must never reach the page, and the
+  text should still stream (Patrick), so `send_back` is the one rule both
+  read: the validator enforces it, and the stream checks it as each draft
+  starts. It depends only on what the tools did before the draft, never on
+  its text, so a draft that streams is the one kept; one that will be sent
+  back is held.
+- **Budgets are knobs**, like the researcher's search limits:
+  `image_searches` (default 4) caps the searches a lesson makes
+  (`LessonDeps.searches`), and `images` caps what it places; the tools answer
+  in words when either is spent, or for a number they never showed, or an
+  image already placed.
+- **The status line follows the tools.** Nothing streams while a tool runs,
+  so a search's line ("Searching your library, papers and the web for …")
+  is said the moment the tutor writes the call (`pending_step`, the way the
+  researcher's pending chips work), and the tools queue "Looking at N
+  images…" and "Placing an image from …" for the stream (`LessonDeps.drain`).
+- **A quick response** is the lesson without the tools: `pictures` is None,
+  the plain agents run, and no image is searched. The frontend asks for one
+  when the reader clicks "Quick response" on the status line, and every
+  lesson is one with the knob at 0. A model that can't see images fails a
+  lesson with images; the reader can take the quick response.
+- **Nothing is fetched by URL from the browser or the model.** A candidate's
+  `key` resolves only to an ar5iv image, a PDF token this server minted, a
+  library source, or a web image a search registered under an opaque
+  handle (`web_image_url`); `image_bytes` refuses anything else. A web
+  image is never stored, only its address, as `docs/pdf-mining.md` settles
+  for PDFs' images.
+
+The candidate gathering is adapted from `feature/visuals`' `figures.py`,
+which built and reviewed it on 2026-10-16.
+
 ## Verified by
 
 `test/curious_astronaut/agents/orchestrators/tutor/test_main.py` covers the
@@ -97,5 +216,17 @@ concept children, cycle and repeat dropping, the width cap, the references
 and course list in the expansion prompt, a lesson's prompt carrying no
 references but every item that needs it, its tokens adding up to its text,
 the closing section's rewrite seeing the lesson and what needs it, and a synthesis's naming
-prompt and streamed lesson. The routes' grounding,
+prompt and streamed lesson. `test_images.py` covers lesson images: library
+figures near the matching passage, the course paper's PDF fallback, searched
+papers' best-matching figures (and a failed search giving none), web images
+behind opaque handles and downloaded once, a key reading only what it may, a
+large image shrunk, a lesson written with images end to end (its steps, the
+tutor seeing the candidates' pixels, the image placed with its marker and
+description), a quick response carrying no tools, the tools' budgets, a
+lesson sent back until it has searched and placed an image (kept when none
+can be had, or past its nudges) with only its kept draft streamed, an
+image's own caption standing in place of the tutor's description (and the
+tutor's used for a file-name alt), Wikipedia's figures from the subject's
+article, and the course paper's figures offered only in its own lesson.
+The routes' grounding,
 caching and degradation are tested in `test/curious_astronaut/routes/test_knowledge.py`.

@@ -1323,6 +1323,41 @@ const ROW_DEFS: RowDef[] = [
     ),
   },
   {
+    key: 'tutor-images',
+    section: 'agents',
+    page: 'agents',
+    group: 'Tutor',
+    label: 'Images per lesson',
+    hint: 'The most images a lesson shows (up to 6), which the tutor finds in your library, papers and the web while it writes, each credited and described. Every lesson shows at least one, unless nothing it finds shows the idea. Choosing them needs a model that can see images; web images need one with web search. 0 = no lesson images (every lesson a quick response). Empty = the code default.',
+    control: (draft, edit) => (
+      <ExtrasNumber
+        draft={draft}
+        edit={edit}
+        agentId="tutor"
+        extrasKey="images"
+        fallback={3}
+        min={0}
+      />
+    ),
+  },
+  {
+    key: 'tutor-image-searches',
+    section: 'agents',
+    page: 'agents',
+    group: 'Tutor',
+    label: 'Image searches per lesson',
+    hint: 'How many times the tutor may search for images while writing one lesson (up to 8), like the researcher’s search limits. Each search looks in your library, papers and the web at once; more searches find more images but cost more and take longer. Empty = the code default.',
+    control: (draft, edit) => (
+      <ExtrasNumber
+        draft={draft}
+        edit={edit}
+        agentId="tutor"
+        extrasKey="image_searches"
+        fallback={4}
+      />
+    ),
+  },
+  {
     key: 'sources-enabled',
     section: 'sources',
     page: 'general',

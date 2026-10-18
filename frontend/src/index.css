@@ -15,6 +15,8 @@
   --text-strong: #f7f5f0;
   --muted: #7f8ca0;
   --accent: #6fb6ce;
+  /* The Quick response bolt, lit (v8.24.0): the title's light blue. */
+  --bolt: var(--brand);
   /* Filled controls (send, primary buttons) carry white text, so this is the
      glass blue darkened until white on it clears 4.5:1. */
   --accent-strong: #2f7f9c;
@@ -49,6 +51,11 @@
      tried light-only, and it looked better with them on dark too). */
   --node-outline: #000;
   --node-outline-dim: rgba(0, 0, 0, 0.25);
+  /* Knowledge-graph "needs" edges (v8.24.0): a neutral slate no node uses,
+     fainter where a focus dims them, brighter where a neighbour lights them. */
+  --knowledge-edge: rgba(148, 163, 184, 0.38);
+  --knowledge-edge-dim: rgba(148, 163, 184, 0.16);
+  --knowledge-edge-lit: rgba(203, 213, 225, 0.8);
   /* The knowledge panel's kicker in its node's colour (look.ts
      KNOWLEDGE_COLOR): the fills themselves read fine on the dark panel. */
   --knowledge-paper-ink: #ffd166;
@@ -122,6 +129,8 @@
   --text-strong: #141f2e;
   --muted: #5f6a7a;
   --accent: #2a7896;
+  /* The Quick response bolt, lit (v8.24.0): the gold accent, deep enough for white. */
+  --bolt: var(--seed-ref);
   --accent-strong: #2f7f9c;
   --seed-ref: #8c600b;
   /* Deeper glass, 7.1:1 on the white rail (the rim blue was ~2.3:1). The
@@ -146,6 +155,10 @@
   --canvas-ink-hard: #1b2a3d;
   --node-outline: #000;
   --node-outline-dim: rgba(0, 0, 0, 0.25);
+  /* Knowledge-graph "needs" edges (v8.24.0): the slate, deep enough for white. */
+  --knowledge-edge: rgba(71, 85, 105, 0.4);
+  --knowledge-edge-dim: rgba(71, 85, 105, 0.18);
+  --knowledge-edge-lit: rgba(30, 41, 59, 0.75);
   /* Deeper gold and violet: the canvas fills are too pale as text on white. */
   --knowledge-paper-ink: #a86f00;
   --knowledge-concept-ink: #7048d4;

@@ -321,6 +321,18 @@ export interface AnswerFigure {
    * pre-v5.28 sessions); the card then numbers attachments by slot.
    */
   label?: string | null
+  /**
+   * Where the credit (`title`) leads (v8.24.0, lesson images): the web page
+   * an image came from, the paper's page, or the reader's own book at the
+   * figure's page. Absent on the assistant's figures, whose title stays
+   * plain text.
+   */
+  link?: string | null
+  /**
+   * The tutor's own words on what the image shows and what to notice in it
+   * (v8.24.0, lesson images), shown under the caption.
+   */
+  description?: string
 }
 
 /** Callbacks for {@link streamAsk}. Optional ones may be omitted. */

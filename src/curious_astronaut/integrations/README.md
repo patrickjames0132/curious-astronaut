@@ -29,6 +29,11 @@ chosen per graph in the header's "Data source" dropdown:
   README.
 - **`huggingface/`** — code & artifact links (GitHub repo, models/datasets/
   Spaces) from Hugging Face Papers. Its own package; see its own README.
+- **`web/`** (v8.24.0) — the open web as a source of pictures for a lesson's
+  inline images: a **guarded GET** for URLs the app didn't choose (public
+  addresses only, every redirect re-checked) and a page's likely figures
+  with the words around them. The one integration with no host of its own;
+  see its own README.
 
 Each provider owns its own controlled **vocabulary** — `arxiv.vocab` (category
 codes) and `semantic_scholar.vocab` (fields of study) — rather than a shared

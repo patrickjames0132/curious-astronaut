@@ -234,7 +234,12 @@ class TestMissingAgentsFromTemplate:
         # The template gives the tutor the lecturer's model, so it follows the
         # user's choice for that tier rather than the template's default.
         assert tutor.model == "anthropic:claude-opus-4-1"
-        assert tutor.extras == {"children": 6, "lesson_words": 350}
+        assert tutor.extras == {
+            "children": 6,
+            "lesson_words": 350,
+            "images": 3,
+            "image_searches": 4,
+        }
 
     def test_the_file_itself_is_not_rewritten(self, tmp_path):
         from curious_astronaut.config import load_settings
@@ -256,4 +261,9 @@ class TestMissingAgentsFromTemplate:
         loaded = load_settings(path)
         tutors = [entry for entry in loaded.llm.agents if entry.id == "tutor"]
         assert len(tutors) == 1
-        assert tutors[0].extras == {"children": 3, "lesson_words": 200}
+        assert tutors[0].extras == {
+            "children": 3,
+            "lesson_words": 200,
+            "images": 3,
+            "image_searches": 4,
+        }

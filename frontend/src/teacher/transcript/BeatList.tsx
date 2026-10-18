@@ -21,7 +21,7 @@
 
 import type { AnswerFigure, Beat, SourceRef } from '../../api'
 import MathText from '../../notation/MathText'
-import FigCard from '../figures/FigCard'
+import FigCard from '../../figures/FigCard'
 import AnswerMarkdown from './AnswerMarkdown'
 
 /**

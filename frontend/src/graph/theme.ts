@@ -29,6 +29,15 @@ export interface CanvasInk {
   outline: string
   /** The same outline on a dimmed disc. */
   outlineDim: string
+  /** A knowledge-graph "needs" edge (v8.24.0): a neutral slate, a hue no
+   *  node uses (violet is a concept's, teal a synthesis's). */
+  knowledgeEdge: string
+  /** The same edge where a focus has dimmed it: fainter, but still visible
+   *  on either background, where `DIM_EDGE`'s grey all but vanished. */
+  knowledgeEdgeDim: string
+  /** The same edge lit by a focus that isn't its own (a hovered neighbour, a
+   *  find): brighter. The open item's own edges take `SELECTION_RING`. */
+  knowledgeEdgeLit: string
 }
 
 /**
@@ -56,6 +65,9 @@ export function useCanvasInk(): CanvasInk {
     background: read('--bg', '#0b1524'),
     outline: read('--node-outline', 'transparent'),
     outlineDim: read('--node-outline-dim', 'transparent'),
+    knowledgeEdge: read('--knowledge-edge', 'rgba(148,163,184,0.38)'),
+    knowledgeEdgeDim: read('--knowledge-edge-dim', 'rgba(148,163,184,0.16)'),
+    knowledgeEdgeLit: read('--knowledge-edge-lit', 'rgba(203,213,225,0.8)'),
   }
 }
 

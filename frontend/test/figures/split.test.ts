@@ -11,8 +11,8 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { AnswerFigure } from '../../../src/api'
-import { splitAnswer } from '../../../src/teacher/figures/split'
+import type { AnswerFigure } from '../../src/api'
+import { splitAnswer } from '../../src/figures/split'
 
 /** A minimal attached figure occupying `slot`. */
 function makeFigure(slot: number): AnswerFigure {

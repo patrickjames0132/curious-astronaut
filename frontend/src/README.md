@@ -47,7 +47,9 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │  │                              KnowledgeGraph3D.tsx (lazy-loaded)
    │  ├─ legend                    knowledge/KnowledgeLegend.tsx
    │  ├─ find control (🔍 → pill)  graph/controls/FindBar.tsx (shared)
-   │  └─ lesson panel (on click)   knowledge/KnowledgePanel.tsx
+   │  ├─ lesson panel (on click)   knowledge/KnowledgePanel.tsx
+   │  │  └─ lesson images          figures/FigCard.tsx (shared, v8.24.0)
+   │  └─ image lightbox            figures/Lightbox.tsx
    ├─ graph area                   graph/GraphExplorer.tsx
    │  ├─ overlays (from the shell): loading / error, and the ↑ back up to
    │  │                              the paper's cards  (App.tsx)
@@ -69,7 +71,7 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
       │  ├─ lecture beats          teacher/transcript/BeatList.tsx (a turn
       │  │                          whose answer IS a lecture, behind its own
       │  │                          caret — newest open, older ones folded)
-      │  └─ inline figures         teacher/figures/FigCard.tsx
+      │  └─ inline figures         figures/FigCard.tsx
       ├─ ask bar                    the question, and the one control that
       │  │                          binds it most directly
       │  ├─ @ suggestions          mentions/MentionSuggestions.tsx — opens
@@ -90,9 +92,11 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
                                     but GraphExplorer and Teacher each own their own)
 ```
 
-`figures/Lightbox.tsx` is the frontend's first true multi-consumer, root-level
-component (promoted from `teacher/figures/` once the detail panel became a
-second caller) — see "the hybrid rule" above.
+`figures/` is the frontend's first true multi-consumer, root-level folder:
+`Lightbox.tsx` was promoted from `teacher/figures/` once the detail panel became
+a second caller, and `FigCard.tsx` + `split.ts` followed it in v8.24.0, when
+lesson images made the knowledge panel a third (`teacher/figures/` is gone) —
+see "the hybrid rule" above.
 
 Non-visual folders: `api/` (the typed backend client — the only layer that
 knows URLs and SSE frames), `store/` (the five slices + typed hooks),
