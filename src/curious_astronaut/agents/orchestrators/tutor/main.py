@@ -11,6 +11,9 @@ Two jobs, one agent id (and so one configured model):
   the node and then the new nodes at once.
 * ``lesson`` teaches one item, streamed as ``Token`` events the way the
   researcher streams an answer.
+* ``name_phrase`` (v8.25.0) names the one concept behind a passage the
+  reader highlighted in a lesson ("Expand"), to hang under that lesson's
+  item the way a breakdown's concepts do.
 * ``name_synthesis`` and ``synthesis_lesson`` (v8.23.0) serve a **synthesis**: an optional
   node the reader (or, later, the tutor) makes from several concepts, which
   names what they become together and teaches how they combine toward the
@@ -64,6 +67,7 @@ from .config import (
     FIT_PROMPT,
     IMAGES_PROMPT,
     LESSON_PROMPT,
+    PHRASE_PROMPT,
     SKILLS,
     SYNTHESIS_NAME_PROMPT,
     SYNTHESIS_PROMPT,
@@ -144,6 +148,10 @@ expand_agent: Agent[None, Prerequisites] = Agent(
 lesson_agent: Agent[None, Lesson] = Agent(
     output_type=Lesson,
     instructions=[LESSON_PROMPT, *(prompts.skill(name) for name in SKILLS)],
+)
+phrase_agent: Agent[None, Prerequisite] = Agent(
+    output_type=Prerequisite,
+    instructions=[PHRASE_PROMPT],
 )
 synthesis_name_agent: Agent[None, SynthesisName] = Agent(
     output_type=SynthesisName,
@@ -282,6 +290,43 @@ def expand(
         if len(children) >= limit:
             break
     return children
+
+
+def name_phrase(
+    phrase: str, item: Step, path: list[Step], existing: list[str]
+) -> Child | None:
+    """Name the concept behind a passage highlighted in an item's lesson.
+
+    The reader's "Expand" on a selection: one structured call, like
+    ``expand`` but for the one idea the passage is about rather than
+    everything the item needs.
+
+    Args:
+        phrase: The highlighted text.
+        item: The lesson's subject, which will need the concept.
+        path: The course path above the item, root first.
+        existing: Names already in the course, so a repeat reuses its name.
+
+    Returns:
+        The concept and why the item needs it, or None when the model named
+        the item itself or something above it (that would be a cycle).
+
+    Raises:
+        Exception: Model failures propagate; the route answers 502.
+    """
+    parts = [
+        f"PASSAGE: {phrase}\n\n",
+        f"LESSON SUBJECT: {item.title} ({item.kind})\n\n",
+        _path_block(path),
+    ]
+    if existing:
+        parts.append("ALREADY IN THE COURSE:\n" + "\n".join(existing) + "\n\n")
+    result = streams.run(phrase_agent.run("".join(parts), model=factory.model_for(AGENT_ID)))
+    name = result.output.name.strip()
+    banned = {_key(item.title), *(_key(step.title) for step in path)}
+    if not name or _key(name) in banned:
+        return None
+    return Child(name=name, why=result.output.why)
 
 
 def _needs_block(needed_by: list[Need]) -> str:

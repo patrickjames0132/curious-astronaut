@@ -853,14 +853,56 @@ export function withChildren(
 ): KnowledgeMap {
   const parent = map.nodes[parentId]
   if (!parent || parent.expanded) return map
+  // A concept expanded from its lesson before this breakdown (v8.25.0) stays
+  // part of what it remembers.
+  const listed = new Set(children.map((child) => nameKey(child.name)))
+  const earlier = (parent.breakdown ?? []).filter((child) => !listed.has(nameKey(child.name)))
   return attached(
     {
       ...map,
-      nodes: { ...map.nodes, [parentId]: { ...parent, expanded: true, breakdown: children } },
+      nodes: {
+        ...map.nodes,
+        [parentId]: { ...parent, expanded: true, breakdown: [...children, ...earlier] },
+      },
     },
     parentId,
     children,
   )
+}
+
+/**
+ * Hang one more prerequisite under an item (v8.25.0): the concept behind a
+ * passage the reader highlighted in its lesson and expanded. It goes through
+ * the same linking as a breakdown, so a concept already on the course gets an
+ * edge rather than a second node, one deleted before comes back as it was,
+ * and an edge that would close a loop is dropped. Unlike a breakdown it
+ * leaves the item's `expanded` as it was (double-clicking still breaks it
+ * down), and it joins the item's `breakdown`, so deleting it can be undone
+ * like any other prerequisite (`missingChildren`).
+ *
+ * @param map The course.
+ * @param parentId The item whose lesson the passage is in.
+ * @param child The concept, and why the item needs it.
+ * @returns The new map (the input is not mutated); unchanged when the edge
+ *   is already there or would close a loop.
+ */
+export function withPrerequisite(
+  map: KnowledgeMap,
+  parentId: string,
+  child: KnowledgeChild,
+): KnowledgeMap {
+  const parent = map.nodes[parentId]
+  if (!parent || parent.kind === 'synthesis') return map
+  const linked = attached(map, parentId, [child])
+  if (linked.edges.length === map.edges.length) return map
+  const breakdown = parent.breakdown ?? []
+  const id = nameKey(child.name)
+  return breakdown.some((listed) => nameKey(listed.name) === id)
+    ? linked
+    : {
+        ...linked,
+        nodes: { ...linked.nodes, [parentId]: { ...parent, breakdown: [...breakdown, child] } },
+      }
 }
 
 /**

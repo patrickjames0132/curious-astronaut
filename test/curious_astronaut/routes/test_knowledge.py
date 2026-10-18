@@ -10,7 +10,8 @@ its members come in, and its lesson streams and replays like any other.
 A lesson is written with images (v8.24.0): its steps and images stream and
 replay from the cache, a quick response is its own lesson without them (as
 is every lesson with the knob at 0), and the web-image proxy serves only a
-handle a search registered.
+handle a search registered. A highlighted passage's concept (v8.25.0) is
+named once and cached, empty when it names the lesson's own item.
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
@@ -384,3 +385,44 @@ def test_the_web_image_proxy_serves_only_registered_handles(client, monkeypatch)
     # An image that is gone, or no longer an image, is a 404.
     monkeypatch.setattr(knowledge.tutor.images, "_read_image", lambda url: None)
     assert client.get("/api/web_image/abc").status_code == 404
+
+
+PHRASE = {
+    "phrase": "the Bellman backup",
+    "item": {"title": "Q-learning", "kind": "concept"},
+    "path": [{"title": "Playing Atari", "kind": "paper"}],
+    "existing": ["MDPs"],
+}
+
+
+def test_a_phrase_is_named_once_and_cached(client, monkeypatch):
+    calls = []
+
+    def name_phrase(phrase, item, path, existing):
+        calls.append((phrase, item.title, [step.title for step in path], existing))
+        return tutor.Child(name="Bellman equations", why="Its update.")
+
+    monkeypatch.setattr(knowledge.tutor, "name_phrase", name_phrase)
+    first = client.post("/api/knowledge/phrase", json=PHRASE)
+    assert first.get_json() == {"child": {"name": "Bellman equations", "why": "Its update."}}
+    assert client.post("/api/knowledge/phrase", json=PHRASE).get_json() == first.get_json()
+    assert calls == [("the Bellman backup", "Q-learning", ["Playing Atari"], ["MDPs"])]
+
+
+def test_a_phrase_naming_its_own_lesson_comes_back_empty(client, monkeypatch):
+    monkeypatch.setattr(knowledge.tutor, "name_phrase", lambda *_args: None)
+    assert client.post("/api/knowledge/phrase", json=PHRASE).get_json() == {"child": None}
+
+
+def test_a_phrase_needs_text_and_an_item(client, monkeypatch):
+    monkeypatch.setattr(knowledge.tutor, "name_phrase", lambda *_args: None)
+    assert client.post("/api/knowledge/phrase", json={**PHRASE, "phrase": "  "}).status_code == 400
+    assert client.post("/api/knowledge/phrase", json={**PHRASE, "item": {}}).status_code == 400
+
+
+def test_a_failed_phrase_is_a_502(client, monkeypatch):
+    def name_phrase(*_args):
+        raise RuntimeError("model down")
+
+    monkeypatch.setattr(knowledge.tutor, "name_phrase", name_phrase)
+    assert client.post("/api/knowledge/phrase", json=PHRASE).status_code == 502

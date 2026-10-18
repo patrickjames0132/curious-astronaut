@@ -70,6 +70,15 @@
    * they blur what's behind them, so they can't just be --panel. */
   --panel-float: rgba(17, 29, 48, 0.92);
   --panel-float-soft: rgba(17, 29, 48, 0.85);
+  /* The menu over a highlighted lesson passage (v8.25.0): a grey glass pill
+   * with light ink in both themes, after SpatialRead's. */
+  /* Darker than the first cut, which read faintly on both themes; the
+   * light edge keeps it apart from the dark theme's navy. */
+  --selection-menu: rgba(52, 58, 70, 0.97);
+  --selection-menu-edge: rgba(255, 255, 255, 0.16);
+  --selection-menu-ink: #f7f5f0;
+  --selection-menu-hover: rgba(255, 255, 255, 0.14);
+  --selection-menu-divider: rgba(255, 255, 255, 0.28);
 
   /* Motion — one language for the whole app, so things move with one voice.
      The two entrance curves are a pair (see teacher.css "entrances"): the
@@ -170,6 +179,8 @@
   --hover: rgba(11, 21, 36, 0.05);
   --panel-float: rgba(255, 255, 255, 0.94);
   --panel-float-soft: rgba(255, 255, 255, 0.88);
+  --selection-menu: rgba(62, 68, 80, 0.96);
+  --selection-menu-edge: rgba(0, 0, 0, 0.12);
 }
 
 * {

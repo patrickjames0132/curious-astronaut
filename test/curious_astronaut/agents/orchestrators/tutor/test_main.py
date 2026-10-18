@@ -5,7 +5,8 @@ The tutor: children are concepts, cycles and duplicates are dropped, the
 width knob caps the list, the real reference list reaches both prompts, and a
 lesson streams as tokens that add up to the model's text, then resolves only
 the citations it used, in range, to the real papers. A synthesis is named from
-its concepts and target, and its lesson streams like any other.
+its concepts and target, and its lesson streams like any other. A highlighted
+passage (v8.25.0) is named as one concept, never the item or its path.
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
@@ -181,3 +182,38 @@ def test_a_fit_section_is_written_from_the_lesson_and_what_needs_it():
 
     with tutor_main.fit_agent.override(model=TestModel(custom_output_args={"text": " Both. "})):
         assert tutor.fit_section(DQN, "Q-learning learns values.", needs) == "Both."
+
+
+def test_a_phrase_is_named_as_the_one_concept_it_is_about():
+    """A lesson's Expand (v8.25.0): one concept, with why the item needs it."""
+    item = tutor.Step(title="Q-learning", kind="concept")
+    model = TestModel(custom_output_args={"name": " Bellman equations ", "why": "Its update."})
+    with tutor_main.phrase_agent.override(model=model):
+        child = tutor.name_phrase("the Bellman backup", item, [DQN], ["Bellman equations"])
+    assert child == tutor.Child(name="Bellman equations", why="Its update.")
+
+
+def test_a_phrase_naming_the_item_or_its_path_is_none():
+    item = tutor.Step(title="Q-learning", kind="concept")
+    for name in ("q-learning", "Playing Atari with Deep Reinforcement Learning"):
+        model = TestModel(custom_output_args={"name": name, "why": "w"})
+        with tutor_main.phrase_agent.override(model=model):
+            assert tutor.name_phrase("this", item, [DQN], []) is None
+
+
+def test_the_phrase_prompt_carries_the_passage_and_the_course():
+    seen = {}
+
+    def record(messages, info):
+        seen["prompt"] = messages[0].parts[-1].content
+        raise RuntimeError("stop after recording")
+
+    item = tutor.Step(title="Q-learning", kind="concept")
+    with tutor_main.phrase_agent.override(model=FunctionModel(record)):
+        try:
+            tutor.name_phrase("off-policy updates", item, [DQN], ["MDPs"])
+        except RuntimeError:
+            pass
+    assert "PASSAGE: off-policy updates" in seen["prompt"]
+    assert "LESSON SUBJECT: Q-learning (concept)" in seen["prompt"]
+    assert "ALREADY IN THE COURSE:\nMDPs" in seen["prompt"]

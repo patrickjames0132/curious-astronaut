@@ -5,7 +5,8 @@ The tutor's words: its agent id, skills, and its prompts — one that
 breaks the paper or a concept into the concepts it needs, one that teaches a
 single concept as a lesson (no citations since v8.17.0), and since v8.23.0 the
 two for a synthesis: one that names a group of concepts, one that writes how
-they come together, and since v8.24.0 ``IMAGES_PROMPT``, added to either
+they come together; since v8.25.0 ``PHRASE_PROMPT``, which names the concept
+behind a passage highlighted in a lesson; and since v8.24.0 ``IMAGES_PROMPT``, added to either
 lesson prompt when it is written with its image tools. Model choice
 and the three knobs (``children``, ``lesson_words``, ``images``) live in its
 ``config.llm.agents`` entry, validated at load against ``config.TutorExtras``;
@@ -48,6 +49,23 @@ EXPAND_PROMPT = (
     "- Order items from most to least essential. List fewer when fewer are "
     "really needed; an elementary concept may need none at all — return an "
     "empty list rather than padding."
+)
+
+PHRASE_PROMPT = (
+    "You design short courses. A reader working through a course on a "
+    "research paper has highlighted a word or passage in one of its lessons "
+    "and wants it broken out into a concept of its own: the idea the passage "
+    "uses that the lesson leans on without teaching.\n\n"
+    "You are given the passage, the lesson's subject, and the path from the "
+    "paper down to that subject. Return:\n"
+    "- name: the ONE concept the passage is about, as a short noun phrase "
+    "('Bellman equations', 'Importance sampling'). Name the idea, never a "
+    "paper or an author, and never the lesson's own subject. When the "
+    "passage is already a concept's name, use it, tidied. When it matches "
+    "one in ALREADY IN THE COURSE, reuse that exact name so the course does "
+    "not teach it twice.\n"
+    "- why: one plain sentence saying what the lesson's subject needs it "
+    "for, in this context."
 )
 
 # The heading a lesson's closing section carries (v8.23.0). The panel splits

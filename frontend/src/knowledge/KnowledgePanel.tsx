@@ -12,7 +12,10 @@
  * down again" asks the tutor for a fresh one. A synthesis's Connections are
  * what it builds toward and what it combines, then its lesson. It can't be
  * broken down, but it can be checked off as known, like a concept. Docked right of the canvas, like the
- * citation graph's detail panel, and resizable the same way.
+ * citation graph's detail panel, and resizable the same way. Since v8.25.0 a
+ * passage highlighted in a finished lesson opens a small menu
+ * (`SelectionMenu`): Explain asks the course's assistant about it, Expand
+ * adds the idea it names to the graph, as something this item needs.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -35,7 +38,27 @@ import {
   nextLesson,
   type KnowledgeMap,
 } from './model'
+import SelectionMenu from './SelectionMenu'
+import { useLessonSelection } from './useLessonSelection'
 import type { LessonDraft } from './useLessons'
+
+/**
+ * Where a lesson's Expand has got to (v8.25.0), shown above the lesson:
+ * naming the concept, or what became of it.
+ */
+export interface PhraseNote {
+  /** The item whose lesson the passage is in. */
+  nodeId: string
+  /** `working` while the tutor names it; `added`, a new prerequisite;
+   *  `linked`, one already there; `self`, the passage names this item or
+   *  one above it; `loop`, the concept already needs this item, so it
+   *  can't come before it too; `error`, the tutor failed. */
+  state: 'working' | 'added' | 'linked' | 'self' | 'loop' | 'error'
+  /** The passage while working, the concept's name after, or the error. */
+  text: string
+  /** The concept's id, to open it. */
+  childId?: string
+}
 
 /** localStorage key: whether the Connections card is open (per browser).
  *  Named for the card's first name, "Where it fits", kept so the choice
@@ -305,6 +328,10 @@ function StepLine({
  * @param props.onDelete Delete the item (any but the paper).
  * @param props.onHover Point at an item on the graph from its Connections row, or let go.
  * @param props.onEnlarge Show one of its lesson's images full-screen.
+ * @param props.onExplain Ask the course's assistant about a highlighted passage.
+ * @param props.onExpandPhrase Add the idea a highlighted passage names to the
+ *   graph, as something the item needs.
+ * @param props.phrase Where the last Expand has got to.
  * @param props.onClose Close the panel.
  * @returns The panel.
  */
@@ -327,6 +354,9 @@ export default function KnowledgePanel({
   onDelete,
   onHover,
   onEnlarge,
+  onExplain,
+  onExpandPhrase,
+  phrase,
   onClose,
 }: {
   map: KnowledgeMap
@@ -347,6 +377,9 @@ export default function KnowledgePanel({
   onDelete: (nodeId: string) => void
   onHover?: (nodeId: string | null) => void
   onEnlarge: (figure: AnswerFigure) => void
+  onExplain: (text: string) => void
+  onExpandPhrase: (text: string) => void
+  phrase?: PhraseNote | null
   onClose: () => void
 }) {
   const { width, onHandlePointerDown, dragging } = useResizablePanel('ca.knowledgeWidth', 400)
@@ -374,6 +407,10 @@ export default function KnowledgePanel({
     const box = scrollRef.current
     if (box) following.current = box.scrollHeight - box.scrollTop - box.clientHeight < 40
   }
+  // A passage highlighted in the finished lesson (v8.25.0).
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const lessonDone = !!map.nodes[nodeId]?.lesson && !draft
+  const { selection, clear: clearSelection } = useLessonSelection(bodyRef, lessonDone)
   const streamed = draft?.text.length ?? 0
   useEffect(() => {
     // A new lesson starts at its top, ready to follow.
@@ -474,7 +511,34 @@ export default function KnowledgePanel({
         {node.expanded && !needs(map, node.id).length && !missing.length && (
           <p className="lesson-status">Nothing further to break down — this one is a foundation.</p>
         )}
-        <div className="lesson-body">
+        {phrase && phrase.nodeId === node.id && (
+          <p className={phrase.state === 'error' ? 'lesson-error' : 'lesson-status'}>
+            {phrase.state === 'working' && (
+              <>
+                <span className="spin" /> Adding “{phrase.text}” to the graph…
+              </>
+            )}
+            {phrase.state === 'error' && phrase.text}
+            {phrase.state === 'self' && `“${phrase.text}” is what this lesson is about already.`}
+            {phrase.state === 'loop' &&
+              `“${phrase.text}” already builds on this, so it can't come before it as well.`}
+            {(phrase.state === 'added' || phrase.state === 'linked') && phrase.childId && (
+              <>
+                {phrase.state === 'added' ? 'Added' : 'Already in the course:'}
+                <button
+                  type="button"
+                  className="link-btn lesson-phrase-open"
+                  onClick={() => onOpen(phrase.childId!)}
+                  title={`Open ${phrase.text}`}
+                >
+                  {phrase.text}
+                </button>
+                {phrase.state === 'added' && 'as something this needs.'}
+              </>
+            )}
+          </p>
+        )}
+        <div className="lesson-body" ref={bodyRef}>
           {text ? (
             <>
               {parts.map((part, index) =>
@@ -524,6 +588,20 @@ export default function KnowledgePanel({
             </p>
           )}
         </div>
+
+        {selection && (
+          <SelectionMenu
+            selection={selection}
+            onExplain={(passage) => {
+              clearSelection()
+              onExplain(passage)
+            }}
+            onExpand={(passage) => {
+              clearSelection()
+              onExpandPhrase(passage)
+            }}
+          />
+        )}
 
         <footer className="lesson-foot" data-tour="lesson-foot">
           {/* The paper's redo confirmation comes first: it floats above the

@@ -1,4 +1,4 @@
-import { conversationHistory, siblingContext } from './history'
+import { borrowedChats, conversationHistory, siblingContext } from './history'
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
@@ -465,15 +465,7 @@ export function useConversation() {
       dispatch(streamStarted(streamId, key))
       history ??= conversationHistory(store.getState().transcript.byKey[key]?.chat ?? [])
       dispatch(turnStarted(question, key))
-      const owner = store.getState().explorations.byId[store.getState().explorations.activeId]
-      dispatch(
-        turnContextSet(
-          owner.threads
-            .filter((thread) => thread.id !== key && question.includes(`@thread[${thread.title}]`))
-            .map((thread) => ({ id: thread.id, title: thread.title })),
-          key,
-        ),
-      )
+      dispatch(turnContextSet(borrowedChats(store.getState(), question, key), key))
       // Stamp the turn with the graph it is about, while that is still what is
       // on screen. Skipped graph-free: there is no graph to name, and an
       // answer over the library alone is not made clearer by saying so.
@@ -539,7 +531,7 @@ export function useConversation() {
               provider,
               source_ids: sourceIds,
               history,
-              thread_context: siblingContext(store.getState(), question),
+              thread_context: siblingContext(store.getState(), question, key),
               ...askFilters(turnFilters),
             },
             {
@@ -604,7 +596,7 @@ export function useConversation() {
               provider,
               source_ids: sourceIds,
               history,
-              thread_context: siblingContext(store.getState(), question),
+              thread_context: siblingContext(store.getState(), question, key),
               ...askFilters(filters),
             },
             {

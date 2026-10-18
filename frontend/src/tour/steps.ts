@@ -61,7 +61,8 @@ export const HOME_TOUR: TourStep[] = [
     title: 'Type @ to name a paper or a thread',
     body:
       'Start any word with @ and suggestions appear as you type: this exploration’s ' +
-      'other discussions first, then papers. Arrow onto a paper (or hover it) and Enter ' +
+      'other discussions first (a paper’s Citation Graph and Knowledge Graph chats each ' +
+      'listed), then papers. Arrow onto a paper (or hover it) and Enter ' +
       'opens it in its own thread; put one inside a question ("what does @… say about X?") and ' +
       'Enter completes the title, then it answers from that paper without disturbing the ' +
       'graph you are looking at. Nothing is picked for you — press Enter with no row ' +
@@ -219,6 +220,27 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
       'on the item above brings them back, and “↻ Break it down again” asks for a fresh ' +
       'breakdown.',
   },
+  {
+    target: '[data-tour="lesson-pane"]',
+    presentIf: '[data-tour="lesson-pane"]',
+    title: 'Highlight a passage',
+    body:
+      'Select a word or a passage in a finished lesson and a small menu appears over it. ' +
+      '“Explain” asks the Knowledge Graph Assistant about it, without adding anything to the graph. ' +
+      '“Expand” adds the idea it names as a new concept this lesson’s item needs (or links ' +
+      'it, if the course already has it), ready to open and learn in turn.',
+  },
+  {
+    target: '[data-tour="course-assistant-btn"]',
+    presentIf: '[data-tour="course-assistant-btn"]',
+    title: 'The Knowledge Graph Assistant',
+    body:
+      'The 🎓 opens an assistant beside the course. It reads the whole course: every concept, ' +
+      'what each needs, what you have checked off, and the lessons written so far. Ask what a ' +
+      'concept means, how two connect, or what to study next. It keeps its own chat, apart from ' +
+      'the Citation Graph’s; type @ to bring that one, or any other in this exploration, into ' +
+      'a question. The 📚 under its bar picks which of your sources it may search.',
+  },
 ]
 
 /**
@@ -227,8 +249,8 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
  * top-to-bottom through its last row ("Open a paper"), then the
  * bottom-right find control, then the detail panel (a whole-panel overview
  * stop, then its sections), then the teacher — the 🎓 that opens it (only
- * while it is tucked away; it lives on the Citation Graph alone, so this is the
- * one tour that introduces it), the source scope under the ask
+ * while it is tucked away; the Knowledge Graph's course assistant has its own
+ * 🎓, introduced by the knowledge tour), the source scope under the ask
  * bar, then the bar itself, which carries two stops: what the researcher does
  * with a question, and how asking for a lecture reaches the other assistant.
  * The walk follows the eye down the panel and ends where the reader types.
@@ -441,8 +463,8 @@ export const GRAPH_TOUR: TourStep[] = [
     title: 'The assistant, when you want it',
     body:
       'The 🎓 opens this paper’s conversation beside the graph; ✕ tucks it away again, and ' +
-      'it stays the way you leave it. It lives on the Citation Graph: the cards and the ' +
-      'Knowledge Graph have no assistant docked.',
+      'it stays the way you leave it. Each tool keeps its own: the Knowledge Graph has its ' +
+      'Knowledge Graph Assistant with a chat of its own, and @ reaches either from the other.',
   },
   {
     target: '[data-tour="source-scope"]',

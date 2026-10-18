@@ -13,19 +13,22 @@ Each **exploration** contains a permanent **General** discussion and a thread
 for each paper. A paper thread opens on its **card home**: the paper (title,
 authors, TL;DR) and a card for each tool that works on it: the **Citation Graph**
 and the **Knowledge Graph**. The Citation Graph builds only when you open its card, and clicking a thread in the sidebar always
-brings you back to its cards; the graph you left is kept in memory, conversation and all. The AI
-assistant (🎓) docks beside the Citation Graph; the cards and the Knowledge Graph
+brings you back to its cards; the graph you left is kept in memory, conversation and all. Each graph
+docks its own AI assistant (🎓): the **Citation Graph Assistant** and the
+**Knowledge Graph Assistant**, which reads the course and its lessons; the cards
 have none. The
 **Knowledge Graph** is a short course on the ideas a paper rests on: the paper
 at the centre, the concepts it needs around it. Double-click any concept to
 break it down further, click one for a lesson written for this course (with real images from
 your library, papers and the web where they help, each credited, or ⚡ Quick response for the lesson
-alone; ↻ rewrites one), and tick off
+alone; ↻ rewrites one; highlight a passage to **Explain** it in the assistant or
+**Expand** it into a new concept), and tick off
 what you already know (shift-click or alt-drag to tick off several at once, or 🔍 find concepts
 by name and select every match). There's a
 3D mode too. The legend stays beside search and wraps only as space tightens;
 on narrow 3D graph panels, ⓘ beside search holds the navigation hints. Paper citations highlight the current graph; graph icons open or resume that paper's thread
-directly (onto its graph if you're on one, onto its cards otherwise). Type **@** and pick another discussion from the suggestions to
+directly (onto its graph if you're on one, onto its cards otherwise). Type **@** and pick another chat from the suggestions (a thread's Citation
+Graph or Knowledge Graph conversation, e.g. `@thread[PPO › Knowledge Graph]`) to
 bring it into the agent's context. Lectures remain part of their thread's history, including follow-up
 questions after a reload. Existing saved sessions migrate lazily when opened.
 

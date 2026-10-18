@@ -10,6 +10,11 @@ it placed is served here (``/api/web_image/<handle>``). All are thin over the ``
 reference list, which informs the paper's expansion; lessons stopped citing
 it in v8.17.0) and the caching.
 
+Since v8.25.0 it also names the concept behind a passage the reader
+highlighted in a lesson (``/api/knowledge/phrase``, the lesson's "Expand").
+The course's assistant, which answers over the course, is an ask route and
+lives with the others in ``routes/agents.py``.
+
 **Both results are cached permanently**, like generated TL;DRs: a lesson on
 Bellman equations under DQN is the same lesson tomorrow, and a reader
 re-opening a course should never pay for it twice. The cache keys include the
@@ -190,6 +195,58 @@ def api_expand() -> ResponseReturnValue:
     dumped = [child.model_dump() for child in children]
     cache.set(key, dumped)
     return jsonify({"children": dumped})
+
+
+#: The longest highlighted passage the tutor is shown: a phrase or a few
+#: sentences. A reader who selects a whole lesson gets its opening.
+PHRASE_LIMIT = 1200
+
+
+@bp.post("/api/knowledge/phrase")
+def api_phrase() -> ResponseReturnValue:
+    """Name the concept behind a passage highlighted in a lesson (v8.25.0).
+
+    The lesson's "Expand": the frontend hangs the concept under the lesson's
+    item as a breakdown would, so a concept already in the course gets an
+    edge rather than a second node.
+
+    Body:
+        ``{phrase, item: {title, kind}, path: [{title, kind}], existing:
+        [names], paper_id?}``. ``paper_id`` only keys the cache.
+
+    Returns:
+        ``{child: {name, why}}``, or ``{child: null}`` when the passage names
+        the lesson's own subject or an item above it; HTTP 400 for a
+        malformed body, 502 when the model fails.
+    """
+    payload = request.get_json(silent=True) or {}
+    phrase = " ".join(str(payload.get("phrase") or "").split())[:PHRASE_LIMIT]
+    raw_item = payload.get("item") or {}
+    try:
+        item = tutor.Step.model_validate(
+            {"title": raw_item.get("title"), "kind": raw_item.get("kind")}
+        )
+        path = _steps(payload.get("path") or [])
+    except (ValidationError, TypeError):
+        return jsonify({"error": "item/path are malformed"}), 400
+    if not phrase:
+        return jsonify({"error": "phrase is required"}), 400
+    existing = [name for name in payload.get("existing") or [] if isinstance(name, str)][:200]
+
+    key = "tutor:phrase:v1:" + _digest(
+        [phrase, item.model_dump(), [step.model_dump() for step in path], payload.get("paper_id")]
+    )
+    cached = cache.get(key)
+    if isinstance(cached, dict) and "child" in cached:
+        return jsonify(cached)
+    try:
+        child = tutor.name_phrase(phrase, item, path, existing)
+    except Exception:
+        log.exception("phrase naming failed for %r", phrase[:80])
+        return jsonify({"error": "The tutor couldn't expand this — try again."}), 502
+    result = {"child": child.model_dump() if child else None}
+    cache.set(key, result)
+    return jsonify(result)
 
 
 def _pictures(payload: dict) -> tutor.Pictures | None:

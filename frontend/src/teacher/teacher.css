@@ -1174,6 +1174,14 @@
 .teacher-ask textarea:focus {
   outline: none;
 }
+/* An empty bar is one line (see above), so a placeholder longer than a
+   narrow panel would wrap onto a second line the bar cuts in half; keep it
+   to one, ending in an ellipsis (v8.25.0). */
+.teacher-ask textarea::placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /* The submit. Still `> button` and not `button` even though the form holds
    nothing else now: cheap insurance, and the pair below (`.ask-clear`) reads
    as one set with it. */
@@ -1309,6 +1317,45 @@
   margin-left: 4px;
   font: inherit;
 }
-.thread-subject {
-  padding-bottom: 6px;
+/* The notes over the bar, one line each (v8.25.0, `ComposerNotes.tsx`): a
+   line too long for the panel ends in an ellipsis, and a small ⓘ beside
+   them holds them all in full. */
+.composer-notes {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 0 12px 6px 16px;
+}
+.composer-notes-lines {
+  flex: 1;
+  min-width: 0;
+}
+.composer-notes .ask-context-note {
+  padding: 6px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.composer-notes-tip .info-tip-button {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  line-height: 1;
+}
+.composer-notes-tip .info-tip-pop p {
+  margin: 0;
+}
+.composer-notes-tip .info-tip-pop p + p {
+  margin-top: 6px;
+}
+/* The tip after the notes: set apart, in the muted ink. */
+.composer-notes-tip .info-tip-pop p + .composer-notes-hint {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.composer-notes-hint {
+  color: var(--muted);
 }

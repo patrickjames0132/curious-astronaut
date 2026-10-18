@@ -18,6 +18,11 @@ ui/
                          graph and the knowledge graph (v8.14.0) so the two
                          corner buttons are one button
   useBoxSelect.ts      — the alt-drag box over a graph canvas (below)
+  InfoTip.tsx          — an ⓘ whose tooltip holds text there isn't room
+                         for: hover or focus previews it, a click pins it,
+                         Esc closes it. The 3D course's navigation help, and
+                         since v8.25.0 the assistants' cut-short notes
+                         (`teacher/ComposerNotes`)
   Switch.tsx           — the on/off switch (a hidden real checkbox under a
                          painted track and knob), from the settings modal
                          (the knowledge panel's "I know this" used it too,

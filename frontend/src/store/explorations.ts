@@ -5,16 +5,18 @@
  */
 import { createAction, createSlice, nanoid } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
-import type { AnswerFigure, KnowledgeChild, PaperDetails, SessionData } from '../api'
+import type { AnswerFigure, ChatMsg, KnowledgeChild, PaperDetails, SessionData } from '../api'
 import {
   isCurrentMap,
   withChildren,
   withSynthesis,
   withBreakdownAgain,
   withRestored,
+  withPrerequisite,
   withoutItems,
   type KnowledgeMap,
 } from '../knowledge/model'
+import { chatOf, type ChatTool } from './chats'
 import type { WorkspaceState } from './workspace'
 
 /**
@@ -43,6 +45,20 @@ export interface ThreadRecord {
   paper?: PaperDetails
   /** The knowledge network's course (v8.14.0), once its card has been opened. */
   knowledge?: KnowledgeMap
+  /**
+   * The Knowledge Graph assistant's chat (v8.25.0), as last saved, with its
+   * own rolling summary for the sibling index. The Citation Graph's chat
+   * keeps the fields it had before chats were per tool: `data.chat`,
+   * `summary` and `summarizedThrough` (`store/chats`).
+   */
+  courseChat?: SideChat
+}
+
+/** A tool's chat beside the thread's own (v8.25.0). */
+export interface SideChat {
+  chat: ChatMsg[]
+  summary?: string
+  summarizedThrough?: number
 }
 
 /**
@@ -252,6 +268,18 @@ const slice = createSlice({
         again ? withBreakdownAgain(map, nodeId, children) : withChildren(map, nodeId, children),
       )
     },
+    /** Hang one prerequisite under an item: the concept behind a passage
+     * highlighted in its lesson (v8.25.0, the lesson's Expand).
+     * @param state Exploration state.
+     * @param action The thread, the item, and the concept with why it is needed.
+     */
+    knowledgePrerequisiteAdded(
+      state,
+      action: PayloadAction<{ threadId: string; nodeId: string; child: KnowledgeChild }>,
+    ) {
+      const { threadId, nodeId, child } = action.payload
+      updateKnowledge(state, threadId, (map) => withPrerequisite(map, nodeId, child))
+    },
     /** Bring back an item's deleted prerequisites from its remembered breakdown (v8.23.0).
      * @param state Exploration state.
      * @param action The thread and the item.
@@ -390,24 +418,30 @@ const slice = createSlice({
     },
     /** Store a summary only for the revision the summarizer actually read.
      * @param state Exploration state.
-     * @param action Summary with its owning thread and revision.
+     * @param action Summary with its owning thread, its chat (the Citation
+     *   Graph's when absent) and revision.
      */
     threadSummarized(
       state,
       action: PayloadAction<{
         explorationId: string
         id: string
+        tool?: ChatTool
         summary: string
         through: number
       }>,
     ) {
-      const record = state.byId[action.payload.explorationId]
-      const thread = record?.threads.find((item) => item.id === action.payload.id)
-      if (thread) {
-        thread.summary = action.payload.summary
-        thread.summarizedThrough = action.payload.through
-        record.revision++
+      const { explorationId, id, tool = 'graph', summary, through } = action.payload
+      const record = state.byId[explorationId]
+      const thread = record?.threads.find((item) => item.id === id)
+      if (!thread) return
+      if (tool === 'graph') {
+        thread.summary = summary
+        thread.summarizedThrough = through
+      } else {
+        thread.courseChat = { chat: [], ...thread.courseChat, summary, summarizedThrough: through }
       }
+      record.revision++
     },
   },
   extraReducers: (builder) =>
@@ -431,15 +465,18 @@ const slice = createSlice({
         (action) => action.type === 'transcript/chatCleared',
         (state, action) => {
           const key = (action as { meta?: { key?: string } }).meta?.key
+          const { threadId, tool } = chatOf(key ?? state.byId[state.activeId]?.activeThreadId ?? '')
           for (const record of Object.values(state.byId)) {
-            const thread = record.threads.find(
-              (item) => item.id === (key ?? state.byId[state.activeId]?.activeThreadId),
-            )
-            if (thread) {
+            const thread = record.threads.find((item) => item.id === threadId)
+            if (!thread) continue
+            if (tool === 'graph') {
               delete thread.summary
               delete thread.summarizedThrough
-              record.revision++
+            } else if (thread.courseChat) {
+              delete thread.courseChat.summary
+              delete thread.courseChat.summarizedThrough
             }
+            record.revision++
           }
         },
       ),
@@ -459,6 +496,7 @@ export const {
   knowledgeSynthesized,
   knowledgeDeleted,
   knowledgeRestored,
+  knowledgePrerequisiteAdded,
   knowledgeLessonWritten,
   knowledgeLessonCleared,
   knowledgeKnownToggled,

@@ -6,6 +6,7 @@
 import { useAppDispatch, useAppSelector } from '../store'
 import { deleteThread, openThread } from '../store/workspace'
 import { threadRenamed } from '../store/explorations'
+import { chatKey } from '../store/chats'
 import SessionRow from './SessionRow'
 
 /** Show only the active exploration's children using the shared rail controls.
@@ -26,7 +27,10 @@ export default function ThreadList({ explorationId }: { explorationId: string })
           session={{ name: thread.title }}
           active={thread.id === record.activeThreadId}
           editable={!!thread.identity}
-          working={!!conversations[thread.id]?.running.length}
+          working={
+            !!conversations[thread.id]?.running.length ||
+            !!conversations[chatKey(thread.id, 'knowledge')]?.running.length
+          }
           onOpen={() => void dispatch(openThread(thread.id))}
           onRename={(title) => dispatch(threadRenamed({ id: thread.id, title }))}
           onDelete={() => void dispatch(deleteThread(thread.id))}

@@ -568,10 +568,77 @@ export async function streamAskSources(
   })
 }
 
-/** Explicitly attributed sibling memory, bounded again by the server. */
+/** Explicitly attributed sibling memory, bounded again by the server. One
+ *  per chat since v8.25.0: a paper thread's Citation Graph and Knowledge
+ *  Graph each have their own. */
 export interface ThreadContext {
+  /** The chat's label, e.g. `PPO › Knowledge Graph` (`store/chats`). */
   title: string
   summary: string
   mentioned: boolean
   history?: HistoryTurn[]
+  /** A Knowledge Graph chat's course, outlined for the server when it is
+   *  mentioned (its lessons are left out). */
+  course?: CourseContext
+}
+
+/** A Knowledge Graph course as the course's assistant reads it (v8.25.0).
+ *  Sent as structure; the server lays it out and bounds it. */
+export interface CourseContext {
+  /** The paper the course is about. */
+  paper: string
+  /** The title of the item whose lesson is open, if any. */
+  open: string | null
+  items: {
+    title: string
+    kind: 'paper' | 'concept' | 'synthesis'
+    known?: boolean
+    /** What it needs, and why. */
+    needs?: { title: string; why: string }[]
+    /** A synthesis's concepts, and the item they build toward. */
+    members?: string[]
+    toward?: string
+    /** Its lesson, once written, without image markers. */
+    lesson?: string
+  }[]
+}
+
+/**
+ * Stream an answer from the Knowledge Graph's assistant (v8.25.0): the
+ * researcher, graph-free, over a thread's course. The same events as
+ * {@link streamAskSources}.
+ *
+ * @param body The question, the course, the client's history, the sibling
+ *             index, and the provider and library scope its searches use.
+ * @param handlers Event handlers; see {@link AskSourcesHandlers}.
+ */
+export async function streamAskCourse(
+  body: {
+    question: string
+    course: CourseContext
+    provider: Provider
+    source_ids?: string[]
+    history?: HistoryTurn[]
+    thread_context?: ThreadContext[]
+  },
+  handlers: AskSourcesHandlers,
+): Promise<void> {
+  const res = await fetch('/api/ask_course', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: handlers.signal,
+  })
+  await readSSE(res, (event, data) => {
+    if (event === 'token') handlers.onToken((data as { text: string }).text)
+    else if (event === 'trace') handlers.onTrace?.(data as TraceEvent)
+    else if (event === 'figure') handlers.onFigure?.(data as AnswerFigure)
+    else if (event === 'source_refs')
+      handlers.onSourceRefs?.((data as { refs: Record<string, SourceRef> }).refs)
+    else if (event === 'provenance') handlers.onProvenance?.(data as ProvenanceEvent)
+    else if (event === 'paper_refs')
+      handlers.onPaperRefs?.((data as { refs: Record<string, PaperRef> }).refs)
+    else if (event === 'done') handlers.onDone?.()
+    else if (event === 'error') handlers.onError?.((data as { message: string }).message)
+  })
 }

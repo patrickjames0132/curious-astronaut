@@ -251,7 +251,11 @@ nobody was watching. Two log lines in sequence are the measurement.
 
 - **`routes/agents.py`** — both chat surfaces call `answer(...)` directly,
   per `skills/workflows/research.md`: `POST /api/ask` with a graph open (seed
-  + visible nodes + provider), `POST /api/ask_sources` without one. Each
+  + visible nodes + provider), `POST /api/ask_sources` without one, and
+  since v8.25.0 `POST /api/ask_course` for the Knowledge Graph's course
+  assistant: graph-free, with `course` (the course laid out by the route)
+  standing where a graph would in the prompt, and an instruction to answer a
+  question about the course from it, searching when it reaches beyond. Each
   wraps the stream in `streams.terminated` for the `Done`/`Error` contract
   and serializes it as SSE. There is no router in between — the `orchestrator`
   that used to own that dispatch was deleted in v7.0.0 (see

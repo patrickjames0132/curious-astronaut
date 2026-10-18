@@ -1,7 +1,9 @@
 # `src/store`
 
 The store separates an exploration, its threads, and the workspace currently
-on screen. A thread owns one graph (or no graph for General) and one transcript.
+on screen. A thread owns one graph (or no graph for General) and its
+transcript; since v8.25.0 a paper thread's Knowledge Graph has a transcript of
+its own too (see "Chats" below).
 Opening another graph changes the active thread; it never replaces the graph
 beneath an unrelated conversation. This deliberately reverses v7.10.0: the
 continuity that release protected now belongs to the parent exploration.
@@ -82,7 +84,8 @@ filter state, but recalculates physics; coordinates are not saved.
 
 ## Conversations and streaming
 
-`transcript.ts` keys conversations by thread id. Every stream captures that id
+`transcript.ts` keys conversations by chat (`chats.ts`: a thread's id, or
+`<threadId>:knowledge` for its course's). Every stream captures that key
 before starting and dispatches to it explicitly. A background answer continues
 writing to its own conversation. Its discoveries wait in `pendingDiscoveries`
 until the thread is displayed; they also participate in saves while it is away.
@@ -94,6 +97,37 @@ clears that flag. Partial answers remain readable but do not become model histor
 Lectures live in `ChatMsg.beats`, not in a separate lecture slot. `teacher/history.ts`
 converts completed prose and beats into model history and strips figure markers.
 The same conversion is used for normal sends, retries and borrowed discussion.
+
+## Chats: a thread and a tool (v8.25.0)
+
+Once the Knowledge Graph got its own assistant, a thread held two
+conversations, so `chats.ts` names the unit everything conversational
+addresses: a **chat**, a thread plus a tool (`ChatTool`: `graph` or
+`knowledge`).
+
+- **Keys.** The Citation Graph's chat (and General's) keeps the thread's id
+  as its transcript key, so nothing written before needs migrating; the
+  Knowledge Graph's is `<threadId>:knowledge` (`chatKey` / `chatOf`).
+  `transcript.activeKey` still means the active *thread*: the course's chat
+  is never "active", it is always addressed by its key
+  (`conversationEnsured` makes sure it exists before a stream writes).
+- **Storage.** The Citation Graph's chat stays where it was (`data.chat`,
+  `summary`, `summarizedThrough`); the course's is `ThreadRecord.courseChat`
+  (`{chat, summary?, summarizedThrough?}`), seeded into the transcript with
+  the thread (`seedThread`) and written back by `explorationBody`.
+  `threadSummarized` takes a `tool`, and clearing either chat drops its own
+  summary. Deleting a thread or exploration drops both conversations.
+- **References.** `explorationChats` lists an exploration's chats: each
+  thread's own, and a paper thread's Knowledge Graph chat once it has a
+  course or turns. A chat's label is what the `@` list shows and a mention
+  carries: `@thread[PPO › Knowledge Graph]`, `@thread[PPO › Citation
+  Graph]`, `@thread[General]`. `mentionsChat` still reads a bare
+  `@thread[PPO]` (a message sent before v8.25.0) as PPO's Citation Graph
+  chat. `teacher/history.ts` builds the sibling index per chat from these,
+  and a mentioned course chat brings its course's outline
+  (`knowledge/assistant/context.ts`). A `Context from` link carries the chat's
+  key, and `openChat` opens its thread and, for a course chat, the Knowledge
+  Graph.
 
 ## Persistence and migration
 
@@ -130,7 +164,9 @@ citations highlight their node on the canvas.
 ## Verification
 
 `test/store/threads.test.ts` covers graph identity, General, selection restoration,
-background token ownership, migration and serialization. Transcript tests cover
+background token ownership, migration and serialization (a course chat
+saved and restored beside its thread's own); `chats.test.ts` covers chat
+keys, labels, which chats an exploration offers, and old and new mentions. Transcript tests cover
 the keyed stream reducers. Shell tests cover write ordering, teardown recovery,
 read-only legacy opening, deletion and preserving names. Build with `npm run build`
 and run the offline suite with `npm test`.

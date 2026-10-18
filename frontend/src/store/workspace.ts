@@ -48,6 +48,7 @@ import {
 } from './explorations'
 import { resolveScope } from '../scope/resolve'
 import type { ResolvedScope } from '../scope/resolve'
+import { chatKey, chatOf } from './chats'
 import type { ExplorationsState, ThreadRecord } from './explorations'
 import type { Conversation, TranscriptState } from './transcript'
 
@@ -384,6 +385,7 @@ export const deleteThread = createAsyncThunk<
   }
   dispatch({ type: 'explorations/threadRemoved', payload: threadId })
   dispatch({ type: 'transcript/conversationDropped', payload: threadId })
+  dispatch({ type: 'transcript/conversationDropped', payload: chatKey(threadId, 'knowledge') })
 })
 
 /** Open a thread the way the rail does: a paper thread always lands on its
@@ -399,6 +401,21 @@ export const openThread = createAsyncThunk<void, string, { state: NavigationStat
   async (threadId, { dispatch }) => {
     dispatch(threadCardsShown(threadId))
     await dispatch(activateThread(threadId))
+  },
+)
+
+/** Open the chat a `Context from` link names (v8.25.0): its thread, as the
+ * rail does, and for a Knowledge Graph chat that tool, where its assistant
+ * docks. A link saved before chats were per tool names a thread, which is
+ * its Citation Graph chat, and lands on the cards as it always did.
+ * @param key The chat's key (`store/chats`).
+ */
+export const openChat = createAsyncThunk<void, string, { state: NavigationState }>(
+  'workspace/openChat',
+  async (key, { dispatch }) => {
+    const { threadId, tool } = chatOf(key)
+    await dispatch(openThread(threadId))
+    if (tool === 'knowledge') await dispatch(openTool('knowledge'))
   },
 )
 
