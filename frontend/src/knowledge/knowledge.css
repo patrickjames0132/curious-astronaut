@@ -235,19 +235,53 @@
   animation: panel-out var(--motion-panel) var(--ease-fade) both;
   pointer-events: none;
 }
-.knowledge-panel .close {
+/* The header's tools (v8.26.0): Known, the ⋮ menu and the ✕, captionless
+   in one row at the top right, over the kicker's line. */
+.lesson-tools {
   position: absolute;
-  top: 12px;
-  right: 14px;
+  top: 10px;
+  right: 10px;
   z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
-/* ↻ Rewrite this lesson (v8.24.0), beside the ✕. */
-.knowledge-panel .rewrite {
-  position: absolute;
-  top: 11px;
-  right: 40px;
-  z-index: 3;
-  font-size: 16px;
+.lesson-tools > .link-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 7px;
+}
+.lesson-tools > .link-btn:hover {
+  background: var(--hover, rgba(127, 127, 127, 0.14));
+}
+.lesson-more {
+  font-size: 17px;
+}
+.lesson-menu {
+  min-width: 210px;
+}
+/* Its icons sit in one column, the words lined up after them (v8.26.0). */
+.lesson-menu button {
+  gap: 10px;
+}
+.lesson-menu-icon {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+}
+/* A rule between the menu's groups: the lesson, the breakdown, taking it off. */
+.lesson-menu-rule {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+/* In the menu, the count reads inline after its words, not as a badge. */
+.lesson-menu .lesson-count {
+  position: static;
+  box-shadow: none;
 }
 .lesson-kicker {
   margin: 0 0 6px;
@@ -311,7 +345,7 @@
   }
 }
 .lesson-title {
-  margin: 0 28px 6px 0;
+  margin: 0 0 6px;
   color: var(--text-strong);
   font-size: 21px;
   font-weight: 500;
@@ -323,16 +357,25 @@
   font-size: 13px;
 }
 /* The Connections card, which folds (v8.23.0): a caret header like the
-   lecture's beats row, then its sections. */
+   lecture's beats row, then its sections. Folded, it is just its line of
+   counts, with no card around it (v8.26.0). */
 .lesson-card {
-  margin: 12px 0 0;
-  padding: 8px 12px 10px;
-  border: 1px solid var(--border);
+  margin: 8px 0 0;
+  border: 1px solid transparent;
   border-radius: 10px;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    padding 160ms ease;
+}
+.lesson-card.open {
+  padding: 8px 12px 10px;
+  border-color: var(--border);
   background: var(--chip);
 }
 .lesson-card-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   width: 100%;
@@ -341,12 +384,17 @@
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 13px;
   text-align: left;
   cursor: pointer;
+}
+.lesson-card-count {
+  display: inline-flex;
+  gap: 6px;
+}
+.lesson-card-count b {
+  color: var(--text);
+  font-weight: 600;
 }
 .lesson-card-head:hover {
   color: var(--text);
@@ -360,6 +408,7 @@
   transform: rotate(90deg);
 }
 @media (prefers-reduced-motion: reduce) {
+  .lesson-card,
   .lesson-card-caret {
     transition: none;
   }
@@ -469,16 +518,9 @@
   border-color: var(--accent);
   color: var(--text-strong);
 }
-/* How many a "Break it down" brings back (v8.23.0): a badge on the
-   button's top-right corner, as a notification count sits on its icon, so
-   it takes no room in the row. */
-.lesson-foot > button:has(.lesson-count) {
-  position: relative;
-}
+/* How many a "Break it down" brings back (v8.23.0), in the ⋮ menu since
+   v8.26.0. */
 .lesson-count {
-  position: absolute;
-  top: -7px;
-  right: -5px;
   min-width: 1.5em;
   padding: 0 5px;
   box-sizing: border-box;
@@ -510,7 +552,8 @@
   bottom: -24px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 8px 10px;
   margin: 24px -22px -24px;
   padding: 12px 22px;
   border-top: 1px solid var(--border);
@@ -532,40 +575,43 @@
 .knowledge-selection .lesson-error {
   margin: 0;
 }
-/* A narrow panel (v8.23.0, Patrick): two rows of two equal cells instead
-   of one row of squeezed pills. Unknown and Delete on top, the breakdown
-   button and Next lesson below; an odd last one (a synthesis or the paper
-   has three) spans the row. */
-@container lesson-panel (max-width: 440px) {
-  .lesson-foot {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-  .lesson-foot > .lesson-known {
-    margin-right: 0;
-  }
-  .lesson-foot > :last-child:nth-child(odd of :not(.lesson-confirm)) {
-    grid-column: 1 / -1;
-  }
-  .lesson-foot > .lesson-status {
-    justify-content: center;
-  }
-}
-/* "Unknown" / "Known" (v8.23.0, a switch until then): the footer's own
-   button, its text turning the known green once pressed. It sits left and
-   the actions group right, however many there are (a space-between round
-   left a synthesis's Delete stranded mid-row). */
-.lesson-known {
-  margin-right: auto;
-  /* Unknown reads a step quieter than its neighbours; Known in the green. */
+/* What just happened (v8.26.0, an Expand's note; above the lesson until
+   then): the footer's left, taking what room the buttons leave, on one line
+   cut with an ellipsis (wrapped, it pushed the buttons onto two rows); the
+   whole sentence is its tooltip. Plain inline text, so the concept's name
+   sits in the sentence with ordinary word spaces. */
+.lesson-note {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
   color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.lesson-known.on {
-  color: var(--knowledge-known-ink);
+.lesson-note .spin {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+/* Known (v8.23.0 a footer button, a switch before that; the header's since
+   v8.26.0): captionless, 🤔 → 💡. Unknown's 🤔 sits a step back, faded, so
+   the lit bulb is what reads as "on". */
+.lesson-known {
+  font-size: 15px;
+}
+.lesson-known:not(.on) .lesson-known-mark {
+  opacity: 0.55;
+  filter: grayscale(0.6);
+}
+.lesson-known:not(.on):hover .lesson-known-mark {
+  opacity: 1;
+  filter: none;
 }
 .lesson-known-mark {
   display: inline-block;
-  margin-right: 5px;
 }
 /* A known item's bulb keeps the soft glow the pop ends on. */
 .lesson-known.on .lesson-known-mark {
@@ -606,26 +652,24 @@
     animation: none;
   }
 }
-.lesson-known.on:hover {
-  color: var(--knowledge-known-ink);
-}
 /* The footer's buttons share one size and spread evenly. A narrow panel
    wraps their labels rather than overflowing the row (v8.23.0: a nowrap
    round cut Next lesson off at the panel's edge). */
 .lesson-foot > button {
-  /* Shrinks to its longest word, never past it (a min-width of 0 let
-     "Unknown" spill out of its pill). */
-  flex: 0 1 auto;
+  /* The buttons keep their size; the note gives way (v8.26.0). */
+  flex: 0 0 auto;
+  white-space: nowrap;
   padding: 7px 14px;
   font-size: 13.5px;
   line-height: 1.25;
 }
-/* The paper's "Break it down again" confirmation, opening up from the
-   footer (it sits at the panel's foot), in the settings page's danger red. */
+/* The paper's "Break it down again" confirmation, dropping from the
+   header's ⋮ menu (v8.26.0; it rose from the footer before), in the
+   settings page's danger red. */
 .lesson-confirm {
   position: absolute;
+  top: 44px;
   right: 22px;
-  bottom: calc(100% + 8px);
   left: 22px;
   z-index: 2;
   padding: 12px 14px;
@@ -657,7 +701,7 @@
 @keyframes lesson-confirm-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(-6px);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -720,9 +764,18 @@
 }
 
 /* An image placed in a lesson (v8.24.0), between the paragraphs it sits
-   after: the shared figure card, with room above and below. */
+   after: the shared figure card, with room above and below. On the dark
+   theme its white ground is taken down a little (v8.26.0), so a diagram
+   doesn't glare out of the panel; full brightness on hover, and enlarged. */
 .lesson-image {
   margin: 12px 0;
+}
+:root:not([data-theme='light']) .lesson-image .chat-fig {
+  filter: brightness(0.86);
+  transition: filter 160ms ease;
+}
+:root:not([data-theme='light']) .lesson-image .chat-fig:hover {
+  filter: none;
 }
 /* What the tutor is doing while a lesson's images are found (v8.24.0): one
    line, cut short with an ellipsis, each new step rising in from below; a
@@ -856,6 +909,8 @@
 }
 .selection-menu button {
   position: relative;
+  /* Never a column of letters, however little room is left (v8.26.0). */
+  white-space: nowrap;
   padding: 5px 12px;
   border: 0;
   border-radius: 8px;

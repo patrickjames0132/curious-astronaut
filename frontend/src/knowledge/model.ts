@@ -580,6 +580,40 @@ export function withoutItems(map: KnowledgeMap, nodeIds: string[]): KnowledgeMap
 }
 
 /**
+ * Delete an item for good (v8.26.0, "Delete permanently"): remove it as
+ * `withoutItems` does, then forget it, so no restore brings it back. It
+ * leaves every remembered breakdown that names it, on the course and in the
+ * archive, and its own archived copy (lesson, check-off, breakdown) goes,
+ * which also drops the only way back for what went with it. A later
+ * breakdown that names it again brings it back new. A synthesis is never
+ * archived, so for one this is `withoutItems`.
+ *
+ * @param map The course.
+ * @param nodeId The item.
+ * @returns The new map (the input is not mutated).
+ */
+export function withForgotten(map: KnowledgeMap, nodeId: string): KnowledgeMap {
+  const removed = withoutItems(map, [nodeId])
+  if (removed === map) return map
+  const remembers = (child: KnowledgeChild) => nameKey(child.name) !== nodeId
+  const nodes = Object.fromEntries(
+    Object.entries(removed.nodes).map(([id, node]) => [
+      id,
+      node.breakdown ? { ...node, breakdown: node.breakdown.filter(remembers) } : node,
+    ]),
+  )
+  const archive = Object.fromEntries(
+    Object.entries(removed.archive ?? {})
+      .filter(([id]) => id !== nodeId)
+      .map(([id, node]) => [
+        id,
+        node.breakdown ? { ...node, breakdown: node.breakdown.filter(remembers) } : node,
+      ]),
+  )
+  return { ...removed, nodes, archive }
+}
+
+/**
  * Fill in `breakdown` on every broken-down item that lacks it, from the edges
  * it has now (a course from before v8.23.0).
  *

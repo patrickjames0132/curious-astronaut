@@ -23,6 +23,10 @@ const GAP = 8
 /** The pill's height, for deciding whether it fits above the selection. */
 const PILL_HEIGHT = 36
 
+/** About half the pill's width, to keep it inside the window when the
+ *  selection runs to its edge (it squeezed into a column there, v8.26.0). */
+const PILL_HALF_WIDTH = 90
+
 /** A passage highlighted in the lesson, and where the pill goes. */
 export interface LessonSelection {
   text: string
@@ -33,7 +37,7 @@ export interface LessonSelection {
 
 /**
  * Where the pill goes for a range: centred above it, or below it when the
- * top of the window leaves no room.
+ * top of the window leaves no room, and never past the window's sides.
  *
  * @param range The selection's range.
  * @returns The pill's anchor.
@@ -41,8 +45,12 @@ export interface LessonSelection {
 function anchorOf(range: Range): { left: number; top: number } {
   const box = range.getBoundingClientRect()
   const above = box.top - GAP - PILL_HEIGHT
+  const centre = box.left + box.width / 2
   return {
-    left: box.left + box.width / 2,
+    left: Math.max(
+      PILL_HALF_WIDTH + GAP,
+      Math.min(centre, window.innerWidth - PILL_HALF_WIDTH - GAP),
+    ),
     top: above >= GAP ? above : box.bottom + GAP,
   }
 }

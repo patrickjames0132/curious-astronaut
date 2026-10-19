@@ -207,18 +207,19 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
       'images from your library, the paper or the web where they help, each credited and ' +
       'described (click one to enlarge it); a line says what the tutor is doing until it’s ready ' +
       '(click it for every step so far), ' +
-      'and “Quick response” skips the images to have the lesson now. ↻ beside the ✕ ' +
-      'writes a finished lesson again. Its links stay lit ' +
+      'and “Quick response” skips the images to have the lesson now. The ⋮ beside the ✕ ' +
+      'writes a finished lesson again, and holds Hide, Delete and “Break it down again”. Its links stay lit ' +
       'while it’s open: point at a lit one to see its links in turn. Click it again, or press ' +
-      'Esc, to close it. Press “Unknown” to make it “Known”, and the course skips it, with ' +
+      'Esc, to close it. Press its 🤔 to light the 💡: known, the course skips it, with ' +
       'everything beneath it. Already know several? ' +
       'Shift-click them, or hold Alt and drag a box around them, then “✓ I know these”. ' +
       'Pick two or more concepts (or syntheses) and “◆ Synthesize” adds a synthesis to ' +
       'the course: how they combine, taught just before what they build toward. Don’t ' +
-      'want some? Delete them from the panel or the ' +
-      'selection (or press Delete), and what only they needed goes too; “Break it down” ' +
-      'on the item above brings them back, and “↻ Break it down again” asks for a fresh ' +
-      'breakdown.',
+      'want some? Hide them from the panel’s ⋮ or the ' +
+      'selection (or press Delete), and what only they needed goes too; the item above ' +
+      'shows a red count of what’s hidden, and double-clicking it (or “Unhide” in its ⋮) ' +
+      'brings them back. “Delete permanently” takes one off for good, and “Break it down ' +
+      'again” asks for a fresh breakdown; both ask first.',
   },
   {
     target: '[data-tour="lesson-pane"]',

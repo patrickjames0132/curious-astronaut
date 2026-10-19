@@ -14,6 +14,7 @@ import {
   withRestored,
   withPrerequisite,
   withoutItems,
+  withForgotten,
   type KnowledgeMap,
 } from '../knowledge/model'
 import { chatOf, type ChatTool } from './chats'
@@ -314,6 +315,15 @@ const slice = createSlice({
       const { threadId, nodeIds } = action.payload
       updateKnowledge(state, threadId, (map) => withoutItems(map, nodeIds))
     },
+    /** Delete an item for good (v8.26.0): deleted as above, and forgotten,
+     * so no restore brings it back.
+     * @param state Exploration state.
+     * @param action The thread and the item.
+     */
+    knowledgeForgotten(state, action: PayloadAction<{ threadId: string; nodeId: string }>) {
+      const { threadId, nodeId } = action.payload
+      updateKnowledge(state, threadId, (map) => withForgotten(map, nodeId))
+    },
     /** Keep a finished lesson, so reopening it costs nothing; also how a
      * lesson's rewritten "How it fits in" section lands (v8.23.0). A new
      * lesson lands with its images (v8.24.0); a rewrite keeps the ones it has.
@@ -495,6 +505,7 @@ export const {
   knowledgeExpanded,
   knowledgeSynthesized,
   knowledgeDeleted,
+  knowledgeForgotten,
   knowledgeRestored,
   knowledgePrerequisiteAdded,
   knowledgeLessonWritten,

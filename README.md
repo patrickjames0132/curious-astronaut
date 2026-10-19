@@ -21,8 +21,10 @@ have none. The
 at the centre, the concepts it needs around it. Double-click any concept to
 break it down further, click one for a lesson written for this course (with real images from
 your library, papers and the web where they help, each credited, or ⚡ Quick response for the lesson
-alone; ↻ rewrites one; highlight a passage to **Explain** it in the assistant or
-**Expand** it into a new concept), and tick off
+alone; highlight a passage to **Explain** it in the assistant or
+**Expand** it into a new concept; the lesson's ⋮ menu rewrites it, hides the
+concept or deletes it for good, and a red count on a node shows what's hidden
+beneath it, back with a double-click), and tick off
 what you already know (shift-click or alt-drag to tick off several at once, or 🔍 find concepts
 by name and select every match). There's a
 3D mode too. The legend stays beside search and wraps only as space tightens;
