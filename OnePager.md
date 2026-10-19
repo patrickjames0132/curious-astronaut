@@ -294,6 +294,42 @@ than deleted so the plan doesn't get re-proposed.
 
 ### Teacher & agent reach
 
+- [ ] **More than one General chat per exploration** — today an
+      exploration has a single General chat, so a reader who used it for a
+      search and wants to keep those results up has to clear it to talk about
+      something else. Let them spin off another General thread inside the
+      same exploration, alongside the first, each with its own transcript
+      (and its own entry in the `@` list and the sibling index,
+      `teacher/history.ts`). Settle how they're named and ordered in the rail
+      before building. *(From the `todos.md` inbox, 2026-10-18.)*
+
+- [ ] **Quick response on every chat bar, not just the tutor's lessons** —
+      a lesson's ⚡ Quick response (v8.24.0) skips the image search and
+      answers from the tutor's own knowledge. Offer the same on the General
+      chat, the Citation Graph assistant and the Knowledge Graph Assistant:
+      answer without the researcher's tool calls (library, paper and web
+      search) when the reader just wants the model's take now. Decide whether
+      it's a toggle on the bar or a per-message action while an answer is
+      working, as the lesson's is. *(From the `todos.md` inbox, 2026-10-18.)*
+
+- [ ] **Lesson images should show the concept itself, first** — the tutor's
+      image search (v8.24.0) does a decent job, but what it finds tends to
+      illustrate *auxiliary* ideas the lesson touches on, placed after their
+      paragraphs. As well as those, it should look for an image that depicts
+      the lesson's own concept (the canonical diagram of an actor–critic
+      loop, say) and open the lesson with it. Likely a change to the tutor's
+      image brief in `routes/knowledge.py` / the tutor's prompt, plus a
+      "lead image" slot the panel places before the first paragraph.
+      *(From the `todos.md` inbox, 2026-10-18.)*
+
+- [ ] **Decide whether the Citation Graph assistant should still search
+      papers itself** — Patrick's lean: no; it should only look up other
+      chats and threads (`@`), leaving paper discovery to the graph. Decide
+      first, then trim its tools and prompt to match. Pairs with the
+      researcher-breakdown cleanup under "Enhancements & tech debt" below,
+      since both are about what each of the three assistants is for.
+      *(From the `todos.md` inbox, 2026-10-18.)*
+
 - [ ] **The reroute-to-lecture correction should keep the framing the reader
       asked for** — with the `/lecture` command gone (v7.23.0), the only ways
       to name a lecture's framing are the words in the message (the router's
@@ -765,6 +801,14 @@ than deleted so the plan doesn't get re-proposed.
       `CURRENT` has to move aside for the duration.
 
 ### UI & rendering polish
+
+- [ ] **Move the search-filters icon out of the chat bar** — on both the
+      Citation Graph assistant's bar and the General chat's, the filters
+      trigger sits inside the pill with the text; move it out to the tool row
+      under the bar (where the 📚 source picker lives). The 🗑 clear stays
+      inside the bar. Update the bar's tooltips and the tour step that
+      describes the filters in the same change. *(From the `todos.md` inbox,
+      2026-10-18.)*
 
 - [ ] **The Paper Graph's detail panel can only be resized near its top.**
       Its resize handle (`.panel-resize-handle`, `app.css`) is placed against
@@ -1241,6 +1285,27 @@ than deleted so the plan doesn't get re-proposed.
       decided. *(From the `todos.md` inbox, 2026-10-09.)*
 
 ### Enhancements & tech debt
+
+- [ ] **Switching the data-source provider shouldn't open a new thread** —
+      changing the provider (the rail's data-source picker) currently lands
+      the reader in a new thread rather than keeping the one they're in. A
+      thread is keyed by provider + seed (`store/workspace.ts`, the
+      `thread.data.provider === backend` matches), which is probably why a
+      switch finds no match and makes one. Decide what a switch should do to
+      the open thread (rebuild its graph from the new provider in place,
+      most likely), then fix. *(From the `todos.md` inbox, 2026-10-18.)*
+
+- [ ] **Make the backend's researcher layout match the three assistants** —
+      the product now has three chats: the General chat, the Citation Graph
+      assistant and the Knowledge Graph Assistant (v8.25.0). The backend
+      grew them as variants of one researcher (`routes/agents.py`:
+      `/api/ask`, `/api/ask_sources`, `/api/ask_course`, sharing the
+      orchestrators under `agents/`), so the code doesn't say which assistant
+      is which. Restructure so each assistant has a named home (its prompt,
+      its tools, its context builder) and the shared researcher is visibly
+      shared, and bring the READMEs along. Pairs with the "should the
+      Citation Graph assistant still search papers" decision under "Teacher &
+      agent reach". *(From the `todos.md` inbox, 2026-10-18.)*
 
 - [ ] **Deleting a running thread or exploration resurrects it; a search in
       General once spawned a whole new exploration** — filed 2026-09-17 from
