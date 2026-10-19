@@ -5,12 +5,14 @@ assistant, `CourseAssistant`): the Knowledge Graph's own chat, docked
 beside a thread's course the way `teacher/Teacher` docks beside the Citation
 Graph. Ask what a concept means, how two connect, or what to study next; a
 lesson's **Explain** (a highlighted passage, `../SelectionMenu.tsx`) asks
-here too.
+here too, and its **Chat** (v8.26.0) attaches the passage to the bar as a
+quote card for a question of the reader's own (`quotedMessage`; the card
+is `.course-quote` in `teacher/teacher.css`).
 
 ```
 assistant/
   CourseAssistant.tsx — the docked panel: transcript, composer, ✕, the @ list
-  askCourse.ts        — the stream engine (a thunk), Stop and Clear, Explain's message
+  askCourse.ts        — the stream engine (a thunk), Stop and Clear, Explain's and Chat's messages
   context.ts          — the course as the assistant reads it, and its outline
 ```
 
@@ -56,7 +58,8 @@ assistant/
 `test/knowledge/assistant/context.test.ts` (order, links, check-offs,
 lessons, the outline), `test/knowledge/KnowledgeNetwork.test.tsx` (Explain
 from a highlighted passage reaching this chat with the course, the graph
-untouched), `test/teacher/history.test.ts` (the per-chat sibling index and a
+untouched; Chat attaching it to the bar, focused, let go by Backspace, and
+sent with the reader's question), `test/teacher/history.test.ts` (the per-chat sibling index and a
 mentioned course chat's outline), `test/store/threads.test.ts` (the chat
 saved and restored beside the thread's own), `test/App.test.tsx` (where it
 docks), and on the server `test/curious_astronaut/routes/test_agents.py`.

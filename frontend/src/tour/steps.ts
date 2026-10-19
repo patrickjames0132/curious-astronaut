@@ -229,7 +229,8 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
       'Select a word or a passage in a finished lesson and a small menu appears over it. ' +
       '“Explain” asks the Knowledge Graph Assistant about it, without adding anything to the graph. ' +
       '“Expand” adds the idea it names as a new concept this lesson’s item needs (or links ' +
-      'it, if the course already has it), ready to open and learn in turn.',
+      'it, if the course already has it), ready to open and learn in turn. “Chat” opens the ' +
+      'assistant with the passage attached to its bar, so you can ask anything about it.',
   },
   {
     target: '[data-tour="course-assistant-btn"]',

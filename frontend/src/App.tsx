@@ -53,6 +53,7 @@ import { CARDS_TOUR, GRAPH_TOUR, HOME_TOUR, KNOWLEDGE_TOUR, TOUR_KEYS } from './
 import ToolCards from './tools/ToolCards'
 import KnowledgeNetwork from './knowledge/KnowledgeNetwork'
 import CourseAssistant from './knowledge/assistant/CourseAssistant'
+import type { LessonQuote } from './knowledge/assistant/askCourse'
 import './app.css'
 
 /**
@@ -120,6 +121,12 @@ export default function App() {
   const [courseAssistantOpen, setCourseAssistantOpen] = useState(
     () => localStorage.getItem(COURSE_ASSISTANT_KEY) === '1',
   )
+  // A passage a lesson's Chat attached to that assistant's bar (v8.26.0),
+  // for the thread it came from; `seq` tells a repeat of the same passage
+  // from nothing new, so the bar takes focus again.
+  const [courseQuote, setCourseQuote] = useState<
+    (LessonQuote & { threadId: string; seq: number }) | null
+  >(null)
   // Latest graph, readable from the mount-only effect below without making it
   // a dependency (that would re-fire the settings fetch on every graph load).
   const graphRef = useRef(graph)
@@ -451,7 +458,11 @@ export default function App() {
                 <KnowledgeNetwork
                   key={`knowledge:${epoch}`}
                   thread={activeThread}
-                  onAssistant={() => setCourseAssistantOpen(true)}
+                  onAssistant={(quote) => {
+                    setCourseAssistantOpen(true)
+                    if (quote)
+                      setCourseQuote({ ...quote, threadId: activeThread.id, seq: Date.now() })
+                  }}
                 >
                   {overlays}
                 </KnowledgeNetwork>
@@ -477,6 +488,8 @@ export default function App() {
               thread={activeThread}
               collapsed={!(courseAssistantDocks && courseAssistantOpen)}
               onClose={() => setCourseAssistantOpen(false)}
+              quote={courseQuote?.threadId === activeThread.id ? courseQuote : null}
+              onQuoteClear={() => setCourseQuote(null)}
             />
           )}
         </div>

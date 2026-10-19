@@ -19,8 +19,10 @@
  * and the notes over the bar (`teacher/SourcePicker`, `ComposerNotes`).
  * It reuses Teacher's styles and transcript rendering, so the two read as
  * one assistant in two places. The stream engine is `askCourse`, a thunk,
- * because a lesson's **Explain** asks here too. Like Teacher it stays
- * mounted while collapsed, so a remount never drops a half-typed question.
+ * because a lesson's **Explain** asks here too. A lesson's **Chat** (v8.26.0)
+ * attaches its passage to the bar as a quote, above the text, and the
+ * reader's question goes with it. Like Teacher it stays mounted while
+ * collapsed, so a remount never drops a half-typed question.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -47,7 +49,13 @@ import { conversationHistory } from '../../teacher/history'
 import ChatMessage from '../../teacher/transcript/ChatMessage'
 import { usePresence } from '../../ui/usePresence'
 import { useResizablePanel } from '../../ui/useResizablePanel'
-import { askCourse, clearCourseChat, stopCourseAsk } from './askCourse'
+import {
+  askCourse,
+  clearCourseChat,
+  quotedMessage,
+  stopCourseAsk,
+  type LessonQuote,
+} from './askCourse'
 import '../../teacher/teacher.css'
 
 /** A stable empty transcript, for a chat that hasn't started. */
@@ -60,16 +68,23 @@ const NO_TURNS: never[] = []
  * @param props.thread The paper thread whose course it answers over.
  * @param props.collapsed Hidden, but kept mounted.
  * @param props.onClose Collapse the panel (its ✕).
+ * @param props.quote A passage a lesson's Chat attached to the bar, with a
+ *   `seq` that changes each time one is attached.
+ * @param props.onQuoteClear Let go of the attached passage (its ✕, or sent).
  * @returns The docked panel.
  */
 export default function CourseAssistant({
   thread,
   collapsed,
   onClose,
+  quote = null,
+  onQuoteClear,
 }: {
   thread: ThreadRecord
   collapsed: boolean
   onClose: () => void
+  quote?: (LessonQuote & { seq: number }) | null
+  onQuoteClear?: () => void
 }) {
   const dispatch = useAppDispatch()
   const key = chatKey(thread.id, 'knowledge')
@@ -146,11 +161,20 @@ export default function CourseAssistant({
     if (field.scrollHeight > 0) field.style.height = `${field.scrollHeight}px`
   }, [input])
 
+  // A passage just attached (a lesson's Chat): the bar takes focus, ready
+  // for the question.
+  const quoteSeq = quote?.seq
+  useEffect(() => {
+    if (quoteSeq) inputRef.current?.focus()
+  }, [quoteSeq])
+
   const submit = (text: string = input) => {
-    const question = text.trim()
-    if (!question || asking || !hasCourse) return
+    const typed = text.trim()
+    if (!typed || asking || !hasCourse) return
+    const question = quote ? quotedMessage(typed, quote) : typed
     setInput('')
     mentions.reset()
+    onQuoteClear?.()
     void dispatch(askCourse({ threadId: thread.id, question, provider, sourceIds: sources.scope }))
   }
   const onAsk = (event: FormEvent) => {
@@ -194,6 +218,9 @@ export default function CourseAssistant({
       event.preventDefault()
       submit()
     }
+    // Backspace in an empty bar lets go of the attached passage, as it
+    // deletes a chip in most composers.
+    if (event.key === 'Backspace' && !input && quote) onQuoteClear?.()
   }
 
   /**
@@ -266,7 +293,8 @@ export default function CourseAssistant({
         {chat.length === 0 && (
           <div className="teacher-hint">
             Ask about the course: what a concept means, how two of them connect, or what to study
-            next. Highlight a passage in a lesson and choose Explain to ask about it here.
+            next. Highlight a passage in a lesson and choose Explain to ask about it here, or Chat
+            to attach it and ask anything.
           </div>
         )}
       </div>
@@ -281,8 +309,29 @@ export default function CourseAssistant({
               : []),
             `Asking about the course on ${thread.title}`,
           ]}
-          tip="Type @ to bring in another chat from this exploration, such as this paper’s Citation Graph conversation. Highlight a passage in a lesson and choose Explain to ask about it here."
+          tip="Type @ to bring in another chat from this exploration, such as this paper’s Citation Graph conversation. Highlight a passage in a lesson and choose Explain to ask about it here, or Chat to attach it and ask anything."
         />
+        {/* The passage a lesson's Chat attached (v8.26.0), over the bar. */}
+        {quote && (
+          <div className="course-quote" role="group" aria-label="Attached passage">
+            <div className="course-quote-body">
+              <p className="course-quote-text">“{quote.text.trim()}”</p>
+              <p className="course-quote-from">From the lesson on {quote.lesson}</p>
+            </div>
+            <button
+              type="button"
+              className="link-btn course-quote-clear"
+              onClick={() => {
+                onQuoteClear?.()
+                inputRef.current?.focus()
+              }}
+              aria-label="Remove the attached passage"
+              title="Remove the attached passage"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <form className="teacher-ask" onSubmit={onAsk}>
           {mentionsPanel.present && (
             <MentionSuggestions
@@ -310,7 +359,11 @@ export default function CourseAssistant({
             onBlur={() => mentions.reset()}
             onKeyDown={onInputKeyDown}
             rows={1}
-            placeholder="Ask about this course, or @ another chat…"
+            placeholder={
+              quote
+                ? 'Ask anything about this passage…'
+                : 'Ask about this course, or @ another chat…'
+            }
             aria-label="Ask the Knowledge Graph Assistant a question"
           />
           {chat.length > 0 && (

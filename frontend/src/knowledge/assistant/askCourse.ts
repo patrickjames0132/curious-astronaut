@@ -160,6 +160,30 @@ export function askCourse(request: CourseQuestion) {
 }
 
 /**
+ * A passage a lesson's **Chat** attaches to the assistant's bar (v8.26.0),
+ * waiting there for the reader's own question.
+ */
+export interface LessonQuote {
+  /** The highlighted text. */
+  text: string
+  /** The title of the lesson it is in. */
+  lesson: string
+}
+
+/**
+ * The message a question sends with a passage attached (v8.26.0): the
+ * passage and its lesson first, as Explain's message has them, then the
+ * reader's question, so the transcript reads on its own later.
+ *
+ * @param question What the reader typed.
+ * @param quote The attached passage.
+ * @returns The message (plain text: a user turn renders no Markdown).
+ */
+export function quotedMessage(question: string, quote: LessonQuote): string {
+  return `About this passage from the lesson on ${quote.lesson}:\n\n“${quote.text.trim()}”\n\n${question.trim()}`
+}
+
+/**
  * The message a lesson's **Explain** sends: the passage, and the lesson it
  * is from, so the transcript reads on its own later.
  *

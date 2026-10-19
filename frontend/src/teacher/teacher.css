@@ -1317,6 +1317,55 @@
   margin-left: 4px;
   font: inherit;
 }
+/* A passage a lesson's Chat attached to the Knowledge Graph Assistant's bar
+   (v8.26.0, `knowledge/assistant/CourseAssistant.tsx`): a quote card over
+   the pill, the accent stripe on its left, cut to three lines, with its
+   lesson under it and a ✕ to let it go. */
+.course-quote {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 12px 8px;
+  padding: 8px 6px 8px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--chip);
+  animation: pop var(--motion-pop) var(--ease-rise) both;
+}
+.course-quote-body {
+  flex: 1;
+  min-width: 0;
+}
+.course-quote-text {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+.course-quote-from {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.course-quote-clear {
+  flex-shrink: 0;
+  padding: 0 4px;
+  font-size: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .course-quote {
+    animation: none;
+  }
+}
 /* The notes over the bar, one line each (v8.25.0, `ComposerNotes.tsx`): a
    line too long for the panel ends in an ellipsis, and a small ⓘ beside
    them holds them all in full. */

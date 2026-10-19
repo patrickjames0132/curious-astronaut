@@ -9,7 +9,11 @@ import { configureStore } from '@reduxjs/toolkit'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Provider, useSelector } from 'react-redux'
 import { afterEach, expect, it, vi } from 'vitest'
+import { useState } from 'react'
 import KnowledgeNetwork from '../../src/knowledge/KnowledgeNetwork'
+import CourseAssistant from '../../src/knowledge/assistant/CourseAssistant'
+import type { LessonQuote } from '../../src/knowledge/assistant/askCourse'
+import library from '../../src/store/library'
 import { KnowledgeNavigationHelp } from '../../src/knowledge/KnowledgeControls'
 import type { KnowledgeGraphProps } from '../../src/knowledge/KnowledgeGraph'
 import workspace from '../../src/store/workspace'
@@ -875,6 +879,72 @@ it('expands a highlighted passage into a concept the lesson needs (v8.25.0)', as
   expect(store.getState().explorations.byId.saved.threads[1].knowledge!.openId).toBe(
     'bellman equations',
   )
+})
+
+it('chats about a highlighted passage: attached to the bar, sent with the question (v8.26.0)', async () => {
+  vi.spyOn(api, 'listSources').mockResolvedValue({ available: false, sources: [] })
+  const ask = vi.spyOn(api, 'streamAskCourse').mockImplementation(async (_body, handlers) => {
+    handlers.onToken('Because it bootstraps.')
+  })
+  const store = configureStore({ reducer: { workspace, transcript, explorations, library } })
+  const record = newExploration('saved')
+  record.threads.push({ ...structuredClone(THREAD), knowledge: openLessonCourse() })
+  record.activeThreadId = THREAD.id
+  store.dispatch(explorationOpened(record))
+  /** The lesson and the assistant side by side, the quote between them, as App has them. */
+  function Harness() {
+    const thread = useSelector((state: ReturnType<typeof store.getState>) =>
+      state.explorations.byId.saved.threads.find((item) => item.id === THREAD.id),
+    )!
+    const [quote, setQuote] = useState<(LessonQuote & { seq: number }) | null>(null)
+    return (
+      <>
+        <KnowledgeNetwork
+          thread={thread}
+          onAssistant={(next) => next && setQuote({ ...next, seq: Date.now() })}
+        />
+        <CourseAssistant
+          thread={thread}
+          collapsed={false}
+          onClose={() => {}}
+          quote={quote}
+          onQuoteClear={() => setQuote(null)}
+        />
+      </>
+    )
+  }
+  render(
+    <Provider store={store}>
+      <Harness />
+    </Provider>,
+  )
+  await highlight('Bellman backup')
+  fireEvent.mouseDown(screen.getByRole('button', { name: 'Chat' }))
+  // Attached, not asked: the bar holds the passage and waits.
+  const attached = screen.getByRole('group', { name: 'Attached passage' })
+  expect(attached.textContent).toContain('“Bellman backup”')
+  expect(attached.textContent).toContain('From the lesson on Q-learning')
+  expect(ask).not.toHaveBeenCalled()
+  const bar = screen.getByRole('textbox', { name: 'Ask the Knowledge Graph Assistant a question' })
+  expect(document.activeElement).toBe(bar)
+  // Backspace in the empty bar lets it go; Chat again brings it back.
+  fireEvent.keyDown(bar, { key: 'Backspace' })
+  expect(screen.queryByRole('group', { name: 'Attached passage' })).toBeNull()
+  act(() => bar.blur())
+  await highlight('Bellman backup')
+  fireEvent.mouseDown(screen.getByRole('button', { name: 'Chat' }))
+  // The question goes with the passage, and the bar lets go of it.
+  fireEvent.change(bar, { target: { value: 'Why is it called a backup?' } })
+  fireEvent.keyDown(bar, { key: 'Enter' })
+  await waitFor(() =>
+    expect(
+      store.getState().transcript.byKey['dqn:knowledge'].chat.map((turn) => turn.text),
+    ).toEqual([
+      'About this passage from the lesson on Q-learning:\n\n“Bellman backup”\n\nWhy is it called a backup?',
+      'Because it bootstraps.',
+    ]),
+  )
+  expect(screen.queryByRole('group', { name: 'Attached passage' })).toBeNull()
 })
 
 it('explains a highlighted passage in the course assistant without touching the graph', async () => {

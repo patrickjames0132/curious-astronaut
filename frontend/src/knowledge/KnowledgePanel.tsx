@@ -411,6 +411,7 @@ function StepLine({
  * @param props.onHover Point at an item on the graph from its Connections row, or let go.
  * @param props.onEnlarge Show one of its lesson's images full-screen.
  * @param props.onExplain Ask the course's assistant about a highlighted passage.
+ * @param props.onChat Attach a highlighted passage to the course assistant's bar.
  * @param props.onExpandPhrase Add the idea a highlighted passage names to the
  *   graph, as something the item needs.
  * @param props.phrase Where the last Expand has got to.
@@ -438,6 +439,7 @@ export default function KnowledgePanel({
   onHover,
   onEnlarge,
   onExplain,
+  onChat,
   onExpandPhrase,
   phrase,
   onClose,
@@ -462,6 +464,7 @@ export default function KnowledgePanel({
   onHover?: (nodeId: string | null) => void
   onEnlarge: (figure: AnswerFigure) => void
   onExplain: (text: string) => void
+  onChat: (text: string) => void
   onExpandPhrase: (text: string) => void
   phrase?: PhraseNote | null
   onClose: () => void
@@ -879,6 +882,10 @@ export default function KnowledgePanel({
             onExpand={(passage) => {
               clearSelection()
               onExpandPhrase(passage)
+            }}
+            onChat={(passage) => {
+              clearSelection()
+              onChat(passage)
             }}
           />
         )}
