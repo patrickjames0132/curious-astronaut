@@ -11,15 +11,20 @@
  * growing course stays readable. A synthesis (v8.23.0) is a teal diamond, its
  * lines to its concepts and target dashed. While the find bar holds a query, the
  * items that don't match it dim and the matches keep their names (v8.20.0).
+ * An item with part of its breakdown hidden wears a red count on its
+ * top-right (v8.26.0); a double-click brings them back.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2DImport from 'react-force-graph-2d'
 import { SELECTION_RING, useCanvasInk } from '../graph/theme'
 import {
+  HIDDEN_BADGE,
+  badgeText,
+  hiddenCounts,
   labelled,
   nodeLook,
   nodeRadius,
@@ -128,6 +133,7 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
   const { map, width, height, expanding, focus, fitSignal, lit, anchorId } = props
   const { selected, onOpen, onExpand, onSelect, onClose, engineRef, onPinned, onHover } = props
   const ink = useCanvasInk()
+  const hidden = useMemo(() => hiddenCounts(map), [map])
   const [hoverId, setHoverId] = useState<string | null>(null)
   const data = useGraphData(map)
   const onNodeClick = useNodeClicks(map.openId, onOpen, onExpand, onSelect, onClose)
@@ -265,6 +271,31 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
         }
         ctx.stroke()
         ctx.setLineDash([])
+
+        // How many of its breakdown are hidden (v8.26.0, Patrick): a red
+        // count on its top-right, as a notification's on its icon, ringed in
+        // the background so it reads clear of the node. About a fixed size
+        // on screen, between half and most of the node.
+        const count = hidden.get(item.id)
+        if (count) {
+          const badge = Math.min(radius * 0.8, Math.max(radius * 0.45, 6 / scale))
+          const badgeX = nodeX + radius * 0.75
+          const badgeY = nodeY - radius * 0.75
+          ctx.globalAlpha = dim ? 0.35 : 1
+          ctx.beginPath()
+          ctx.arc(badgeX, badgeY, badge, 0, 2 * Math.PI)
+          ctx.fillStyle = HIDDEN_BADGE
+          ctx.fill()
+          ctx.lineWidth = 1.5 / scale
+          ctx.strokeStyle = ink.background
+          ctx.stroke()
+          ctx.font = `600 ${badge * 1.25}px sans-serif`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillStyle = '#fff'
+          ctx.fillText(badgeText(count), badgeX, badgeY + badge * 0.08)
+          ctx.globalAlpha = 1
+        }
 
         // Every name once zoomed in, as on the citation graph; zoomed out,
         // only the paper, the open item, picked items and the hovered one. A

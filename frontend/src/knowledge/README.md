@@ -181,10 +181,16 @@ has a "Bridge two topics" phase).
   sphere (`nodeThreeObjectExtend` is false for it alone), so it is the same
   diamond from any angle; a legend entry once the course has one.
 
-## Deleting, and bringing back (v8.23.0)
+## Hiding, deleting, and bringing back (v8.23.0, split in v8.26.0)
 
 Patrick: a delete for every node, never the paper, with a breakdown able to
-bring a deleted concept back.
+bring a deleted concept back. Since v8.26.0 that undoable delete is called
+**Hide** (Patrick; "Remove" for one round), and **Delete permanently** is
+the one that forgets: unhiding is all-or-nothing, so without it a junk
+concept came back with every unhide. The rule for asking first: **confirm
+only what can't be undone** (Delete permanently, Break it down again, both
+red in the menu), never Hide, so a confirmation means something when it
+appears.
 
 - **What goes** (`withoutItems`, `knowledgeDeleted`): the picked items, then
   every concept the paper no longer reaches by "needs" edges, then each
@@ -192,19 +198,32 @@ bring a deleted concept back.
   toward, until nothing changes. "Its children go too" means *what only it
   needed*: the course is a graph, so a prerequisite another item still needs
   stays. Deleted items leave the known list, and an open one's panel closes.
-- **Where**: the panel's **Delete** (any item but the paper), and the
-  selection bar's **Delete** for several at once (shift-click, alt-drag or
+- **Where**: the panel's ⋮ **Hide** (any item but the paper), and the
+  selection bar's **Hide** for several at once (shift-click, alt-drag or
   the find's Enter), with the **Delete**/Backspace key as its shortcut
-  outside a text field. It is disabled with only the paper picked, and the
-  paper is skipped otherwise. A note where the bar was says how many went
-  ("Deleted 2 items and 3 more with them") and how to bring them back. No
-  confirmation, since nothing is lost.
+  outside a text field: a shortcut does the undoable thing. It is disabled
+  with only the paper picked, and the paper is skipped otherwise. A note
+  where the bar was says how many went ("Hid 2 items and 3 more with
+  them") and how to bring them back. No confirmation, since nothing is lost.
+- **Delete permanently** (`withForgotten`, `knowledgeForgotten`, v8.26.0):
+  the panel's ⋮ only, one item at a time, after a confirmation. It hides
+  the item as above, then forgets it: it leaves every remembered
+  `breakdown` naming it, on the course and in the archive, and its own
+  archived copy goes, which takes the way back for what went with it too.
+  A later breakdown that names it again brings it back new, with no lesson.
+  A synthesis is never archived, so its removal was already for good: it
+  has only **Delete…**, behind the same confirmation.
 - **Bringing it back costs nothing, and it comes back as it was.** A
   broken-down item keeps what its breakdown gave (`breakdown`, the tutor's
   `{name, why}` list), so the prerequisites since deleted are known
-  (`missingChildren`). While there are any, its **"+ Break it down"** (or a
-  double-click) comes back with a count badge of how many return, its
-  tooltip naming them, and restores them (`withRestored`,
+  (`missingChildren`). While there are any, its **node wears a red count**
+  on its top-right, like a notification's on its icon (`hiddenCounts`,
+  `badgeText`, "9+" past nine; on the sphere's crown in 3D, since a
+  sprite's child sits in world axes and a sideways offset swings behind
+  the sphere as the camera orbits), and its ⋮ menu offers **"Unhide
+  *n* children"** (v8.26.0; "+ Break it down" with a count badge before), its
+  tooltip naming them. That, or a **double-click on the node**, brings them
+  back (`withRestored`,
   `knowledgeRestored`) with no call. Deleted concepts wait in the course's
   `archive`, so one that returns, by a restore or by *any* breakdown naming
   it, comes back as it was (`revived`): violet with its lesson if it had one
@@ -213,7 +232,7 @@ bring a deleted concept back.
   the course, the rest behind its own count. So a deleted subtree comes back
   one level at a time. A course from before v8.23.0 has no `breakdown` yet;
   the first deletion fills it in from the edges still there (`remembered`).
-- **"↻ Break it down again"** (`withBreakdownAgain`): a breakdown the reader
+- **"Break it down again"** (`withBreakdownAgain`): a breakdown the reader
   doesn't like gets one fresh try, **a clean slate for its whole branch**
   (Patrick). Everything below the item leaves the course, except what
   something outside the branch still needs (the delete rule), and the new
@@ -228,16 +247,18 @@ bring a deleted concept back.
   the point of a redo for Patrick, more than new concepts. The tutor isn't
   told to change the concepts: the same breakdown is a fine answer, and a
   redo stays reproducible (one round showed it the previous breakdown and
-  asked for a different one; Patrick turned it down). It is the same footer button's third
-  state, once nothing is missing (it was a small link above the lesson for
-  one round, which Patrick couldn't find). The request carries `fresh`, so the server
+  asked for a different one; Patrick turned it down). It is the breakdown
+  button's third state, once nothing is missing (it was a small link above
+  the lesson for one round, which Patrick couldn't find), and since v8.26.0
+  it lives in the panel's ⋮ menu with the restore. The request carries `fresh`, so the server
   skips its cached answer and replaces it. The new prerequisites attach
   before the old edges go, so one the new breakdown repeats keeps its lesson,
   check-off and subtree, and whatever only the old one held up leaves. It is
-  one call, on purpose. On the **paper** it asks first, in a small
-  confirmation opening up from the footer (`lesson-confirm`, the settings
-  page's danger red), since a fresh paper breakdown replaces the course's
-  whole top level; elsewhere it just runs. The alternative was the settings page's cache clear,
+  one call, on purpose. It asks first, in a small
+  confirmation dropping from the header's menu (`lesson-confirm`, the settings
+  page's danger red): on the **paper** since v8.23.0, since a fresh paper
+  breakdown replaces the course's whole top level, and on every item since
+  v8.26.0 (Patrick: a concept's redo takes its whole branch with it). The alternative was the settings page's cache clear,
   which wipes every graph, search and lesson to redo one breakdown. **No
   TTL** on breakdowns (Patrick's call): unlike the citation graph's data,
   they don't go stale, and an expiry would only make a restore bill again
@@ -258,7 +279,8 @@ bring a deleted concept back.
   the item down. **Double-click**, the
   citation graph's re-seed gesture, breaks it down; so does the panel's
   "+ Break it down" button, in the panel's footer beside "Next lesson ›"
-  (v8.17.0; it sat above the lesson before). A click on empty canvas leaves
+  (v8.17.0; it sat above the lesson before) until the item is broken down,
+  then in its ⋮ menu (v8.26.0). A click on empty canvas leaves
   the panel open (v8.23.0, Patrick: it closed the panel until then, which
   lost the lesson to a stray click while panning); ✕ closes it, and so
   does **Esc, in two steps as on the citation graph** (v8.23.0): the first
@@ -271,15 +293,16 @@ bring a deleted concept back.
   box adds every node inside it (`ui/useBoxSelect`, the gesture the citation
   graph's `useMarquee` is built on; an alt-click on empty canvas clears).
   Picked nodes' outlines turn the selection blue. The
-  panel's own **"I know this"** is a footer button like its neighbours
-  since v8.23.0 (Patrick: smaller, and consistent with Delete and Break it
-  down), reading "🤔 Unknown" a step greyer than its neighbours, and
-  "💡 Known" in the known green once pressed (`aria-pressed`; the marks are
-  `aria-hidden`, so its name stays the word). Pressing it pops the bulb in
+  panel's own **Known** toggle sits in its header since v8.26.0 (Patrick:
+  the footer's "🤔 Unknown / 💡 Known" button, v8.23.0, said again what the
+  kicker says, and a switch in small caps before that): captionless, a
+  faded 🤔 that becomes a lit 💡 (`aria-label` "Known" with `aria-pressed`;
+  its tooltip states the state, Patrick's words: "Unknown or unfamiliar
+  concept; lesson will not be skipped" / "Known or familiar concept; lesson
+  will be skipped", the noun following the item's kind). Pressing it pops the bulb in
   with a short glow (`known-bulb`), and taking it back fades the 🤔 in from
   below (`unknown-rise`), each only on the click, not on opening an item,
-  and both off under reduced motion. It was a switch (`ui/Switch`) labelled "Known" in small
-  caps until then. The footer's buttons share one size, Known on the left and the actions grouped right. Below 440px of panel (a container query on the panel's own width, not the window's) they become a 2×2 grid of equal cells, Unknown and Delete over the breakdown button and Next lesson, an odd last one spanning the row, rather than squeezing one row until it scrolled sideways (Patrick's pick over icon-only buttons, kept in reserve for narrower still). The breakdown button's restore count is a badge on its top-right corner, as a notification count sits on its icon. Pressing it
+  and both off under reduced motion. Pressing it
   animates the kicker in CSS alone: "Known" widens to push "Concept" right
   and then rises in, and switching off reverses it (`.kicker-known`). The panel no longer
   lists what an item needs (a "Needs" row of chips until v8.17.0): the
@@ -294,14 +317,35 @@ bring a deleted concept back.
   and placed against it, scrolled away with the lesson, so it could only be
   grabbed in the first screenful (Patrick). Now the handle and the ✕ sit on
   the still panel, and the lesson and its sticky footer scroll inside.
+- **Header and footer** (v8.26.0, Patrick). The header's top-right holds
+  three captionless tools in a row (`.lesson-tools`): Known, a **⋮ menu**
+  and ✕. The menu (the rail's session-menu styles and scrim, closed when
+  another item opens) holds the occasional actions: Rewrite this lesson,
+  then what shows, "Hide this node" and "Unhide *n* children", then
+  what can't be undone, "Break it down again…" and "Delete
+  permanently…", with a rule between the three groups (Patrick's grouping),
+  each entry led by a line icon of one size and weight in a fixed column
+  (`MenuIcon`; mixed glyphs and emoji before, which sat at different sizes
+  and pushed the words out of line).
+  A "…" marks an entry that asks first, and those two are red; Unhide and
+  Break it down again are separate entries since v8.26.0 (one button's
+  states before, so a redo was out of reach while anything was hidden). The footer is one row (two rows of four equal
+  pills before, which cost the lesson about 180px and gave Delete Known's
+  weight): what an Expand just did on the left (`.lesson-note`), then a
+  first "+ Break it down" and **Next lesson ›**, wrapping only when the
+  panel is too narrow for both. The old 2×2 grid below 440px went with it.
+  On the dark theme a lesson image's white ground is dimmed a little
+  (`brightness(0.86)`, full on hover) so a diagram doesn't glare.
 - **Connections** (v8.23.0, Patrick; "Where it fits" for a round, and a
   bordered list of reasons before that): the item's *immediate* links, in a
-  card whose caret header folds it away with `ui/Fold`. It starts open,
+  card whose caret header folds it away with `ui/Fold`. Folded, it is only
+  its header, a line of counts ("Builds toward 1 · Combines 3") with no
+  card around it (v8.26.0; a full-width card reading "CONNECTIONS" before). It starts open,
   and the choice is remembered per browser (`ca.knowledgeFitOpen`, the old
   name kept so the choice survives). "Taxonomy" was Patrick's first name
   for it, passed over because a taxonomy sorts things into kinds, and these
   are dependencies. Its sections (`connectionsOf`, empty ones left out),
-  each headed with a count:
+  their counts in the header line:
   **Builds toward** and **Combines**, the same two for every kind
   (Patrick; "Required for" and "Depends on" for a concept, for one round):
   for a concept or the paper, what needs it and what it needs; for a
@@ -497,7 +541,8 @@ branch, the way the assistant shows figures in its answers.
   run long (the tutor's whole picture description), so it is cut to one
   line with an ellipsis (Patrick: it read awkwardly over six), and a click
   unfolds every step so far (`steps`) as plain lines, the researcher's
-  trace without its chips.
+  trace without its chips. Its caret follows the words (v8.26.0): in front
+  of them it sat against the spinner, two odd marks side by side.
 - **The lesson follows its own writing**: while the text streams, the
   panel scrolls with it, but only while the reader is at the bottom, so
   scrolling up to re-read stops the chase (the assistant transcript's rule,
@@ -510,8 +555,9 @@ branch, the way the assistant shows figures in its answers.
   `quick: true`, with no image search. The stopped run's failure is
   ignored, and a quick draft offers no link. It looks like any other
   lesson once written.
-- **↻ Rewrite this lesson** (v8.24.0): the footer is full, so a captionless
-  ↻ sits beside the panel's ✕, there only once the lesson is finished.
+- **Rewrite this lesson** (v8.24.0): in the panel's ⋮ menu since
+  v8.26.0 (a ↻ beside the ✕ before, easy to confuse with Break it down
+  again's ↻), there only once the lesson is finished.
   `knowledgeLessonCleared` drops the lesson, its images and `fitFor` and
   marks it `freshLesson`, so the open-lesson effect writes it again past
   the server's cache (`fresh: true`; a synthesis's route honours it too).
@@ -531,7 +577,9 @@ over it (`SelectionMenu`, after SpatialRead's, which Patrick pointed at;
 only these two of its options for now). `useLessonSelection` is the
 frontend's first reader of a text selection: it opens the pill when the
 reader lets go (not mid-drag), places it above the passage in fixed
-coordinates (below it near the top of the window), follows a scroll, and
+coordinates (below it near the top of the window), kept inside the
+window's sides (v8.26.0: a passage at the edge squeezed it into a column
+of letters, and its buttons don't wrap now either), follows a scroll, and
 closes it when the selection collapses or leaves the lesson.
 
 - **Explain** asks the course assistant (`assistant/`) about the passage:
@@ -546,11 +594,15 @@ closes it when the selection collapses or leaves the lesson.
   one deleted before comes back as it was, and an edge that would close a
   loop is refused. The item is not marked broken down (double-clicking still
   breaks it down), and the concept joins its remembered `breakdown`, which a
-  later breakdown keeps, so deleting it can be undone like any other. A note
-  above the lesson says what happened and links the concept: "Added *X* as
-  something this needs", "Already in the course: *X*", or why nothing was
-  added (the passage names the lesson's own subject, or *X* already builds on
-  this item).
+  later breakdown keeps, so deleting it can be undone like any other.
+  While the tutor names it, the item wears the breakdown's dashed ring
+  (v8.26.0, Patrick: `ringed`, the `expanding` set plus the item). A note
+  in the footer's left (above the lesson until v8.26.0) says what happened
+  and links the concept: "Added *X* as something this needs", "Already in
+  the course: *X*", or why nothing was added (the passage names the
+  lesson's own subject, or *X* already builds on this item). It is cut to
+  one line with an ellipsis, the whole sentence its tooltip
+  (`phraseSentence`), so it never pushes the buttons onto a second row.
 
 ## Not yet (later Phase 5 stages, see the OnePager)
 
@@ -567,9 +619,11 @@ loops, routes, course order, pruning, next-lesson, `lessonText` and
 `findItems`, syntheses (their target, their place in the teaching plan, their
 lines, and being found again by their members), and deleting: what only the
 deleted item needed going with it, a shared prerequisite staying, syntheses
-left short, the paper refused, a restore from the remembered breakdown (and
+left short, the paper refused, an unhide from the remembered breakdown (and
 one filled in for an old course), a concept coming back as it was (lesson,
-check-off, breakdown) by a restore or another breakdown, and a fresh
+check-off, breakdown) by a restore or another breakdown, a permanent
+delete that no unhide undoes (forgotten in archived breakdowns too), the
+hidden counts behind the badges, and a fresh
 breakdown keeping what it repeats; a lesson's image markers coming out for the
 tutor, and a fresh breakdown clearing its images.
 `test/knowledge/KnowledgeGraph.test.tsx` covers the 2D view's first fit,
@@ -582,15 +636,16 @@ replaced, a lesson streamed into the panel and kept, visiting, a check-off,
 checking off a selection (and taking it back, and Esc), a find whose
 Enter selects its matches, synthesizing two concepts that opens with
 no check-off or breakdown (and synthesizing them again reopening it),
-deleting a selection with the Delete key (the paper refused) and bringing
-it back with no call, a fresh breakdown,
+removing a selection with the Delete key (the paper refused) and bringing
+it back with no call, a fresh breakdown, hiding from the panel without a
+prompt against deleting for good behind one,
 the next lesson, a shared prerequisite becoming one node with two edges, a
 retry, the course surviving a save round-trip, and a lesson's images: one
 status line with Quick response beside it until the text starts, then the
 text streaming with its image already in place, the image landing right after its paragraph with its
 description and linked credit, a closing-section rewrite reading the lesson
 without its markers, and a quick response stopping the slow run and writing
-the lesson at once, the ↻ rewriting a finished lesson past the cache, and
+the lesson at once, the menu's rewrite of a finished lesson past the cache, and
 the status line unfolding into every step so far, and a highlighted
 passage: Expand adding its concept under the lesson's item (and the note
 opening it), Explain asking the course assistant with the graph untouched.

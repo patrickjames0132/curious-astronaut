@@ -17,7 +17,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import ForceGraph3DImport from 'react-force-graph-3d'
 import SpriteText from 'three-spritetext'
 import { SELECTION_RING, useCanvasInk } from '../graph/theme'
@@ -25,6 +25,9 @@ import type { KnowledgeGraphProps } from './KnowledgeGraph'
 import type { KnowledgeMap, KnowledgeNode } from './model'
 import { inBox } from '../ui/useBoxSelect'
 import {
+  HIDDEN_BADGE,
+  badgeText,
+  hiddenCounts,
   labelled,
   nodeLook,
   nodeRadius,
@@ -125,6 +128,8 @@ function diamond(fill: string, stroke: string): SpriteText {
 interface SpriteParts {
   // oxlint-disable-next-line id-length -- three's vector field names
   position: { y: number }
+  material: { depthTest: boolean }
+  renderOrder: number
   // oxlint-disable-next-line id-length -- three's vector field names
   scale: { x: number; y: number }
   visible: boolean
@@ -141,6 +146,7 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
   const { map, width, height, expanding, focus, fitSignal, lit, anchorId } = props
   const { selected, onOpen, onExpand, onSelect, onClose, engineRef, onPinned } = props
   const ink = useCanvasInk()
+  const hidden = useMemo(() => hiddenCounts(map), [map])
   const data = useGraphData(map)
   const onNodeClick = useNodeClicks(map.openId, onOpen, onExpand, onSelect, onClose)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -257,9 +263,31 @@ export default function KnowledgeGraph3D(props: KnowledgeGraphProps) {
       label.scale.x /= ring.scale.x
       label.scale.y /= ring.scale.y
       ring.add(sprite)
+      // How many of its breakdown are hidden (v8.26.0): the 2D view's red
+      // count, here on the sphere's crown, since a sprite's child sits in
+      // world axes and a sideways offset would swing behind the sphere as
+      // the camera orbits. Drawn over everything, so the sphere never cuts it.
+      const count = hidden.get(item.id)
+      if (count) {
+        const badgeSprite = new SpriteText(badgeText(count))
+        badgeSprite.textHeight = 2.2
+        badgeSprite.color = '#fff'
+        badgeSprite.fontWeight = '600'
+        badgeSprite.backgroundColor = HIDDEN_BADGE
+        badgeSprite.padding = [0.9, 0.4]
+        badgeSprite.borderRadius = 1.5
+        const badge = badgeSprite as unknown as SpriteParts
+        badge.material.depthTest = false
+        badge.renderOrder = 2
+        badge.visible = !dim
+        badge.position.y = (sphereRadius(map, item) + 1.2) / ring.scale.y
+        badge.scale.x /= ring.scale.x
+        badge.scale.y /= ring.scale.y
+        ring.add(badgeSprite)
+      }
       return ringSprite
     },
-    [map, ink.ink, ink.hard, ink.outline, ink.outlineDim, selected, expanding, lit],
+    [map, hidden, ink.ink, ink.hard, ink.outline, ink.outlineDim, selected, expanding, lit],
   )
 
   const touchesOpen = (link: CanvasLink) =>

@@ -7,15 +7,20 @@
  * streamed the first time and kept after, with no citations since v8.17.0
  * (`lessonText` hides an older lesson's markers) — and the ways
  * forward: break it down, check it off, or go to the next lesson. Since
- * v8.23.0 any item but the paper can be deleted; "Break it down" on the
- * item above brings it back from the remembered breakdown, and "Break it
- * down again" asks the tutor for a fresh one. A synthesis's Connections are
+ * v8.23.0 any item but the paper can be hidden (deleted, until v8.26.0);
+ * "Unhide" on the item above brings it back from the remembered
+ * breakdown, and "Break it down again" asks the tutor for a fresh one.
+ * Since v8.26.0 it can also be deleted for good, past any unhide. A synthesis's Connections are
  * what it builds toward and what it combines, then its lesson. It can't be
  * broken down, but it can be checked off as known, like a concept. Docked right of the canvas, like the
  * citation graph's detail panel, and resizable the same way. Since v8.25.0 a
  * passage highlighted in a finished lesson opens a small menu
  * (`SelectionMenu`): Explain asks the course's assistant about it, Expand
  * adds the idea it names to the graph, as something this item needs.
+ * Since v8.26.0 the header carries the Known toggle and a ⋮ menu of the
+ * occasional actions (rewrite the lesson; unhide what was hidden, break
+ * it down again; hide, delete permanently), leaving the footer one row: what just happened,
+ * a first "Break it down", and Next lesson.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -27,6 +32,7 @@ import FigCard from '../figures/FigCard'
 import { splitAnswer } from '../figures/split'
 import Fold from '../ui/Fold'
 import AnswerMarkdown from '../teacher/transcript/AnswerMarkdown'
+import { usePresence } from '../ui/usePresence'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import { nodeLook } from './look'
 import {
@@ -58,6 +64,30 @@ export interface PhraseNote {
   text: string
   /** The concept's id, to open it. */
   childId?: string
+}
+
+/**
+ * A phrase note as one plain sentence: the footer cuts the note to a line
+ * (v8.26.0), and this is its tooltip, so the whole of it is a hover away.
+ *
+ * @param phrase The note.
+ * @returns Its words.
+ */
+function phraseSentence(phrase: PhraseNote): string {
+  switch (phrase.state) {
+    case 'working':
+      return `Adding “${phrase.text}” to the graph…`
+    case 'added':
+      return `Added ${phrase.text} as something this needs.`
+    case 'linked':
+      return `Already in the course: ${phrase.text}`
+    case 'self':
+      return `“${phrase.text}” is what this lesson is about already.`
+    case 'loop':
+      return `“${phrase.text}” already builds on this, so it can't come before it as well.`
+    case 'error':
+      return phrase.text
+  }
 }
 
 /** localStorage key: whether the Connections card is open (per browser).
@@ -129,7 +159,8 @@ function connectionsOf(map: KnowledgeMap, nodeId: string): ConnectionGroup[] {
 }
 
 /**
- * The Connections card (v8.23.0, Patrick; "Where it fits" until then): the
+ * The Connections card (v8.23.0, Patrick; "Where it fits" until then): folded,
+ * one quiet line of counts ("Builds toward 1 · Combines 3", v8.26.0); unfolded, the
  * item's immediate links as one-line rows, each with a dot in its node's
  * own colour and its name as a link; hovering a row rings its node on the
  * graph, and only that node. (A row's tutor reason folded under a caret for
@@ -162,25 +193,29 @@ function ConnectionsCard({
   onHover?: (nodeId: string | null) => void
 }) {
   return (
-    <section className="lesson-card">
+    <section className={`lesson-card${open ? ' open' : ''}`}>
       <button
         type="button"
         className={`lesson-card-head${open ? ' open' : ''}`}
         onClick={onToggle}
         aria-expanded={open}
+        aria-label={`Connections: ${groups.map((group) => `${group.label} ${group.items.length}`).join(', ')}`}
         title={open ? 'Fold this away' : 'Show what this connects to'}
       >
         <span className="lesson-card-caret" aria-hidden="true">
           ▸
         </span>
-        Connections
+        {groups.map((group, index) => (
+          <span key={group.label} className="lesson-card-count">
+            {index > 0 && <span aria-hidden="true">·</span>}
+            {group.label} <b>{group.items.length}</b>
+          </span>
+        ))}
       </button>
       <Fold open={open}>
         {groups.map((group) => (
           <div className="connections-group" key={group.label}>
-            <h3 className="connections-label">
-              {group.label} · {group.items.length}
-            </h3>
+            <h3 className="connections-label">{group.label}</h3>
             <ul className="connections-list" aria-label={group.label}>
               {group.items.map((id) => {
                 const linked = map.nodes[id]
@@ -216,6 +251,50 @@ function ConnectionsCard({
         ))}
       </Fold>
     </section>
+  )
+}
+
+/** The ⋮ menu's icons (v8.26.0), each a path list on a 16px grid. */
+const MENU_ICONS = {
+  rewrite: ['M10.5 2.5l3 3L5.5 13.5h-3v-3z', 'M9 4l3 3'],
+  hide: [
+    'M2 8s2.2-4.5 6-4.5S14 8 14 8s-2.2 4.5-6 4.5S2 8 2 8z',
+    'M9.8 8a1.8 1.8 0 1 1-3.6 0 1.8 1.8 0 0 1 3.6 0z',
+    'M3 13L13 3',
+  ],
+  unhide: [
+    'M2 8s2.2-4.5 6-4.5S14 8 14 8s-2.2 4.5-6 4.5S2 8 2 8z',
+    'M9.8 8a1.8 1.8 0 1 1-3.6 0 1.8 1.8 0 0 1 3.6 0z',
+  ],
+  again: ['M13 8a5 5 0 1 1-1.46-3.54', 'M13 2.5v3h-3'],
+  delete: ['M2.5 4.5h11', 'M6 4.5V2.8h4v1.7', 'M4 4.5l.7 9h6.6l.7-9', 'M6.8 7v4.5M9.2 7v4.5'],
+}
+
+/**
+ * One of the ⋮ menu's icons (v8.26.0): line drawings of one size and
+ * weight, in the entry's own colour, in place of the mixed glyphs and emoji
+ * that sat at different sizes and pushed their words out of line.
+ *
+ * @param props Component props.
+ * @param props.name Which icon.
+ * @returns The inline SVG.
+ */
+function MenuIcon({ name }: { name: keyof typeof MENU_ICONS }) {
+  return (
+    <svg
+      className="lesson-menu-icon"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {MENU_ICONS[name].map((path) => (
+        <path key={path} d={path} />
+      ))}
+    </svg>
   )
 }
 
@@ -270,15 +349,17 @@ function StepLine({
           title={open ? 'Hide the steps' : 'Show every step so far'}
           disabled={!earlier.length}
         >
+          {/* Keyed by its words, so each new step mounts and plays the rise. */}
+          <span key={text} className="lesson-step-text" aria-live="polite">
+            {text}
+          </span>
+          {/* After the words (v8.26.0): before them, it sat against the
+              spinner as two odd marks side by side. */}
           {earlier.length > 0 && (
             <span className={`trace-caret${open ? ' open' : ''}`} aria-hidden="true">
               ▸
             </span>
           )}
-          {/* Keyed by its words, so each new step mounts and plays the rise. */}
-          <span key={text} className="lesson-step-text" aria-live="polite">
-            {text}
-          </span>
         </button>
         {onQuick && (
           <button
@@ -322,10 +403,11 @@ function StepLine({
  * @param props.onToggleKnown Check it off, or un-check it.
  * @param props.onRetry Write its lesson again after a failure.
  * @param props.onRewrite Write its finished lesson again, past the cache
- *   (v8.24.0, the ↻ beside the ✕).
+ *   (v8.24.0; in the header's ⋮ menu since v8.26.0).
  * @param props.onQuick Stop writing its lesson with images and write it now,
  *   from the tutor's own knowledge (a quick response, v8.24.0).
- * @param props.onDelete Delete the item (any but the paper).
+ * @param props.onHide Take the item off the course, undoably (any but the paper).
+ * @param props.onDelete Delete the item for good (any but the paper).
  * @param props.onHover Point at an item on the graph from its Connections row, or let go.
  * @param props.onEnlarge Show one of its lesson's images full-screen.
  * @param props.onExplain Ask the course's assistant about a highlighted passage.
@@ -351,6 +433,7 @@ export default function KnowledgePanel({
   onRetry,
   onRewrite,
   onQuick,
+  onHide,
   onDelete,
   onHover,
   onEnlarge,
@@ -374,6 +457,7 @@ export default function KnowledgePanel({
   onRetry: () => void
   onRewrite: () => void
   onQuick: () => void
+  onHide: (nodeId: string) => void
   onDelete: (nodeId: string) => void
   onHover?: (nodeId: string | null) => void
   onEnlarge: (figure: AnswerFigure) => void
@@ -389,13 +473,22 @@ export default function KnowledgePanel({
       writeConnectionsOpen(!previous)
       return !previous
     })
-  // The paper's "Break it down again" asks first (v8.23.0): it replaces the
-  // course's whole top level. Held by id, so opening another item drops it.
-  const [confirmingFor, setConfirmingFor] = useState<string | null>(null)
+  // What can't be undone asks first (v8.26.0, Patrick): "Break it down
+  // again" (on the paper since v8.23.0, where it replaces the course's whole
+  // top level; on every item now, since it takes the branch with it) and
+  // "Delete permanently". Held by id, so opening another item drops it.
+  const [confirming, setConfirming] = useState<{
+    nodeId: string
+    action: 'again' | 'delete'
+  } | null>(null)
   // The item whose Known button was just pressed, so its mark animates once,
   // on the click itself (the 💡 pops in, the 🤔 rises in), not every time
   // an item is opened.
   const [justToggled, setJustToggled] = useState<string | null>(null)
+  // The header's ⋮ menu (v8.26.0); opening another item closes it.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menu = usePresence(menuOpen)
+  useEffect(() => setMenuOpen(false), [nodeId])
   const node = map.nodes[nodeId]
   // The lesson follows its own writing (v8.24.0), the way the assistant's
   // transcript does: only while the reader is at the bottom, so scrolling up
@@ -437,7 +530,30 @@ export default function KnowledgePanel({
   // Its images sit at their `<<FIG n>>` markers, after the paragraphs they
   // illustrate (v8.24.0); one whose marker went missing shows at the end.
   const { parts, leftover } = splitAnswer(body, node.images ?? draft?.images)
+  const kindWord = isSynthesis ? 'synthesis' : isRoot ? 'paper' : 'concept'
   const meta = node.paper ? [node.paper.authors, node.paper.year].filter(Boolean).join(' · ') : ''
+  // The ⋮ menu's entries (v8.26.0), in three groups (Patrick): the lesson
+  // (rewrite it); what shows (hide this node, unhide its hidden children;
+  // a synthesis is never archived, so it can't hide); and what can't be
+  // undone, both red and asking first (break it down again, delete
+  // permanently). The first breakdown stays in the footer, the obvious next step.
+  const canRewrite = !!node.lesson && !draft && !writing
+  const canRebreak = !isSynthesis && !!node.expanded && !expanding
+  const canUnhide = canRebreak && missing.length > 0
+  const canTakeOff = !isRoot
+  const canHide = canTakeOff && !isSynthesis
+  const hasMenu = canRewrite || canRebreak || canTakeOff
+  const confirmingNow = confirming?.nodeId === node.id ? confirming.action : null
+  /**
+   * Close the menu, then run its entry.
+   *
+   * @param action The entry's action.
+   * @returns The click handler.
+   */
+  const fromMenu = (action: () => void) => () => {
+    setMenuOpen(false)
+    action()
+  }
 
   return (
     <aside
@@ -453,21 +569,212 @@ export default function KnowledgePanel({
         aria-orientation="vertical"
         aria-label="Resize panel"
       />
-      <button type="button" className="link-btn close" onClick={onClose} aria-label="Close">
-        ✕
-      </button>
-      {/* Rewrite this lesson (v8.24.0): the footer is full, so a captionless
-          ↻ beside the ✕, there only once the lesson is finished. */}
-      {node.lesson && !draft && !writing && (
+      {/* The header's tools (v8.26.0): Known, the ⋮ menu, ✕. Known moved up
+          from the footer, where it said again what the kicker says. */}
+      <div className="lesson-tools">
         <button
           type="button"
-          className="link-btn rewrite"
-          onClick={onRewrite}
-          title="Rewrite this lesson"
-          aria-label="Rewrite this lesson"
+          className={`link-btn lesson-known${known ? ' on' : ''}${
+            justToggled === node.id ? ' pop' : ''
+          }`}
+          aria-label="Known"
+          aria-pressed={known}
+          onClick={() => {
+            setJustToggled(node.id)
+            onToggleKnown(node.id)
+          }}
+          title={
+            known
+              ? `Known or familiar ${kindWord}; lesson will be skipped`
+              : `Unknown or unfamiliar ${kindWord}; lesson will not be skipped`
+          }
         >
-          ↻
+          {/* 🤔 while unknown, a 💡 that lights up once it's known (Patrick). */}
+          <span
+            className="lesson-known-mark"
+            aria-hidden="true"
+            // Played once: reopening the item later doesn't replay it.
+            onAnimationEnd={(event) => {
+              event.stopPropagation()
+              setJustToggled(null)
+            }}
+          >
+            {known ? '💡' : '🤔'}
+          </span>
         </button>
+        {hasMenu && (
+          <button
+            type="button"
+            className="link-btn lesson-more"
+            onClick={() => setMenuOpen((previous) => !previous)}
+            aria-label="More actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            title="More actions"
+          >
+            ⋮
+          </button>
+        )}
+        <button type="button" className="link-btn close" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+        {menu.present && (
+          <>
+            {/* A click anywhere else closes it, as the rail's session menu. */}
+            {menuOpen && <div className="rail-menu-scrim" onClick={() => setMenuOpen(false)} />}
+            <div
+              className={`rail-menu lesson-menu${menu.closing ? ' closing' : ''}`}
+              role="menu"
+              onAnimationEnd={(event) => {
+                event.stopPropagation()
+                menu.onAnimationEnd(event)
+              }}
+            >
+              {canRewrite && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={fromMenu(onRewrite)}
+                  title="Write this lesson again, past the cache"
+                >
+                  <MenuIcon name="rewrite" />
+                  Rewrite this lesson
+                </button>
+              )}
+              {canRewrite && (canHide || canUnhide) && (
+                <div className="lesson-menu-rule" role="separator" />
+              )}
+              {canHide && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={fromMenu(() => onHide(node.id))}
+                  title="Hide this, with what only it needs and any synthesis left short. Double-click what needed it (or Unhide in its ⋮) to bring it back as it was"
+                >
+                  <MenuIcon name="hide" />
+                  Hide this node
+                </button>
+              )}
+              {canUnhide && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={fromMenu(() => onExpand(node.id))}
+                  title={`Bring back what was hidden, as it was (or double-click the node): ${missing.map((child) => child.name).join(', ')}`}
+                >
+                  <MenuIcon name="unhide" />
+                  Unhide {missing.length} {missing.length === 1 ? 'child' : 'children'}
+                </button>
+              )}
+              {(canRewrite || canHide || canUnhide) && (canRebreak || canTakeOff) && (
+                <div className="lesson-menu-rule" role="separator" />
+              )}
+              {canRebreak && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="danger"
+                  onClick={fromMenu(() => setConfirming({ nodeId: node.id, action: 'again' }))}
+                  title="Ask the tutor for a fresh breakdown: everything below this starts over, new, with its lessons rewritten when opened (what something else still needs stays). Check-offs survive"
+                >
+                  <MenuIcon name="again" />
+                  Break it down again…
+                </button>
+              )}
+              {canTakeOff && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="danger"
+                  onClick={fromMenu(() => setConfirming({ nodeId: node.id, action: 'delete' }))}
+                  title={
+                    isSynthesis
+                      ? 'Delete this synthesis, and any synthesis that would be left with fewer than two parts'
+                      : 'Delete this for good, with what only it needs: no unhide brings it back'
+                  }
+                >
+                  <MenuIcon name="delete" />
+                  {isSynthesis ? 'Delete…' : 'Delete permanently…'}
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+      {/* The confirmations, dropping from the header's menu (v8.26.0). */}
+      {confirmingNow === 'again' && (
+        <div
+          className="lesson-confirm"
+          role="alertdialog"
+          aria-label={isRoot ? 'Break the paper down again?' : 'Break this down again?'}
+        >
+          {isRoot ? (
+            <p>
+              <strong>Are you sure?</strong> A fresh breakdown of the paper starts the course over:
+              everything below the paper leaves the graph, and its concepts come back new, their
+              lessons rewritten when you open them. Breaking one down again is instant (it’s
+              cached), and anything you checked off stays known.
+            </p>
+          ) : (
+            <p>
+              <strong>Are you sure?</strong> A fresh breakdown of <em>{node.title}</em> starts its
+              branch over: everything below it leaves the graph, except what something else still
+              needs, and its concepts come back new, their lessons rewritten when you open them.
+              Anything you checked off stays known.
+            </p>
+          )}
+          <div className="lesson-confirm-actions">
+            <button type="button" className="lesson-action" onClick={() => setConfirming(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="lesson-action danger"
+              onClick={() => {
+                setConfirming(null)
+                onExpand(node.id, true)
+              }}
+            >
+              Break it down again
+            </button>
+          </div>
+        </div>
+      )}
+      {confirmingNow === 'delete' && (
+        <div
+          className="lesson-confirm"
+          role="alertdialog"
+          aria-label={isSynthesis ? 'Delete this synthesis?' : 'Delete this permanently?'}
+        >
+          {isSynthesis ? (
+            <p>
+              <strong>Are you sure?</strong> <em>{node.title}</em> leaves the course, with any
+              synthesis left with fewer than two parts. A synthesis can’t be unhidden; synthesizing
+              its parts again makes a new one.
+            </p>
+          ) : (
+            <p>
+              <strong>Are you sure?</strong> <em>{node.title}</em> leaves the graph for good, with
+              what only it needs, and no unhide brings it back: its lesson and check-off go too. To
+              take it off for now, Hide it instead.
+            </p>
+          )}
+          <div className="lesson-confirm-actions">
+            <button type="button" className="lesson-action" onClick={() => setConfirming(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="lesson-action danger"
+              onClick={() => {
+                setConfirming(null)
+                onDelete(node.id)
+              }}
+            >
+              {isSynthesis ? 'Delete' : 'Delete permanently'}
+            </button>
+          </div>
+        </div>
       )}
       {/* The panel scrolls inside this, not itself (v8.23.0): the resize
           handle, sized to the panel, scrolled away with the lesson, leaving
@@ -510,33 +817,6 @@ export default function KnowledgePanel({
         )}
         {node.expanded && !needs(map, node.id).length && !missing.length && (
           <p className="lesson-status">Nothing further to break down — this one is a foundation.</p>
-        )}
-        {phrase && phrase.nodeId === node.id && (
-          <p className={phrase.state === 'error' ? 'lesson-error' : 'lesson-status'}>
-            {phrase.state === 'working' && (
-              <>
-                <span className="spin" /> Adding “{phrase.text}” to the graph…
-              </>
-            )}
-            {phrase.state === 'error' && phrase.text}
-            {phrase.state === 'self' && `“${phrase.text}” is what this lesson is about already.`}
-            {phrase.state === 'loop' &&
-              `“${phrase.text}” already builds on this, so it can't come before it as well.`}
-            {(phrase.state === 'added' || phrase.state === 'linked') && phrase.childId && (
-              <>
-                {phrase.state === 'added' ? 'Added' : 'Already in the course:'}
-                <button
-                  type="button"
-                  className="link-btn lesson-phrase-open"
-                  onClick={() => onOpen(phrase.childId!)}
-                  title={`Open ${phrase.text}`}
-                >
-                  {phrase.text}
-                </button>
-                {phrase.state === 'added' && 'as something this needs.'}
-              </>
-            )}
-          </p>
         )}
         <div className="lesson-body" ref={bodyRef}>
           {text ? (
@@ -603,100 +883,44 @@ export default function KnowledgePanel({
           />
         )}
 
+        {/* One row since v8.26.0 (two rows of four equal pills before): what
+            just happened on the left, a first "Break it down" and Next lesson
+            on the right. The rest lives in the header's ⋮ menu. */}
         <footer className="lesson-foot" data-tour="lesson-foot">
-          {/* The paper's redo confirmation comes first: it floats above the
-            footer, out of the row, so the narrow grid's last-cell rule in
-            knowledge.css counts only what follows. */}
-          {confirmingFor === node.id && (
-            <div
-              className="lesson-confirm"
-              role="alertdialog"
-              aria-label="Break the paper down again?"
-            >
-              <p>
-                <strong>Are you sure?</strong> A fresh breakdown of the paper starts the course
-                over: everything below the paper leaves the graph, and its concepts come back new,
-                their lessons rewritten when you open them. Breaking one down again is instant (it’s
-                cached), and anything you checked off stays known.
-              </p>
-              <div className="lesson-confirm-actions">
-                <button
-                  type="button"
-                  className="lesson-action"
-                  onClick={() => setConfirmingFor(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="lesson-action danger"
-                  onClick={() => {
-                    setConfirmingFor(null)
-                    onExpand(node.id, true)
-                  }}
-                >
-                  Break it down again
-                </button>
-              </div>
-            </div>
+          {phrase && phrase.nodeId === node.id && (
+            <p className="lesson-note" aria-live="polite" title={phraseSentence(phrase)}>
+              {phrase.state === 'working' && (
+                <>
+                  <span className="spin" /> Adding “{phrase.text}” to the graph…
+                </>
+              )}
+              {phrase.state === 'error' && phrase.text}
+              {phrase.state === 'self' && `“${phrase.text}” is what this lesson is about already.`}
+              {phrase.state === 'loop' &&
+                `“${phrase.text}” already builds on this, so it can't come before it as well.`}
+              {(phrase.state === 'added' || phrase.state === 'linked') && phrase.childId && (
+                <>
+                  {phrase.state === 'added' ? 'Added ' : 'Already in the course: '}
+                  <button
+                    type="button"
+                    className="link-btn lesson-phrase-open"
+                    onClick={() => onOpen(phrase.childId!)}
+                    title={`Open ${phrase.text}`}
+                  >
+                    {phrase.text}
+                  </button>
+                  {phrase.state === 'added' && ' as something this needs.'}
+                </>
+              )}
+            </p>
           )}
-          {/* A button like its neighbours since v8.23.0 (it was a switch):
-            "Unknown", and "Known" in the known green once pressed. */}
-          <button
-            type="button"
-            className={`lesson-action lesson-known${known ? ' on' : ''}${
-              justToggled === node.id ? ' pop' : ''
-            }`}
-            aria-pressed={known}
-            onClick={() => {
-              setJustToggled(node.id)
-              onToggleKnown(node.id)
-            }}
-            title={
-              known
-                ? 'You know this: the course skips it, with what only it needs. Click to take it back'
-                : 'I know this: the course skips it, with what only it needs'
-            }
-          >
-            {/* 🤔 while unknown, a 💡 that lights up once it's known
-                (Patrick); decoration, so the name stays the word. */}
-            <span
-              className="lesson-known-mark"
-              aria-hidden="true"
-              // Played once: reopening the item later doesn't replay it.
-              onAnimationEnd={(event) => {
-                event.stopPropagation()
-                setJustToggled(null)
-              }}
-            >
-              {known ? '💡' : '🤔'}
-            </span>
-            {known ? 'Known' : 'Unknown'}
-          </button>
-          {!isRoot && (
-            <button
-              type="button"
-              className="lesson-action"
-              onClick={() => onDelete(node.id)}
-              title={
-                isSynthesis
-                  ? 'Delete this synthesis, and any synthesis that would be left with fewer than two parts'
-                  : 'Delete this, with what only it needs and any synthesis left short. Break down what needed it to bring it back'
-              }
-            >
-              Delete
-            </button>
-          )}
-          {/* One breakdown button (v8.23.0): break it down; once broken down,
-            bring back what was deleted, with a count of what returns; and
-            with nothing missing, ask for a fresh breakdown. */}
           {expanding ? (
             <span className="lesson-status">
               <span className="spin" /> Breaking it down…
             </span>
           ) : (
             !isSynthesis &&
-            (!node.expanded ? (
+            !node.expanded && (
               <button
                 type="button"
                 className="lesson-action"
@@ -705,26 +929,7 @@ export default function KnowledgePanel({
               >
                 + Break it down
               </button>
-            ) : missing.length ? (
-              <button
-                type="button"
-                className="lesson-action"
-                onClick={() => onExpand(node.id)}
-                title={`Bring back what was deleted, as it was (or double-click the node): ${missing.map((child) => child.name).join(', ')}`}
-              >
-                + Break it down <span className="lesson-count">{missing.length}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="lesson-action"
-                onClick={() => (isRoot ? setConfirmingFor(node.id) : onExpand(node.id, true))}
-                aria-expanded={isRoot ? confirmingFor === node.id : undefined}
-                title="Ask the tutor for a fresh breakdown: everything below this starts over, new, with its lessons rewritten when opened (what something else still needs stays). Check-offs survive"
-              >
-                ↻ Break it down again
-              </button>
-            ))
+            )
           )}
           {next && next !== node.id ? (
             <button

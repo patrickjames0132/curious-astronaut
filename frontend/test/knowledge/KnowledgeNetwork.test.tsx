@@ -26,8 +26,18 @@ import { createMap, withChildren } from '../../src/knowledge/model'
 
 // The canvas stands in as one button per node: click opens, the "+" breaks down.
 vi.mock('../../src/knowledge/KnowledgeGraph', () => ({
-  default: ({ map, selected, lit, onOpen, onExpand, onSelect, onHover }: KnowledgeGraphProps) => (
+  default: ({
+    map,
+    expanding,
+    selected,
+    lit,
+    onOpen,
+    onExpand,
+    onSelect,
+    onHover,
+  }: KnowledgeGraphProps) => (
     <div>
+      <p>ringed: {[...expanding].join(', ')}</p>
       {Object.values(map.nodes).map((node) => (
         <span key={node.id}>
           <button type="button" onClick={() => onOpen(node.id)}>
@@ -168,8 +178,8 @@ it('opens a lesson in the panel, marks it visited, and saves the course', async 
   expect(lesson.mock.calls[0][0].needed_by).toEqual([
     { title: 'Playing Atari', kind: 'paper', why: 'DQN approximates Q.' },
   ])
-  // A row's name opens that item; the card folds away.
-  const head = screen.getByRole('button', { name: 'Connections' })
+  // A row's name opens that item; the card folds away to its line of counts.
+  const head = screen.getByRole('button', { name: 'Connections: Builds toward 1' })
   expect(head.getAttribute('aria-expanded')).toBe('true')
   fireEvent.click(head)
   expect(head.getAttribute('aria-expanded')).toBe('false')
@@ -184,7 +194,7 @@ it('opens a lesson in the panel, marks it visited, and saves the course', async 
   expect(store.getState().explorations.byId.saved.threads[1].knowledge!.openId).toBeNull()
   fireEvent.click(screen.getByText('node: Q-learning (visited)'))
 
-  fireEvent.click(screen.getByRole('button', { name: 'Unknown' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Known', pressed: false }))
 
   // Next skips the checked item and the order puts TD learning before the paper.
   fireEvent.click(screen.getAllByRole('button', { name: /Next lesson/ })[0])
@@ -312,7 +322,7 @@ it('synthesizes two concepts into a synthesis that opens, joins the plan, and ch
   // No breakdown, but it checks off like a concept.
   expect(document.querySelector('.lesson-kicker.synthesis')?.textContent).toContain('Synthesis')
   expect(screen.queryByRole('button', { name: '+ Break it down' })).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'Unknown' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Known', pressed: false }))
   const knownNow = store.getState().explorations.byId.saved.threads[1].knowledge!
   expect(knownNow.known).toContain('synthesis:bootstrapped value learning')
   expect(document.querySelector('.lesson-kicker.known')?.textContent).toContain('Known')
@@ -321,9 +331,9 @@ it('synthesizes two concepts into a synthesis that opens, joins the plan, and ch
   // Its bulb pops in on the click itself.
   expect(knownButton.classList.contains('pop')).toBe(true)
   expect(knownButton.textContent).toContain('💡')
-  // Taken back, it reads Unknown with its 🤔, which animates in too.
+  // Taken back, it shows its 🤔, which animates in too.
   fireEvent.click(knownButton)
-  const unknownButton = screen.getByRole('button', { name: 'Unknown' })
+  const unknownButton = screen.getByRole('button', { name: 'Known', pressed: false })
   expect(unknownButton.textContent).toContain('🤔')
   expect(unknownButton.classList.contains('pop')).toBe(true)
   fireEvent.click(unknownButton)
@@ -336,7 +346,9 @@ it('synthesizes two concepts into a synthesis that opens, joins the plan, and ch
   fireEvent.click(screen.getByRole('button', { name: '◆ Synthesize' }))
   expect(synthesize).toHaveBeenCalledTimes(1)
 
-  // Deleting it takes it off the course and closes its panel.
+  // Deleting it, from the ⋮ menu, takes it off the course and closes its panel.
+  fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Delete…' }))
   fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
   const after = store.getState().explorations.byId.saved.threads[1].knowledge!
   expect(after.nodes['synthesis:bootstrapped value learning']).toBeUndefined()
@@ -361,29 +373,32 @@ it('deletes several at once, never the paper, and brings them back without a cal
 
   // The paper alone can't be deleted.
   fireEvent.click(screen.getByText('select: Playing Atari'))
-  expect(screen.getByRole('button', { name: 'Delete' }).hasAttribute('disabled')).toBe(true)
+  expect(screen.getByRole('button', { name: 'Hide' }).hasAttribute('disabled')).toBe(true)
   // With it, the rest go (Delete key), and what only Q-learning needed with them.
   fireEvent.click(screen.getByText(/^select: Q-learning/))
   fireEvent.click(screen.getByText(/^select: TD learning/))
   fireEvent.keyDown(window, { key: 'Delete' })
   expect(Object.keys(course().nodes)).toEqual(['playing atari'])
-  expect(screen.getByRole('status').textContent).toContain('Deleted 2 items and 1 more with them')
+  expect(screen.getByRole('status').textContent).toContain('Hid 2 items and 1 more with them')
 
-  // The paper's "Break it down" says how many return, and brings them back
-  // from what it remembers; Q-learning's own breakdown waits behind its count.
+  // The paper's "Unhide" says how many return, and brings them back from
+  // what it remembers; Q-learning's own breakdown waits behind its count.
   fireEvent.click(screen.getByText('node: Playing Atari'))
-  fireEvent.click(screen.getByRole('button', { name: '+ Break it down 2' }))
+  fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Unhide 2 children' }))
   expect(Object.keys(course().nodes).sort()).toEqual(['playing atari', 'q learning', 'td learning'])
   expect(course().nodes['q learning'].expanded).toBe(true)
   expect(expand).toHaveBeenCalledTimes(2)
 
-  // "Break it down again" asks for a fresh one, past the server's cache; on
-  // the paper it asks first, and Cancel leaves the course alone.
-  fireEvent.click(screen.getByRole('button', { name: '↻ Break it down again' }))
+  // "Break it down again" asks for a fresh one, past the server's cache; it
+  // asks first, and Cancel leaves the course alone.
+  fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Break it down again…' }))
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
   expect(screen.queryByRole('alertdialog')).toBeNull()
   expect(expand).toHaveBeenCalledTimes(2)
-  fireEvent.click(screen.getByRole('button', { name: '↻ Break it down again' }))
+  fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Break it down again…' }))
   fireEvent.click(screen.getByRole('button', { name: 'Break it down again' }))
   await screen.findByText('node: Value iteration')
   expect(expand).toHaveBeenLastCalledWith(expect.objectContaining({ fresh: true }))
@@ -582,7 +597,77 @@ it('shows the tutor working as one line that unfolds into every step so far', as
   await screen.findByText('Done.')
 })
 
-it('rewrites a finished lesson from the ↻ beside the ✕, past the cache', async () => {
+it('asks before breaking a concept down again, as on the paper (v8.26.0)', async () => {
+  const expand = vi
+    .spyOn(api, 'expandKnowledge')
+    .mockResolvedValueOnce(ROOT_CHILDREN)
+    .mockResolvedValueOnce([{ name: 'Bellman equations', why: 'Q-learning solves them.' }])
+    .mockResolvedValueOnce([{ name: 'Value iteration', why: 'A fresh take.' }])
+  vi.spyOn(api, 'streamLesson').mockImplementation(async (_body, handlers) => {
+    handlers.onToken('A lesson.')
+    handlers.onDone()
+  })
+  mount()
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('expand: Q-learning'))
+  await screen.findByText('node: Bellman equations')
+  fireEvent.click(screen.getByText('node: Q-learning'))
+
+  fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Break it down again…' }))
+  expect(screen.getByRole('alertdialog', { name: 'Break this down again?' })).toBeTruthy()
+  expect(expand).toHaveBeenCalledTimes(2)
+  fireEvent.click(screen.getByRole('button', { name: 'Break it down again' }))
+  await screen.findByText('node: Value iteration')
+  expect(expand).toHaveBeenLastCalledWith(expect.objectContaining({ fresh: true }))
+})
+
+it('hides undoably, and deletes for good only after asking (v8.26.0)', async () => {
+  vi.spyOn(api, 'expandKnowledge')
+    .mockResolvedValueOnce(ROOT_CHILDREN)
+    .mockResolvedValueOnce([{ name: 'Bellman equations', why: 'Q-learning solves them.' }])
+  vi.spyOn(api, 'streamLesson').mockImplementation(async (_body, handlers) => {
+    handlers.onToken('A lesson.')
+    handlers.onDone()
+  })
+  const store = mount()
+  const course = () => store.getState().explorations.byId.saved.threads[1].knowledge!
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('expand: Q-learning'))
+  await screen.findByText('node: Bellman equations')
+  /** Pick one of the open item's ⋮ entries.
+   * @param name The entry's name.
+   */
+  const fromMenu = (name: string) => {
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+    fireEvent.click(screen.getByRole('menuitem', { name }))
+  }
+
+  // Hide asks nothing, and Unhide on what needed it brings it back.
+  fireEvent.click(screen.getByText('node: Bellman equations'))
+  fromMenu('Hide this node')
+  expect(course().nodes['bellman equations']).toBeUndefined()
+  expect(screen.getByRole('status').textContent).toContain('Hid it')
+  fireEvent.click(screen.getByText(/^node: Q-learning/))
+  fromMenu('Unhide 1 child')
+  expect(course().nodes['bellman equations']).toBeTruthy()
+
+  // Delete permanently asks first; Cancel keeps it. (Back as it was: visited.)
+  fireEvent.click(screen.getByText('node: Bellman equations (visited)'))
+  fromMenu('Delete permanently…')
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(course().nodes['bellman equations']).toBeTruthy()
+  fromMenu('Delete permanently…')
+  fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }))
+  expect(course().nodes['bellman equations']).toBeUndefined()
+  expect(screen.getByRole('status').textContent).toContain('Deleted it for good')
+  // Nothing to unhide now.
+  fireEvent.click(screen.getByText(/^node: Q-learning/))
+  fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+  expect(screen.queryByRole('menuitem', { name: /Unhide/ })).toBeNull()
+})
+
+it('rewrites a finished lesson from the ⋮ menu, past the cache', async () => {
   vi.spyOn(api, 'expandKnowledge').mockResolvedValueOnce(ROOT_CHILDREN)
   const written = ['First lesson.', 'Second lesson.']
   const lesson = vi.spyOn(api, 'streamLesson').mockImplementation(async (_body, handlers) => {
@@ -596,7 +681,8 @@ it('rewrites a finished lesson from the ↻ beside the ✕, past the cache', asy
   fireEvent.click(screen.getByText('node: Q-learning'))
   expect(await screen.findByText('First lesson.')).toBeTruthy()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Rewrite this lesson' }))
+  fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Rewrite this lesson' }))
   expect(await screen.findByText('Second lesson.')).toBeTruthy()
   expect(lesson).toHaveBeenCalledTimes(2)
   expect(lesson.mock.calls[1][0].fresh).toBe(true)
@@ -757,12 +843,20 @@ async function highlight(phrase: string) {
 }
 
 it('expands a highlighted passage into a concept the lesson needs (v8.25.0)', async () => {
-  const phrase = vi
-    .spyOn(api, 'expandPhrase')
-    .mockResolvedValue({ name: 'Bellman equations', why: 'Its update rule.' })
+  let named: (child: { name: string; why: string }) => void = () => {}
+  const phrase = vi.spyOn(api, 'expandPhrase').mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        named = resolve
+      }),
+  )
   const store = mount(openLessonCourse())
   await highlight('Bellman backup')
   fireEvent.mouseDown(screen.getByRole('button', { name: 'Expand' }))
+  // While the tutor names it, the item wears the breakdown's ring (v8.26.0).
+  expect(screen.getByText('ringed: q learning')).toBeTruthy()
+  await act(async () => named({ name: 'Bellman equations', why: 'Its update rule.' }))
+  expect(screen.getByText(/^ringed:\s*$/)).toBeTruthy()
   expect(phrase.mock.calls[0][0]).toMatchObject({
     phrase: 'Bellman backup',
     item: { title: 'Q-learning', kind: 'concept' },

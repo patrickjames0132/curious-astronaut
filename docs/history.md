@@ -3541,6 +3541,53 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **The lesson panel, redesigned: Known and a ⋮ menu in the header, a
+      one-row footer, Hide vs Delete permanently, and hidden counts on the
+      graph** *(v8.26.0)* — Patrick, 2026-10-18, from a screenshot of the
+      panel: its footer was two rows of four equal pills (Known, Delete,
+      Break it down again, Next lesson) that took about 180px from the
+      lesson and gave Delete the weight of Known.
+
+      **The header** holds three captionless tools: **Known** (a faded 🤔
+      that lights into a 💡; it said again what the kicker says while it sat
+      in the footer, and its tooltip now states the state: "Unknown or
+      unfamiliar concept; lesson will not be skipped"), a **⋮ menu**, and ✕.
+      The menu's three groups (Patrick's grouping): Rewrite this lesson;
+      **Hide this node** and **Unhide *n* children**; then, in red and asking
+      first, **Break it down again…** and **Delete permanently…**, each led by
+      a line icon of one size in a fixed column. The ↻ that sat beside the ✕
+      (rewrite the lesson) and the footer's ↻ (redo the breakdown) did very
+      different things behind the same mark; they're named entries now.
+
+      **The footer** is one row: what an Expand just did on the left, cut to
+      a line with an ellipsis (the whole sentence its tooltip), then a first
+      "+ Break it down" and **Next lesson ›**. **Connections** folds to one
+      quiet line of counts. A lesson image's white ground dims a little on
+      the dark theme.
+
+      **Hide vs Delete permanently.** "Delete" was always undoable (the item
+      waits in the archive and a breakdown of what needed it brings it
+      back), but unhiding is all-or-nothing, so a junk concept returned with
+      every restore. Hide is that old delete, renamed; **Delete permanently**
+      (`withForgotten`) also forgets the item: it leaves every remembered
+      breakdown, on the course and in the archive, and its archived copy
+      goes. The rule for confirmations: **ask only before what can't be
+      undone** (Delete permanently, and Break it down again, now on every
+      item rather than the paper alone, since it takes a branch with it).
+      The selection bar and the Delete key hide. An item with hidden
+      children wears a **red count** on its node, like a notification's (on
+      the sphere's crown in 3D), and a double-click brings them back;
+      Unhide and Break it down again are separate entries now, so a redo is
+      no longer out of reach while something is hidden.
+
+      Polish found in review: the status line's caret moved after its words
+      (it sat against the spinner), the Explain/Expand pill is kept inside
+      the window (at the edge it squeezed into a column of letters), and the
+      item an Expand is working on wears the breakdown's dashed ring.
+      Covered by model tests (`withForgotten`, `hiddenCounts`) and panel
+      tests (hide without a prompt, delete for good behind one, a concept's
+      Break it down again asking first, the Expand ring).
+
 - [x] **A Knowledge Graph Assistant, Explain and Expand on a highlighted
       passage, and `@` references to a chat** *(v8.25.0)* — three Backlog
       items shipped together (Patrick, 2026-10-17), because the second needs

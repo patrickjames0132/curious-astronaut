@@ -48,6 +48,7 @@ import Lightbox from '../figures/Lightbox'
 import { useAppDispatch } from '../store'
 import {
   knowledgeDeleted,
+  knowledgeForgotten,
   knowledgeExpanded,
   knowledgePrerequisiteAdded,
   knowledgeKnownSet,
@@ -113,17 +114,21 @@ const MODE_KEY = 'ca.knowledge3d'
 const DELETED_NOTE_MS = 6000
 
 /**
- * The note after a deletion (v8.23.0), with the way back.
+ * The note after hiding (v8.23.0, "Delete" until v8.26.0), with the way
+ * back; or after a permanent delete, which has none.
  *
- * @param picked How many items the reader deleted.
+ * @param picked How many items the reader hid.
  * @param extra How many more went with them.
- * @returns E.g. "Deleted 2 items and 3 more with them. …".
+ * @param forever Deleted for good (v8.26.0), not hidden.
+ * @returns E.g. "Hid 2 items and 3 more with them. …".
  */
-function deletedMessage(picked: number, extra: number): string {
+function deletedMessage(picked: number, extra: number, forever = false): string {
   const them = picked === 1 ? 'it' : 'them'
-  const head = picked === 1 ? 'Deleted it' : `Deleted ${picked} items`
+  const verb = forever ? 'Deleted' : 'Hid'
+  const head = picked === 1 ? `${verb} it` : `${verb} ${picked} items`
   const tail = extra > 0 ? ` and ${extra} more with ${them}` : ''
-  return `${head}${tail}. Break down what needed ${them} to bring ${them} back.`
+  if (forever) return `${head} for good${tail}.`
+  return `${head}${tail}. Double-click what needed ${them} to bring ${them} back.`
 }
 
 /**
@@ -414,17 +419,26 @@ export default function KnowledgeNetwork({
     },
     [dispatch, threadId],
   )
+  // The item an Expand is working on wears the breakdown's dashed ring
+  // (v8.26.0, Patrick): it is a breakdown of one, after all.
+  const ringed = useMemo(
+    () =>
+      phrase?.state === 'working' && !expanding.has(phrase.nodeId)
+        ? new Set(expanding).add(phrase.nodeId)
+        : expanding,
+    [expanding, phrase],
+  )
 
-  // Delete items (v8.23.0): never the paper, and with them what only they
-  // needed and the syntheses they leave short. A note says how many went,
-  // and how to bring them back.
+  // Hide items (v8.23.0; "Delete" until v8.26.0): never the paper, and with
+  // them what only they needed and the syntheses they leave short. A note
+  // says how many went, and how to bring them back.
   const [deletedNote, setDeletedNote] = useState<string | null>(null)
   useEffect(() => {
     if (!deletedNote) return undefined
     const timer = window.setTimeout(() => setDeletedNote(null), DELETED_NOTE_MS)
     return () => window.clearTimeout(timer)
   }, [deletedNote])
-  const deleteItems = useCallback(
+  const hideItems = useCallback(
     (nodeIds: string[]) => {
       const current = mapRef.current
       if (!current) return
@@ -436,6 +450,20 @@ export default function KnowledgeNetwork({
       dispatch(knowledgeDeleted({ threadId, nodeIds: doomed }))
       setSelected(new Set())
       setDeletedNote(deletedMessage(doomed.length, extra))
+    },
+    [dispatch, threadId],
+  )
+  // Delete one for good (v8.26.0): hidden, and forgotten, so no unhide
+  // brings it back. The panel's ⋮ only, behind a confirmation.
+  const forgetItem = useCallback(
+    (nodeId: string) => {
+      const current = mapRef.current
+      if (!current?.nodes[nodeId] || nodeId === current.rootId) return
+      const after = withoutItems(current, [nodeId])
+      const extra = Object.keys(current.nodes).length - Object.keys(after.nodes).length - 1
+      dispatch(knowledgeForgotten({ threadId, nodeId }))
+      setSelected(new Set())
+      setDeletedNote(deletedMessage(1, extra, true))
     },
     [dispatch, threadId],
   )
@@ -455,11 +483,11 @@ export default function KnowledgeNetwork({
         return
       if (!selectedRef.current.size) return
       event.preventDefault()
-      deleteItems([...selectedRef.current])
+      hideItems([...selectedRef.current])
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [deleteItems])
+  }, [hideItems])
 
   // The paper breaks down on its own the first time: a graph of one node
   // would be a course with nothing in it.
@@ -542,7 +570,7 @@ export default function KnowledgeNetwork({
     map,
     width: size.width,
     height: size.height,
-    expanding,
+    expanding: ringed,
     focus,
     fitSignal,
     selected,
@@ -685,15 +713,15 @@ export default function KnowledgeNetwork({
             <button
               type="button"
               className="knowledge-selection-mark delete"
-              onClick={() => deleteItems(picked)}
+              onClick={() => hideItems(picked)}
               disabled={!deletable.length}
               title={
                 deletable.length
-                  ? 'Delete these (Delete key), with what only they need and any synthesis left short. Break down what needed them to bring them back'
-                  : 'The paper can’t be deleted'
+                  ? 'Hide these (Delete key), with what only they need and any synthesis left short. Double-click what needed them to bring them back'
+                  : 'The paper can’t be hidden'
               }
             >
-              Delete
+              Hide
             </button>
             <button
               type="button"
@@ -755,7 +783,8 @@ export default function KnowledgeNetwork({
           onRetry={() => write(map, shownId)}
           onQuick={() => quick(map, shownId)}
           onRewrite={() => dispatch(knowledgeLessonCleared({ threadId, nodeId: shownId }))}
-          onDelete={(nodeId) => deleteItems([nodeId])}
+          onHide={(nodeId) => hideItems([nodeId])}
+          onDelete={forgetItem}
           onHover={threeD ? undefined : setPointedId}
           onEnlarge={setEnlarged}
           onExplain={(passage) => explain(shownId, passage)}

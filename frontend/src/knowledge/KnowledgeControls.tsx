@@ -135,8 +135,7 @@ export default function KnowledgeControls({
 
           <p className="ctrl-hint">
             Click a node for its lesson · double-click to break it down · drag a node to pin it ·
-            shift-click or alt-drag to select several, then check them off, synthesize or delete
-            them
+            shift-click or alt-drag to select several, then check them off, synthesize or hide them
             {threeD
               ? ' · left-drag to orbit, scroll or middle-drag to zoom, right-drag to pan'
               : ' · drag to pan, scroll to zoom'}

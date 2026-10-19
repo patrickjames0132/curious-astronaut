@@ -4,7 +4,14 @@
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { describe, expect, it } from 'vitest'
-import { KNOWLEDGE_COLOR, LABEL_ZOOM, labelled, nodeLook } from '../../src/knowledge/look'
+import {
+  KNOWLEDGE_COLOR,
+  LABEL_ZOOM,
+  badgeText,
+  hiddenCounts,
+  labelled,
+  nodeLook,
+} from '../../src/knowledge/look'
 import type { KnowledgeChild } from '../../src/api'
 import {
   SYNTHESIS_PREFIX,
@@ -37,6 +44,7 @@ import {
   withBreakdownAgain,
   withRestored,
   withoutItems,
+  withForgotten,
   withoutImageMarks,
 } from '../../src/knowledge/model'
 
@@ -468,6 +476,54 @@ describe('deleting and bringing back', () => {
     // Any breakdown naming a deleted concept revives it too.
     const named = withChildren(deleted, 'experience replay', [concept('Q-learning')])
     expect(named.nodes['q learning'].lesson).toBe('Q.')
+  })
+  it('deletes for good: no restore brings it back, a new breakdown brings it new', () => {
+    const map = dqnCourse()
+    const read = {
+      ...map,
+      nodes: { ...map.nodes, 'q learning': { ...map.nodes['q learning'], lesson: 'Q.' } },
+      known: ['q learning'],
+    }
+    const gone = withForgotten(read, 'q learning')
+    // Removed with what only it needed, as a removal is…
+    expect(gone.nodes['q learning']).toBeUndefined()
+    expect(gone.nodes['bellman equations']).toBeUndefined()
+    expect(gone.known).not.toContain('q learning')
+    // …but forgotten: not missing from the paper, and not archived.
+    expect(missingChildren(gone, 'playing atari')).toEqual([])
+    expect(gone.archive?.['q learning']).toBeUndefined()
+    expect(withRestored(gone, 'playing atari')).toBe(gone)
+    // Named again by a breakdown, it comes back new, without its lesson.
+    const named = withChildren(gone, 'experience replay', [concept('Q-learning')])
+    expect(named.nodes['q learning'].lesson).toBeUndefined()
+    // Never the paper.
+    expect(withForgotten(map, map.rootId)).toBe(map)
+  })
+  it('forgets it in archived breakdowns too', () => {
+    // MDPs is needed by both Q-learning and Experience replay; Experience
+    // replay is removed (archived, remembering MDPs), then MDPs is deleted.
+    const map = withChildren(dqnCourse(), 'experience replay', [concept('MDPs')])
+    const removed = withoutItems(map, ['experience replay'])
+    expect(removed.archive?.['experience replay'].breakdown).toEqual([concept('MDPs')])
+    const gone = withForgotten(removed, 'mdps')
+    expect(gone.archive?.['experience replay'].breakdown).toEqual([])
+    expect(gone.nodes['q learning'].breakdown?.map((child) => child.name)).toEqual([
+      'Bellman equations',
+    ])
+    // Experience replay comes back without MDPs to restore under it.
+    const back = withRestored(gone, 'playing atari')
+    expect(missingChildren(back, 'experience replay')).toEqual([])
+  })
+  it('counts what each item has hidden, for the badge on its node (v8.26.0)', () => {
+    const map = dqnCourse()
+    expect(hiddenCounts(map).size).toBe(0)
+    // Hiding two of the paper's: it counts both, and Q-learning's breakdown goes with it.
+    const hidden = withoutItems(map, ['q learning', 'experience replay'])
+    expect([...hiddenCounts(hidden)]).toEqual([['playing atari', 2]])
+    // Unhidden, Q-learning's own breakdown waits behind its own count.
+    expect([...hiddenCounts(withRestored(hidden, 'playing atari'))]).toEqual([['q learning', 2]])
+    expect(badgeText(3)).toBe('3')
+    expect(badgeText(12)).toBe('9+')
   })
   it('remembers the breakdown of a course from before it was kept', () => {
     const map = dqnCourse()

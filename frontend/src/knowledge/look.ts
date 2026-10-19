@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { REL_COLOR, SELECTION_RING, dimColor, type CanvasInk } from '../graph/theme'
-import { synthesisLinks, type KnowledgeMap, type KnowledgeNode } from './model'
+import { missingChildren, synthesisLinks, type KnowledgeMap, type KnowledgeNode } from './model'
 
 /** Fill per role: the paper in gold (as on the citation graph), concepts in violet. */
 export const KNOWLEDGE_COLOR = {
@@ -247,6 +247,36 @@ export function labelled(
 export function nodeRadius(map: KnowledgeMap, node: KnowledgeNode): number {
   if (node.kind === 'synthesis') return 6.5
   return node.id === map.rootId ? 9 : 5.5
+}
+
+/** The hidden-count badge's red (v8.26.0), a notification count's. */
+export const HIDDEN_BADGE = '#e5484d'
+
+/**
+ * How many of each item's breakdown are hidden (v8.26.0), for the badge on
+ * its node: the count a double-click (or the panel's Unhide) brings back.
+ *
+ * @param map The course.
+ * @returns Item id → count, only for items with any hidden.
+ */
+export function hiddenCounts(map: KnowledgeMap): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const node of Object.values(map.nodes)) {
+    if (!node.expanded) continue
+    const count = missingChildren(map, node.id).length
+    if (count) counts.set(node.id, count)
+  }
+  return counts
+}
+
+/**
+ * A badge's words: the count, and "9+" past nine, as a notification's.
+ *
+ * @param count How many are hidden.
+ * @returns The text.
+ */
+export function badgeText(count: number): string {
+  return count > 9 ? '9+' : String(count)
 }
 
 /**
