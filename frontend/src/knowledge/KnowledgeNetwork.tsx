@@ -69,7 +69,7 @@ import KnowledgeControls, { KnowledgeNavigationHelp, NAVIGATION_HINT } from './K
 import KnowledgeGraph, { type KnowledgeEngine } from './KnowledgeGraph'
 import KnowledgeLegend from './KnowledgeLegend'
 import KnowledgePanel, { type PhraseNote } from './KnowledgePanel'
-import { askCourse, explainMessage } from './assistant/askCourse'
+import { askCourse, explainMessage, type LessonQuote } from './assistant/askCourse'
 import {
   SYNTHESIS_PREFIX,
   courseNames,
@@ -187,7 +187,8 @@ function writePreference(key: string, value: string): void {
  * @param props Component props.
  * @param props.thread The active paper thread.
  * @param props.children The shell's floating overlays (the ‹ pill, errors).
- * @param props.onAssistant Open the course's assistant (a lesson's Explain).
+ * @param props.onAssistant Open the course's assistant (a lesson's Explain),
+ *   with a passage for its bar (a lesson's Chat, v8.26.0).
  * @returns The network.
  */
 export default function KnowledgeNetwork({
@@ -197,7 +198,7 @@ export default function KnowledgeNetwork({
 }: {
   thread: ThreadRecord
   children?: ReactNode
-  onAssistant?: () => void
+  onAssistant?: (quote?: LessonQuote) => void
 }) {
   const dispatch = useAppDispatch()
   const threadId = thread.id
@@ -373,6 +374,15 @@ export default function KnowledgeNetwork({
       )
     },
     [dispatch, onAssistant, provider, threadId],
+  )
+  // A lesson's Chat (v8.26.0): the assistant opens with the passage attached
+  // to its bar, and the reader asks what they like about it.
+  const chat = useCallback(
+    (nodeId: string, passage: string) => {
+      const node = mapRef.current?.nodes[nodeId]
+      if (node) onAssistant?.({ text: passage, lesson: node.title })
+    },
+    [onAssistant],
   )
 
   // A lesson's Expand (v8.25.0): the tutor names the idea the passage is
@@ -788,6 +798,7 @@ export default function KnowledgeNetwork({
           onHover={threeD ? undefined : setPointedId}
           onEnlarge={setEnlarged}
           onExplain={(passage) => explain(shownId, passage)}
+          onChat={(passage) => chat(shownId, passage)}
           onExpandPhrase={(passage) => expandPassage(shownId, passage)}
           phrase={phrase}
           onClose={close}

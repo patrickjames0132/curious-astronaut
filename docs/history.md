@@ -3541,6 +3541,23 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **Chat about a highlighted passage** *(v8.27.0)* — Patrick,
+      2026-10-18: a third option on a lesson's selection pill, "just like
+      Claude Code, where I can paste a text reference and then talk about
+      whatever." The pill reads **Explain | Expand | Chat**: a word rather
+      than the chat-bubble icon of the reference he showed, so the pill reads
+      at a glance, and last so the first two kept their places. Chat opens
+      the Knowledge Graph Assistant with the passage **attached to its bar**
+      as a quote card (accent stripe, three lines at most, its lesson under
+      it, a ✕; Backspace in an empty bar lets it go), and the bar takes
+      focus. Nothing is asked until the reader types; the message carries
+      the passage and its lesson first and the question after
+      (`quotedMessage`), so the transcript reads on its own later. The quote
+      lives in `App` beside the assistant's open state, for the thread it
+      came from. Covered by a test that renders the lesson and the assistant
+      side by side: attached without asking, focused, let go by Backspace,
+      and sent with the question.
+
 - [x] **The lesson panel, redesigned: Known and a ⋮ menu in the header, a
       one-row footer, Hide vs Delete permanently, and hidden counts on the
       graph** *(v8.26.0)* — Patrick, 2026-10-18, from a screenshot of the

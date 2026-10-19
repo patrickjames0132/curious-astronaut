@@ -573,8 +573,9 @@ branch, the way the assistant shows figures in its answers.
 ## A highlighted passage: Explain and Expand (v8.25.0)
 
 Select a word or passage in a **finished** lesson and a small pill appears
-over it (`SelectionMenu`, after SpatialRead's, which Patrick pointed at;
-only these two of its options for now). `useLessonSelection` is the
+over it (`SelectionMenu`, after SpatialRead's, which Patrick pointed at):
+**Explain | Expand | Chat**, words rather than icons so the pill reads at
+a glance, and Chat last so the first two kept their places. `useLessonSelection` is the
 frontend's first reader of a text selection: it opens the pill when the
 reader lets go (not mid-drag), places it above the passage in fixed
 coordinates (below it near the top of the window), kept inside the
@@ -603,6 +604,17 @@ closes it when the selection collapses or leaves the lesson.
   lesson's own subject, or *X* already builds on this item). It is cut to
   one line with an ellipsis, the whole sentence its tooltip
   (`phraseSentence`), so it never pushes the buttons onto a second row.
+
+- **Chat** (v8.26.0, Patrick: "just like Claude Code, where I can paste a
+  text reference and then talk about whatever") opens the assistant with
+  the passage **attached to its bar** as a quote card (accent stripe, three
+  lines at most, its lesson under it, a ✕; Backspace in an empty bar lets
+  it go too), and the bar takes focus. Nothing is asked until the reader
+  types a question; the message then carries the passage and its lesson
+  first and the question after (`quotedMessage`), so the transcript reads
+  on its own. The quote lives in `App` beside the assistant's open state,
+  for the thread it came from, since the lesson and the assistant are
+  siblings there; a new Chat replaces it.
 
 ## Not yet (later Phase 5 stages, see the OnePager)
 
@@ -648,7 +660,9 @@ without its markers, and a quick response stopping the slow run and writing
 the lesson at once, the menu's rewrite of a finished lesson past the cache, and
 the status line unfolding into every step so far, and a highlighted
 passage: Expand adding its concept under the lesson's item (and the note
-opening it), Explain asking the course assistant with the graph untouched.
+opening it), Explain asking the course assistant with the graph untouched,
+and Chat attaching the passage to the assistant's bar and sending it with
+the question.
 `model.test.ts` covers `withPrerequisite`: a new concept, an existing one
 linked, an edge already there or closing a loop refused, and a later
 breakdown keeping it. The 3D view, the canvas
