@@ -983,30 +983,6 @@ than deleted so the plan doesn't get re-proposed.
       embedding similarity) actually justifies, and maybe a short reason
       beside it as Asta gives. *(From the `todos.md` inbox, 2026-10-16.)*
 
-- [ ] **Make it clear that a lone `@paper` leaves the map** — this ticket
-      was filed against the 🔍 **Find papers** toggle, which v7.18.0 replaced
-      with `@` mentions (see `frontend/src/mentions/README.md`), so its
-      original fix — reword the toggle's tooltip — has nothing left to land
-      on. **The concern survives the redesign, in a new place:** with a graph
-      open, picking a paper from the `@` dropdown and sending it *alone*
-      **re-seeds** — you leave the map you were reading — while the same pick
-      inside a question keeps you there and grounds the answer. Nothing on
-      screen says which of the two a send will do before you press Enter.
-      Before building anything, check in the browser whether the dropdown or
-      the transcript's lead line already makes this obvious; if it does,
-      delete this ticket rather than polishing it.
-
-      **Why re-seeding stays.** Removing it would remove a path: `goHome`
-      dispatches `workspaceCleared()`, so "go home to open another paper"
-      costs you the graph and any unsaved exploration. The work is wording,
-      not gating. *(From the `todos.md` inbox, 2026-08-15; re-aimed at `@`
-      2026-10-02.)*
-
-      **What comes after it is its own ticket** — "Grow the map from a
-      search hit, instead of only leaving it", below. Keep them in that
-      order: this one explains what a lone mention does today, that one
-      gives it a second mode.
-
 - [ ] **Teach the visual vocabulary — what every colour and glyph means** —
       the app encodes a lot in colour and shape and explains almost none of it.
       The graph legend lists node colours by name (References, Field Landmarks,
@@ -1145,9 +1121,9 @@ than deleted so the plan doesn't get re-proposed.
       `todos.md` inbox, 2026-07-14; absorbs the former "search nodes as a
       filter chip" ticket, 2026-07-07.)*
 - [ ] **Grow the map from a search hit, instead of only leaving it** — split
-      out of the "a lone `@paper` leaves the map" ticket above *(Patrick's
-      idea, 2026-08-15; its own ticket 2026-08-16 — it's a feature, not
-      wording)*. Today a paper found by direct search can only **re-seed**:
+      out of a since-deleted ticket on making a lone `@paper` re-seed visible
+      — moot once v8.29.0 made opening an explicit Open button *(Patrick's
+      idea, 2026-08-15; its own ticket 2026-08-16)*. Today a paper found by direct search can only **re-seed**:
       you leave the graph you were reading to go look at another one. But the
       provider knows whether an edge exists between that hit and the papers
       already on screen, and *"does this cite, or get cited by, anything I'm
@@ -1158,9 +1134,6 @@ than deleted so the plan doesn't get re-proposed.
       actually wrote (v7.5.0), so this adds a paper *and its real edge*, never
       a "related to" line — a hit with no edge to anything on screen still
       has nothing to attach to, and re-seeding stays its only offer.
-      **Sequencing:** do the wording ticket first; this one changes what
-      search *does*, and there's no point explaining behaviour that's about
-      to gain a second mode.
 
 - [ ] **Responsive layout + a collapsible icon side rail (mobile-friendly)** —
       the frontend assumes a wide desktop window; resizing squeezes the
