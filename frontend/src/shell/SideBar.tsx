@@ -150,7 +150,7 @@ function ProviderPicker({ provider, onChange, disabled, labelled }: ProviderPick
   const [open, setOpen] = useState(false)
   // The collapsed rail's popup stays mounted through its exit fade.
   const menu = usePresence(open)
-  const title = `Data source: ${PROVIDER_LABEL[provider]} — which academic database graphs are built from; references, citations and the seed all come from this one source`
+  const title = `Data source: ${PROVIDER_LABEL[provider]} — which academic database graphs are built from; references, citations and the seed all come from this one source. Switching moves the paper you're in, chats and course included; its graph rebuilds now if it's on screen, otherwise when you open it`
   if (labelled)
     return (
       <label className="rail-item rail-provider-row" data-tour="provider" title={title}>

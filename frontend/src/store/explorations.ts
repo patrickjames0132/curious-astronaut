@@ -5,7 +5,14 @@
  */
 import { createAction, createSlice, nanoid } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
-import type { AnswerFigure, ChatMsg, KnowledgeChild, PaperDetails, SessionData } from '../api'
+import type {
+  AnswerFigure,
+  ChatMsg,
+  KnowledgeChild,
+  PaperDetails,
+  Provider,
+  SessionData,
+} from '../api'
 import {
   isCurrentMap,
   withChildren,
@@ -238,6 +245,40 @@ const slice = createSlice({
           record.revision++
         }
       }
+    },
+    /** Move a paper thread onto another data source **in place** (v8.28.1):
+     * switching the provider used to open a twin thread for the same paper,
+     * leaving its chats and course behind. The thread keeps its id, title,
+     * chats and course; what is provider-specific moves — its identity, its
+     * seed reference, the card header's details, and the course's root paper
+     * id (lessons resolve the PDF by it, under the thread's provider).
+     * @param state Exploration state.
+     * @param action The thread and where it now lives.
+     */
+    threadRebased(
+      state,
+      action: PayloadAction<{
+        threadId: string
+        identity: string
+        provider: Provider
+        graphRef: NonNullable<SessionData['graph_ref']>
+        paper?: PaperDetails
+      }>,
+    ) {
+      const found = findThread(state, action.payload.threadId)
+      if (!found?.thread.identity) return
+      const { thread, record } = found
+      thread.identity = action.payload.identity
+      thread.data = {
+        ...thread.data,
+        provider: action.payload.provider,
+        graph_ref: action.payload.graphRef,
+      }
+      if (action.payload.paper) thread.paper = action.payload.paper
+      const knowledge = thread.knowledge
+      const root = isCurrentMap(knowledge) ? knowledge.nodes[knowledge.rootId] : undefined
+      if (root?.paper) root.paper = { ...root.paper, id: action.payload.graphRef.seed.id }
+      record.revision++
     },
     /** Start a thread's course (its first open of the knowledge network).
      * A course saved in an older shape is replaced.
@@ -501,6 +542,7 @@ export const {
   threadToolSet,
   threadCardsShown,
   threadPaperSet,
+  threadRebased,
   knowledgeStarted,
   knowledgeExpanded,
   knowledgeSynthesized,

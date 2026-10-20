@@ -3562,6 +3562,25 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **Switching the data source keeps the thread you're in** *(v8.28.1)*
+      — from the `todos.md` inbox (2026-10-18): changing provider landed the
+      reader in a new thread. A thread is keyed by provider + seed, so the
+      switch found no thread for the new key and opened a twin, leaving the
+      chats and course behind. Now `switchProvider` rebases the active paper
+      thread (`explorations.threadRebased`): same id, title, chats and course;
+      new identity, `data.provider`, `graph_ref`, card details, and the
+      course's root paper id (lessons resolve the PDF by it). Patrick's shape
+      for when the graph moves: "the citation graph can update when clicked
+      on or if the user is already in view" — a graph on screen rebuilds at
+      once (`loadGraph`'s `rebase`), while on the cards or the course one
+      paper lookup moves the thread (`rebasePaper`) and the graph rebuilds
+      when opened. And "if I switch back to the original provider, no need to
+      reload the graph": the workspace remembers the provider the graph was
+      built under (`graphProvider`), and `openTool` rebuilds only when that
+      still differs. A rebuild clears the old provider's discoveries and
+      selection; old answers' `[n]` chips grey out where their papers aren't
+      on the new graph. On General the switch only steers the next search.
+
 - [x] **Chat about a highlighted passage** *(v8.27.0)* — Patrick,
       2026-10-18: a third option on a lesson's selection pill, "just like
       Claude Code, where I can paste a text reference and then talk about

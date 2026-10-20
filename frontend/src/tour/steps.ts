@@ -87,7 +87,9 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'The academic database the whole map is built from — Semantic Scholar or OpenAlex, ' +
       'chosen per graph. Each has different strengths (see the note under the graph ' +
-      'controls once a map is up); you can rebuild the same paper under the other any time.',
+      'controls once a map is up). Switching moves the paper you are in to the other source, ' +
+      'its chats and course included, rather than opening it again beside itself; its graph ' +
+      'rebuilds now if it is on screen, otherwise when you next open it.',
   },
   {
     target: '[data-tour="library-btn"]',

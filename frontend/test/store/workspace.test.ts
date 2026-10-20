@@ -191,15 +191,39 @@ describe('switchProvider', () => {
    */
   function reseedArg(workspace: WorkspaceState, provider: 's2' | 'openalex') {
     const outer = vi.fn()
-    switchProvider(provider)(outer, () => ({ workspace }), undefined)
+    // The graph thread on screen, which the switch moves (v8.28.1).
+    const explorations = {
+      activeId: 'explore',
+      byId: {
+        explore: {
+          id: 'explore',
+          title: 'Explore',
+          activeThreadId: 'paper',
+          revision: 0,
+          threads: [
+            {
+              id: 'paper',
+              title: 'Paper',
+              identity: 's2:paper',
+              tool: 'graph' as const,
+              data: { chat: [], layout: 'timeline' as const },
+            },
+          ],
+        },
+      },
+    }
+    const getState = () => ({ workspace, explorations, transcript: {} as TranscriptState })
+    void switchProvider(provider)(outer, getState, undefined)
     const inner = outer.mock.calls
       .map((call) => call[0])
       .find((action) => typeof action === 'function')
     if (!inner) return null
     const innerDispatch = vi.fn()
-    inner(innerDispatch, () => ({ workspace }), undefined)
+    void inner(innerDispatch, getState, undefined)
     const pending = innerDispatch.mock.calls[0]?.[0]
-    return pending?.type === loadGraph.pending.type ? pending.meta.arg : null
+    if (pending?.type !== loadGraph.pending.type) return null
+    const { rebase: _rebase, ...arg } = pending.meta.arg
+    return arg
   }
 
   it('re-seeds by the arXiv id, which both backends read natively', () => {

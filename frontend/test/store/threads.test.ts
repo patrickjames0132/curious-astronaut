@@ -13,6 +13,7 @@ import workspace, {
   openThread,
   openTool,
   seedPaper,
+  switchProvider,
 } from '../../src/store/workspace'
 import * as api from '../../src/api'
 import transcript, {
@@ -228,6 +229,108 @@ describe('card home', () => {
     expect(thread.tool).toBe('cards')
     expect(thread.paper?.title).toBe('Paper DQN')
     expect(thread.data.graph_ref?.seed_ref).toBe('DQN')
+  })
+})
+
+describe('switching the data source', () => {
+  // v8.28.1: a thread is keyed by provider + seed, so a switch used to find
+  // no thread for the new key and open a twin, leaving the chats and the
+  // course behind. Now the thread the reader is in moves.
+
+  /** The paper threads in the store's active exploration. */
+  function paperThreads(store: ReturnType<typeof makeStore>) {
+    const state = store.getState()
+    return state.explorations.byId[state.explorations.activeId].threads.filter(
+      (thread) => thread.identity,
+    )
+  }
+
+  it('rebuilds a graph on screen in place, keeping the thread and its chat', async () => {
+    const store = makeStore()
+    await store.dispatch(loadGraph({ seed: 'DQN', provider: 's2' }))
+    const thread = activeThread(store)
+    store.dispatch(turnStarted('why replay?'))
+    vi.mocked(api.fetchGraphStream).mockClear()
+
+    await store.dispatch(switchProvider('openalex'))
+
+    expect(api.fetchGraphStream).toHaveBeenCalledWith('DQN', 'openalex', false, expect.anything())
+    const moved = activeThread(store)
+    expect(moved.id).toBe(thread.id)
+    expect(moved.identity).toBe('openalex:DQN')
+    expect(moved.data.provider).toBe('openalex')
+    expect(paperThreads(store)).toHaveLength(1)
+    expect(store.getState().workspace.provider).toBe('openalex')
+    expect(store.getState().transcript.byKey[thread.id].chat[0].text).toBe('why replay?')
+  })
+
+  it('moves a thread on its cards with one lookup, and builds when the graph is opened', async () => {
+    const store = makeStore()
+    await store.dispatch(openPaper({ seed: 'DQN' }))
+    const thread = activeThread(store)
+    vi.mocked(api.fetchGraphStream).mockClear()
+
+    await store.dispatch(switchProvider('openalex'))
+    expect(api.fetchGraphStream).not.toHaveBeenCalled()
+    expect(api.fetchPaperDetail).toHaveBeenLastCalledWith('DQN', 'openalex')
+    expect(activeThread(store).id).toBe(thread.id)
+    expect(activeThread(store).identity).toBe('openalex:DQN')
+    expect(threadTool(activeThread(store))).toBe('cards')
+
+    await store.dispatch(openTool('graph'))
+    expect(api.fetchGraphStream).toHaveBeenCalledWith('DQN', 'openalex', false, expect.anything())
+    expect(activeThread(store).id).toBe(thread.id)
+    expect(paperThreads(store)).toHaveLength(1)
+  })
+
+  it('keeps a built graph that is out of view, rebuilding it only when opened', async () => {
+    // Reading the course: the graph is in memory but not on screen, so the
+    // switch doesn't rebuild it then — opening the graph tool does.
+    const store = makeStore()
+    await store.dispatch(loadGraph({ seed: 'DQN', provider: 's2' }))
+    const thread = activeThread(store)
+    store.dispatch(nodeSelectionSet(['DQN']))
+    await store.dispatch(openTool('knowledge'))
+    vi.mocked(api.fetchGraphStream).mockClear()
+
+    await store.dispatch(switchProvider('openalex'))
+    expect(api.fetchGraphStream).not.toHaveBeenCalled()
+    expect(activeThread(store).identity).toBe('openalex:DQN')
+
+    await store.dispatch(openTool('graph'))
+    expect(api.fetchGraphStream).toHaveBeenCalledWith('DQN', 'openalex', false, expect.anything())
+    // The old provider's ids mean nothing on the rebuilt graph.
+    expect(store.getState().workspace.selectedNodeIds).toEqual([])
+    expect(activeThread(store).id).toBe(thread.id)
+    expect(paperThreads(store)).toHaveLength(1)
+  })
+
+  it('switching away and back before opening the graph rebuilds nothing', async () => {
+    // Patrick: "if I switch back to the original provider, no need to reload
+    // the graph" — the graph is only rebuilt for a provider it wasn't built on.
+    const store = makeStore()
+    await store.dispatch(loadGraph({ seed: 'DQN', provider: 's2' }))
+    await store.dispatch(openTool('knowledge'))
+    const built = store.getState().workspace.graph
+    vi.mocked(api.fetchGraphStream).mockClear()
+
+    await store.dispatch(switchProvider('openalex'))
+    await store.dispatch(switchProvider('s2'))
+    await store.dispatch(openTool('graph'))
+
+    expect(api.fetchGraphStream).not.toHaveBeenCalled()
+    expect(store.getState().workspace.graph).toBe(built)
+    expect(activeThread(store).identity).toBe('s2:DQN')
+    expect(paperThreads(store)).toHaveLength(1)
+  })
+
+  it('on General just changes the provider for what comes next', async () => {
+    const store = makeStore()
+    vi.mocked(api.fetchGraphStream).mockClear()
+    await store.dispatch(switchProvider('openalex'))
+    expect(store.getState().workspace.provider).toBe('openalex')
+    expect(api.fetchGraphStream).not.toHaveBeenCalled()
+    expect(paperThreads(store)).toHaveLength(0)
   })
 })
 
