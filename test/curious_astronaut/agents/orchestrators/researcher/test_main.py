@@ -992,6 +992,44 @@ def test_the_open_graph_counts_as_consulting_the_literature(monkeypatch):
     assert text == "Paper [1] covers it."
 
 
+def test_the_citation_graph_assistant_has_no_paper_search(monkeypatch):
+    """v8.28.0: over a graph the graph is the map, and new papers come from
+    growing it along citations, so find_papers is taken away rather than left
+    to refuse. The prompt says so, since the system prompt describes the tool
+    for every chat, and expand_node stays."""
+    seen: dict = {}
+    model = scripted([final("Paper [1] covers it.", [1])], seen=seen)
+    run(model, monkeypatch, paper_search=False)
+    assert "find_papers" not in seen["tools"]
+    assert "expand_node" in seen["tools"]
+    prompt = "".join(
+        str(part.content) for part in seen["turns"][0][-1].parts if part.part_kind == "user-prompt"
+    )
+    assert "This chat has no find_papers" in prompt
+
+
+def test_without_paper_search_the_web_hands_nothing_off(monkeypatch):
+    """The web result's hand-off says "call find_papers"; with no such tool
+    that is an instruction the model cannot follow."""
+    monkeypatch.setitem(researcher_config.BUDGETS, "web_searches", 2)
+    stub_web(monkeypatch, sources=[WEB_PAGE])
+    seen: dict = {}
+    model = scripted(
+        [("search_web", ['{"need": "did it ship"}'])],
+        [final("It shipped.", [])],
+        seen=seen,
+    )
+    run(model, monkeypatch, paper_search=False)
+    assert "find_papers" not in tool_return(seen, 1)
+
+
+def test_paper_search_is_on_by_default(monkeypatch):
+    seen: dict = {}
+    model = scripted([final("Answering.", [])], seen=seen)
+    run(model, monkeypatch)
+    assert "find_papers" in seen["tools"]
+
+
 def test_provenance_carries_the_web_counts(monkeypatch):
     monkeypatch.setitem(researcher_config.BUDGETS, "web_searches", 2)
     stub_web(
@@ -1081,6 +1119,21 @@ def test_filters_scope_discovery_and_leave_citation_hops_alone(monkeypatch):
     # neighbors takes no filter arguments at all — the hop is unfiltered by
     # construction, which is the guarantee this test pins.
     assert seen["relation"] == "references"
+
+
+def test_a_course_without_paper_search_says_so(monkeypatch):
+    """v8.28.0: the course's assistant runs without find_papers, and with no
+    graph either there is nothing to number, so the prompt must not promise
+    [n] citations from a search it can't make."""
+    seen: dict = {}
+    monkeypatch.setattr(researcher.main.store, "list_sources", lambda: [])
+    model = scripted([final("ok", [], kind="conversational")], seen=seen)
+    with researcher.agent.override(model=model):
+        list(researcher.answer("what next?", course="THE COURSE", paper_search=False))
+    prompt = seen["turns"][0][-1].parts[-1].content
+    assert "no find_papers here" in prompt
+    assert "find_papers can find some" not in prompt
+    assert "find_papers" not in seen["tools"]
 
 
 def test_a_course_stands_where_the_graph_would(monkeypatch):

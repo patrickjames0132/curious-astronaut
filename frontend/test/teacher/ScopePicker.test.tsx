@@ -20,6 +20,7 @@ afterEach(cleanup)
 
 const LABELS = {
   icon: '📚',
+  name: 'Library filters',
   unit: 'source',
   heading: 'Search in',
   allHint: 'All sources are searched.',
@@ -79,7 +80,7 @@ describe('ScopePicker', () => {
     renderPicker(false, onOpenChange)
     // By role, not by text: the trigger's icon and label are separate
     // elements so the ask bar can hide the label and show the icon alone.
-    fireEvent.click(screen.getByRole('button', { name: /All sources/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Library filters/ }))
     expect(onOpenChange).toHaveBeenCalledWith(true)
   })
 
@@ -146,15 +147,52 @@ describe('ScopePicker bulk actions', () => {
         labels={LABELS}
       />,
     )
-    // "All sources" claims a breadth one source hasn't got — and the trigger's
-    // label is often all the reader sees, since the ask bar hides it to a
-    // tooltip.
-    expect(screen.getByRole('button', { name: /1 source/ })).toBeTruthy()
+    // "all" claims a breadth one source hasn't got — and the trigger's label
+    // is often all the reader sees, since the ask bar hides it to a tooltip.
+    expect(document.querySelector('.scope-btn')?.getAttribute('title')).toMatch(
+      /^Library filters · on/,
+    )
     expect(screen.queryByText('All')).toBeNull()
     // "None" would duplicate the single checkbox directly beneath it.
     expect(screen.queryByText('None')).toBeNull()
     // The checkbox itself is still there — unticking it is the whole point.
     expect(screen.getByRole('checkbox')).toBeTruthy()
+  })
+
+  it('names itself in every state, so it reads apart from the paper filters', () => {
+    // v8.28.0: "All sources" beside "Filters" left readers guessing which
+    // narrowed what.
+    const three = [...ITEMS, { id: 'c', title: 'Third source' }]
+    const labelFor = (checkedIds: string[]) => {
+      const { unmount } = render(
+        <ScopePicker
+          items={three}
+          checkedIds={checkedIds}
+          open={false}
+          onOpenChange={() => {}}
+          onToggle={() => {}}
+          onSelectAll={() => {}}
+          onDeselectAll={() => {}}
+          labels={LABELS}
+        />,
+      )
+      const label = document.querySelector('.scope-btn-label')?.textContent
+      const title = document.querySelector('.scope-btn')?.getAttribute('title')
+      const badge = document.querySelector('.chip-badge')?.textContent ?? null
+      unmount()
+      return { label, state: title?.split(' — ')[0], badge }
+    }
+    // The trigger wears the name alone; the state is in the tooltip (and the
+    // note over the bar), so it reads the same as "Paper filters" beside it.
+    expect(labelFor(['a', 'c']).label).toBe('Library filters')
+    expect(labelFor(['a', 'b', 'c']).state).toBe('Library filters · all')
+    expect(labelFor(['a', 'c']).state).toBe('Library filters · 2 of 3')
+    expect(labelFor([]).state).toBe('Library filters · off')
+    // Narrowed, a corner badge counts what's in, as Paper filters counts what
+    // it applies; untouched, there's no badge (v8.28.0).
+    expect(labelFor(['a', 'b', 'c']).badge).toBeNull()
+    expect(labelFor(['a', 'c']).badge).toBe('2')
+    expect(labelFor([]).badge).toBe('0')
   })
 
   it('everything checked hides All; nothing checked hides None', () => {

@@ -6,10 +6,10 @@
    toggles) and the results moved into the transcript, where they are rendered
    by AnswerMarkdown like any other answer and need no styling of their own. */
 
-/* Deliberately NOT the popover's containing block — the ask bar it sits in is
-   (`.teacher-ask` is `position: relative`), so the popover spans the composer
-   rather than the little funnel that opens it. It was a pair of buttons in a
-   row of its own until v7.21.0; one button, back inside the bar, since. */
+/* Deliberately NOT the popover's containing block — the tool row it sits in
+   is (`.ask-tools` is `position: relative`), so the popover spans the panel
+   rather than the little funnel that opens it. A chip in that row beside the
+   📚 scope; it spent v7.21.0 → v8.27.0 inside the bar instead. */
 .search-controls {
   display: flex;
   gap: 6px;
@@ -45,31 +45,44 @@
   height: 13px;
   flex-shrink: 0;
 }
-/* The active-filter count, kept when the label goes. */
-.toggle-count {
+/* The count badge on an applied chip's corner (v8.28.0) — Paper filters'
+   active-filter count, Library filters' checked-source count. The same red
+   pill the graph's nodes wear for hidden children (`look.ts`'s
+   HIDDEN_BADGE), so "something is applied here" reads one way across the
+   app. It replaced an inline "· 2" that only the paper chip had, which left
+   the two chips side by side looking inconsistent. */
+.bar-toggle,
+.ask-tools .scope-btn {
+  position: relative;
+}
+.chip-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
   font-variant-numeric: tabular-nums;
-}
-
-/* Docked in the side panel there is no room for words: both toggles collapse
-   to their icons, exactly as the source-scope picker beside them does
-   (`.ask-tools .scope-btn-label`, teacher.css). The landing tool row has the
-   width to spell them out, and that is where a first-time reader meets them. */
-.teacher:not(.landing) .bar-toggle {
-  padding: 4px 7px;
-}
-.teacher:not(.landing) .toggle-label {
-  display: none;
+  pointer-events: none;
 }
 
 /* --- optional pre-submit filters (year window + category picker) --- */
 .filter-pop {
   position: absolute;
-  /* Spans the ask bar (anchored to `.teacher-ask`, not to the button that
+  /* Spans the tool row (anchored to `.ask-tools`, not to the button that
      opens it — a popover the width of a button has no room for a year
-     slider). Opens UPWARD, which is where the room is: the bar sits at the
-     bottom of the column. It used to have two anchors and two directions —
-     upward from the landing tool row, downward from the docked Chat row — and
-     the sections that created that split are gone. */
+     slider). Opens UPWARD, over the bar, which is where the room is: the row
+     sits at the bottom of the column. It used to have two anchors and two
+     directions — upward from the landing tool row, downward from the docked
+     Chat row — and the sections that created that split are gone. */
   bottom: calc(100% + 8px);
   left: 0;
   right: 0;

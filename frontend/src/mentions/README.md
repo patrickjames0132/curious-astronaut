@@ -233,6 +233,13 @@ sibling threads into the hook, re-reads the caret on input, click and key-up,
 and hands the arrows and Escape to the dropdown while it is open — and Enter /
 Tab only once a row is chosen, so an untouched list never eats a send.
 
+**Papers only on the General chat** (v8.28.0). Docked beside a graph,
+`Teacher` calls the hook with `withPapers = false` and passes `whole` as
+false, exactly as `knowledge/assistant/CourseAssistant.tsx` always has: `@`
+offers chats only, nothing is looked up, and a bare `@words` is ordinary text
+in the message rather than a quick paper search. Finding and opening papers
+is the General chat's job.
+
 ## How it's verified
 
 `test/mentions/` mirrors this folder. `parse.test.ts` is the important one —

@@ -45,10 +45,14 @@ assistant/
 - **Smaller than Teacher on purpose**: no landing shape, no lecture routing,
   no paper filters, and its `@` list offers chats only: a paper picked there
   would be nothing but its title in the question, since this agent has no
-  numbered papers to attach it to. It does share Teacher's 📚 source picker
+  numbered papers to attach it to. It does share Teacher's 📚 Library filters picker
   and the one-line notes over the bar (`teacher/SourcePicker`,
   `teacher/ComposerNotes`; Patrick noticed the picker missing at the first
-  browser round).
+  browser round). Like the docked Citation Graph assistant's, the picker is
+  a round icon inside the bar since v8.28.0, with no row under it. Also
+  since v8.28.0 it doesn't search for papers (`/api/ask_course` runs the
+  researcher with `paper_search=False`): it answers from the course, the
+  library and the web, and finding papers is the General chat's job.
 - **The tutor's suggested syntheses are still to come.** The OnePager's
   Knowledge Graph assistant ticket planned them as this assistant's tool; it
   shipped without them (Patrick, 2026-10-17) and they stay an open follow-up.

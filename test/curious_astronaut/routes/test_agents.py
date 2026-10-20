@@ -172,6 +172,24 @@ def test_ask_streams_without_server_history(client, monkeypatch):
     assert seen["kwargs"]["history"] == []
 
 
+def test_the_citation_graph_assistant_runs_without_paper_search(client, monkeypatch):
+    """v8.28.0: /api/ask turns the researcher's paper scout off, and with it
+    the bar's paper filters, which only ever bound that scout."""
+    seen = {}
+
+    def fake_run(**kwargs):
+        seen["kwargs"] = kwargs
+        yield events.Token(text="From the graph.")
+
+    patch_agents(monkeypatch, fake_run)
+    client.post(
+        "/api/ask",
+        json={"question": "why?", "seed": SEED, "nodes": NODES, "year_from": 2020},
+    ).data
+    assert seen["kwargs"]["paper_search"] is False
+    assert "year_from" not in seen["kwargs"]
+
+
 def test_an_empty_scope_survives_the_wire_as_an_empty_list(client, monkeypatch):
     """"No sources selected" and "no scope at all" are opposite instructions
     that both look falsy, and only the list/None distinction tells them apart.
@@ -471,6 +489,7 @@ def test_ask_course_runs_the_researcher_over_the_course(client, monkeypatch):
     assert frames(response) == [("token", {"text": "ok"}), ("done", {})]
     assert "seed" not in seen and "nodes" not in seen
     assert seen["history"] == history
+    assert seen["paper_search"] is False  # v8.28.0: no paper search over a course
     course = seen["course"]
     assert "- MDPs (concept) [checked off as known]" in course
     assert "needs Q-learning: DQN learns Q." in course

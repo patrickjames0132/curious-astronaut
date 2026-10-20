@@ -95,6 +95,13 @@ class ResearcherDeps:
     #: is one fact, and both consumers must read the same one or the guard
     #: demands a source the model has no way to reach.
     web_enabled: bool = False
+    #: Whether ``find_papers`` is on this run at all (v8.28.0). Off for the
+    #: Citation Graph assistant: there the graph *is* the reader's map of the
+    #: literature, and new papers come from growing it, not from a scout the
+    #: assistant sends past it. Off also zeroes ``searches_left``, which is
+    #: what the web hand-off and the coverage guard already read, so neither
+    #: asks for a search the model has no tool to make.
+    paper_search: bool = True
     steps_left: int = 0
     full_reads_left: int = 0
     summary_reads_left: int = 0

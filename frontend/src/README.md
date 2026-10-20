@@ -81,22 +81,21 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
       │  │                          whose answer IS a lecture, behind its own
       │  │                          caret — newest open, older ones folded)
       │  └─ inline figures         figures/FigCard.tsx
-      ├─ ask bar                    the question, and the one control that
-      │  │                          binds it most directly
-      │  ├─ @ suggestions          mentions/MentionSuggestions.tsx — opens
-      │  │                          UPWARD out of the bar; anchored to it,
-      │  │                          because it belongs to the text being typed
-      │  │                          rather than to a control; sibling threads
-      │  │                          above, paper results below
-      │  └─ filters                search/SearchControls.tsx (▽ — year slider,
-      │                             field picker). Moved OUT of the pill in
-      │                             v7.11.0 with three others and back in on
-      │                             2026-09-14, once the other three were gone
-      ├─ tool row                   teacher/SourcePicker.tsx over ScopePicker.tsx
-      │                             (📚 source scope, useSourceScope.ts; shared
-      │                             with the Knowledge Graph Assistant, v8.25.0)
-      │                             as a chip under the bar (`.ask-tools`) —
-      │                             one home now, not one per panel shape
+      ├─ ask bar                    the question (🗑 clear and send beside it;
+      │  │                          docked, the 📚 library-filters icon, v8.28.0)
+      │  └─ @ suggestions          mentions/MentionSuggestions.tsx — opens
+      │                             UPWARD out of the bar; anchored to it,
+      │                             because it belongs to the text being typed
+      │                             rather than to a control; sibling threads
+      │                             above, paper results below
+      ├─ tool row (landing only)    teacher/SourcePicker.tsx over ScopePicker.tsx
+      │                             (📚 Library filters, useSourceScope.ts; with
+      │                             the Knowledge Graph Assistant, v8.25.0) and
+      │                             search/SearchControls.tsx (▽ Paper filters —
+      │                             year slider, field picker), labelled chips
+      │                             under the bar (`.ask-tools`). Docked there
+      │                             is no row: 📚 moves into the bar and the
+      │                             filters aren't shown (v8.28.0)
       ├─ "working" dots            teacher/HopDots.tsx (the send control, and
       │                             a bubble awaiting its first token)
       └─ figure lightbox           figures/Lightbox.tsx (same instance type as above,

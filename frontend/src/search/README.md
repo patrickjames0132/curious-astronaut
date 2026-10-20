@@ -6,12 +6,14 @@ search and the shaping that turns a scout result into a transcript turn.
 
 ```
 search/
-  SearchControls.tsx — the ask's "Filters" control (year/field popover). It
-                       rides BESIDE the bar, not in it — see "Who uses it"
-                       below. The "Find papers" toggle sat here until
+  SearchControls.tsx — the ask's "Paper filters" control (year/field
+                       popover). It rides BESIDE the landing chat's bar,
+                       not in it — see "Who uses it" below. The "Find papers" toggle sat here until
                        v7.18.0; typing `@` replaced it (see `../mentions/`).
   useDirectSearch.ts — run the scout, shape its result into a chat message
-  search.css         — styles for the toggles and the filter popover
+  search.css         — styles for the toggles, the filter popover, and the
+                       corner count badge both landing chips wear
+                       (`.chip-badge`, v8.28.0)
 ```
 
 ## What changed in v7.6.0, and why
@@ -121,10 +123,17 @@ its title-recall half became the scout's `match_title` tool.
 together, for the same reason: they belong to the thing you are about to send.
 It owns the `direct` / `searchOptions` state, passes the options to
 `useDirectSearch` **and** to `ask` (which forwards them to the researcher), and
-places the pair in one of two rows depending on the panel's shape: a chip row
-directly under the ask bar with no graph, the Chat section's caret row with
-one. **Never inside the bar itself, since v7.11.0** — three controls and a text
-field made the box you type in read as a toolbar. The header that used to hold
+places the pair in the chip row directly under the landing chat's ask bar
+(`.ask-tools`), which anchors the filter popover. **The General chat's
+alone, since v8.28.0**, and labelled **Paper filters** (just "Filters" until
+then, beside a "📚 All sources" chip readers couldn't tell it apart from).
+Docked over a graph the assistant no longer searches papers — `/api/ask`
+runs the researcher without `find_papers` — so the filters would bind only a
+bare-Enter `@` search, and `Teacher` sends the defaults there instead
+(`activeOptions`) so filters left set on the landing chat can't narrow it
+out of sight. The funnel's history: v7.11.0 took it out of the bar with
+three other controls, it went back in on 2026-09-14 once it was the last of
+them, and it left the docked panel entirely in v8.28.0. The header that used to hold
 the search box is gone entirely (v7.8.0).
 
 ## How it's verified

@@ -218,9 +218,13 @@
    **One home since v7.21.0.** They rode the Chat section's caret row with a
    graph open and this row without one; deleting the sections left this row as
    the only place, which is also the simpler claim — they bind the question, so
-   they belong under the question. Docked, they collapse to their icons
-   (`.scope-btn-label`, `.toggle-label`), because a 340px panel has no width
-   for a row of labelled chips. */
+   they belong under the question.
+
+   **The landing chat's alone since v8.28.0.** Docked, the row was two
+   icon-only chips under a 340px bar that couldn't tell you which narrowed
+   what, and it read as clutter. There 📚 Library moves into the bar (see
+   `.teacher-ask .scope-btn`) and the paper filters stay on the General chat,
+   the one that searches papers. Here, with the width, both wear labels. */
 .ask-tools {
   /* Both popovers anchor HERE now (the filter one spans left: 0 / right: 0
      against this row, the scope one hangs off its left edge) — the ask bar
@@ -245,17 +249,11 @@
 .ask-tools .scope-btn-icon {
   font-size: 13px;
 }
-/* Docked without a graph the panel is ~340px, which three labelled chips
-   overflow — they collapse to their icons exactly as the search toggles do
-   (`search.css`), the label surviving in the tooltip. */
-.teacher:not(.landing) .ask-tools .scope-btn-label {
-  display: none;
-}
 /* The row sits at the bottom of the page, so the popover has to open upward —
    downward would run it straight off the viewport. It also reads as a menu
    here rather than a form: one row per source, hit state on the row, and a
    check on the right for what's in scope. */
-.ask-tools .scope-pop {
+.ask-dock .scope-pop {
   top: auto;
   bottom: calc(100% + 8px);
   left: 0;
@@ -272,36 +270,36 @@
   top: calc(100% + 8px);
   bottom: auto;
 }
-.ask-tools .scope-pop-head {
+.ask-dock .scope-pop-head {
   padding: 4px 8px 6px;
 }
-.ask-tools .scope-item {
+.ask-dock .scope-item {
   justify-content: space-between;
   gap: 12px;
   padding: 7px 8px;
   border-radius: 6px;
 }
-.ask-tools .scope-item:hover,
-.ask-tools .scope-item:has(input:focus-visible) {
+.ask-dock .scope-item:hover,
+.ask-dock .scope-item:has(input:focus-visible) {
   background: var(--hover);
 }
 /* The checkbox is moved out of sight rather than removed: the row is the hit
    target and the ✓ is the state, but the input still has to be reachable and
    focusable from the keyboard. */
-.ask-tools .scope-item input {
+.ask-dock .scope-item input {
   position: absolute;
   width: 0;
   height: 0;
   opacity: 0;
 }
-.ask-tools .scope-item::after {
+.ask-dock .scope-item::after {
   content: '✓';
   flex-shrink: 0;
   color: var(--accent);
   font-size: 13px;
   visibility: hidden;
 }
-.ask-tools .scope-item:has(input:checked)::after {
+.ask-dock .scope-item:has(input:checked)::after {
   visibility: visible;
 }
 
@@ -1226,13 +1224,16 @@
   display: block;
 }
 
-/* ▽ Filters, inside the bar (v7.21.0). `.bar-toggle`'s own chip look — a
-   `--bg` pill with a border — was built for a row sitting on the panel, and
-   inside the composer's lighter `--composer-bg` it reads as a dark hole. So
-   in here it wears the same clothes as the clear button beside it: a 34px
-   transparent circle that fills on hover, which also makes the bar's three
-   controls one set rather than a chip and two circles. */
-.teacher-ask .bar-toggle {
+/* 📚 Library inside a docked bar (v8.28.0), dressed like the 🗑 beside it: a
+   34px transparent circle that fills on hover, so the bar's controls read as
+   one set. The label goes — the tooltip carries name and state — and so
+   does the accent an off-default scope lights the chip with: in here a lit
+   circle read as a button stuck pressed (Patrick, v8.28.0), and the note over
+   the bar already says what answers draw on. Its popover hangs
+   off the button's right edge, since the button sits at the bar's right end,
+   and opens upward over the transcript. (The paper filters' funnel wore this
+   same circle here v7.21.0 → v8.27.0.) */
+.teacher-ask .scope-btn {
   flex-shrink: 0;
   justify-content: center;
   width: 34px;
@@ -1243,30 +1244,33 @@
   background: transparent;
   color: var(--muted);
 }
-.teacher-ask .bar-toggle:hover,
-.teacher-ask .bar-toggle:focus-visible {
+.teacher-ask .scope-btn:hover,
+.teacher-ask .scope-btn:focus-visible {
   border-color: transparent;
   background: color-mix(in srgb, var(--text) 14%, transparent);
   color: var(--text-strong);
 }
-/* Filters actually applied: the accent says so, and the count rides along
-   beside the funnel — the label is hidden in here at every width, since a word
-   in the pill is exactly the clutter v7.11.0 cleared out. */
-.teacher-ask .bar-toggle.on {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  color: var(--accent);
+.teacher-ask .scope-btn-icon {
+  font-size: 15px;
 }
-.teacher-ask .toggle-label {
+.teacher-ask .scope-btn {
+  position: relative;
+}
+.teacher-ask .scope-btn-label {
   display: none;
 }
-/* With a count showing it needs the width of two glyphs, so it stops being a
-   circle and becomes a pill — the same shape change the graph's own chips
-   make when they gain a number. */
-.teacher-ask .bar-toggle:has(.toggle-count) {
-  width: auto;
-  gap: 4px;
-  padding: 0 10px;
-  border-radius: 999px;
+/* Narrowed, the count badge shows here too (v8.28.0), as on the landing chip:
+   a corner count reads as a notification, not as the lit circle that looked
+   stuck pressed. Tucked onto the circle's own corner rather than hanging
+   past it, so it stays inside the bar's rounded edge. */
+.teacher-ask .chip-badge {
+  top: 0;
+  right: 0;
+}
+.teacher-ask .scope-pop {
+  left: auto;
+  right: 0;
+  bottom: calc(100% + 12px);
 }
 
 /* Mid-flight the button holds both faces: dots at rest, a stop square once

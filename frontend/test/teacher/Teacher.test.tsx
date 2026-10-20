@@ -272,57 +272,29 @@ describe('the docked assistant panel', () => {
   })
 
   it('puts each ask-binding control where it belongs', () => {
-    // Where a control sits is the claim being made about it. The 📚 source
-    // scope is a chip under the bar — near what it modifies, out of the pill.
-    // ▽ Filters is back INSIDE the bar (Patrick, 2026-09-14): it was moved out
-    // in v7.11.0 when the pill held three controls and a textarea, and two of
-    // those three have since gone (the 🔍 toggle to `@` in v7.18.0, the 🎓
-    // scope in v7.21.0), so there is room for the one that binds the question
-    // most directly. Neither is in the panel header, which would imply they
-    // scope everything.
+    // Where a control sits is the claim being made about it. Docked over a
+    // graph (v8.28.0) there is no tool row: 📚 Library rides inside the bar
+    // beside 🗑, and the paper filters aren't here at all — the assistant
+    // works from the graph rather than searching papers, so they'd bind
+    // nothing. Not in the panel header either, which would imply it scopes
+    // everything.
     sources = [SOURCE]
     const { container } = render(<Teacher onClose={() => {}} />)
 
-    const tools = container.querySelector('.ask-tools')
     const bar = container.querySelector('form.teacher-ask')
     const scope = container.querySelector('[data-tour="source-scope"]')
-    const filters = container.querySelector('[data-tour="search-filters"]')
-    expect(tools?.contains(scope!)).toBe(true)
-    expect(bar?.contains(scope!)).toBe(false)
-    expect(bar?.contains(filters!)).toBe(true)
-    for (const control of [scope, filters]) {
-      expect(control).toBeTruthy()
-      expect(container.querySelector('.teacher-head-right')?.contains(control!)).toBe(false)
-    }
-  })
-
-  it('renders both in the same place with a graph and without one', () => {
-    // Two homes until v7.21.0 — the Chat caret row docked, a row under the bar
-    // on the landing surface — which only existed because docked there was a
-    // row above to hang them off. There isn't one now, and one home each is
-    // the simpler claim as well as the simpler code.
-    sources = [SOURCE]
-    const docked = render(<Teacher onClose={() => {}} />)
-    expect(docked.container.querySelector('.ask-tools [data-tour="source-scope"]')).toBeTruthy()
-    expect(
-      docked.container.querySelector('form.teacher-ask [data-tour="search-filters"]'),
-    ).toBeTruthy()
-    cleanup()
-
-    hasGraph = false
-    const landing = render(<Teacher landing />)
-    expect(landing.container.querySelector('.ask-tools [data-tour="source-scope"]')).toBeTruthy()
-    expect(
-      landing.container.querySelector('form.teacher-ask [data-tour="search-filters"]'),
-    ).toBeTruthy()
+    expect(container.querySelector('.ask-tools')).toBeNull()
+    expect(bar?.contains(scope!)).toBe(true)
+    expect(container.querySelector('[data-tour="search-filters"]')).toBeNull()
+    expect(container.querySelector('.teacher-head-right')?.contains(scope!)).toBe(false)
   })
 })
 
 describe('the landing assistant', () => {
   it('keeps the source scope out of the pill', () => {
-    // v7.11.0's rule, still standing for the scope: the box you type in should
-    // look like a box you type in. ▽ Filters is the one exception, made
-    // deliberately — see the docked test above.
+    // v7.11.0's rule: the box you type in should look like a box you type
+    // in. The landing chat has the width for a labelled row under the bar,
+    // and it's the one that searches papers, so both chips live there.
     hasGraph = false
     sources = [SOURCE]
     const { container } = render(<Teacher landing />)
@@ -332,6 +304,9 @@ describe('the landing assistant', () => {
     const scope = container.querySelector('[data-tour="source-scope"]')
     expect(tools?.contains(scope!)).toBe(true)
     expect(bar?.contains(scope!)).toBe(false)
+    const filters = container.querySelector('[data-tour="search-filters"]')
+    expect(tools?.contains(filters!)).toBe(true)
+    expect(bar?.contains(filters!)).toBe(false)
   })
 
   it('has no sections and no lecture control', () => {
@@ -355,10 +330,11 @@ describe('Enter in the composer, with the @ dropdown open', () => {
    * @param text  The draft.
    * @param key   The key to press.
    * @param state The dropdown's open/chosen state during the press.
+   * @param landing Render the landing (General) chat rather than the docked one.
    * @returns The textarea, for reading what the press left behind.
    */
-  function press(text: string, key: string, state: Partial<typeof mentionState>) {
-    render(<Teacher landing={false} />)
+  function press(text: string, key: string, state: Partial<typeof mentionState>, landing = false) {
+    render(<Teacher landing={landing} />)
     const field = screen.getByRole('textbox', { name: /Ask the assistant/ })
     fireEvent.change(field, { target: { value: text } })
     Object.assign(mentionState, state)
@@ -369,13 +345,30 @@ describe('Enter in the composer, with the @ dropdown open', () => {
   it('with NO row chosen, sends what was typed — a bare @phrase to the scout', () => {
     // The fix for "Enter loaded a graph": an untouched list has no
     // selection, so Enter is a send, and a bare mention is a search.
+    press(
+      '@sparse autoencoders',
+      'Enter',
+      {
+        open: true,
+        active: { query: 'sparse autoencoders', start: 0, end: 20, whole: true },
+        choice: null,
+      },
+      true,
+    )
+    expect(runSearch).toHaveBeenCalledWith('sparse autoencoders')
+    expect(onPaperSeed).not.toHaveBeenCalled()
+  })
+
+  it('docked over a graph, a bare @phrase is just sent — there is no paper search', () => {
+    // v8.28.0: beside a graph `@` offers chats only, so `@words` matching
+    // none of them is ordinary text in a message, never a quick search.
     press('@sparse autoencoders', 'Enter', {
       open: true,
       active: { query: 'sparse autoencoders', start: 0, end: 20, whole: true },
       choice: null,
     })
-    expect(runSearch).toHaveBeenCalledWith('sparse autoencoders')
-    expect(onPaperSeed).not.toHaveBeenCalled()
+    expect(runSearch).not.toHaveBeenCalled()
+    expect(send).toHaveBeenCalled()
   })
 
   it('on a chosen paper that is the whole message, opens it in ONE press', () => {
