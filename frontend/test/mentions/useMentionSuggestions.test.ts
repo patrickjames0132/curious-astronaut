@@ -12,10 +12,12 @@
  * runs while someone types — so what costs money is counted here rather than
  * trusted.
  *
- * Also pinned: the keyboard selection. Nothing is selected until the reader
- * chooses a row (so Enter on an untouched list sends rather than picks), the
- * selection follows its row through a re-rank, and sibling threads are rows
- * of the same list, offered from the first character with no lookup at all.
+ * Also pinned: the keyboard selection. A whole-message `@words` on a bar that
+ * looks papers up selects the search row from the first character, before
+ * anything loads; elsewhere nothing is selected until the reader arrows; no
+ * paper or chat is ever selected on the reader's behalf; the selection follows
+ * its row through a re-rank; and sibling threads are rows of the same list,
+ * offered from the first character with no lookup at all.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -95,6 +97,22 @@ afterEach(() => {
 })
 
 describe('useMentionSuggestions', () => {
+  it('with local papers, offers the graph’s matches and looks nothing up', async () => {
+    // The docked Citation Graph assistant (v8.29.0): `@` points at papers on
+    // screen, so nothing reaches a provider or even the cache.
+    const onGraph = [
+      { id: 'g1', arxiv_id: null, title: 'Playing Atari with Deep RL' },
+      { id: 'g2', arxiv_id: null, title: 'Proximal Policy Optimization' },
+    ]
+    const { result } = renderHook(() => useMentionSuggestions('s2', [], false, onGraph))
+    act(() => result.current.onInput('@atari', 6))
+    act(() => void vi.advanceTimersByTime(1000))
+    await flush()
+    expect(calls).toEqual([])
+    expect(result.current.open).toBe(true)
+    expect(result.current.papers.map((paper) => paper.id)).toEqual(['g1'])
+  })
+
   it('does not look up a query below the minimum length, either way', () => {
     const { result } = renderHook(() => useMentionSuggestions('s2'))
     act(() => result.current.onInput('@dq', 3))
@@ -185,16 +203,19 @@ describe('useMentionSuggestions', () => {
     await act(async () => {
       vi.advanceTimersByTime(300)
     })
-    // Nothing is selected until the reader moves: Enter on this list must
-    // send the message, not pick a row they never chose.
-    expect(result.current.highlighted).toBe(-1)
+    // The search row is selected, not a paper: with results up, Enter still
+    // searches — the same as it did before they landed.
+    expect(result.current.highlighted).toBe(0)
+    expect(result.current.searchChosen).toBe(true)
     expect(result.current.choice).toBeNull()
-    act(() => result.current.move(1)) // down from nothing lands on the top
+    act(() => result.current.move(1)) // down from the search row: the top paper
     expect(result.current.choice).toEqual({ kind: 'paper', paper: two[0] })
+    act(() => result.current.move(-1)) // back up to the search row
+    expect(result.current.searchChosen).toBe(true)
     act(() => result.current.move(-1)) // up from the top wraps to the bottom
     expect(result.current.choice).toEqual({ kind: 'paper', paper: two[1] })
-    act(() => result.current.move(1))
-    expect(result.current.choice).toEqual({ kind: 'paper', paper: two[0] })
+    act(() => result.current.move(1)) // and down from the bottom wraps to search
+    expect(result.current.searchChosen).toBe(true)
   })
 
   it('up from nothing selected lands on the last row', async () => {
@@ -267,13 +288,35 @@ describe('useMentionSuggestions', () => {
     expect(result.current.choice?.kind).toBe('paper')
   })
 
-  it('is shut for a short query when no thread matches it', () => {
-    // Below the paper floor and with nothing local to show, there is no
-    // dropdown — same as before threads joined the list.
+  it('offers the search row for a short query, with no lookup', () => {
+    // Below the paper floor nothing is fetched, but `@dq` alone can still be
+    // searched for: the search row needs nothing loaded to exist.
     const { result } = renderHook(() => useMentionSuggestions('s2', [{ id: 't1', title: 'PPO' }]))
     act(() => result.current.onInput('@dq', 3))
-    expect(result.current.open).toBe(false)
+    expect(result.current.open).toBe(true)
+    expect(result.current.search).toBe('dq')
+    expect(result.current.searchChosen).toBe(true)
     expect(calls).toEqual([])
+  })
+
+  it('has no search row inside a sentence: nothing is selected', () => {
+    const { result } = renderHook(() => useMentionSuggestions('s2', [{ id: 't1', title: 'PPO' }]))
+    act(() => result.current.onInput('compare @pp', 11))
+    expect(result.current.search).toBeNull()
+    expect(result.current.highlighted).toBe(-1)
+    expect(result.current.choice).toBeNull()
+  })
+
+  it('has no search row on a bar that looks no papers up', () => {
+    const { result } = renderHook(() =>
+      useMentionSuggestions('s2', [{ id: 't1', title: 'PPO' }], false),
+    )
+    act(() => result.current.onInput('@pp', 3))
+    expect(result.current.search).toBeNull()
+    expect(result.current.highlighted).toBe(-1)
+    // Shut when no chat matches: there is nothing to offer.
+    act(() => result.current.onInput('@zz', 3))
+    expect(result.current.open).toBe(false)
   })
 
   it('keeps the keyboard on the SAME PAPER when the full list re-ranks', async () => {
@@ -336,11 +379,12 @@ describe('useMentionSuggestions', () => {
       kind: 'paper',
       paper: { id: 'b', arxiv_id: null, title: 'B' },
     })
-    expect(result.current.highlighted).toBe(0)
+    // Row 1: the search row holds row 0.
+    expect(result.current.highlighted).toBe(1)
     expect(callCount).toBe(2)
   })
 
-  it('falls back to NO selection when a re-rank drops the tracked paper', async () => {
+  it('falls back to the search row when a re-rank drops the tracked paper', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) => {
@@ -369,10 +413,11 @@ describe('useMentionSuggestions', () => {
     await act(async () => {
       vi.advanceTimersByTime(300)
     })
-    // The tracked paper is not in the new list. Enter must still be safe, and
-    // the safe thing is to pick nothing — not to quietly move onto a paper the
-    // reader never chose.
-    expect(result.current.highlighted).toBe(-1)
+    // The tracked paper is not in the new list. Enter must still be safe:
+    // back to the default, the search row — never quietly onto a paper the
+    // reader didn't choose.
+    expect(result.current.highlighted).toBe(0)
+    expect(result.current.searchChosen).toBe(true)
     expect(result.current.choice).toBeNull()
   })
 

@@ -70,7 +70,14 @@ import SearchControls from '../search/SearchControls'
 import { useDirectSearch } from '../search/useDirectSearch'
 import { ID_RE } from '../graph/model'
 import MentionSuggestions from '../mentions/MentionSuggestions'
-import { insertMention, mentionText, readMessage } from '../mentions/parse'
+import AttachedChips from '../mentions/AttachedChips'
+import {
+  attachedMessage,
+  attachmentKey,
+  withAttachment,
+  withoutMention,
+} from '../mentions/attachments'
+import { mentionText, readMessage } from '../mentions/parse'
 import type { MentionChoice } from '../mentions/parse'
 import { useMentionSuggestions } from '../mentions/useMentionSuggestions'
 import Lightbox from '../figures/Lightbox'
@@ -203,10 +210,38 @@ export default function Teacher({
   // nothing renders from it — it is read once, at send — and re-rendering the
   // composer on every pick would fight the textarea's own caret handling.
   const resolvedMentions = useRef<Map<string, MentionPaper>>(new Map())
-  // Docked over a graph, `@` offers chats only (v8.28.0), as the Knowledge
-  // Graph's assistant always has: no paper lookups, so no quick search on a
-  // bare `@words` either. Finding papers is the General chat's job.
-  const mentions = useMentionSuggestions(provider, siblingThreads, landing)
+  // What the `@` picks attached, as chips over the bar (v8.29.0) rather than
+  // titles spliced into the question — the reader couldn't tell where an
+  // inline `@Title` ended and their own words began. Sent as the message's
+  // leading `Attached:` line (`mentions/attachments.ts`).
+  const [attached, setAttached] = useState<MentionChoice[]>([])
+  // Docked over a graph, `@` looks nothing up (v8.28.0): no provider
+  // lookups, so no quick search on a bare `@words` either — finding papers is
+  // the General chat's job. Since v8.29.0 it does offer the papers already on
+  // the graph, matched locally, below the chats: naming one of those isn't a
+  // search, it's pointing, and the question then grounds in it first.
+  const graphNodes = useAppSelector((state) => state.workspace.graph?.nodes)
+  const foundNodes = useAppSelector((state) => state.workspace.discoveredNodes)
+  const graphPapers = useMemo(
+    (): MentionPaper[] =>
+      [...(graphNodes ?? []), ...foundNodes].map((node) => ({
+        id: node.id,
+        arxiv_id: node.arxiv_id ?? null,
+        title: node.title,
+        authors: node.authors ?? null,
+        venue: node.venue ?? null,
+        year: node.year ?? null,
+        citation_count: node.citation_count ?? null,
+        url: node.url ?? null,
+      })),
+    [graphNodes, foundNodes],
+  )
+  const mentions = useMentionSuggestions(
+    provider,
+    siblingThreads,
+    landing,
+    landing ? undefined : graphPapers,
+  )
   // The `@` list fades out rather than vanishing (ui/usePresence). Closing
   // usually clears the hook's results in the same render, so the exit plays
   // over the last list that was actually on screen, not an emptied one.
@@ -278,8 +313,14 @@ export default function Teacher({
   // references"), which a two-value command could never say. What survives
   // of it is the router's own no-model fast path for "lecture me on these".
   const submitQuestion = (text: string = input) => {
-    const question = text.trim()
-    if (!question || asking || searching) return
+    const typed = text.trim()
+    // **Chips alone send nothing** (Patrick, v8.29.0): a chip is context for
+    // a question, so Send waits for the words. Searching has its own row in
+    // the `@` list, and a chip used to double as one when sent alone — which
+    // made Enter mean two things depending on whether anything was typed.
+    if (!typed || asking || searching) return
+    const question = attachedMessage(attached, typed)
+    setAttached([])
     setInput('')
     mentions.reset()
     followNextTurn()
@@ -297,6 +338,12 @@ export default function Teacher({
     // reads as `ask`; `send` finds the named threads and attaches them.
     const intent = readMessage(question, resolvedMentions.current)
     resolvedMentions.current = new Map()
+    if (intent.kind === 'seed' && !landing) {
+      // Docked, `@Title` alone points at a paper on the graph rather than
+      // opening it in a thread of its own: it is a question about that paper.
+      void send(question, scopeArg, activeOptions, [intent.paper])
+      return
+    }
     if (intent.kind === 'seed') {
       // A resolved mention alone: we already hold the exact paper, so seed on
       // its id rather than re-resolving the title we just looked up.
@@ -324,18 +371,20 @@ export default function Teacher({
   // the chat convention: Enter sends, Shift+Enter drops a newline (letting a
   // question run multiple lines without hitting the Ask button).
   /**
-   * Accept a suggestion: splice its mention text in and, for a paper,
-   * remember what it resolved to so `readMessage` can find it again at send.
-   * A thread needs no such record — its `@thread[Title]` text is the whole
-   * reference, and `send` resolves it against the exploration's threads.
+   * Accept a suggestion: attach it as a chip (v8.29.0) and cut the `@query`
+   * out of the draft. A paper's resolution is remembered so `readMessage`
+   * finds it again in the sent `Attached:` line. A thread needs no such
+   * record — its `@thread[Title]` token is the whole reference, and `send`
+   * resolves it against the exploration's threads.
    *
    * @param choice The picked paper or thread.
    */
   const pickMention = (choice: MentionChoice) => {
     const field = inputRef.current
     if (!field || !mentions.active) return
-    const { text: next, caret } = insertMention(input, mentions.active, choice)
+    const { text: next, caret } = withoutMention(input, mentions.active)
     if (choice.kind === 'paper') resolvedMentions.current.set(mentionText(choice), choice.paper)
+    setAttached((current) => withAttachment(current, choice))
     setInput(next)
     mentions.reset()
     // The caret has to be restored after React paints the new value, or the
@@ -345,6 +394,37 @@ export default function Teacher({
       field.focus()
       field.setSelectionRange(caret, caret)
     })
+  }
+
+  /**
+   * Open a paper from the `@` list in a thread of its own: its Open button, or
+   * Shift+Enter on its row (v8.29.0). The General chat's alone — docked, `@`
+   * points at papers on the graph rather than opening them. The `@query`
+   * leaves the bar; chips stay.
+   *
+   * @param paper The paper to open.
+   */
+  const openMention = (paper: MentionPaper) => {
+    if (mentions.active) setInput(withoutMention(input, mentions.active).text)
+    mentions.reset()
+    resolvedMentions.current = new Map()
+    onPaperSeed(paper.arxiv_id || paper.id)
+  }
+
+  /**
+   * Run the `@` list's search row: the full paper search on what was typed
+   * after `@`, its results listed in the transcript. The `@query` leaves the
+   * bar; any chips stay attached for the question that follows.
+   *
+   * @param query What to search for.
+   */
+  const searchMention = (query: string) => {
+    if (!mentions.active || asking || searching) return
+    setInput(withoutMention(input, mentions.active).text)
+    mentions.reset()
+    resolvedMentions.current = new Map()
+    followNextTurn()
+    void runSearch(query)
   }
 
   /**
@@ -365,33 +445,32 @@ export default function Teacher({
 
   const onInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     // While the dropdown is open it owns the arrows and Escape, and Enter/Tab
-    // *only once a row is chosen* — an untouched list has no selection, so
-    // Enter falls through to send and the message goes out as typed (a bare
-    // `@words` to the paper scout). Everything else still reaches the
-    // textarea, so typing never stops.
+    // whenever a row is selected: the search row by default on the General
+    // chat's whole-message `@words`, a paper or chat only once arrowed onto.
+    // With nothing selected, Enter falls through and the message goes out as
+    // typed. Everything else still reaches the textarea, so typing never
+    // stops.
     if (mentions.open) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault()
         mentions.move(event.key === 'ArrowDown' ? 1 : -1)
         return
       }
+      if (landing && event.key === 'Enter' && event.shiftKey && mentions.choice?.kind === 'paper') {
+        event.preventDefault()
+        openMention(mentions.choice.paper)
+        return
+      }
       if ((event.key === 'Enter' || event.key === 'Tab') && mentions.choice) {
         event.preventDefault()
-        const choice = mentions.choice
-        // Enter on a paper that IS the whole message: pick and send in one
-        // press. The reader chose one paper and nothing else, which is
-        // already the seed rule — making them press Enter again on the
-        // `@Title` they just watched appear was a step with no decision in
-        // it. Tab is the escape hatch: it only completes the text. A paper
-        // inside a sentence, or a thread, just completes either way — the
-        // question still has to be written.
-        if (event.key === 'Enter' && choice.kind === 'paper' && mentions.active?.whole) {
-          const { text } = insertMention(input, mentions.active, choice)
-          resolvedMentions.current.set(mentionText(choice), choice.paper)
-          submitQuestion(text)
-          return
-        }
-        pickMention(choice)
+        // Every pick attaches (v8.29.0); the paper opens from the search
+        // list, not from the bar.
+        pickMention(mentions.choice)
+        return
+      }
+      if (event.key === 'Enter' && !event.shiftKey && mentions.searchChosen && mentions.search) {
+        event.preventDefault()
+        searchMention(mentions.search)
         return
       }
       if (event.key === 'Escape') {
@@ -403,6 +482,11 @@ export default function Teacher({
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       submitQuestion()
+    }
+    // Backspace in an empty bar lets go of the last chip, as in most
+    // composers (and as the Knowledge Graph's passage card does).
+    if (event.key === 'Backspace' && !input && attached.length) {
+      setAttached((current) => current.slice(0, -1))
     }
   }
 
@@ -544,11 +628,16 @@ export default function Teacher({
   // another chat), and Patrick wanted it in view again. One prefix, no `/`
   // (a lecture is asked for in words); a narrow panel cuts the line with an
   // ellipsis, and the ⓘ over the bar (`ComposerNotes`) keeps the full tip.
-  const askPlaceholder = hasGraph
-    ? 'Ask about these papers or for a lecture; @ another chat…'
-    : libraryItems.length > 0
-      ? 'Ask your books, PDFs or the literature; @ a paper or chat…'
-      : 'Ask a research question, or @ a paper or chat…'
+  // With chips waiting, the bar asks for the question they wait on: chips
+  // alone send nothing (v8.29.0), and a greyed Send shouldn't be the only
+  // sign of why.
+  const askPlaceholder = attached.length
+    ? 'Now ask your question about what you attached…'
+    : hasGraph
+      ? 'Ask about these papers or for a lecture; @ a paper or chat…'
+      : libraryItems.length > 0
+        ? 'Ask your books, PDFs or the literature; @ a paper or chat…'
+        : 'Ask a research question, or @ a paper or chat…'
 
   // The one-line "Answers also draw on …" note above the ask bar, naming the
   // 📚 picker's state. It had a second half until v7.21.0 — "the lecture
@@ -807,9 +896,20 @@ export default function Teacher({
           ]}
           tip={
             landing
-              ? 'Type @ to name a paper (alone, it opens; in a question, the answer reads it) or to bring in another chat from this exploration, such as a paper’s Knowledge Graph conversation.'
-              : 'Type @ to bring another chat from this exploration into your question, such as this paper’s Knowledge Graph conversation. To find or open other papers, use the General chat.'
+              ? 'Type @ and press Enter to search for papers, or arrow down to attach a paper or another chat from this exploration (such as a paper’s Knowledge Graph conversation) to your question. A paper’s Open button (or Shift+Enter) opens it in a thread of its own.'
+              : 'Type @ to name a paper on this graph (the answer starts from it) or to bring another chat from this exploration into your question, such as this paper’s Knowledge Graph conversation. To find or open papers not on the graph, use the General chat.'
           }
+        />
+        <AttachedChips
+          chips={attached.map((choice) => ({
+            key: attachmentKey(choice),
+            kind: choice.kind,
+            title: choice.kind === 'paper' ? choice.paper.title : choice.thread.title,
+          }))}
+          onRemove={(key) => {
+            setAttached((current) => current.filter((choice) => attachmentKey(choice) !== key))
+            inputRef.current?.focus()
+          }}
         />
         <form className="teacher-ask" data-tour="ask" onSubmit={onAsk}>
           {/* The `@` dropdown, anchored to the bar (which is positioned) and
@@ -819,12 +919,13 @@ export default function Teacher({
             <MentionSuggestions
               threads={shownMentions.threads}
               papers={shownMentions.papers}
+              search={shownMentions.search}
               highlighted={shownMentions.highlighted}
-              whole={landing && (shownMentions.active?.whole ?? false)}
               loading={shownMentions.loading}
               step={shownMentions.step}
               onPick={pickMention}
-              onHighlight={mentions.setHighlighted}
+              onSearch={searchMention}
+              onOpen={landing ? openMention : undefined}
               closing={mentionsPanel.closing}
               onAnimationEnd={mentionsPanel.onAnimationEnd}
             />

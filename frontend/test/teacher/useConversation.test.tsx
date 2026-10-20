@@ -253,6 +253,25 @@ describe('the scope priority list, resolved once per turn', () => {
     expect(lastTurn().scope).toEqual({ source: 'selection', nodes: 2 })
   })
 
+  it('puts @-named graph papers first, in scope or not, each numbered once', async () => {
+    // v8.29.0: the docked `@` names papers already on the graph. Naming one
+    // must change what the agent sees — it leads the numbered list (the low
+    // [n]s), as the graph's own node, and is never numbered twice.
+    const { store, result, streamAsk } = await setUp(answer('screen'))
+    store.dispatch(nodeSelectionSet(['r1', 'c1']))
+    const named = (id: string): api.MentionPaper => ({ id, arxiv_id: null, title: `Paper ${id}` })
+    await act(async () => {
+      await result.current.send('how do @Paper r2 and @Paper c1 differ?', undefined, undefined, [
+        named('r2'),
+        named('c1'),
+      ])
+    })
+    const nodes = streamAsk.mock.calls[0][0].nodes
+    expect(nodes.map((item) => item.id)).toEqual(['r2', 'c1', 'r1'])
+    // r2 is outside the selection, but it is on the graph: its full node goes.
+    expect(nodes[0].authors).toBe('Author r2')
+  })
+
   it('resolves named papers against a thin list and scopes to the ones it found', async () => {
     const { result, streamLecture, resolve } = await setUp(lecture('named'), ['c1'])
     await act(async () => {

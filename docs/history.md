@@ -927,6 +927,47 @@
 
 ### AI teacher & lectures
 
+- [x] **Let the Citation Graph assistant's `@` name papers on its own graph** *(v8.29.0)*
+      — since v8.28.0 the docked `@` offers chats only, because paper lookups
+      (and the quick search) were the General chat's job. But naming a paper
+      that is *already on the graph* ("what does @PPO say about clipping?")
+      isn't a search, it's pointing. Offer the graph's own papers as `@` rows
+      there, matched locally against the loaded nodes with no provider call,
+      so a question can ground in one specific paper on screen. Settle the
+      rows' order against sibling chats, and whether a whole-message paper
+      mention selects or focuses it on the graph. *(Patrick, 2026-10-19.)*
+      **Shipped** as asked, and it grew into a redesign of `@` everywhere:
+      - **Graph papers, docked.** The docked hook matches the graph's nodes
+        plus the agent's finds locally (`graphPaperMatches`: title or
+        authors, title-prefix first, then by citations, at most eight, from
+        three characters), listed below the chats. A named paper goes to the
+        front of the numbered list as the graph's own node, so the answer
+        cites it as `[1]`; a bare `@Title` docked is a question about it,
+        never a new thread.
+      - **Picks are chips** in all three bars (Patrick: "it's hard to tell
+        where the @ ends and the user's prompt begins"). A pick attaches as
+        a 📄/💬 chip over the bar (`mentions/attachments.ts`,
+        `AttachedChips.tsx`), sent as a leading `Attached: @Title ·
+        @thread[Chat]` line so every reader of mentions works unchanged, and
+        read back into chips on the sent message. Backspace in an empty bar
+        drops the last one. **Chips alone send nothing** (Patrick chose
+        this over "a lone chip opens" or "asks a default question"): Send
+        waits for the question, and the placeholder asks for it.
+      - **Enter depends only on keys pressed.** Patrick found the bug behind
+        a week of "Enter on `@dqn` sometimes doesn't search": press Enter
+        before the lookup lands and it searched; a beat later *Playing
+        Atari* had landed (or sat under a resting mouse, which selected it)
+        and the same Enter opened it. Now the General chat's whole-message
+        `@words` opens the list on a pinned **🔍 Search for “…”** row,
+        selected by default and there from the first character, so results
+        arriving can't change what Enter does; a paper or chat is chosen
+        only by arrowing (hover shades, never selects); with no search row
+        (in a sentence, docked) nothing is selected and Enter sends.
+      - **Opening is its own control**: each General-chat paper row ends in
+        an **Open** button, or Shift+Enter on the row, rather than a chip
+        doubling as "open" when nothing was typed after it.
+      - Arrowing scrolls the capped list to keep the selection in view.
+
 - [x] **The docked assistants don't search papers** *(v8.28.0)* — the
       `todos.md` question (2026-10-18) "should the Citation Graph assistant
       still search papers itself?", decided with Patrick on 2026-10-19: no,

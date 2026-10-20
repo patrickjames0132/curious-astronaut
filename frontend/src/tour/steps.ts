@@ -62,12 +62,12 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'Start any word with @ and suggestions appear as you type: this exploration’s ' +
       'other discussions first (a paper’s Citation Graph and Knowledge Graph chats each ' +
-      'listed), then papers. Arrow onto a paper (or hover it) and Enter ' +
-      'opens it in its own thread; put one inside a question ("what does @… say about X?") and ' +
-      'Enter completes the title, then it answers from that paper. Nothing is picked for ' +
-      'you — press Enter with no row chosen and Curious Astronaut searches properly for ' +
-      'what you typed and lists what it found. Paper lookups live here, in the General ' +
-      'chat: beside a graph, @ brings in other chats only.',
+      'listed), then papers. In the General chat the top row is “Search for …”: press ' +
+      'Enter and Curious Astronaut searches properly for what you typed and lists what it ' +
+      'found. Arrow down onto a paper or chat and Enter attaches it as a chip over the bar, ' +
+      'for the question you type next; Backspace in an empty bar lets the last chip go. To ' +
+      'open a paper in its own thread instead, click its Open button, or press Shift+Enter on it. Searching lives here, in the General chat: beside a ' +
+      'graph, @ names papers already on that graph, and other chats.',
   },
   {
     target: '[data-tour="search-filters"]',

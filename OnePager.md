@@ -322,16 +322,6 @@ than deleted so the plan doesn't get re-proposed.
       "lead image" slot the panel places before the first paragraph.
       *(From the `todos.md` inbox, 2026-10-18.)*
 
-- [ ] **Let the Citation Graph assistant's `@` name papers on its own graph**
-      — since v8.28.0 the docked `@` offers chats only, because paper lookups
-      (and the quick search) were the General chat's job. But naming a paper
-      that is *already on the graph* ("what does @PPO say about clipping?")
-      isn't a search, it's pointing. Offer the graph's own papers as `@` rows
-      there, matched locally against the loaded nodes with no provider call,
-      so a question can ground in one specific paper on screen. Settle the
-      rows' order against sibling chats, and whether a whole-message paper
-      mention selects or focuses it on the graph. *(Patrick, 2026-10-19.)*
-
 - [ ] **The reroute-to-lecture correction should keep the framing the reader
       asked for** — with the `/lecture` command gone (v7.23.0), the only ways
       to name a lecture's framing are the words in the message (the router's

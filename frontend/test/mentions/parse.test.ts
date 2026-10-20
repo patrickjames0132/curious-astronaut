@@ -24,6 +24,35 @@ import {
   threadMatches,
 } from '../../src/mentions/parse'
 import type { MentionThread } from '../../src/mentions/parse'
+import { GRAPH_MENTION_LIMIT, graphPaperMatches } from '../../src/mentions/parse'
+
+describe('graphPaperMatches', () => {
+  // The docked `@` (v8.29.0): papers already on the graph, matched locally.
+  const paper = (id: string, title: string, extra: Partial<MentionPaper> = {}) => ({
+    id,
+    arxiv_id: null,
+    title,
+    ...extra,
+  })
+  const papers: MentionPaper[] = [
+    paper('a', 'Deep Q-Networks revisited', { citation_count: 5 }),
+    paper('b', 'Playing Atari with Deep RL', { citation_count: 900, authors: 'Mnih' }),
+    paper('c', 'Atari games as a benchmark', { citation_count: 10 }),
+  ]
+
+  it('matches title or authors, title-prefix first, then the more cited', () => {
+    expect(graphPaperMatches(papers, 'atari').map((item) => item.id)).toEqual(['c', 'b'])
+    expect(graphPaperMatches(papers, 'mnih').map((item) => item.id)).toEqual(['b'])
+  })
+
+  it('waits for the minimum length and caps the list', () => {
+    expect(graphPaperMatches(papers, 'de')).toEqual([])
+    const many = Array.from({ length: 20 }, (_, index) =>
+      paper(`p${index}`, `Graph paper ${index}`),
+    )
+    expect(graphPaperMatches(many, 'graph')).toHaveLength(GRAPH_MENTION_LIMIT)
+  })
+})
 
 /** A resolved paper, as the dropdown hands one back. */
 function paper(title: string, overrides: Partial<MentionPaper> = {}): MentionPaper {

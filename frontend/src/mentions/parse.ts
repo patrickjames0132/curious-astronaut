@@ -55,6 +55,38 @@ export function threadMatches(threads: MentionThread[], query: string): MentionT
   return threads.filter((thread) => thread.title.toLowerCase().includes(needle))
 }
 
+/** How many of the graph's own papers a docked `@` list offers at most. */
+export const GRAPH_MENTION_LIMIT = 8
+
+/**
+ * The papers on the open graph matching an `@` query (v8.29.0) — the docked
+ * Citation Graph assistant's `@` list, which names papers already on screen
+ * rather than searching for new ones, so this is a local match with no
+ * provider call. Title or authors contain the query, case-insensitively;
+ * titles that start with it come first, then the more cited.
+ *
+ * @param papers The graph's papers.
+ * @param query  The text typed after the `@`.
+ * @returns At most {@link GRAPH_MENTION_LIMIT} matches, best first.
+ */
+export function graphPaperMatches(papers: MentionPaper[], query: string): MentionPaper[] {
+  const needle = query.trim().toLowerCase()
+  if (needle.length < MENTION_MIN_CHARS) return []
+  const prefixed = (paper: MentionPaper) => paper.title.toLowerCase().startsWith(needle)
+  return papers
+    .filter(
+      (paper) =>
+        paper.title.toLowerCase().includes(needle) ||
+        (paper.authors ?? '').toLowerCase().includes(needle),
+    )
+    .sort(
+      (left, right) =>
+        Number(prefixed(right)) - Number(prefixed(left)) ||
+        (right.citation_count ?? 0) - (left.citation_count ?? 0),
+    )
+    .slice(0, GRAPH_MENTION_LIMIT)
+}
+
 /** The mention the caret is currently inside, as found by {@link activeMention}. */
 export interface ActiveMention {
   /** The text between the `@` and the caret. */

@@ -30,13 +30,21 @@
  * alone lists every one of them, which is how a reader finds out that a
  * discussion can be mentioned at all.
  *
- * **Nothing is selected until the reader selects it.** The dropdown used to
- * pre-highlight its top row, so Enter on an untouched list spliced in a paper
- * the reader had only been shown — and Enter again, on the bare mention that
- * left behind, seeded the graph. Now a row is only chosen by arrowing onto it
- * or hovering it; Enter with no row chosen sends the message as typed, and
- * `@words` alone goes to the paper scout the way it did before the dropdown
- * existed.
+ * **What Enter does depends only on keys the reader pressed** (v8.29.0,
+ * Patrick). It used to depend on timing too: Enter on a bare `@dqn` searched
+ * if the reader beat the lookup and took whatever row had landed (or sat under
+ * a resting mouse) if they didn't, so the same keystrokes did different things
+ * on different tries. Now:
+ *
+ * - **The search is a row of its own** (`search`), pinned first and selected
+ *   by default whenever the mention is the whole message on a bar that looks
+ *   papers up. It exists from the first character, before anything loads, so
+ *   results arriving only fill in rows below it — they can never change what
+ *   Enter does.
+ * - **A paper or chat row is chosen only by arrowing onto it.** Hovering
+ *   shades a row (CSS) but selects nothing; a click picks it outright.
+ * - Elsewhere — a mention inside a sentence, or a bar with no paper lookups —
+ *   nothing is selected until the reader arrows, and Enter sends as typed.
  *
  * The full pass streams its phases, and `step` holds the latest — the dropdown
  * shows one live line naming what it is waiting on ("Searching Semantic
@@ -51,13 +59,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCachedMentions, streamMentions } from '../api'
 import type { MentionPaper, Provider } from '../api'
-import { MENTION_MIN_CHARS, activeMention, threadMatches } from './parse'
+import { MENTION_MIN_CHARS, activeMention, graphPaperMatches, threadMatches } from './parse'
 import type { ActiveMention, MentionChoice, MentionThread } from './parse'
 
 /** How long the reader must pause before a lookup fires. Long enough that
  *  typing a title straight through costs one request; short enough that the
  *  list feels like it is keeping up. */
 const DEBOUNCE_MS = 250
+
+/** The search row's tracking key: a kind no paper or chat row can share. */
+const SEARCH_KEY = 'search'
 
 /**
  * The key a row is tracked by across re-ranks: its kind and its id, so a
@@ -80,12 +91,17 @@ function rowKey(choice: MentionChoice): string {
  * @param withPapers Look papers up too. The Knowledge Graph's assistant
  *                 (v8.25.0) offers its chats alone: a paper picked there would
  *                 only be its title in the question.
+ * @param localPapers Papers to match locally instead of looking any up: the
+ *                 open graph's, for the docked Citation Graph assistant
+ *                 (v8.29.0), whose `@` points at papers on screen rather
+ *                 than searching. Only read when `withPapers` is false.
  * @returns The dropdown's state plus the handlers the composer wires up.
  */
 export function useMentionSuggestions(
   provider: Provider,
   threads: MentionThread[] = [],
   withPapers = true,
+  localPapers?: MentionPaper[],
 ) {
   const [active, setActive] = useState<ActiveMention | null>(null)
   const [papers, setPapers] = useState<MentionPaper[]>([])
@@ -97,8 +113,8 @@ export function useMentionSuggestions(
   // list is re-ranked under it when the full results land, and an index would
   // then point at a different paper than the one the reader was looking at.
   // Enter would take the wrong row, which is the one failure a picker must not
-  // have. Null means **no row**: a fresh list has nothing selected, and Enter
-  // on it sends the message rather than picking on the reader's behalf.
+  // have. Null means **the default**: the search row when there is one,
+  // otherwise nothing — never a paper or chat picked on the reader's behalf.
   const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
   const localCtrl = useRef<AbortController | null>(null)
   const fullCtrl = useRef<AbortController | null>(null)
@@ -147,6 +163,10 @@ export function useMentionSuggestions(
   // The threads show for any live mention; the paper lookups below wait for
   // the backend's minimum length, and a shorter query holds no papers at all.
   const matchedThreads = active ? threadMatches(threads, query) : []
+  // The graph's own papers, matched as the reader types: instant, so no
+  // debounce, no spinner, and nothing to abort.
+  const shownPapers =
+    !withPapers && localPapers ? (active ? graphPaperMatches(localPapers, query) : []) : papers
   const lookup = withPapers && query.length >= MENTION_MIN_CHARS ? query : ''
 
   // The query whose FULL results we already hold. Each new query aborts both
@@ -218,59 +238,65 @@ export function useMentionSuggestions(
   // of strangers' papers that is still being fetched.
   const rows: MentionChoice[] = [
     ...matchedThreads.map((thread): MentionChoice => ({ kind: 'thread', thread })),
-    ...papers.map((paper): MentionChoice => ({ kind: 'paper', paper })),
+    ...shownPapers.map((paper): MentionChoice => ({ kind: 'paper', paper })),
   ]
 
+  // The search row's query, or null when there is no search row: only a bar
+  // that looks papers up, and only when the mention is the whole message —
+  // inside a sentence, `@words` is part of a question, not a search.
+  const search = withPapers && active?.whole && query.trim() ? query.trim() : null
+  // The keys the keyboard walks, the search row (when there is one) first.
+  const keys = [...(search ? [SEARCH_KEY] : []), ...rows.map(rowKey)]
+
   // Where the keyboard selection actually is: the tracked row's current
-  // index, or -1 — nothing selected — when it isn't in the list any more (a
-  // re-rank dropped it, or nothing was ever chosen). -1 rather than the top,
-  // because a selection the reader didn't make is exactly what Enter must
-  // not act on.
-  const highlighted = rows.findIndex((row) => rowKey(row) === highlightedKey)
+  // index. With nothing tracked — or a tracked row a re-rank dropped — it is
+  // the default: the search row when there is one, otherwise -1, nothing.
+  // Never a paper or chat the reader didn't arrow onto: that is exactly what
+  // Enter must not act on.
+  const tracked = highlightedKey === null ? -1 : keys.indexOf(highlightedKey)
+  const highlighted = tracked !== -1 ? tracked : search ? 0 : -1
+  // The offset from a keyboard index to its row in `rows`.
+  const offset = search ? 1 : 0
 
   /** Move the keyboard selection, wrapping at both ends. From nothing
    *  selected, down goes to the first row and up to the last. */
   const move = useCallback(
     (delta: number) => {
-      if (rows.length === 0) return
+      if (keys.length === 0) return
       const next =
         highlighted === -1
           ? delta > 0
             ? 0
-            : rows.length - 1
-          : (highlighted + delta + rows.length) % rows.length
-      setHighlightedKey(rowKey(rows[next]))
+            : keys.length - 1
+          : (highlighted + delta + keys.length) % keys.length
+      setHighlightedKey(keys[next])
     },
-    [rows, highlighted],
-  )
-
-  /** Put the keyboard selection on a row (the mouse hovering it). */
-  const setHighlightedIndex = useCallback(
-    (index: number) => {
-      const row = rows[index]
-      if (row) setHighlightedKey(rowKey(row))
-    },
-    [rows],
+    [keys, highlighted],
   )
 
   return {
     /** The mention being typed, or null when the dropdown is shut. */
     active,
     /** Whether the dropdown should render: a live mention with something in it. */
-    open: active !== null && (rows.length > 0 || loading),
+    open: active !== null && (rows.length > 0 || loading || search !== null),
     /** The sibling threads matching the query, shown above the papers. */
     threads: matchedThreads,
-    papers,
+    papers: shownPapers,
     loading,
     /** What the full pass is doing right now, or null. */
     step,
-    /** The index of the selected row across threads then papers, or -1. */
+    /** What the search row would search for, or null when there is none. */
+    search,
+    /** The index of the selected row across the search row, threads then
+     *  papers, or -1. */
     highlighted,
-    /** The row Enter would accept, or null when the reader hasn't chosen one. */
-    choice: rows[highlighted] ?? null,
+    /** The paper or chat Enter would attach, or null when it wouldn't attach
+     *  one (the search row is selected, or nothing is). */
+    choice: highlighted >= offset ? (rows[highlighted - offset] ?? null) : null,
+    /** Whether Enter would run the search row's search. */
+    searchChosen: search !== null && highlighted === 0,
     onInput,
     move,
-    setHighlighted: setHighlightedIndex,
     dismiss,
     reset,
   }

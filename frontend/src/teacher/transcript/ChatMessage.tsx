@@ -28,6 +28,8 @@ import BeatList from './BeatList'
 import { provenanceLine } from './provenance'
 import { describeScope } from '../../scope/resolve'
 import Fold from '../../ui/Fold'
+import AttachedChips from '../../mentions/AttachedChips'
+import { splitAttached } from '../../mentions/attachments'
 
 /**
  * Why a failed search never turned anything up, in plain words — "the budget
@@ -262,12 +264,31 @@ export default function ChatMessage({
 }) {
   const clickable = !!onActivate
   const beats = message.beats ?? []
+  // A question's `@` attachments (v8.29.0) ride on its leading `Attached:`
+  // line; read them back into chips and show only the reader's own words.
+  const { attached, body } =
+    message.role === 'user' ? splitAttached(message.text) : { attached: [], body: message.text }
+  const borrowedId = (title: string) =>
+    message.borrowedThreads?.find((thread) => thread.title === title)?.id
   return (
     <div
       className={`chat ${message.role}${clickable ? ' clickable' : ''}${active ? ' active' : ''}`}
       onClick={onActivate}
     >
-      {!!message.borrowedThreads?.length && (
+      <AttachedChips
+        chips={attached.map((item, index) => {
+          const threadId = item.kind === 'thread' ? borrowedId(item.title) : undefined
+          return {
+            key: `${item.kind}:${index}`,
+            kind: item.kind,
+            title: item.title,
+            onOpen: threadId && onThreadOpen ? () => onThreadOpen(threadId) : undefined,
+          }
+        })}
+      />
+      {/* The chips above already name (and open) the chats a question
+          attached; this line stays for turns from before them. */}
+      {!!message.borrowedThreads?.length && attached.length === 0 && (
         <div className="chat-borrowed">
           Context from{' '}
           {message.borrowedThreads.map((thread) =>
@@ -399,7 +420,7 @@ export default function ChatMessage({
         </div>
       )}
       {(() => {
-        if (!message.text) {
+        if (!body) {
           // Waiting on the first token, with nothing else yet to show. The
           // same hopping dots the send button and a generating lecture use —
           // one "working" rhythm across the panel, rather than a static `…`
@@ -417,7 +438,7 @@ export default function ChatMessage({
         }
         // Interleave the prose with the figures the agent placed via
         // <<FIG n>> markers; unplaced figures fall back to the end.
-        const { parts, leftover } = splitAnswer(message.text, message.figures)
+        const { parts, leftover } = splitAnswer(body, message.figures)
         return (
           <>
             {parts.map((part, index) =>
