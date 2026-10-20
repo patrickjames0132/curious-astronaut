@@ -134,9 +134,11 @@ Design decisions worth knowing:
 - **The filters bind, and they are not prompt text.** `year_from` / `year_to`
   / `fields` go into `ScoutDeps`, so every lookup is already restricted and no
   wording the model chooses can widen them (it may narrow further inside the
-  window). The same filters ride on `/api/ask` and `/api/ask_sources`
+  window). The same filters ride on `/api/ask_sources`
   (`routes/agents.py`'s `_opt_filters`), because they belong to the chat bar
   rather than to one of its modes — one set of filters, both destinations.
+  `/api/ask` stopped reading them in v8.28.0, when the Citation Graph
+  assistant lost its paper search: they had nothing left to bind there.
 - **The nickname resolve runs here too, alongside the scout.** The `@`
   dropdown learned that `dqn` reaches *Playing Atari with Deep Reinforcement
   Learning* only through world knowledge (`services/search/naming.py`), and
@@ -372,9 +374,9 @@ Thin wrappers over `services/sources`. Points worth knowing:
 | `POST /api/route` | which assistant a typed message wants, and over which papers (**JSON, not SSE**) |
 | `POST /api/route/papers` | which graph papers a lecture request named (**JSON**) |
 | `POST /api/lecture` | streamed lecture over the reader's scoped graph |
-| `POST /api/ask` | agentic Q&A over the graph |
+| `POST /api/ask` | agentic Q&A over the graph (no paper search since v8.28.0: it reads and expands the graph) |
 | `POST /api/ask_sources` | chat with no graph open (library + search) |
-| `POST /api/ask_course` | the Knowledge Graph's course assistant (v8.25.0): the same graph-free researcher, with the thread's course laid out and bounded by `_course_context` (the open lesson whole, the others' openings) |
+| `POST /api/ask_course` | the Knowledge Graph's course assistant (v8.25.0; no paper search since v8.28.0): the same graph-free researcher, with the thread's course laid out and bounded by `_course_context` (the open lesson whole, the others' openings) |
 
 Since v8.25.0 the sibling index (`thread_context`) has one entry per
 **chat**, not per thread (a paper thread's Citation Graph and Knowledge

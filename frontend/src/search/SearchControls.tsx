@@ -2,14 +2,16 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The chat bar's filter control: the publication-year window + field of study,
- * behind a funnel button.
+ * The chat bar's paper filters: the publication-year window + field of study,
+ * behind a funnel button labelled "Paper filters" (just "Filters" until
+ * v8.28.0, beside a 📚 chip readers couldn't tell it apart from). The General
+ * chat's alone since v8.28.0: docked over a graph the assistant doesn't search
+ * papers, so there's nothing for them to bind.
  *
  * It travels with the source-scope picker, for the same reason that one does:
  * it belongs to the thing you are about to send. Both sat *inside* the ask
  * pill until v7.11.0, which made a text box look like a toolbar; now they ride
- * beside it — a chip row under the bar with no graph, the Chat section's row
- * with one.
+ * beside it, in the chip row under the landing chat's bar.
  *
  * **This was two controls until v7.18.0**, when the "Find papers" toggle beside
  * the funnel was replaced by typing `@` in the bar. The toggle was a *mode*:
@@ -189,7 +191,7 @@ export default function SearchControls({
         className={`bar-toggle ${activeCount ? 'on' : ''}`}
         data-tour="search-filters"
         onClick={() => onOpenChange(!open)}
-        title="Restrict which papers can be found — by publication year or field of study. Applies to the assistant's paper searches and to a paper search you start with @."
+        title="Paper filters — limit which papers a search can find, by publication year or field of study. They bind the assistant's own paper searches and a search you start with @, never your library."
       >
         {/* A funnel, drawn rather than borrowed from the emoji table: docked in
             the side panel the labels collapse away and this is all that's
@@ -203,8 +205,15 @@ export default function SearchControls({
             strokeLinejoin="round"
           />
         </svg>
-        <span className="toggle-label">Filters</span>
-        {activeCount ? <span className="toggle-count">{activeCount}</span> : null}
+        <span className="toggle-label">Paper filters</span>
+        {/* A count badge on the chip's corner (v8.28.0), as the graph's nodes
+            wear their hidden-children count — and as the library chip beside
+            it does, so the two read the same when either is applied. */}
+        {activeCount ? (
+          <span className="chip-badge" aria-label={`${activeCount} applied`}>
+            {activeCount > 9 ? '9+' : activeCount}
+          </span>
+        ) : null}
       </button>
 
       {popover.present && (

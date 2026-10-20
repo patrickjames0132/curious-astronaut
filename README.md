@@ -216,7 +216,7 @@ The Vite dev server proxies `/api/*` to Flask.
    A search streams: cached papers appear immediately (⚡ **opens instantly**
    marks the ones whose whole neighborhood is cached, so a click costs no API
    call), then the scout's finds arrive lookup by lookup with a trace chip
-   each. The **Filters** popover holds a publication-year window (1800 → now)
+   each. The **Paper filters** popover (on the General chat) holds a publication-year window (1800 → now)
    and **fields of study** — hard limits, not hints, and they bind the
    assistant's own paper searches too (though never an `@` lookup: you named
    that paper, so a filter has no business hiding it). Citation links on the graph are never
@@ -340,8 +340,10 @@ The Vite dev server proxies `/api/*` to Flask.
      lecture arrives, so a conversation with four lectures in it stays
      readable. Beats light up their papers and carry the papers' **real
      figures** inline — click to enlarge.
-     So the docked panel is one thing: the conversation, with the 📚 source
-     scope and ▽ filters on its caret row. It was a stack of two folding
+     So the docked panel is one thing: the conversation, with the 📚 Library filters
+     icon inside its bar. Over a graph the assistant works from the graph and
+     grows it along citations rather than searching for papers, so the paper
+     filters stay on the General chat. It was a stack of two folding
      sections from v7.10.0, a **Lecture** section above a **Chat** one, which
      was itself a fix for an older shape where the two took turns and asking a
      question tucked away the lecture you were reading.

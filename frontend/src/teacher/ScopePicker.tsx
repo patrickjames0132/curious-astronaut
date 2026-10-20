@@ -36,6 +36,12 @@ export interface ScopeItem {
 export interface ScopeLabels {
   /** Leading emoji on the trigger button (`📚` for sources). */
   icon: string
+  /** The control's name, the trigger's whole label ("Library filters"), and
+   *  the head of its tooltip ("Library filters · 2 of 5 — …"). Named for what
+   *  it limits, so it can't be mistaken for a sibling control that limits
+   *  something else (v8.28.0: "All sources" sat beside "Filters" and readers
+   *  couldn't tell which narrowed what). */
+  name: string
   /** Singular noun for the count/empty label ("source" → "All sources"). */
   unit: string
   /** The popover's heading ("Search in", "Feed to answers"). */
@@ -92,28 +98,41 @@ export default function ScopePicker({
   const popover = usePresence(open)
   const all = checkedIds.length === items.length
   // `all` still drives the trigger's styling (an off-default scope lights it
-  // up), but it can't drive the *wording* on its own: "All sources" claims a
-  // breadth a one-source library hasn't got, and the label is often the only
-  // thing the reader sees — the ask bar hides it down to its tooltip. With a
-  // single item the honest label is just what it is: "1 source" / "No sources".
-  const buttonLabel =
-    all && items.length > 1
-      ? `All ${labels.unit}s`
-      : checkedIds.length === 0
-        ? `No ${labels.unit}s`
-        : `${checkedIds.length} ${labels.unit}${checkedIds.length > 1 ? 's' : ''}`
+  // up), but it can't drive the tooltip's *wording* on its own: "all" claims a
+  // breadth a one-item scope hasn't got. With a single item the honest state
+  // is just on or off: "Library filters · on" / "Library filters · off".
+  const state =
+    checkedIds.length === 0
+      ? 'off'
+      : items.length === 1
+        ? 'on'
+        : all
+          ? 'all'
+          : `${checkedIds.length} of ${items.length}`
+  // The trigger wears the name alone (v8.28.0, "Library filters" beside
+  // "Paper filters"); the state lives in the tooltip and in the note over the
+  // bar ("Answers also draw on 2 sources (📚)").
+  const buttonTitle = `${labels.name} · ${state} — ${labels.buttonTitle}`
   return (
     <div className="scope-wrap" data-tour={dataTour}>
       <button
         type="button"
         className={`scope-btn ${all ? '' : 'on'}`}
         onClick={() => onOpenChange(!open)}
-        // The label is hidden where the picker sits inside the ask bar (see
-        // teacher.css), so the current state has to survive in the tooltip.
-        title={`${buttonLabel} — ${labels.buttonTitle}`}
+        // The state is never on the trigger, and docked the label is hidden
+        // too (teacher.css), so name and state both live in the tooltip.
+        title={buttonTitle}
       >
         <span className="scope-btn-icon">{labels.icon}</span>
-        <span className="scope-btn-label">{buttonLabel}</span>
+        <span className="scope-btn-label">{labels.name}</span>
+        {/* Narrowed: how many are in, as a corner badge like the paper
+            filters' count beside it (v8.28.0). "0" is a real state — the
+            library is off — so it shows too. Docked it sits on the bar's icon. */}
+        {!all && (
+          <span className="chip-badge" aria-label={`${checkedIds.length} of ${items.length} in`}>
+            {checkedIds.length > 9 ? '9+' : checkedIds.length}
+          </span>
+        )}
       </button>
       {popover.present && (
         <div

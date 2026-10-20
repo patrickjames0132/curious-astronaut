@@ -203,7 +203,10 @@ export default function Teacher({
   // nothing renders from it — it is read once, at send — and re-rendering the
   // composer on every pick would fight the textarea's own caret handling.
   const resolvedMentions = useRef<Map<string, MentionPaper>>(new Map())
-  const mentions = useMentionSuggestions(provider, siblingThreads)
+  // Docked over a graph, `@` offers chats only (v8.28.0), as the Knowledge
+  // Graph's assistant always has: no paper lookups, so no quick search on a
+  // bare `@words` either. Finding papers is the General chat's job.
+  const mentions = useMentionSuggestions(provider, siblingThreads, landing)
   // The `@` list fades out rather than vanishing (ui/usePresence). Closing
   // usually clears the hook's results in the same render, so the exit plays
   // over the last list that was actually on screen, not an emptied one.
@@ -248,7 +251,12 @@ export default function Teacher({
   }
   // A scout run shares the bar's busy state with the researcher: one bar, one
   // spinner, and neither can be fired while the other is running.
-  const { searching, runSearch } = useDirectSearch(provider, searchOptions, setSearchError)
+  // **Paper filters live on the General chat alone** (v8.28.0). Docked over a
+  // graph nothing searches papers — not the assistant, not a bare `@words` —
+  // so the defaults go out there, and filters set on the landing chat can't
+  // ride along out of sight.
+  const activeOptions = landing ? searchOptions : DEFAULT_SEARCH_OPTIONS
+  const { searching, runSearch } = useDirectSearch(provider, activeOptions, setSearchError)
 
   // "No scope" (search the whole library) only when every source is checked;
   // any other state is sent as an explicit id list (empty = search nothing).
@@ -295,7 +303,7 @@ export default function Teacher({
       onPaperSeed(intent.paper.arxiv_id || intent.paper.id)
       return
     }
-    if (intent.kind === 'find') {
+    if (intent.kind === 'find' && landing) {
       // `@words` that resolved to nothing, alone on the line — the dropdown's
       // fallback. This is what the "Find papers" toggle used to do, now said
       // rather than switched to.
@@ -304,7 +312,7 @@ export default function Teacher({
     }
     // Anything else: a message whose destination is genuinely unknown. `send`
     // classifies it and streams from the lecturer or the researcher.
-    void send(question, scopeArg, searchOptions, intent.mentioned)
+    void send(question, scopeArg, activeOptions, intent.kind === 'ask' ? intent.mentioned : [])
   }
 
   const onAsk = (event: FormEvent) => {
@@ -537,7 +545,7 @@ export default function Teacher({
   // (a lecture is asked for in words); a narrow panel cuts the line with an
   // ellipsis, and the ⓘ over the bar (`ComposerNotes`) keeps the full tip.
   const askPlaceholder = hasGraph
-    ? 'Ask about these papers or for a lecture; @ a paper or chat…'
+    ? 'Ask about these papers or for a lecture; @ another chat…'
     : libraryItems.length > 0
       ? 'Ask your books, PDFs or the literature; @ a paper or chat…'
       : 'Ask a research question, or @ a paper or chat…'
@@ -547,26 +555,24 @@ export default function Teacher({
   // (🎓)" — which went with that picker: a lecture is a turn now, so the
   // conversation itself says what the answer can draw on.
   //
-  // Graph mode only. There the picker is a bare icon on the Chat row and this
-  // line is the only place its state is spelled out; with no graph the tool
-  // row under the bar wears its own label ("2 sources"), so the note would be
-  // saying the same thing twice a centimetre apart.
+  // Every panel shape since v8.28.0. It was graph mode only while the landing
+  // chip wore its own count ("2 sources") a centimetre below; now the chip is
+  // just its name, "Library filters", and this line is where the state is
+  // spelled out everywhere (docked, the picker is a bare icon in the bar).
   const askContextParts: string[] = []
-  if (hasGraph && scopeIds.length > 0) {
+  if (scopeIds.length > 0) {
     askContextParts.push(`${scopeIds.length} source${scopeIds.length > 1 ? 's' : ''} (📚)`)
   }
 
-  // Which sources the researcher may search. ONE picker, rendered in one of
-  // two places depending on the shape the panel is in — but never *inside* the
-  // ask bar any more (v7.11.0). It sat there, with the two search controls
-  // beside it, until the pill was three controls and a textarea and read as
-  // clutter: the box you type in should look like a box you type in. So:
-  //   • no graph — down in the tool row directly under the bar, still plainly
-  //     part of the question you are about to ask, and with the room to wear
-  //     its label;
-  //   • docked — up on the Chat section's row beside the 🎓 lecture scope,
-  //     because beside a graph the panel is ~340px and nothing fits in the
-  //     pill. That row already hosts exactly this kind of control.
+  // Which sources the researcher may search: 📚 Library. ONE picker, rendered
+  // in one of two places depending on the shape the panel is in (v8.28.0):
+  //   • landing — a labelled chip in the tool row directly under the bar,
+  //     beside the paper filters, with the room to wear its label;
+  //   • docked — a round icon inside the bar beside 🗑, never lit; narrowed,
+  //     it wears the same corner count badge as the chip, because a row of icon-only
+  //     chips under a ~340px bar read as clutter.
+  // It left the bar in v7.11.0, when the pill held three controls and a
+  // textarea; one quiet icon is a different thing.
   // At ONE source too, not two. The gate used to be `> 1` on the reading that
   // a lone source leaves no choice to make — but "use it / don't" is a choice,
   // and it's the one a reader with a single uploaded book most wants: without
@@ -581,12 +587,11 @@ export default function Teacher({
     />
   )
 
-  // The filter control, which travels with the source picker above for the
-  // same reason and to the same two places — the tool row under the bar
-  // without a graph, the Chat row with one. Its popover anchors to whichever
-  // container it lands in, so it still spans the panel rather than the button
-  // that opened it. It was two controls until v7.18.0, when the "Find papers"
-  // toggle beside it was replaced by typing `@`.
+  // The paper filters, beside the library picker in the landing chat's tool
+  // row — and only there (v8.28.0; see `activeOptions`). Its popover anchors
+  // to that row (`.ask-tools` is positioned), so it spans the panel rather
+  // than the button that opened it. It was two controls until v7.18.0, when
+  // the "Find papers" toggle beside it was replaced by typing `@`.
   const searchControls = (
     <SearchControls
       options={searchOptions}
@@ -800,7 +805,11 @@ export default function Teacher({
               ? `Asking about ${subject.title} · ${scopeCount} papers`
               : 'General · Search and discuss across your exploration',
           ]}
-          tip="Type @ to name a paper (alone, it opens; in a question, the answer reads it) or to bring in another chat from this exploration, such as a paper’s Knowledge Graph conversation."
+          tip={
+            landing
+              ? 'Type @ to name a paper (alone, it opens; in a question, the answer reads it) or to bring in another chat from this exploration, such as a paper’s Knowledge Graph conversation.'
+              : 'Type @ to bring another chat from this exploration into your question, such as this paper’s Knowledge Graph conversation. To find or open other papers, use the General chat.'
+          }
         />
         <form className="teacher-ask" data-tour="ask" onSubmit={onAsk}>
           {/* The `@` dropdown, anchored to the bar (which is positioned) and
@@ -811,7 +820,7 @@ export default function Teacher({
               threads={shownMentions.threads}
               papers={shownMentions.papers}
               highlighted={shownMentions.highlighted}
-              whole={shownMentions.active?.whole ?? false}
+              whole={landing && (shownMentions.active?.whole ?? false)}
               loading={shownMentions.loading}
               step={shownMentions.step}
               onPick={pickMention}
@@ -839,16 +848,12 @@ export default function Teacher({
             placeholder={askPlaceholder}
             aria-label="Ask the assistant a question"
           />
-          {/* ▽ Filters, back inside the pill at Patrick's call (2026-09-14).
-              It was moved OUT in v7.11.0 along with two other controls, on the
-              reasoning that a pill holding three controls and a textarea read
-              as clutter — "the box you type in should look like a box you type
-              in". Two of those three are gone since (the 🔍 toggle to `@` in
-              v7.18.0, the 🎓 scope in v7.21.0), so what came back is one
-              button into a bar that has room for it, next to the question it
-              actually binds. Its popover anchors to the bar and spans it,
-              which is the same width the Chat row used to give it. */}
-          {searchControls}
+          {/* Docked, 📚 Library rides inside the bar as one round icon beside
+              🗑 (v8.28.0): the 340px panel has no room for a labelled row
+              under the bar, and a row of icon-only chips there read as
+              clutter. Paper filters don't come along — they belong to the
+              General chat, the one that searches papers. */}
+          {!landing && sourcePicker}
           {/* Clear, inside the bar beside the send rather than floating above the
               transcript — same round shape and size, but muted rather than
               accent: it's the destructive one, and it shouldn't compete with the
@@ -893,13 +898,20 @@ export default function Teacher({
             )}
           </button>
         </form>
-        {/* The 📚 source scope, as a chip directly beneath the bar: near what
-            it modifies, and out of the pill. **One home since v7.21.0** — it
-            rode the Chat section's caret row with a graph open and this row
-            without one, and deleting the sections left this row as the only
-            place. Renders nothing when there is no library to scope, so an
-            empty row never shows. */}
-        <div className="ask-tools">{sourcePicker}</div>
+        {/* The landing chat's tool row: 📚 Library and ▽ Paper filters as
+            labelled chips directly beneath the bar, near what they modify and
+            out of the pill. There is room for the words here, and it's where
+            a first-time reader meets them. Docked there is no row at all
+            (v8.28.0) — 📚 moves into the bar and the filters stay behind.
+            The funnel spent v7.21.0 → v8.27.0 inside the pill (Patrick,
+            2026-09-14). The library picker renders nothing without a library,
+            so the filters are often the row's only chip. */}
+        {landing && (
+          <div className="ask-tools">
+            {sourcePicker}
+            {searchControls}
+          </div>
+        )}
       </div>
 
       <Lightbox figure={lightbox} onClose={() => setLightbox(null)} />

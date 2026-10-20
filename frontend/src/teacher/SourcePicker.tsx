@@ -2,8 +2,9 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The 📚 picker under an assistant's ask bar: which uploaded sources its
- * answers may search. `ScopePicker` with the library's wording, shared by
+ * The 📚 Library picker: which uploaded sources an assistant's answers may
+ * search. A labelled chip under the landing chat's bar, a round icon inside
+ * the docked assistants' bars (v8.28.0). `ScopePicker` with the library's wording, shared by
  * both assistants since v8.25.0; the choice lives in `useSourceScope`.
  * Renders nothing without a library, but shows at one source: "use it or
  * don't" is a choice too.
@@ -49,12 +50,13 @@ export default function SourcePicker({
       onDeselectAll={scope.deselectAll}
       labels={{
         icon: '📚',
+        name: 'Library filters',
         unit: 'source',
         heading: 'Search in',
         allHint: 'All sources are searched.',
         someHint: 'Only the checked sources are searched.',
         noneHint: "No sources selected — the assistant won't search your library.",
-        buttonTitle: 'Choose which of your sources the assistant may search',
+        buttonTitle: 'choose which of your uploaded books, PDFs and pages the assistant may search',
       }}
     />
   )

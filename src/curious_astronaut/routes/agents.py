@@ -425,7 +425,8 @@ def api_ask() -> ResponseReturnValue:
     Body:
         ``{question, seed, nodes, provider?, source_ids?,
         history?}`` — ``provider`` (``s2``/``openalex``) matches the graph's
-        backend so the researcher's expand/search/hydrate use it;
+        backend so the researcher's expand/hydrate use it (it has no paper
+        search here since v8.28.0, so the bar's filters aren't read);
         ``source_ids`` scopes the library search to a subset of uploaded
         sources. ``history`` is the client's own copy of the conversation,
         validated and bounded by ``_resumed_history`` on every request.
@@ -469,7 +470,11 @@ def api_ask() -> ResponseReturnValue:
                     sibling_context=_sibling_context(payload),
                     source_ids=source_ids,
                     provider=provider,
-                    **_opt_filters(payload, provider),
+                    # The Citation Graph assistant works from the graph and
+                    # doesn't search papers past it (v8.28.0), so the bar's
+                    # paper filters, which only ever bound that search, aren't
+                    # read here either.
+                    paper_search=False,
                 )
             ),
         )
@@ -536,8 +541,8 @@ def api_ask_course() -> ResponseReturnValue:
     The course's own assistant: the same researcher as ``/api/ask_sources``,
     graph-free, with the course laid out where a graph would be (its
     concepts, what each needs, the reader's check-offs, and the lessons
-    written so far, the open one whole). Its tools still reach the library,
-    the literature and the web.
+    written so far, the open one whole). Its tools reach the library and the
+    web; not the literature, since v8.28.0 (``paper_search=False``).
 
     Body:
         ``{question, course, history?, thread_context?, provider?,
@@ -567,6 +572,9 @@ def api_ask_course() -> ResponseReturnValue:
                     source_ids=_opt_source_ids(payload),
                     provider=provider,
                     course=course,
+                    # Like the Citation Graph assistant's (v8.28.0): the course
+                    # is the map here, and finding papers is the General chat's.
+                    paper_search=False,
                 )
             ),
         )

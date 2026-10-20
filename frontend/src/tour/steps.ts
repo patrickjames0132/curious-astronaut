@@ -64,18 +64,22 @@ export const HOME_TOUR: TourStep[] = [
       'other discussions first (a paper’s Citation Graph and Knowledge Graph chats each ' +
       'listed), then papers. Arrow onto a paper (or hover it) and Enter ' +
       'opens it in its own thread; put one inside a question ("what does @… say about X?") and ' +
-      'Enter completes the title, then it answers from that paper without disturbing the ' +
-      'graph you are looking at. Nothing is picked for you — press Enter with no row ' +
-      'chosen and Curious Astronaut searches properly for what you typed and lists what it found.',
+      'Enter completes the title, then it answers from that paper. Nothing is picked for ' +
+      'you — press Enter with no row chosen and Curious Astronaut searches properly for ' +
+      'what you typed and lists what it found. Paper lookups live here, in the General ' +
+      'chat: beside a graph, @ brings in other chats only.',
   },
   {
     target: '[data-tour="search-filters"]',
-    title: 'Narrow what can be found',
+    title: 'Paper filters',
     body:
       'Restrict a paper search to a publication-year window, a field of study, or ' +
       'both. These are hard limits, not hints — and they apply to the assistant’s own ' +
-      'searches too, not just the direct lookup. Citation links on the graph are never ' +
-      'filtered: those are edges somebody actually wrote.',
+      'searches too, not just the direct lookup. They narrow papers, never your library ' +
+      '(that’s the 📚 Library chip beside them), and they live here, on the General ' +
+      'chat: over a graph the assistant works from the graph instead of searching. ' +
+      'Citation links on the graph are never filtered: those are edges somebody ' +
+      'actually wrote.',
   },
   {
     target: '[data-tour="provider"]',
@@ -241,7 +245,7 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
       'what each needs, what you have checked off, and the lessons written so far. Ask what a ' +
       'concept means, how two connect, or what to study next. It keeps its own chat, apart from ' +
       'the Citation Graph’s; type @ to bring that one, or any other in this exploration, into ' +
-      'a question. The 📚 under its bar picks which of your sources it may search.',
+      'a question. The 📚 in its bar picks which of your sources it may search.',
   },
 ]
 
@@ -472,12 +476,12 @@ export const GRAPH_TOUR: TourStep[] = [
     target: '[data-tour="source-scope"]',
     stage: 'assistant',
     presentIf: '[data-tour="source-scope"]',
-    title: 'Which sources it may search',
+    title: 'Your library, in or out',
     body:
-      'Scope the researcher’s library reach: all of your sources, a subset, or none at ' +
-      'all. Checked means searchable — answers cite whatever passages they use by page. ' +
-      'Untick everything and the assistant leaves your library alone, which works with ' +
-      'a single uploaded source too.',
+      'The 📚 in the bar scopes the assistant’s reach into your library: all of your ' +
+      'uploaded sources, a subset, or none at all. Checked means searchable — answers ' +
+      'cite whatever passages they use by page. Untick everything and the assistant ' +
+      'leaves your library alone, which works with a single uploaded source too.',
   },
   {
     target: '[data-tour="ask"]',
@@ -487,9 +491,10 @@ export const GRAPH_TOUR: TourStep[] = [
     body:
       'Ask anything about what’s on screen. The agent grounds in the papers you’ve ' +
       'selected — or in every visible paper when you haven’t picked any. It reads them ' +
-      'in full, hops the graph, searches the literature and your uploaded library, then ' +
-      'answers with numbered citations (click one to highlight its paper on the graph). New ' +
-      'papers it finds join the map with a faint halo. ' +
+      'in full, hops the graph along its citations, searches your uploaded library and the ' +
+      'web, then answers with numbered citations (click one to highlight its paper on the ' +
+      'graph). Papers its hops find join the map with a faint halo. It doesn’t search for ' +
+      'new papers past the graph: that’s the General chat’s job. ' +
       'Press Enter to send; ⇧ Shift+Enter starts a new line for longer questions.',
   },
   {

@@ -927,6 +927,27 @@
 
 ### AI teacher & lectures
 
+- [x] **The docked assistants don't search papers** *(v8.28.0)* — the
+      `todos.md` question (2026-10-18) "should the Citation Graph assistant
+      still search papers itself?", decided with Patrick on 2026-10-19: no,
+      and the Knowledge Graph's neither ("I'm not a fan of paper searches
+      while in the citation graph/knowledge graph"). `researcher.answer`
+      takes `paper_search`; off, `find_papers` is gated away (a `prepare`, so
+      the tool is absent rather than refusing) and `searches_left` is zeroed,
+      which the web hand-off and the coverage guard already read, so neither
+      asks for a search the model can't make. A prompt line says the tool is
+      off, since the system prompt describes it for every chat. `/api/ask`
+      and `/api/ask_course` pass it; `/api/ask` stops reading the bar's
+      filters. The Citation Graph assistant still reads and expands its
+      graph and searches the library and the web. **The quick search went
+      too**: docked, `@` offers chats only (`withPapers = false`, as the
+      Knowledge Graph's always had), so a bare `@words` is just text — an
+      in-between version that kept the words in the bar with a note pointing
+      at the General chat was the wrong reading ("all I wanted was to remove
+      searching papers from the docked panels"). Paper lookups and search
+      are the General chat's alone. Follow-up filed: let that `@` name
+      papers already on the graph, which is pointing, not searching.
+
 - [x] **The scope is for the turn: rings while the agent works, nothing
       after — and a paperless beat keeps its colour** *(v7.28.0)* — the last
       two of Patrick's 2026-09-17 round.
@@ -4371,6 +4392,25 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       it still answers against the fully restored graph. Deliberately left as-is.)*
 
 ### UI & rendering polish
+
+- [x] **Library filters and Paper filters, and no tool row beside a
+      graph** *(v8.28.0)* — from the `todos.md` inbox (2026-10-18: "move the
+      search-filters icon out of the chat bar"), then reshaped over three
+      browser rounds with Patrick on 2026-10-19. Moving the funnel out to the
+      chip row beside 📚 surfaced the real problem: two icon-only chips under
+      a 340px bar, "📚 All sources" and "▽ Filters", and no telling which
+      narrowed what. So: **names by what they limit** — **Library filters**
+      and **Paper filters** — and **no row under a docked bar at all**. Docked,
+      📚 is a round icon inside the bar beside 🗑, never lit (a lit circle
+      read as a button stuck pressed), and the paper filters aren't there:
+      over a graph nothing searches papers any more (see the entry under "AI
+      teacher & lectures"). On the General chat both are labelled chips under
+      the bar. The state moved off the labels: "Answers also draw on 2
+      sources (📚)" over the bar in every panel shape, the tooltip, and a red
+      **corner count badge** on whichever is applied (`.chip-badge`) — the
+      same badge the graph's nodes wear for hidden children, on the docked
+      icon too. It replaced an inline "· 1" only the paper chip had, which
+      made the pair look inconsistent side by side.
 
 - [x] **Knowledge Graph overlays fit narrow panels** *(v8.23.2)* — the
       legend and lexical search share one bottom row instead of covering each

@@ -147,7 +147,24 @@ Two pieces of the composer are shared with the Knowledge Graph Assistant
   narrow panel (Patrick, 2026-10-17).
 - **`SourcePicker.tsx`** and **`useSourceScope.ts`**, the 📚 picker and its
   choice (tracked by exclusion, so a new upload is searchable by default).
-  Each panel keeps its own choice.
+  Each panel keeps its own choice. Since v8.28.0 it is named **Library
+  filters**, beside **▽ Paper filters** (`search/SearchControls`); it said
+  "All sources" beside a "Filters" chip until then, and readers couldn't tell
+  which narrowed what. The trigger wears the name alone: the state ("· 2 of
+  5", "· off") is in its tooltip and in the "Answers also draw on 2 sources
+  (📚)" note over the bar, which shows in every panel shape now, not just
+  docked. Narrowed, the chip also wears a red corner badge with the count
+  that's in (on the docked icon too) (`.chip-badge`, `search.css`), as Paper filters wears its
+  applied count — the same badge the graph's nodes wear for hidden
+  children. Where it sits depends on the panel's shape: docked, it is a round
+  icon inside the bar beside 🗑, never lit (its badge says it's narrowed),
+  with no row under the bar at all; on the landing chat it is a labelled chip in the row under the
+  bar, beside the paper filters. The filters are the landing chat's alone:
+  docked, nothing searches papers — `/api/ask` runs the researcher with
+  `paper_search=False`, and `@` offers chats only (`useMentionSuggestions`'
+  `withPapers`, as the Knowledge Graph's assistant always has), so a bare
+  `@words` there is just text in a message — and `Teacher` neither shows the
+  filters docked nor sends them (`activeOptions`).
 
 The panel's title is "Citation Graph Assistant" since v8.25.0 ("AI Teacher &
 Discovery" until then), matching the "Knowledge Graph Assistant" beside the

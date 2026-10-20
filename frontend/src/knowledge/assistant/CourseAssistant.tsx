@@ -6,7 +6,8 @@
  * course, as the Citation Graph's (`teacher/Teacher`) docks beside its graph.
  * It answers from the course (its concepts, what each needs, the reader's
  * check-offs and every lesson written, the open one whole) through the
- * researcher, which still reaches the library, the literature and the web.
+ * researcher, which reaches the library and the web — not the literature
+ * since v8.28.0, finding papers being the General chat's job.
  *
  * **Its own chat, not the thread's.** Assistants are encapsulated per tool
  * (Patrick, 2026-10-09), so this one writes to the thread's Knowledge Graph
@@ -366,6 +367,9 @@ export default function CourseAssistant({
             }
             aria-label="Ask the Knowledge Graph Assistant a question"
           />
+          {/* 📚 Library, inside the bar as under the Citation Graph's
+              (v8.28.0; a chip under it from v8.25.0). */}
+          <SourcePicker scope={sources} open={sourcesOpen} onOpenChange={setSourcesOpen} />
           {chat.length > 0 && (
             <button
               type="button"
@@ -395,10 +399,6 @@ export default function CourseAssistant({
             )}
           </button>
         </form>
-        {/* The 📚 source scope, as under the Citation Graph's bar (v8.25.0). */}
-        <div className="ask-tools">
-          <SourcePicker scope={sources} open={sourcesOpen} onOpenChange={setSourcesOpen} />
-        </div>
       </div>
 
       <Lightbox figure={lightbox} onClose={() => setLightbox(null)} />

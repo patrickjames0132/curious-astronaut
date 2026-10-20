@@ -175,6 +175,26 @@ nobody was watching. Two log lines in sequence are the measurement.
 - **`tools.py`** — `ResearcherDeps` (the run-state) and the six tools.
 - **`main.py`** — the `Answer` model, the `Agent`, the sync event bridge.
 
+## No paper search over a graph (v8.28.0)
+
+`answer(paper_search=False)` takes `find_papers` away (a `prepare` gate, like
+the web's and the library's, so the tool is absent rather than refusing) and
+zeroes `searches_left`. Both docked assistants pass it: `/api/ask`, the
+Citation Graph's, and `/api/ask_course`, the Knowledge Graph's. Over a graph
+the graph *is* the reader's map of the literature: the assistant reads its
+papers and grows it along citations (`expand_node` stays), and a paper the
+graph doesn't reach is the reader's to find, from the General chat or by
+naming it with `@`. Over a course there are no numbered papers at all, so
+its prompt drops the promise of `[n]` citations along with the tool. Only
+the General chat (`/api/ask_sources`) still searches papers. Zeroing the budget
+rather than adding a second check is deliberate: the web hand-off and the
+coverage guard already read `searches_left`, so neither asks for a search the
+model has no tool to make. The system prompt describes `find_papers` for
+every chat, so `_prompt` adds a line over the graph saying it's off and to
+ignore that advice (the course's context says the same in its own words).
+The bar's paper filters only ever bound this search, so `/api/ask` stops
+reading them too.
+
 ## Design decisions worth knowing
 
 - **Failures are tool-result text, never exceptions.** A spent budget, a
@@ -251,7 +271,8 @@ nobody was watching. Two log lines in sequence are the measurement.
 
 - **`routes/agents.py`** — both chat surfaces call `answer(...)` directly,
   per `skills/workflows/research.md`: `POST /api/ask` with a graph open (seed
-  + visible nodes + provider), `POST /api/ask_sources` without one, and
+  + visible nodes + provider, and `paper_search=False` since v8.28.0),
+  `POST /api/ask_sources` without one, and
   since v8.25.0 `POST /api/ask_course` for the Knowledge Graph's course
   assistant: graph-free, with `course` (the course laid out by the route)
   standing where a graph would in the prompt, and an instruction to answer a
