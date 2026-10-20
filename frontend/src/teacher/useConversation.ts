@@ -507,13 +507,25 @@ export function useConversation() {
           // merged onto the canvas: the reader asked about a paper, which is
           // not the same as asking to explore it, and rearranging their graph
           // as a side effect of a question is exactly the override this app
-          // keeps having to remove. A mention already on screen is deduped
-          // rather than numbered twice.
-          const inScope = new Set(turnScope.nodes.map((node) => node.id))
-          const attached = (mentioned ?? [])
-            .filter((paper) => !inScope.has(paper.id))
-            .map((paper) => mentionNode(paper))
-          const askNodes = [...attached, ...turnScope.nodes]
+          // keeps having to remove.
+          //
+          // **A mention already on the graph leads too** (v8.29.0, when the
+          // docked `@` began offering the graph's own papers). It used to be
+          // deduped where it stood in the scope, numbered like any other, so
+          // naming it changed nothing the agent could see beyond the title in
+          // the question. Now it moves to the front, as the graph's own node
+          // (fuller than the mention's), and is still numbered only once.
+          const named = new Set((mentioned ?? []).map((paper) => paper.id))
+          const onGraph = new Map(
+            [
+              ...(store.getState().workspace.graph?.nodes ?? []),
+              ...store.getState().workspace.discoveredNodes,
+            ].map((node) => [node.id, node]),
+          )
+          const attached = (mentioned ?? []).map(
+            (paper) => onGraph.get(paper.id) ?? mentionNode(paper),
+          )
+          const askNodes = [...attached, ...turnScope.nodes.filter((node) => !named.has(node.id))]
           const numberedIds = askNodes.map((node) => node.id)
           // No `lectures` argument any more. A played lecture used to be
           // pushed into the prompt here as extra context, gated by the 🎓

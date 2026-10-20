@@ -406,3 +406,25 @@ describe('the paper-search chip', () => {
     expect(screen.getByText(/^🔎 Searched\s*$/)).toBeTruthy()
   })
 })
+
+describe('a question with @ attachments (v8.29.0)', () => {
+  it('shows its Attached: line as chips and only the reader’s own words as text', () => {
+    const onThreadOpen = vi.fn()
+    const message: ChatMsg = {
+      role: 'user',
+      text: 'Attached: @Playing Atari · @thread[PPO › Knowledge Graph]\n\nhow do they differ?',
+      borrowedThreads: [{ id: 't9', title: 'PPO › Knowledge Graph' }],
+    }
+    const { container } = render(<ChatMessage message={message} onThreadOpen={onThreadOpen} />)
+    const titles = Array.from(container.querySelectorAll('.attached-chip')).map((chip) =>
+      chip.getAttribute('title'),
+    )
+    expect(titles).toEqual(['Playing Atari', 'PPO › Knowledge Graph'])
+    expect(container.textContent).toContain('how do they differ?')
+    expect(container.textContent).not.toContain('Attached:')
+    // The chat chip opens that chat, and the older "Context from" line steps aside.
+    expect(container.querySelector('.chat-borrowed')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /PPO › Knowledge Graph/ }))
+    expect(onThreadOpen).toHaveBeenCalledWith('t9')
+  })
+})

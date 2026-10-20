@@ -52,7 +52,10 @@ assistant/
   a round icon inside the bar since v8.28.0, with no row under it. Also
   since v8.28.0 it doesn't search for papers (`/api/ask_course` runs the
   researcher with `paper_search=False`): it answers from the course, the
-  library and the web, and finding papers is the General chat's job.
+  library and the web, and finding papers is the General chat's job. A chat
+  picked from its `@` list attaches as a chip over the bar (v8.29.0), as in
+  the Citation Graph's, and waits for a question: chips alone send nothing.
+  Its list has no search row, so Enter with nothing arrowed onto sends.
 - **The tutor's suggested syntheses are still to come.** The OnePager's
   Knowledge Graph assistant ticket planned them as this assistant's tool; it
   shipped without them (Patrick, 2026-10-17) and they stay an open follow-up.

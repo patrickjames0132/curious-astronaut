@@ -34,7 +34,14 @@ import type { AnimationEvent, CSSProperties, FormEvent, KeyboardEvent } from 're
 import type { AnswerFigure } from '../../api'
 import Lightbox from '../../figures/Lightbox'
 import MentionSuggestions from '../../mentions/MentionSuggestions'
-import { insertMention, type MentionChoice } from '../../mentions/parse'
+import { type MentionChoice } from '../../mentions/parse'
+import AttachedChips from '../../mentions/AttachedChips'
+import {
+  attachedMessage,
+  attachmentKey,
+  withAttachment,
+  withoutMention,
+} from '../../mentions/attachments'
 import { useMentionSuggestions } from '../../mentions/useMentionSuggestions'
 import { useAppDispatch, useAppSelector } from '../../store'
 import { chatKey, explorationChats } from '../../store/chats'
@@ -113,6 +120,9 @@ export default function CourseAssistant({
   const shownMentions = mentions.open ? mentions : lastMentions.current
 
   const [input, setInput] = useState('')
+  // Chats the `@` list attached, as chips over the bar (v8.29.0), as in the
+  // Citation Graph's (see `mentions/attachments.ts`).
+  const [attached, setAttached] = useState<MentionChoice[]>([])
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const [lightbox, setLightbox] = useState<AnswerFigure | null>(null)
   // Which uploaded sources its answers may search (the 📚 picker, v8.25.0).
@@ -171,8 +181,10 @@ export default function CourseAssistant({
 
   const submit = (text: string = input) => {
     const typed = text.trim()
+    // Chips alone send nothing (v8.29.0): they are context for a question.
     if (!typed || asking || !hasCourse) return
-    const question = quote ? quotedMessage(typed, quote) : typed
+    const question = attachedMessage(attached, quote ? quotedMessage(typed, quote) : typed)
+    setAttached([])
     setInput('')
     mentions.reset()
     onQuoteClear?.()
@@ -186,7 +198,8 @@ export default function CourseAssistant({
   const pickMention = (choice: MentionChoice) => {
     const field = inputRef.current
     if (!field || !mentions.active) return
-    const { text: next, caret } = insertMention(input, mentions.active, choice)
+    const { text: next, caret } = withoutMention(input, mentions.active)
+    setAttached((current) => withAttachment(current, choice))
     setInput(next)
     mentions.reset()
     requestAnimationFrame(() => {
@@ -221,7 +234,10 @@ export default function CourseAssistant({
     }
     // Backspace in an empty bar lets go of the attached passage, as it
     // deletes a chip in most composers.
-    if (event.key === 'Backspace' && !input && quote) onQuoteClear?.()
+    if (event.key === 'Backspace' && !input) {
+      if (attached.length) setAttached((current) => current.slice(0, -1))
+      else if (quote) onQuoteClear?.()
+    }
   }
 
   /**
@@ -333,17 +349,26 @@ export default function CourseAssistant({
             </button>
           </div>
         )}
+        <AttachedChips
+          chips={attached.map((choice) => ({
+            key: attachmentKey(choice),
+            kind: choice.kind,
+            title: choice.kind === 'paper' ? choice.paper.title : choice.thread.title,
+          }))}
+          onRemove={(key) => {
+            setAttached((current) => current.filter((choice) => attachmentKey(choice) !== key))
+            inputRef.current?.focus()
+          }}
+        />
         <form className="teacher-ask" onSubmit={onAsk}>
           {mentionsPanel.present && (
             <MentionSuggestions
               threads={shownMentions.threads}
               papers={[]}
               highlighted={shownMentions.highlighted}
-              whole={false}
               loading={false}
               step={null}
               onPick={pickMention}
-              onHighlight={mentions.setHighlighted}
               closing={mentionsPanel.closing}
               onAnimationEnd={mentionsPanel.onAnimationEnd}
             />
@@ -363,7 +388,9 @@ export default function CourseAssistant({
             placeholder={
               quote
                 ? 'Ask anything about this passage…'
-                : 'Ask about this course, or @ another chat…'
+                : attached.length
+                  ? 'Now ask your question about what you attached…'
+                  : 'Ask about this course, or @ another chat…'
             }
             aria-label="Ask the Knowledge Graph Assistant a question"
           />

@@ -12,10 +12,15 @@ mentions/
                               thread), which threads match, and what a finished
                               message turns out to be asking for
   useMentionSuggestions.ts  — the typeahead engine: debounce, abort, lookup,
-                              thread rows, keyboard selection
-  MentionSuggestions.tsx    — the dropdown above the composer: threads, then
-                              papers
-  mentions.css              — its styles
+                              thread rows, the search row, keyboard selection
+  MentionSuggestions.tsx    — the dropdown above the composer: the search row,
+                              threads, then papers
+  attachments.ts            — a pick as an attachment (v8.29.0): cut the
+                              `@query`, the `Attached:` line written on send
+                              and read back for the transcript
+  AttachedChips.tsx         — the attachments as chips, over a bar or on a
+                              sent question
+  mentions.css              — their styles
 ```
 
 ## What it replaced, and why that shape was wrong
@@ -89,30 +94,48 @@ question or losing the paper.
   which went to the paper lookup, and the reader concluded threads couldn't
   be mentioned at all. One `@`, one list, labelled sections: the discovery
   is in the dropdown instead of in a sentence the reader has to parse right.
-- **Nothing is selected until the reader selects it.** The dropdown used to
-  pre-highlight its top row, so Enter on an untouched list spliced in a paper
-  the reader had only been *shown* — and Enter again, on the bare mention
-  that left behind, seeded the graph. That is the wrong default for a list
-  whose top row is a guess: the reader who typed `@sparse autoencoders` and
-  hit Enter wanted the scout's full search (the `find` route above), not a
-  landing on whichever paper the cache ranked first. Now a row is only
-  chosen by arrowing onto it or hovering it (`highlighted` is `-1` until
-  then, and `choice` null); Enter or Tab with no row chosen falls through to
-  send. Down from nothing lands on the first row, up on the last.
-- **Enter does the thing; Tab completes.** Enter on a chosen paper that is
-  the **whole message** (`ActiveMention.whole`: nothing but whitespace
-  around it) picks *and sends* in one press — the reader chose one paper and
-  nothing else, which is already the seed rule, and completing `@Title` into
-  the box to demand a second Enter was a step with no decision in it. Tab on
-  the same row only completes the text, for the reader who wants the title
-  in the box without opening it. A paper inside a sentence, or a thread,
-  completes either way: the question still has to be written, and a thread
-  alone is not a message. Because Enter's two jobs — *send what I typed*,
-  *take what I chose* — are told apart only by whether a row is lit, the
+- **What Enter does depends only on keys the reader pressed** (v8.29.0,
+  Patrick). Before, it depended on timing too. Enter on a bare `@dqn`
+  searched if the reader beat the lookup; a beat later, *Playing Atari* had
+  landed (and could be sitting under a resting mouse, which selected it),
+  and the same Enter took that instead. The same keystrokes did different
+  things on different tries, and the reader couldn't see why. Three rules
+  now:
+  - **The search is a row of its own**, pinned first: `🔍 Search for “dqn”`
+    (the hook's `search`). It shows on the General chat whenever the mention
+    is the whole message, **from the first character, before anything
+    loads**, and it is selected by default (`searchChosen`). Enter runs the
+    full search. Results arriving only fill in rows below it, so they can
+    never change what Enter does.
+  - **A paper or chat is chosen only by arrowing onto it.** Hover shades a
+    row (CSS) and selects nothing; a click picks outright. Down from the
+    search row is the first chat or paper; the selection wraps.
+  - **No search row, no default.** Inside a sentence, and on the docked bars
+    (which look nothing up), nothing is selected until the reader arrows,
+    and Enter sends the message as typed.
+
+  The original reason nothing was pre-selected still holds: the top paper is
+  a guess, and the reader who typed `@sparse autoencoders` wanted the full
+  search, not a landing on whichever paper the cache ranked first. The
+  search row is what that reader wanted all along, made visible.
+- **Enter (or Tab) on a paper or chat attaches it** (v8.29.0; see "Picks are
+  chips" below). Until then Enter on a chosen paper that was the **whole
+  message** picked *and sent* it in one press, opening the paper. The
   dropdown's footer says what Enter does **right now** (`hintFor`): "Enter
-  searches for what you typed" with nothing chosen on a bare mention, "Enter
-  sends your message" inside a sentence, "Enter opens this paper", "Enter
-  adds this paper to your question", "Enter attaches this discussion". The
+  searches · ↓ to attach a paper or chat instead" on the search row, "Enter
+  sends your message" with nothing chosen, "Enter attaches this paper ·
+  Shift+Enter opens it" (or "…to your question" where papers can't be
+  opened), "Enter attaches this discussion".
+- **Opening a paper is its own control** (v8.29.0, Patrick). With every pick
+  a chip, the one-press open from the list had gone, and the first fix on
+  the table — a chip sent alone opens it — would have made a chip mean
+  *open* or *context* depending on whether anything was typed after it. So
+  where the composer passes `onOpen` (the General chat), each paper row ends
+  in an **Open** button, a sibling of the row in `.mention-paper` rather
+  than nested in it (a button can't hold a button), quiet until its row is
+  hovered or selected. On the keyboard it is **Shift+Enter** on the paper's
+  row. The docked bars pass no `onOpen`: there `@` points at papers on the
+  graph rather than opening them. The
   footer is pinned: the panel is capped at 320px but only the row list
   (`.mention-list`) scrolls, so a full page of results can't push the one
   line that explains Enter below the fold — which it did, and exactly when
@@ -219,10 +242,12 @@ question or losing the paper.
   would be maddening — and it is the reading the paper scout's `match_title`
   already takes. The filters still bind everything else, which is why the
   funnel control outlived the toggle it sat beside.
-- **Hover moves the keyboard selection.** One highlight state, so mouse and
-  keyboard can never point at different rows and leave the reader guessing
-  what Enter will take. Picks fire on pointer-*down*, because the composer's
-  blur closes the panel and would unmount the row before a click landed.
+- **Hover selects nothing** (v8.29.0). It used to move the keyboard
+  selection, so the two could never disagree — but a list opening under a
+  resting mouse then handed that row the reader's Enter, which is half of
+  the timing bug above. Hover is now a fainter shade than the selection.
+  Picks fire on pointer-*down*, because the composer's blur closes the panel
+  and would unmount the row before a click landed.
 
 ## Who uses it
 
@@ -231,14 +256,51 @@ map for the draft (a ref — nothing renders from it, and re-rendering on every
 pick would fight the textarea's caret handling), passes the exploration's
 sibling threads into the hook, re-reads the caret on input, click and key-up,
 and hands the arrows and Escape to the dropdown while it is open — and Enter /
-Tab only once a row is chosen, so an untouched list never eats a send.
+Tab whenever a row is selected: Enter on the search row runs `runSearch` (the
+`@query` leaves the bar, chips stay), Enter or Tab on a paper or chat
+attaches it. With nothing selected Enter is a send.
 
-**Papers only on the General chat** (v8.28.0). Docked beside a graph,
-`Teacher` calls the hook with `withPapers = false` and passes `whole` as
-false, exactly as `knowledge/assistant/CourseAssistant.tsx` always has: `@`
-offers chats only, nothing is looked up, and a bare `@words` is ordinary text
-in the message rather than a quick paper search. Finding and opening papers
-is the General chat's job.
+**Picks are chips, not text** (v8.29.0). Patrick, on the inline `@Title`:
+"it's hard to tell where the @ ends and the user's prompt begins." So a pick
+no longer splices its title into the question: `withoutMention` cuts the
+`@query` out of the draft and the pick joins the composer's attachments,
+shown as chips over the bar (`AttachedChips`, 📄 a paper, 💬 a chat, each
+with a ✕; Backspace in an empty bar lets the last one go) — in all three
+bars, chats included. On send `attachedMessage` writes them as one leading
+line, `Attached: @Title · @thread[Chat]`, ahead of the question, so every
+reader of mentions keeps working unchanged: `readMessage`/`mentionsIn` find
+a paper by its `@Title`, `borrowedChats` and the sibling context find a chat
+by its `@thread[…]`, and the model's history carries the names. The
+transcript reads the line back (`splitAttached`) into the same chips, a chat
+chip opening that chat. What's lost is placing a paper at a point in the
+sentence; the agent gets every attachment either way.
+
+**Chips alone send nothing** (Patrick, v8.29.0). A chip is context for a
+question, so Send stays disabled until words are typed, and the placeholder
+reads "Now ask your question about what you attached…". For a browser round
+a lone paper chip sent with no words searched for that paper instead; that
+made Enter mean two things depending on whether anything was typed, and the
+search row does the job without the rule.
+
+**Paper lookups only on the General chat** (v8.28.0). Docked beside a
+graph, `Teacher` calls the hook with `withPapers = false` (so no search
+row), as `knowledge/assistant/CourseAssistant.tsx` always has: nothing
+is looked up, and a bare `@words` is ordinary text in the message rather
+than a quick paper search. Finding and opening papers is the General chat's
+job.
+
+**The graph's own papers, docked** (v8.29.0). Naming a paper already on
+screen isn't a search, it's pointing, so the docked hook gets `localPapers` —
+the graph's nodes plus the agent's finds — and matches them locally
+(`graphPaperMatches`: title or authors, title-prefix first, then the more
+cited, at most eight, from three characters): no provider call, no cache
+call, no spinner. They list below the chats. A pick always completes into
+the question (Enter never opens the paper docked), and a bare `@Title` sent
+on its own is a question about that paper, not a new thread.
+`useConversation.ask` then puts every named paper at the front of the
+numbered list as the graph's own node, in the selection or not, numbered
+once — before this, a mention already in scope was deduped where it stood,
+so naming it changed nothing the agent could see but the title.
 
 ## How it's verified
 
@@ -252,18 +314,23 @@ since those rules decide what a message *means*.
 one *provider* lookup while the free pass runs per keystroke; the cache is
 asked with no debounce at all; threads cost no request at all and show from
 the first character; Escape stays shut until the query changes) because that
-is the half that could quietly become expensive — the selection rules (nothing
-chosen until the reader moves; down from nothing is the top, up is the bottom;
-threads then papers walk as one list) — and the two re-rank tests, which are
-the ones that matter most: the keyboard stays on the same paper when the list
-reorders, and falls back to no selection when its paper is gone.
+is the half that could quietly become expensive — the selection rules (the
+search row selected from the first character, even below the lookup floor;
+none inside a sentence or on a bar with no lookups, where nothing is chosen
+until the reader moves; the search row, threads then papers walk as one list,
+wrapping) — and the two re-rank tests, which are the ones that matter most:
+the keyboard stays on the same paper when the list reorders, and falls back to
+the default (the search row) when its paper is gone.
 `MentionSuggestions.test.tsx` covers the row layout, the thread section and
-its cross-section row numbering, the `-1` no-selection state, `hintFor`'s
-five states, the sparse record with no byline, pointer-down picking, and the
+its cross-section row numbering, the search row (first, counted, there with
+nothing loaded, clicked to search), the Open (papers only, beside the row
+not in it, absent without `onOpen`), hover selecting nothing, the `-1`
+no-selection state, `hintFor`'s states, the sparse record with no byline, pointer-down picking, and the
 phase line (including that it shows *alongside* results, since the
-provisional list lands first). The composer's side — Enter with nothing
-chosen is a send, Enter on a bare chosen paper seeds in one press, Tab only
-completes, a paper in a sentence or a thread only completes, a sent
+provisional list lands first). The composer's side — Enter on the search row
+searches, Enter with nothing chosen is a send, a pick attaches a chip,
+Shift+Enter on a paper opens it on the General chat and not docked, a chip
+alone sends nothing, a sent
 `@thread[…]` reaches the assistant and never the scout — is pinned in
 `test/teacher/Teacher.test.tsx` against a scripted hook.
 On the backend, `test_search.py` pins the frame order, the provider's name in

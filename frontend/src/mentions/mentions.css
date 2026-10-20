@@ -60,11 +60,49 @@
   text-align: left;
   cursor: pointer;
 }
-/* One highlight state for both mouse and keyboard — hover moves the keyboard
-   selection (see `onHighlight`), so the two can never point at different rows
-   and leave the reader guessing what Enter takes. */
+/* The keyboard selection — what Enter takes. Hover is a fainter shade and
+   selects nothing (v8.29.0): a list that opened under a resting mouse used
+   to hand that row the reader's Enter. */
+.mention-row:hover {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
 .mention-row.on {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+/* A paper row and its Open side by side (v8.29.0). The row keeps the
+   width; Open is quiet until the row is hovered or selected, so eight of them
+   don't read as a column of buttons. */
+.mention-paper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mention-paper > .mention-row {
+  flex: 1;
+  min-width: 0;
+}
+.mention-open {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0.55;
+}
+.mention-paper:hover .mention-open,
+.mention-paper:has(.mention-row.on) .mention-open {
+  opacity: 1;
+  color: var(--accent);
+}
+.mention-open:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+/* The search row sits above the section heads, so it needs their air below. */
+.mention-search {
+  margin-bottom: 6px;
 }
 .mention-icon {
   flex: none;
@@ -90,7 +128,8 @@
 }
 /* A second section head sits below the first section's rows, and needs air
    above it so the two lists don't read as one. */
-.mention-row + .mention-head {
+.mention-row + .mention-head,
+.mention-paper + .mention-head {
   margin-top: 6px;
 }
 /* The footer rule: muted, and separated by a hairline so it can't be mistaken
@@ -102,4 +141,72 @@
   border-top: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   font-size: 11px;
   color: var(--muted);
+}
+
+/* --- `@` attachments as chips (v8.29.0, AttachedChips.tsx) ----------------
+   Over the composer's bar, like the passage card a lesson's Chat attaches,
+   and on a sent message above its text. One row that wraps; each chip cut to
+   one line with its full title on hover. */
+.attached-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ask-dock > .attached-chips {
+  margin: 0 14px 8px;
+}
+.chat .attached-chips {
+  margin-bottom: 6px;
+}
+.attached-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 3px 6px 3px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-strong);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.attached-chip.thread {
+  border-color: var(--border);
+  background: var(--hover);
+}
+.attached-chip-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.attached-chip-open:hover .attached-chip-title {
+  text-decoration: underline;
+}
+.attached-chip-title {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attached-chip-remove {
+  flex: none;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.attached-chip-remove:hover {
+  color: var(--text-strong);
 }

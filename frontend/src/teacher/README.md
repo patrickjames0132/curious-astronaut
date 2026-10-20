@@ -70,10 +70,12 @@ inside questions attach those papers without changing the graph. The same `@`
 dropdown lists this exploration's other discussions above the paper results;
 choosing one inserts `@thread[Title]`, which `readMessage` keeps away from the
 paper scout so a bare thread mention can never launch a literature search.
-Nothing in the dropdown is pre-selected: Enter on an untouched list sends the
-message as typed (a bare `@phrase` to the scout); Enter on a chosen paper that
-is the whole message opens it in one press (Tab only completes the text); a
-paper inside a sentence or a thread completes and waits for the question. The
+On the General chat a whole-message `@phrase` opens the list on its **search
+row**, selected by default: Enter runs the full search, however far the
+lookup has got (v8.29.0). A paper or thread is taken only once arrowed onto
+(hovering selects nothing), and attaches as a chip that waits for the
+question. Opening a paper has its own control: each paper row's Open button, or
+Shift+Enter on it, seeds its thread (`openMention`; General chat only). The
 composer feeds its resolved-mention keys back into the dropdown so a picked
 title ends its mention rather than the question after it becoming the query.
 See `../mentions/README.md`.
@@ -130,7 +132,7 @@ describes figure placement.
 
 ## The composer's notes and the 📚 picker, shared (v8.25.0)
 
-Two pieces of the composer are shared with the Knowledge Graph Assistant
+Three pieces of the composer are shared with the Knowledge Graph Assistant
 (`knowledge/assistant/`), so the two bars read as one:
 
 - **`ComposerNotes.tsx`**, the quiet lines over the bar: what the message is
@@ -145,6 +147,11 @@ Two pieces of the composer are shared with the Knowledge Graph Assistant
   ⓘ also always holds **the `@` tip** in full (how to name a paper or bring
   in another chat), and the placeholders name `@` again, cut short by a
   narrow panel (Patrick, 2026-10-17).
+- **`@` attachments** (`mentions/AttachedChips`, `mentions/attachments`): a
+  pick from the `@` list is a chip over the bar, not text in the question
+  (v8.29.0), in this composer and the Knowledge Graph Assistant's alike, and
+  a sent question shows the same chips above its text. Chips alone send
+  nothing: Send waits for the question, and the placeholder asks for it.
 - **`SourcePicker.tsx`** and **`useSourceScope.ts`**, the 📚 picker and its
   choice (tracked by exclusion, so a new upload is searchable by default).
   Each panel keeps its own choice. Since v8.28.0 it is named **Library

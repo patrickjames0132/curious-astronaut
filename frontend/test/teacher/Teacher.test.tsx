@@ -117,6 +117,8 @@ const mentionState: {
   open: boolean
   active: { query: string; start: number; end: number; whole: boolean } | null
   choice: { kind: 'paper'; paper: MentionPaper } | { kind: 'thread'; thread: MentionThread } | null
+  search?: string | null
+  searchChosen?: boolean
 } = { open: false, active: null, choice: null }
 
 vi.mock('../../src/mentions/useMentionSuggestions', () => ({
@@ -130,6 +132,12 @@ vi.mock('../../src/mentions/useMentionSuggestions', () => ({
     get choice() {
       return mentionState.choice
     },
+    get search() {
+      return mentionState.search ?? null
+    },
+    get searchChosen() {
+      return mentionState.searchChosen ?? false
+    },
     threads: [],
     papers: [],
     loading: false,
@@ -137,7 +145,6 @@ vi.mock('../../src/mentions/useMentionSuggestions', () => ({
     highlighted: -1,
     onInput: () => {},
     move: () => {},
-    setHighlighted: () => {},
     dismiss: () => {},
     reset: () => {},
   }),
@@ -154,7 +161,13 @@ beforeEach(() => {
   onPaperSeed.mockClear()
   send.mockClear()
   runSearch.mockClear()
-  Object.assign(mentionState, { open: false, active: null, choice: null })
+  Object.assign(mentionState, {
+    open: false,
+    active: null,
+    choice: null,
+    search: null,
+    searchChosen: false,
+  })
 })
 
 afterEach(() => {
@@ -342,21 +355,30 @@ describe('Enter in the composer, with the @ dropdown open', () => {
     return field as HTMLTextAreaElement
   }
 
-  it('with NO row chosen, sends what was typed — a bare @phrase to the scout', () => {
-    // The fix for "Enter loaded a graph": an untouched list has no
-    // selection, so Enter is a send, and a bare mention is a search.
-    press(
+  it('on the search row, Enter runs the full search however far the lookup got', () => {
+    // v8.29.0 (Patrick): the search row is selected by default and needs
+    // nothing loaded, so Enter on `@words` searches every time.
+    const field = press(
       '@sparse autoencoders',
       'Enter',
       {
         open: true,
         active: { query: 'sparse autoencoders', start: 0, end: 20, whole: true },
         choice: null,
+        search: 'sparse autoencoders',
+        searchChosen: true,
       },
       true,
     )
     expect(runSearch).toHaveBeenCalledWith('sparse autoencoders')
     expect(onPaperSeed).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
+    expect(field.value).toBe('')
+  })
+
+  it('with the list dismissed, a bare @phrase still goes to the scout', () => {
+    press('@sparse autoencoders', 'Enter', { open: false, active: null, choice: null }, true)
+    expect(runSearch).toHaveBeenCalledWith('sparse autoencoders')
   })
 
   it('docked over a graph, a bare @phrase is just sent — there is no paper search', () => {
@@ -371,32 +393,132 @@ describe('Enter in the composer, with the @ dropdown open', () => {
     expect(send).toHaveBeenCalled()
   })
 
-  it('on a chosen paper that is the whole message, opens it in ONE press', () => {
-    // Completing `@Title` into the box and demanding a second Enter was a
-    // step with no decision in it.
+  it('on the General chat, Shift+Enter on a paper row opens it', () => {
+    // Opening has its own gesture (Open, or Shift+Enter): a pick attaches.
+    const field = press(
+      '@atari',
+      'Shift',
+      {
+        open: true,
+        active: { query: 'atari', start: 0, end: 6, whole: true },
+        choice: { kind: 'paper', paper: atari },
+      },
+      true,
+    )
+    fireEvent.keyDown(field, { key: 'Enter', shiftKey: true })
+    expect(onPaperSeed).toHaveBeenCalledWith(atari.arxiv_id || atari.id)
+    expect(send).not.toHaveBeenCalled()
+    expect(field.value).toBe('')
+  })
+
+  it('docked, Shift+Enter on a paper row opens nothing', () => {
+    const field = press('@atari', 'Shift', {
+      open: true,
+      active: { query: 'atari', start: 0, end: 6, whole: true },
+      choice: { kind: 'paper', paper: atari },
+    })
+    fireEvent.keyDown(field, { key: 'Enter', shiftKey: true })
+    expect(onPaperSeed).not.toHaveBeenCalled()
+  })
+
+  it('a chip alone sends nothing: Send waits for the question', () => {
+    // Patrick (v8.29.0): a chip is context for a question, not a search or
+    // an open — searching has its own row in the `@` list.
+    const field = press(
+      '@atari',
+      'Enter',
+      {
+        open: true,
+        active: { query: 'atari', start: 0, end: 6, whole: true },
+        choice: { kind: 'paper', paper: atari },
+      },
+      true,
+    )
+    Object.assign(mentionState, { open: false, active: null, choice: null })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(runSearch).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
+    expect(onPaperSeed).not.toHaveBeenCalled()
+    expect(field.placeholder).toMatch(/^Now ask your question/)
+  })
+
+  it('on the General chat, a paper chip with words is a question about it', () => {
+    const field = press(
+      '@atari',
+      'Enter',
+      {
+        open: true,
+        active: { query: 'atari', start: 0, end: 6, whole: true },
+        choice: { kind: 'paper', paper: atari },
+      },
+      true,
+    )
+    Object.assign(mentionState, { open: false, active: null, choice: null })
+    fireEvent.change(field, { target: { value: 'what does it learn?' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(runSearch).not.toHaveBeenCalled()
+    expect(send).toHaveBeenCalledWith(
+      `Attached: @${atari.title}\n\nwhat does it learn?`,
+      undefined,
+      expect.anything(),
+      [atari],
+    )
+  })
+
+  // v8.29.0: a pick is a chip over the bar, not text in the question —
+  // Patrick couldn't tell where an inline `@Title` ended and his words began.
+  /** The chip row's titles. */
+  const chips = () =>
+    Array.from(document.querySelectorAll('.ask-dock > .attached-chips .attached-chip')).map(
+      (chip) => chip.getAttribute('title'),
+    )
+
+  it('docked, a chosen graph paper becomes a chip and opens nothing', () => {
+    // The docked `@` names papers already on the graph. Pointing at one is
+    // the start of a question about it, never a new thread.
     const field = press('@atari', 'Enter', {
       open: true,
       active: { query: 'atari', start: 0, end: 6, whole: true },
       choice: { kind: 'paper', paper: atari },
     })
-    expect(onPaperSeed).toHaveBeenCalledTimes(1)
-    expect(onPaperSeed).toHaveBeenCalledWith('1312.5602')
+    expect(onPaperSeed).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
     expect(field.value).toBe('')
-    expect(runSearch).not.toHaveBeenCalled()
+    expect(chips()).toEqual([atari.title])
   })
 
-  it('Tab on that same paper only completes the text', () => {
-    // The escape hatch: the title in the box, nothing sent.
+  it('sends the chips as the leading Attached: line, with the paper resolved', () => {
+    const field = press('@atari', 'Enter', {
+      open: true,
+      active: { query: 'atari', start: 0, end: 6, whole: true },
+      choice: { kind: 'paper', paper: atari },
+    })
+    Object.assign(mentionState, { open: false, active: null, choice: null })
+    fireEvent.change(field, { target: { value: 'what does it learn?' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(send).toHaveBeenCalledWith(
+      `Attached: @${atari.title}\n\nwhat does it learn?`,
+      undefined,
+      expect.anything(),
+      [atari],
+    )
+    expect(chips()).toEqual([])
+  })
+
+  it('Backspace in an empty bar lets go of the last chip', () => {
     const field = press('@atari', 'Tab', {
       open: true,
       active: { query: 'atari', start: 0, end: 6, whole: true },
       choice: { kind: 'paper', paper: atari },
     })
     expect(onPaperSeed).not.toHaveBeenCalled()
-    expect(field.value).toBe('@Playing Atari with Deep RL ')
+    expect(chips()).toEqual([atari.title])
+    Object.assign(mentionState, { open: false, active: null, choice: null })
+    fireEvent.keyDown(field, { key: 'Backspace' })
+    expect(chips()).toEqual([])
   })
 
-  it('on a chosen paper inside a sentence, completes it and waits for the question', () => {
+  it('on a chosen paper inside a sentence, cuts the @query and keeps the words', () => {
     const field = press('what does @atari', 'Enter', {
       open: true,
       active: { query: 'atari', start: 10, end: 16, whole: false },
@@ -404,17 +526,19 @@ describe('Enter in the composer, with the @ dropdown open', () => {
     })
     expect(onPaperSeed).not.toHaveBeenCalled()
     expect(send).not.toHaveBeenCalled()
-    expect(field.value).toBe('what does @Playing Atari with Deep RL ')
+    expect(field.value).toBe('what does ')
+    expect(chips()).toEqual([atari.title])
   })
 
-  it('on a chosen thread, completes it — a thread alone is not a message', () => {
+  it('on a chosen thread, attaches it as a chip', () => {
     const field = press('@gen', 'Enter', {
       open: true,
       active: { query: 'gen', start: 0, end: 4, whole: true },
       choice: { kind: 'thread', thread: { id: 't1', title: 'General' } },
     })
     expect(send).not.toHaveBeenCalled()
-    expect(field.value).toBe('@thread[General] ')
+    expect(field.value).toBe('')
+    expect(chips()).toEqual(['General'])
   })
 
   it('a sent @thread[…] mention goes to the assistant, never the scout', () => {

@@ -13,18 +13,24 @@
  * have to be told apart before one is picked, and where it was published is
  * what does that.
  *
- * No row is highlighted until the reader arrows onto or hovers one, and the
- * footer says what Enter will do *right now*: with nothing chosen it sends the
- * message as typed; on a paper that is the whole message it opens that paper;
- * on a paper inside a sentence it completes the title; on a thread it attaches
- * the discussion. The hint changes with the state because the two jobs Enter
- * has — send what I typed, take what I chose — are told apart only by whether
- * a row is lit, and a reader should not have to remember that rule.
+ * **The search row** (v8.29.0) comes first on the General chat whenever the
+ * mention is the whole message: `🔍 Search for “dqn”`, selected by default,
+ * there from the first character. Enter runs it however far the lookup has
+ * got; a paper or chat is attached only by arrowing onto it (or clicking it).
+ * Hovering shades a row and selects nothing, so a list that opens under a
+ * resting mouse can't take the reader's Enter. The footer still says what
+ * Enter does right now, which is now a fact about the keys pressed alone.
+ *
+ * **Opening is its own control** (v8.29.0, Patrick): where the composer
+ * passes `onOpen` (the General chat), each paper row ends in an `Open`
+ * button that opens the paper's thread in one click — Shift+Enter on the
+ * keyboard. A pick attaches; opening never hides inside the chip.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
+import { useEffect, useRef } from 'react'
 import type { AnimationEvent } from 'react'
 import type { MentionPaper } from '../api'
 import type { MentionChoice, MentionThread } from './parse'
@@ -36,12 +42,11 @@ export interface MentionSuggestionsProps {
   threads: MentionThread[]
   /** The paper candidates to show, in the order the backend ranked them. */
   papers: MentionPaper[]
-  /** Index of the row the keyboard is on, counted across threads then
-   *  papers — Enter accepts it. -1 when no row is selected. */
+  /** What the search row searches for, or null for no search row. */
+  search?: string | null
+  /** Index of the row the keyboard is on, counted across the search row,
+   *  threads then papers — Enter accepts it. -1 when no row is selected. */
   highlighted: number
-  /** Whether the mention being typed is the whole message, so Enter on a
-   *  chosen paper opens it rather than completing it into a sentence. */
-  whole: boolean
   /** A lookup is in flight; the list may be stale or empty. */
   loading: boolean
   /** What the lookup is doing right now, in the server's own words, or null.
@@ -49,9 +54,11 @@ export interface MentionSuggestionsProps {
   step?: string | null
   /** Accept a row (click). */
   onPick: (choice: MentionChoice) => void
-  /** Move the keyboard selection onto a row (hover), so mouse and keyboard
-   *  never disagree about which row Enter would take. */
-  onHighlight: (index: number) => void
+  /** Run the search row's search (click). */
+  onSearch?: (query: string) => void
+  /** Open a paper's thread (its Open button). Absent, paper rows have no
+   *  button: the docked bars point at papers rather than opening them. */
+  onOpen?: (paper: MentionPaper) => void
   /** The panel is playing its exit (ui/usePresence) — rows stop taking clicks. */
   closing?: boolean
   /** Wire-through for the presence hook's exit bookkeeping. */
@@ -72,20 +79,22 @@ function byline(paper: MentionPaper): string {
 /**
  * The footer line: what Enter does in the current state.
  *
- * @param choice The row the keyboard is on, or null.
- * @param whole  Whether the mention is the whole message.
+ * @param choice The paper or chat the keyboard is on, or null.
+ * @param search The search row's query when the search row is selected, or null.
+ * @param canOpen Whether a paper can be opened from here (Shift+Enter).
  * @returns The hint text.
  */
-export function hintFor(choice: MentionChoice | null, whole: boolean): string {
-  if (!choice) {
-    return whole
-      ? 'Enter searches for what you typed · ↑↓ to choose a row'
-      : 'Enter sends your message · ↑↓ to choose a row'
-  }
+export function hintFor(
+  choice: MentionChoice | null,
+  search: string | null,
+  canOpen = false,
+): string {
+  if (search) return 'Enter searches · ↓ to attach a paper or chat instead'
+  if (!choice) return 'Enter sends your message · ↑↓ to choose a row'
   if (choice.kind === 'thread') return 'Enter attaches this discussion'
-  return whole
-    ? 'Enter opens this paper · Tab adds it to your message instead'
-    : 'Enter adds this paper to your question'
+  return canOpen
+    ? 'Enter attaches this paper · Shift+Enter opens it'
+    : 'Enter attaches this paper to your question'
 }
 
 /**
@@ -97,12 +106,13 @@ export function hintFor(choice: MentionChoice | null, whole: boolean): string {
 export default function MentionSuggestions({
   threads,
   papers,
+  search = null,
   highlighted,
-  whole,
   loading,
   step,
   onPick,
-  onHighlight,
+  onSearch,
+  onOpen,
   closing = false,
   onAnimationEnd,
 }: MentionSuggestionsProps) {
@@ -114,36 +124,67 @@ export default function MentionSuggestions({
     ...threads.map((thread): MentionChoice => ({ kind: 'thread', thread })),
     ...papers.map((paper): MentionChoice => ({ kind: 'paper', paper })),
   ]
+  // Keyboard indexes count the search row first, when there is one.
+  const offset = search ? 1 : 0
+  // Keep the keyboard's row in view: arrowing past the bottom of the capped
+  // list used to move the selection out of sight while the list sat still.
+  // `nearest` scrolls only as far as it takes, and not at all for a row
+  // already showing. Optional-called: jsdom has no scrollIntoView.
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    listRef.current?.querySelector('.mention-row.on')?.scrollIntoView?.({ block: 'nearest' })
+  }, [highlighted])
   return (
     <div className={`mention-panel${closing ? ' closing' : ''}`} onAnimationEnd={onAnimationEnd}>
       {/* Only the rows scroll. The footer sits outside the scrolling box so
           it stays in view however long the list gets — with eight rows up
           it used to be below the fold, which is exactly when it is needed. */}
-      <div className="mention-list" role="listbox" aria-label="Mention suggestions">
+      <div ref={listRef} className="mention-list" role="listbox" aria-label="Mention suggestions">
+        {search && (
+          <button
+            type="button"
+            role="option"
+            aria-selected={highlighted === 0}
+            className={`mention-row mention-search${highlighted === 0 ? ' on' : ''}`}
+            onMouseDown={(event) => {
+              event.preventDefault()
+              onSearch?.(search)
+            }}
+          >
+            <span className="mention-icon" aria-hidden="true">
+              🔍
+            </span>
+            <span className="mention-text">
+              <span className="mention-title">Search for “{search}”</span>
+            </span>
+          </button>
+        )}
         {threads.length > 0 && (
           <>
             <div className="mention-head">Discussions in this exploration</div>
-            {threads.map((thread, index) => (
-              <button
-                key={`thread:${thread.id}`}
-                type="button"
-                role="option"
-                aria-selected={index === highlighted}
-                className={`mention-row${index === highlighted ? ' on' : ''}`}
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                  onPick({ kind: 'thread', thread })
-                }}
-                onMouseEnter={() => onHighlight(index)}
-              >
-                <span className="mention-icon" aria-hidden="true">
-                  💬
-                </span>
-                <span className="mention-text">
-                  <span className="mention-title">{thread.title}</span>
-                </span>
-              </button>
-            ))}
+            {threads.map((thread, position) => {
+              const index = offset + position
+              return (
+                <button
+                  key={`thread:${thread.id}`}
+                  type="button"
+                  role="option"
+                  aria-selected={index === highlighted}
+                  className={`mention-row${index === highlighted ? ' on' : ''}`}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    onPick({ kind: 'thread', thread })
+                  }}
+                >
+                  <span className="mention-icon" aria-hidden="true">
+                    💬
+                  </span>
+                  <span className="mention-text">
+                    <span className="mention-title">{thread.title}</span>
+                  </span>
+                </button>
+              )
+            })}
           </>
         )}
         {showPapers && (
@@ -167,37 +208,59 @@ export default function MentionSuggestions({
         {papers.map((paper, index) => {
           // Rows are numbered across both sections, threads first, so the
           // keyboard walks one list.
-          const row = threads.length + index
+          const row = offset + threads.length + index
+          // The row and its Open are siblings in a wrapper, not nested:
+          // a button inside a button is invalid, and the two do different
+          // things.
           return (
-            <button
-              key={`paper:${paper.id}`}
-              type="button"
-              role="option"
-              aria-selected={row === highlighted}
-              className={`mention-row${row === highlighted ? ' on' : ''}`}
-              // Pointer-down, not click: the composer's blur would otherwise
-              // close the panel before a click could land on it.
-              onMouseDown={(event) => {
-                event.preventDefault()
-                onPick({ kind: 'paper', paper })
-              }}
-              onMouseEnter={() => onHighlight(row)}
-            >
-              <span className="mention-icon" aria-hidden="true">
-                📄
-              </span>
-              <span className="mention-text">
-                <span className="mention-title">{paper.title}</span>
-                {byline(paper) && <span className="mention-meta">{byline(paper)}</span>}
-              </span>
-            </button>
+            <div key={`paper:${paper.id}`} className="mention-paper">
+              <button
+                type="button"
+                role="option"
+                aria-selected={row === highlighted}
+                className={`mention-row${row === highlighted ? ' on' : ''}`}
+                // Pointer-down, not click: the composer's blur would otherwise
+                // close the panel before a click could land on it.
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  onPick({ kind: 'paper', paper })
+                }}
+              >
+                <span className="mention-icon" aria-hidden="true">
+                  📄
+                </span>
+                <span className="mention-text">
+                  <span className="mention-title">{paper.title}</span>
+                  {byline(paper) && <span className="mention-meta">{byline(paper)}</span>}
+                </span>
+              </button>
+              {onOpen && (
+                <button
+                  type="button"
+                  className="mention-open"
+                  title="Open this paper in a thread of its own (Shift+Enter)"
+                  aria-label={`Open ${paper.title}`}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    onOpen(paper)
+                  }}
+                >
+                  Open
+                </button>
+              )}
+            </div>
           )
         })}
       </div>
       {/* What Enter does right now — the one thing the reader most needs to
-          know, since nothing is pre-selected and the list looks like it
-          might grab their Enter. */}
-      <div className="mention-hint">{hintFor(rows[highlighted] ?? null, whole)}</div>
+          know, since the list looks like it might grab their Enter. */}
+      <div className="mention-hint">
+        {hintFor(
+          highlighted >= offset ? (rows[highlighted - offset] ?? null) : null,
+          search && highlighted === 0 ? search : null,
+          onOpen !== undefined,
+        )}
+      </div>
     </div>
   )
 }
