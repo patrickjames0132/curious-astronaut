@@ -16,6 +16,22 @@ its name. A graph thread's identity is provider + resolved seed id, so returning
 to the same paper reuses its thread, while identical ids from different providers
 cannot collide. The seed title supplies the initial thread name; users can rename it.
 
+**Switching the data source moves the thread you're in** (v8.28.1). Because
+identity includes the provider, `switchProvider` used to find no thread for
+the new key and open a twin beside the old one, with the chats and the course
+left behind. Now it rebases the active paper thread instead
+(`explorations.threadRebased`): same id, title, chats and course; new
+identity, `data.provider`, `graph_ref`, card details, and the course's root
+paper id (lessons resolve the PDF by it). A graph **on screen** rebuilds right
+away (`loadGraph`'s `rebase`, which also clears the old provider's
+discoveries and selection); on the cards or the course one paper lookup
+moves the thread (`rebasePaper`) and the loaded graph stays in memory.
+`openTool` rebuilds it on open only if `graphProvider`, the provider it was
+built under, still differs from the selected one, so switching away and back
+before opening rebuilds nothing (Patrick). A thread that already holds the new identity (a twin from
+before this) is resumed rather than duplicated. On General the switch only
+changes the provider for the next search.
+
 ## Paper threads, their cards and their tools (v8.13.0)
 
 A thread with a seed is a **paper thread**, and it shows one surface at a time:

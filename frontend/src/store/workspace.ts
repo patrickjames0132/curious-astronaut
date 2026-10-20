@@ -43,6 +43,8 @@ import {
   threadActivated,
   threadTool,
   threadCardsShown,
+  threadPaperSet,
+  threadRebased,
   threadToolSet,
   type ThreadTool,
 } from './explorations'
@@ -108,6 +110,13 @@ export interface WorkspaceState {
    */
   provider: Provider
   /**
+   * The provider `graph` was built under (v8.28.1), when known. It differs
+   * from `provider` only after a switch made while the graph was out of
+   * view: the graph is kept, and `openTool` rebuilds it on open only if the
+   * two still differ — switching away and back costs nothing.
+   */
+  graphProvider?: Provider
+  /**
    * Bumps on Home and session restore — the shell keys the teacher panel on it,
    * so a bump remounts the panel. A graph *load* deliberately doesn't bump:
    * the conversation survives a re-seed, and remounting would rebuild its
@@ -162,10 +171,14 @@ const initialState: WorkspaceState = {
  * @param provider Build under this backend instead of the selected one. Graph
  *                 identity includes the provider; explicit Explore actions
  *                 resume or create the matching thread.
+ * @param rebase   The active thread to move onto `provider` in place (a
+ *                 provider switch, v8.28.1) instead of resuming or creating
+ *                 the thread that matches the new identity. A twin that
+ *                 already holds that identity still wins.
  */
 export const loadGraph = createAsyncThunk<
   GraphResponse,
-  { seed: string; refresh?: boolean; provider?: Provider },
+  { seed: string; refresh?: boolean; provider?: Provider; rebase?: string },
   {
     state: {
       workspace: WorkspaceState
@@ -175,7 +188,7 @@ export const loadGraph = createAsyncThunk<
   }
 >(
   'workspace/loadGraph',
-  async ({ seed, refresh = false, provider }, { dispatch, getState, requestId }) => {
+  async ({ seed, refresh = false, provider, rebase }, { dispatch, getState, requestId }) => {
     const before = getState()
     const backend = provider ?? before.workspace.provider
     const owner = before.explorations?.byId[before.explorations.activeId]
@@ -185,7 +198,7 @@ export const loadGraph = createAsyncThunk<
         (thread.data.graph_ref?.seed_ref === seed && thread.data.provider === backend),
     )
     const graph =
-      !refresh && known?.workspace?.graph
+      !refresh && !rebase && known?.workspace?.graph
         ? known.workspace.graph
         : await fetchGraphStream(seed, backend, refresh, (progress) =>
             dispatch(buildProgressSet(progress)),
@@ -207,19 +220,48 @@ export const loadGraph = createAsyncThunk<
       const existing =
         record.threads.find((thread) => thread.identity === identity) ??
         (known && record.threads.find((thread) => thread.id === known.id))
-      const thread: ThreadRecord = existing || {
-        id: nanoid(),
-        title: graph.seed.title,
-        identity,
-        origin: record.activeThreadId,
-        tool: 'graph',
-        data: {
-          chat: [],
-          layout: 'timeline',
-          provider: backend,
-          graph_ref: { seed: graph.seed, seed_ref: seed, n_nodes: graph.nodes.length },
-        },
+      // A provider switch moves the thread the reader is in, rather than
+      // landing them in a new one beside it (see `threadRebased`).
+      // The thread may already carry the new identity (its card lookup moved
+      // it before the graph was opened); it is still this build that leaves
+      // the old provider's ids behind.
+      const rebased =
+        rebase === record.activeThreadId && (!existing || existing.id === rebase)
+          ? record.threads.find((thread) => thread.id === rebase && thread.identity)
+          : undefined
+      if (rebased) {
+        // The old provider's ids mean nothing on the new graph: the agent's
+        // finds and the selection go, and the canvas remounts.
+        dispatch(workspaceSlice.actions.rebaseCleared())
+        dispatch(
+          threadRebased({
+            threadId: rebased.id,
+            identity,
+            provider: backend,
+            graphRef: { seed: graph.seed, seed_ref: seed, n_nodes: graph.nodes.length },
+          }),
+        )
+        // The card header's details are the provider's too. Refreshed in the
+        // background; a miss keeps the old ones rather than failing the switch.
+        if (rebased.paper)
+          void fetchPaperDetail(graph.seed.id, backend)
+            .then((paper) => dispatch(threadPaperSet({ id: rebased.id, paper })))
+            .catch(() => undefined)
       }
+      const thread: ThreadRecord = existing ||
+        rebased || {
+          id: nanoid(),
+          title: graph.seed.title,
+          identity,
+          origin: record.activeThreadId,
+          tool: 'graph',
+          data: {
+            chat: [],
+            layout: 'timeline',
+            provider: backend,
+            graph_ref: { seed: graph.seed, seed_ref: seed, n_nodes: graph.nodes.length },
+          },
+        }
       const pending = current.transcript?.byKey[thread.id]?.pendingDiscoveries
       if (thread.id !== record.activeThreadId)
         dispatch(
@@ -355,9 +397,32 @@ export const openTool = createAsyncThunk<void, ThreadTool, { state: NavigationSt
   'workspace/openTool',
   async (tool, { dispatch, getState }) => {
     dispatch(threadToolSet(tool))
-    const { workspace } = getState()
-    if (tool === 'graph' && !workspace.graph && workspace.seedRef && !workspace.loading)
-      await dispatch(loadGraph({ seed: workspace.seedRef, provider: workspace.provider }))
+    const { workspace, explorations } = getState()
+    // Built under a provider the reader has since switched away from.
+    const stale =
+      workspace.graph !== null &&
+      workspace.graphProvider !== undefined &&
+      workspace.graphProvider !== workspace.provider
+    if (
+      tool === 'graph' &&
+      (!workspace.graph || stale) &&
+      workspace.seedRef &&
+      !workspace.loading
+    ) {
+      // After a provider switch the thread may still be keyed by the old
+      // provider (its lookup in flight, or failed): build onto it in place
+      // rather than opening a twin.
+      const record = explorations.byId[explorations.activeId]
+      const active = record?.threads.find((thread) => thread.id === record.activeThreadId)
+      const moved = active?.identity && !active.identity.startsWith(`${workspace.provider}:`)
+      await dispatch(
+        loadGraph({
+          seed: workspace.seedRef,
+          provider: workspace.provider,
+          rebase: moved || stale ? active?.id : undefined,
+        }),
+      )
+    }
   },
 )
 
@@ -460,11 +525,61 @@ export const activateThread = createAsyncThunk<
 })
 
 /**
- * Switch the academic-data backend, then rebuild the current graph (if any)
- * under it. The provider is an app-wide choice, but changing it re-seeds the
- * paper on screen so the switch is immediately visible.
+ * Move a paper thread whose graph isn't on screen (its cards, or its course)
+ * onto another provider in place: look the paper up under the new backend,
+ * then rebase the thread onto what came back (`threadRebased`). Nothing is
+ * built; the graph follows when the reader opens it (`openTool`). A thread
+ * that already holds the new identity is resumed instead.
  *
- * The re-seed goes by the seed's arXiv id when it has one — the one reference
+ * @param threadId The active paper thread.
+ * @param seed     The paper reference, by arXiv id where there is one.
+ * @param provider The backend to move it to.
+ */
+export const rebasePaper = createAsyncThunk<
+  void,
+  { threadId: string; seed: string; provider: Provider },
+  { state: NavigationState }
+>('workspace/rebasePaper', async ({ threadId, seed, provider }, { dispatch, getState }) => {
+  const paper = await fetchPaperDetail(seed, provider)
+  const state = getState()
+  const record = state.explorations.byId[state.explorations.activeId]
+  if (record?.activeThreadId !== threadId) return
+  const identity = `${provider}:${paper.id}`
+  const twin = record.threads.find((thread) => thread.identity === identity)
+  if (twin) {
+    await dispatch(activateThread(twin.id))
+    return
+  }
+  dispatch(
+    threadRebased({
+      threadId,
+      identity,
+      provider,
+      graphRef: {
+        seed: { id: paper.id, arxiv_id: paper.arxiv_id, title: paper.title },
+        seed_ref: seed,
+      },
+      paper,
+    }),
+  )
+})
+
+/**
+ * Switch the academic-data backend, moving the open paper thread with it.
+ *
+ * **In place since v8.28.1.** A thread is keyed by provider + seed, so the
+ * switch used to find no thread for the new identity and open a new one,
+ * leaving the reader's chats and course behind in the old thread. Now the
+ * thread the reader is in is rebuilt under the new provider and rebased onto
+ * it (`loadGraph`'s `rebase`, `rebasePaper` on a card home), keeping its id,
+ * title, chats and course. Only a graph **on screen** rebuilds right away;
+ * on the cards or the course one paper lookup moves the thread, the loaded
+ * graph is dropped, and it rebuilds under the new provider when opened
+ * (Patrick: "the citation graph can update when clicked on or if the user is
+ * already in view"). On General there is nothing to move: the choice just
+ * applies to the next search.
+ *
+ * The rebuild goes by the seed's arXiv id when it has one — the one reference
  * both providers read natively. `seedRef` is whatever the current graph was
  * requested by, which after a search pick is a raw node id of the provider
  * being left (an S2 paperId, an OpenAlex `W…`); the backend translates those,
@@ -474,21 +589,27 @@ export const activateThread = createAsyncThunk<
  */
 export const switchProvider = createAsyncThunk<void, Provider, { state: NavigationState }>(
   'workspace/switchProvider',
-  (provider, { dispatch, getState }) => {
+  async (provider, { dispatch, getState }) => {
     const state = getState()
     const { provider: current, seedRef, graph } = state.workspace
     if (provider === current) return
-    // A paper thread on its cards has a seed but no graph: switching opens the
-    // same paper's cards under the other backend, without building anything.
-    if (!graph && seedRef) {
-      const record = state.explorations.byId[state.explorations.activeId]
-      const active = record?.threads.find((thread) => thread.id === record.activeThreadId)
-      dispatch(openPaper({ seed: active?.paper?.arxiv_id || seedRef, provider }))
+    const record = state.explorations.byId[state.explorations.activeId]
+    const active = record?.threads.find((thread) => thread.id === record.activeThreadId)
+    const seed = active?.paper?.arxiv_id || graph?.seed.arxiv_id || seedRef
+    if (!active?.identity || !seed) {
+      dispatch(providerSet(provider))
       return
     }
-    const seed = graph?.seed.arxiv_id || seedRef
-    if (seed) dispatch(loadGraph({ seed, provider }))
-    else dispatch(providerSet(provider))
+    if (graph && threadTool(active) === 'graph') {
+      await dispatch(loadGraph({ seed, provider, rebase: active.id }))
+      return
+    }
+    // Not looking at the graph: move the thread now, and leave the graph
+    // where it is — `openTool` rebuilds it on open if the providers still
+    // differ, so switching away and back again rebuilds nothing.
+    dispatch(providerSet(provider))
+    dispatch(seedRefSet(seed))
+    await dispatch(rebasePaper({ threadId: active.id, seed, provider }))
   },
 )
 
@@ -846,6 +967,7 @@ function workspaceForThread(thread: ThreadRecord, epoch: number): WorkspaceState
     discoveredNodes: data.discovered_nodes ?? [],
     discoveredEdges: data.discovered_edges ?? [],
     provider: data.provider ?? 's2',
+    graphProvider: data.provider ?? 's2',
     layout: data.layout ?? 'timeline',
     viewFilters: data.viewFilters,
     selectedNodeIds: data.selectedNodeIds ?? [],
@@ -928,6 +1050,28 @@ const workspaceSlice = createSlice({
      */
     providerSet(state, action: PayloadAction<Provider>) {
       state.provider = action.payload
+    },
+    /**
+     * The reference a card-home thread now rests on, after a provider switch
+     * moved it (`rebasePaper`), so a later graph build asks for the new one.
+     * @param state Workspace state.
+     * @param action The seed reference.
+     */
+    seedRefSet(state, action: PayloadAction<string>) {
+      state.seedRef = action.payload
+    },
+    /**
+     * Clear what a provider switch leaves meaningless (`loadGraph`'s
+     * `rebase`): the agent's finds and the selection hold the old provider's
+     * ids. The epoch bump remounts the canvas for the graph that follows.
+     * @param state Workspace state.
+     */
+    rebaseCleared(state) {
+      state.discoveredNodes = []
+      state.discoveredEdges = []
+      state.selectedNodeIds = []
+      state.visibleNodeIds = []
+      state.epoch += 1
     },
     /**
      * A build-stage frame from the SSE build stream (see `loadGraph`).
@@ -1070,6 +1214,7 @@ const workspaceSlice = createSlice({
         // Thread activation already restored its selection and remounted the
         // canvas. Refreshing this same graph keeps that thread's view intact.
         if (action.meta.arg.provider) state.provider = action.meta.arg.provider
+        state.graphProvider = action.meta.arg.provider ?? state.provider
         state.loading = false
       })
       .addCase(loadGraph.rejected, (state, action) => {
@@ -1097,6 +1242,7 @@ const workspaceSlice = createSlice({
         state.selectedNodeIds = []
         state.layout = action.payload.layout
         state.provider = action.payload.provider
+        state.graphProvider = action.payload.provider
         state.epoch += 1
         state.loading = false
       })
@@ -1113,6 +1259,7 @@ export const {
   viewFiltersSet,
   layoutSet,
   providerSet,
+  seedRefSet,
   buildProgressSet,
   visibleNodesSet,
   nodeSelectionSet,

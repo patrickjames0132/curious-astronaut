@@ -1280,15 +1280,6 @@ than deleted so the plan doesn't get re-proposed.
 
 ### Enhancements & tech debt
 
-- [ ] **Switching the data-source provider shouldn't open a new thread** —
-      changing the provider (the rail's data-source picker) currently lands
-      the reader in a new thread rather than keeping the one they're in. A
-      thread is keyed by provider + seed (`store/workspace.ts`, the
-      `thread.data.provider === backend` matches), which is probably why a
-      switch finds no match and makes one. Decide what a switch should do to
-      the open thread (rebuild its graph from the new provider in place,
-      most likely), then fix. *(From the `todos.md` inbox, 2026-10-18.)*
-
 - [ ] **Make the backend's researcher layout match the three assistants** —
       the product now has three chats: the General chat, the Citation Graph
       assistant and the Knowledge Graph Assistant (v8.25.0). The backend
