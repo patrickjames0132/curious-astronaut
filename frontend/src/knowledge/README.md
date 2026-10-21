@@ -522,6 +522,13 @@ words. The prose is still the tutor's own knowledge; only the pictures are
 found. Not interactive: a fresh start beside the parked `feature/visuals`
 branch, the way the assistant shows figures in its answers.
 
+- **A lead image opens the lesson** (v8.32.0): the tutor's first search is
+  for a picture of the subject itself (its best-known diagram), and one it
+  places with `lead` is marked so. `KnowledgePanel` takes it out
+  (`figures/split`'s `splitLead`) and shows it above the first paragraph,
+  wherever the tutor put its marker, so the opening never depends on the
+  model's placement. When nothing shows the subject itself the lesson
+  opens on prose, and its other images sit after their paragraphs as ever.
 - **Found first, then streamed** (Patrick, after trying text first and
   images after, then all at once: images popping in under a lesson already
   being read felt worse, and the text should still stream). The tutor

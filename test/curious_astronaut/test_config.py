@@ -238,6 +238,7 @@ class TestMissingAgentsFromTemplate:
             "children": 6,
             "lesson_words": 350,
             "images": 3,
+            "min_images": 2,
             "image_searches": 4,
         }
 
@@ -265,5 +266,6 @@ class TestMissingAgentsFromTemplate:
             "children": 3,
             "lesson_words": 200,
             "images": 3,
+            "min_images": 2,
             "image_searches": 4,
         }

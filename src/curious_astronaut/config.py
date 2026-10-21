@@ -500,7 +500,7 @@ class WebScoutExtras(ConfigModel):
 
 class TutorExtras(ConfigModel):
     """The tutor's knobs: how wide one expansion is, how long a lesson runs, and
-    how many images it shows.
+    how many images it shows (the most and the fewest).
 
     The tutor writes the knowledge network (Phase 5b): it breaks a paper or a
     concept into the prerequisites needed to understand it, and writes the
@@ -525,9 +525,15 @@ class TutorExtras(ConfigModel):
         default=3,
         le=6,
         description="Most images a lesson shows (v8.24.0), which the tutor finds in your "
-        "library, papers and the web while it writes. Every lesson shows at least one, "
-        "unless nothing found shows the idea. 0 turns lesson images off: every lesson is "
-        "a quick response.",
+        "library, papers and the web while it writes. 0 turns lesson images off: every "
+        "lesson is a quick response.",
+    )
+    min_images: NonNegativeInt = Field(
+        default=2,
+        le=6,
+        description="Fewest images a lesson shows (v8.32.0): one written with fewer is sent "
+        "back to place more, unless its searches find nothing that shows the idea. Never "
+        "more than ``images``. 0 leaves it to the tutor.",
     )
     image_searches: PositiveInt = Field(
         default=4,

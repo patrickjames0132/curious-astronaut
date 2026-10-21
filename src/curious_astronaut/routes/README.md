@@ -279,8 +279,9 @@ same synthesis and never paid for twice; a synthesis needs two or more members
   images}`, replaying both. A quick response (`quick: true`, or the
   tutor's `images` knob at 0) keeps the key lessons always had, so lessons
   written before v8.24.0 still serve as quick ones; a lesson with images
-  adds the knob and the paper to it, so the two are never served for each
-  other. A web image is served through `/api/web_image/<handle>`, so the
+  adds the knobs (`images`, and since v8.32.0 `min_images`) and the paper
+  to it, so the two are never served for each other, and `"lead"` (v8.32.0), so a lesson cached before lead images is
+  never served as one that opens on its subject's picture. A web image is served through `/api/web_image/<handle>`, so the
   browser never hotlinks a stranger's host, the host never sees the
   reader, and nothing but the address is kept; "Drop cache" forgets those
   addresses (and the lessons), after which a saved lesson's web image is a

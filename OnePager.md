@@ -294,16 +294,6 @@ than deleted so the plan doesn't get re-proposed.
 
 ### Teacher & agent reach
 
-- [ ] **Lesson images should show the concept itself, first** — the tutor's
-      image search (v8.24.0) does a decent job, but what it finds tends to
-      illustrate *auxiliary* ideas the lesson touches on, placed after their
-      paragraphs. As well as those, it should look for an image that depicts
-      the lesson's own concept (the canonical diagram of an actor–critic
-      loop, say) and open the lesson with it. Likely a change to the tutor's
-      image brief in `routes/knowledge.py` / the tutor's prompt, plus a
-      "lead image" slot the panel places before the first paragraph.
-      *(From the `todos.md` inbox, 2026-10-18.)*
-
 - [ ] **The reroute-to-lecture correction should keep the framing the reader
       asked for** — with the `/lecture` command gone (v7.23.0), the only ways
       to name a lecture's framing are the words in the message (the router's

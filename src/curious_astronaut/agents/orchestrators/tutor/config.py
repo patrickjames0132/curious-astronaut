@@ -8,7 +8,7 @@ two for a synthesis: one that names a group of concepts, one that writes how
 they come together; since v8.25.0 ``PHRASE_PROMPT``, which names the concept
 behind a passage highlighted in a lesson; and since v8.24.0 ``IMAGES_PROMPT``, added to either
 lesson prompt when it is written with its image tools. Model choice
-and the three knobs (``children``, ``lesson_words``, ``images``) live in its
+and the knobs (``children``, ``lesson_words``, ``images``, ``min_images``, …) live in its
 ``config.llm.agents`` entry, validated at load against ``config.TutorExtras``;
 ``main`` reads them per call, so a settings edit applies to the next expansion
 without a restart.
@@ -149,16 +149,23 @@ IMAGES_PROMPT = (
     "IMAGES. You can show the reader real images: figures from their own "
     "books, research papers' figures, and pictures from the web. Teach from "
     "your own knowledge as usual; the images illustrate it.\n"
-    "Before you write the lesson, ALWAYS call find_images at least once: "
-    "think of the one picture that would most help a reader see this idea (a "
-    "diagram of its mechanism, a plot of its behaviour, a picture of the "
-    "thing itself) and ask for it specifically, not by the subject's name "
-    "alone: 'a backup diagram for the Bellman optimality equation', not "
-    "'Bellman equations'. Look at every candidate it shows you. If none fits, "
-    "you may search again with a different description.\n"
+    "FIRST, before you write, look for the lesson's LEAD IMAGE: a picture of "
+    "the subject itself, the best-known diagram anyone teaching it would draw "
+    "(the agent-environment loop for a Markov decision process, the "
+    "actor-critic loop for actor-critic methods, a backup diagram for the "
+    "Bellman equations). Call find_images with lead=true, asking for it "
+    "specifically, not by the subject's name alone. If a candidate shows the "
+    "subject itself (not a side idea it touches on), place it with show_image "
+    "and lead=true: it opens the lesson, above the first paragraph, so write "
+    "the opening to point at it. If none does, open on prose; never place a "
+    "side idea's picture as the lead.\n"
+    "Then think of the pictures that would most help with the paragraphs "
+    "that follow (a diagram of its mechanism, a plot of its behaviour, a "
+    "worked case) and ask for each specifically. Look at every candidate it "
+    "shows you. If none fits, you may search again with a different "
+    "description.\n"
     "Several images are welcome. Where more than one paragraph would be "
-    "clearer with a picture (the idea itself, then how it behaves, then a "
-    "worked case, say), search for each one's picture and place it after "
+    "clearer with a picture (how it behaves, then a worked case, say), search for each one's picture and place it after "
     "its paragraph, up to the limit, from any mix of sources. One image is "
     "the least, not the goal.\n"
     "When a candidate shows what a paragraph explains, place it: call "
@@ -171,7 +178,7 @@ IMAGES_PROMPT = (
     "diagram of the idea is exactly what to place. "
     "Skip an image that is decorative, a logo or a photo of a person, mostly "
     "text, unreadably small, or about something else; a paper's results "
-    "table or benchmark plot rarely teaches a concept. Every lesson shows at "
-    "least one image: if nothing fits, search again with a different "
-    "description before giving up. Never put a marker in the closing section."
+    "table or benchmark plot rarely teaches a concept. Show at least as many "
+    "images as you are asked for: if nothing fits, search again with a "
+    "different description before giving up. Never put a marker in the closing section."
 )

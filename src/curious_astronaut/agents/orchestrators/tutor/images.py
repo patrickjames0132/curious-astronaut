@@ -199,6 +199,9 @@ class LessonImage(BaseModel):
     link: str | None
     description: str
     origin: Origin
+    lead: bool = False
+    """It shows the lesson's own subject and opens the lesson (v8.32.0): the
+    panel puts it above the first paragraph, wherever its marker landed."""
 
 
 @dataclass
@@ -216,6 +219,9 @@ class LessonDeps:
     paper_title: str
     provider: Provider
     images_left: int
+    least: int = 1
+    """The fewest images it shows (the tutor's ``min_images`` knob, never more
+    than ``images``): one with fewer is sent back, while it can find more."""
     paper_lesson: bool = False
     """The lesson is the course paper's own: only then are its figures offered
     (a concept lesson given them placed results plots)."""
@@ -224,6 +230,10 @@ class LessonDeps:
     searches_left: int = -1
     """What is left of it; starts at ``searches``."""
     paper_figures_offered: bool = False
+    lead_searched: bool = False
+    """It has searched for a picture of the subject itself (``lead``)."""
+    lead_slot: int | None = None
+    """The slot of the image that opens the lesson, once one is placed."""
     nudges: int = 0
     candidates: list[Candidate] = field(default_factory=list)
     pixels: dict[str, tuple[bytes, str]] = field(default_factory=dict)
@@ -826,7 +836,7 @@ def _origin_label(candidate: Candidate) -> str:
     return f"{origin[candidate.origin]}: {candidate.credit}{page}"
 
 
-def find_images(ctx: RunContext[LessonDeps], what: str) -> ToolReturn | str:
+def find_images(ctx: RunContext[LessonDeps], what: str, lead: bool = False) -> ToolReturn | str:
     """Search for real images of one specific thing the lesson explains, and
     look at them. Ask for the picture itself, not just the subject: "a backup
     diagram for the Bellman optimality equation", "a plot of gradient
@@ -839,6 +849,8 @@ def find_images(ctx: RunContext[LessonDeps], what: str) -> ToolReturn | str:
     Args:
         ctx: The run context carrying the lesson's image state (framework-injected).
         what: The picture you want, described specifically.
+        lead: True for the first search, for a picture of the lesson's subject
+            itself (its best-known diagram), to open the lesson with.
 
     Returns:
         The candidates, numbered, with their images; or a message when the
@@ -851,6 +863,9 @@ def find_images(ctx: RunContext[LessonDeps], what: str) -> ToolReturn | str:
     if deps.searches_left <= 0:
         return "No image searches left: write the rest of the lesson with what you have."
     deps.searches_left -= 1
+    if lead:
+        deps.lead_searched = True
+        log.info("lesson images %r: the next find is for the lead image", deps.subject)
     shown: list[tuple[int, Candidate, tuple[bytes, str]]] = []
     for candidate in _gather(deps, what):
         try:
@@ -881,11 +896,14 @@ def find_images(ctx: RunContext[LessonDeps], what: str) -> ToolReturn | str:
     )
 
 
-def show_image(ctx: RunContext[LessonDeps], number: int, description: str = "") -> str:
+def show_image(
+    ctx: RunContext[LessonDeps], number: int, description: str = "", lead: bool = False
+) -> str:
     """Place one of the images find_images showed you in the lesson. The
     result gives you a <<FIG n>> marker: put it on its own line right after
     the paragraph the image illustrates, and write that paragraph so it
-    points the reader at it.
+    points the reader at it. With lead=True it is the lesson's lead image
+    instead, which opens the lesson.
 
     Args:
         ctx: The run context carrying the lesson's image state (framework-injected).
@@ -894,6 +912,9 @@ def show_image(ctx: RunContext[LessonDeps], number: int, description: str = "") 
             sentences saying what it shows, describing only what is really in
             it (LaTeX between $…$ for notation). An image with a caption keeps
             its own, so leave this out.
+        lead: True when the image shows the lesson's subject itself (not a
+            side idea it touches on): it opens the lesson, above the first
+            paragraph. One per lesson.
 
     Returns:
         The marker to place, or a message when the number is wrong or the
@@ -916,6 +937,10 @@ def show_image(ctx: RunContext[LessonDeps], number: int, description: str = "") 
     # the tutor's words only when it has none.
     captioned = _is_caption(caption) or (bool(label) and bool(caption.strip()))
     description = "" if captioned else description.strip()
+    # One lead per lesson: a second asked for is placed like any other.
+    leads = lead and deps.lead_slot is None
+    if leads:
+        deps.lead_slot = slot
     placed = LessonImage(
         slot=slot,
         image=candidate.image,
@@ -925,31 +950,58 @@ def show_image(ctx: RunContext[LessonDeps], number: int, description: str = "") 
         link=candidate.link,
         description=description,
         origin=candidate.origin,
+        lead=leads,
     )
     deps.images.append(placed)
-    log.info("lesson images %r: placed %s from %s", deps.subject, candidate.key, candidate.credit)
+    log.info(
+        "lesson images %r: placed %s%s from %s",
+        deps.subject,
+        candidate.key,
+        " (lead)" if leads else "",
+        candidate.credit,
+    )
     deps.emit(placed)
     deps.emit(Step(text=f"Placing an image from {candidate.credit}…"))
+    if leads:
+        return (
+            f"Placed as the lead image: it opens the lesson, above your first "
+            f"paragraph. Put the marker <<FIG {slot}>> as the lesson's first line, "
+            "and let the opening point the reader at it ('The diagram above …')."
+        )
     return (
         f"Placed. Put the marker <<FIG {slot}>> on its own line right after the "
         "paragraph this image illustrates."
     )
 
 
-#: What a lesson that tried to finish without searching is told.
+#: What a lesson that tried to finish without searching for its lead image
+#: is told (v8.32.0; before, it was sent to search for anything at all).
 SEARCH_FIRST = (
-    "Search before you write: call find_images for the picture that would most "
-    "help a reader see this idea, look at what comes back, and place the best one "
-    "with show_image. Then write the lesson around it."
+    "Search before you write, and first for the subject itself: call find_images "
+    "with lead=true, asking for its best-known picture (the diagram anyone "
+    "teaching it would draw), look at what comes back, and if one shows the "
+    "subject itself, place it with show_image and lead=true to open the lesson. "
+    "Then search for pictures for the paragraphs that need them, and write the "
+    "lesson around them."
 )
 
-#: What a lesson that searched but placed nothing is told, while it can search.
-PLACE_ONE = (
-    "Every lesson shows at least one image. Place the candidate that best shows "
-    "the idea with show_image, or call find_images again with a different "
-    "description (another kind of picture, or the idea's best-known diagram) and "
-    "place the best of those. Then write the lesson around it."
-)
+def place_more(deps: LessonDeps) -> str:
+    """What a lesson that placed fewer than its fewest images is told.
+
+    Args:
+        deps: The lesson's image run-state.
+
+    Returns:
+        The instruction, naming how many it has and needs.
+    """
+    return (
+        f"Every lesson shows at least {deps.least} image{'s' if deps.least != 1 else ''}; "
+        f"this one shows {len(deps.images)}. Place the candidate that best shows what one "
+        "of your paragraphs explains with show_image, after that paragraph, or call "
+        "find_images again with a different description (another kind of picture, a "
+        "worked case, the idea's mechanism) and place the best of those. Then write the "
+        "lesson around them."
+    )
 
 #: How many times one lesson is sent back, at most: then it is kept as it is.
 NUDGES = 3
@@ -966,27 +1018,43 @@ def send_back(deps: LessonDeps) -> str | None:
     Args:
         deps: The lesson's image run-state.
 
+    **The lead search comes first** (v8.32.0): a lesson that never searched
+    for a picture of its own subject is sent to, whatever else it placed,
+    while it has a search left. Placing one isn't required: when nothing
+    shows the subject itself, the lesson opens on its prose.
+
+    **It shows at least ``least`` images** (v8.32.0, Patrick): with one
+    required, every lesson placed exactly one, the lead or a paragraph's,
+    and stopped. It goes out with fewer only when its searches are spent and
+    every candidate shown is placed, or after ``NUDGES`` returns; ``least`` 0
+    leaves images, the lead's search included, to the tutor.
+
     Returns:
-        ``SEARCH_FIRST`` or ``PLACE_ONE``; None once it holds an image, can't
-        get one, or has been sent back ``NUDGES`` times.
+        ``SEARCH_FIRST`` or ``place_more``'s instruction; None once it has
+        looked for its lead image and holds ``least`` images, can't get
+        more, or has been sent back ``NUDGES`` times.
     """
-    if deps.images or deps.nudges >= NUDGES:
+    if deps.nudges >= NUDGES or deps.least <= 0:
         return None
-    if deps.searches_left == deps.searches:
+    if not deps.lead_searched and deps.searches_left > 0:
         return SEARCH_FIRST
-    if deps.searches_left > 0 or deps.candidates:
-        return PLACE_ONE
-    return None  # every search came back empty: nothing to place
+    if len(deps.images) >= deps.least or deps.images_left <= 0:
+        return None
+    unplaced = any(candidate.key not in deps.shown for candidate in deps.candidates)
+    if deps.searches_left > 0 or unplaced:
+        return place_more(deps)
+    return None  # every search came back empty or is placed: nothing more to place
 
 
 def must_show_an_image(ctx: RunContext[LessonDeps], output: Any) -> Any:
-    """Send a lesson back until it has searched and placed an image.
+    """Send a lesson back until it has searched and placed its fewest images.
 
     Left optional, the tutor searched in one lesson of four (2026-10-17, the
     log line ``_gather`` writes): it wrote from memory and never looked, and
     Patrick decided images aren't optional. So a lesson that never searched
     is sent to search, and one that searched but placed nothing is sent to
-    place the best candidate or search again. It goes out without an image
+    place the best candidate or search again; since v8.32.0 the same goes
+    for one with fewer than ``least`` (``send_back``). It goes out short
     only when its searches are spent and nothing found showed the idea: a
     wrong image is worse than none. And never more than ``NUDGES`` times, so
     a model that won't comply still gives the waiting reader a lesson.
@@ -996,17 +1064,23 @@ def must_show_an_image(ctx: RunContext[LessonDeps], output: Any) -> Any:
         output: The lesson it tried to finish with.
 
     Returns:
-        The lesson, once it holds an image or can't get one.
+        The lesson, once it holds its images or can't get more.
 
     Raises:
-        ModelRetry: While it hasn't searched, or hasn't placed an image and
-            still could.
+        ModelRetry: While it hasn't searched, or holds fewer than ``least``
+            images and could place more.
     """
     reason = send_back(ctx.deps)
     if reason is None:
         return output
     ctx.deps.nudges += 1
-    log.info("lesson images %r: no image yet; sent back (%d)", ctx.deps.subject, ctx.deps.nudges)
+    log.info(
+        "lesson images %r: %d of %d image(s); sent back (%d)",
+        ctx.deps.subject,
+        len(ctx.deps.images),
+        ctx.deps.least,
+        ctx.deps.nudges,
+    )
     raise ModelRetry(reason)
 
 
