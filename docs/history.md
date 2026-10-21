@@ -6064,6 +6064,61 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Infrastructure, quality & tooling
 
+- [x] **Install `curious-astronaut` through the work Artifactory**
+      *(no release — verified 2026-10-21)* — the publish itself was **done**:
+      8.3.0 went to PyPI on 2026-09-27 by trusted publishing from a `v*` tag
+      (packaging v8.1.0, automation v8.2.0, the environment fix v8.3.0 — all
+      below in this section; the runbook is [releasing.md](releasing.md)).
+      **What was left was the check that actually closed this ticket:** `pip
+      install curious-astronaut` into a clean venv **through the work-side
+      Artifactory remote**. Everything before that was a rehearsal — the whole point is
+      the Xray ingress, and nothing outside that network can prove it works.
+
+      **The Xray blocker is CLEARED (2026-09-23, Patrick):** the policy does
+      **not** flag *declared* optional dependencies, only what actually
+      resolves. Since v7.15.0 moved `pymupdf` into the `pdf` extra, the default
+      dependency graph carries no AGPL, so the PyMuPDF →
+      `pypdfium2`/`pdfminer.six` swap is **not** required. Settled; don't
+      re-open it.
+
+      **The real driver, established 2026-08-09.** Not distribution to the
+      public — Patrick needs the code inside his employer's network, and their
+      only ingress is an **Artifactory remote that proxies PyPI** (it also
+      fronts npm and other public mirrors) with a **JFrog Xray** scan on the
+      way in. A public GitHub repo does *not* help if GitHub isn't an approved
+      source. Artifactory serves **both sdists and wheels**, so the sdist can
+      carry whatever source the work side needs — as of v8.1.0 it carries
+      `frontend/src` *and* the built `frontend/dist`. The work copy is a
+      **one-way import — no syncing code back** to the GitHub repo (Patrick,
+      2026-08-09). **Consequences of that framing:**
+      - PyPI gives no *fork* — no git history, no PRs. It seeds a work-side
+        repo once; it is not a synced remote. Accepted.
+      - **Answered by v8.1.0: the work side gets the frontend TypeScript
+        source.** The sdist ships `frontend/src` and `frontend/public`
+        alongside the built bundle, so work can either serve the prebuilt SPA
+        or rebuild it through their npm mirror.
+      - The **Windows CUDA torch routing does not survive publication**:
+        `[[tool.uv.index]]` is uv-only resolution config, absent from wheel
+        metadata, so `pip install` on Windows silently gets PyPI's CPU-only
+        torch — exactly the bug that index block exists to fix. Needs at least
+        a documented warning; matters less if the work side is Linux.
+      Ties into the licensing work (2026-07-20) — a public, timestamped release
+      is also the prior-art defense discussed there, though note
+      `docs/licensing.md:61` credits *"this repo, and PyPI"*, so the repo being
+      public already serves that goal on its own. **The MIT → Apache-2.0
+      relicense trigger does *not* fire on a one-way import** (no outside
+      copyright enters the repo); Patrick nonetheless chose to relicense first,
+      2026-08-09, as a deliberate preference rather than a prerequisite.
+      *(Raised 2026-07-20; re-scoped 2026-08-09 around the work-Artifactory
+      driver; narrowed to the publish step 2026-09-27 when the packaging
+      shipped; narrowed again to the Artifactory install 2026-10-02, once
+      8.3.0 was live.)*
+
+      **Closed 2026-10-21 (Patrick): the package is onboarded at work, with
+      no Xray issues** — it came in through the Artifactory PyPI remote as
+      published, consistent with the 2026-09-23 read that the policy flags
+      only what resolves. Nothing in the repo changed to close it.
+
 - [x] **`urllib3` 2.7.0 → 2.8.0** *(v8.4.0)* — two HIGH CVEs
       (CVE-2026-97687, HTTPS-proxy TLS override; CVE-2026-97689, unbounded
       chunk-parser allocation) published against the transitive `urllib3`
