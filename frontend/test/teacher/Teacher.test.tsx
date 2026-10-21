@@ -28,7 +28,8 @@ import explorationsReducer from '../../src/store/explorations'
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { requestDraft, takeDraft } from '../../src/teacher/composerDraft'
 import type { MentionPaper } from '../../src/api'
 import type { MentionThread } from '../../src/mentions/parse'
 import type { Source } from '../../src/api'
@@ -546,5 +547,23 @@ describe('Enter in the composer, with the @ dropdown open', () => {
     expect(send).toHaveBeenCalledTimes(1)
     expect(send.mock.calls[0][0]).toBe('@thread[General] what else came up?')
     expect(runSearch).not.toHaveBeenCalled()
+  })
+})
+
+describe('a draft from the rail (v8.31.0)', () => {
+  it('the General chat takes the Papers ＋ draft, @ typed and ready', async () => {
+    requestDraft('@')
+    render(<Teacher landing />)
+    const field = screen.getByRole('textbox', { name: /Ask the assistant/ }) as HTMLTextAreaElement
+    await waitFor(() => expect(field.value).toBe('@'))
+    expect(takeDraft()).toBeNull()
+  })
+
+  it('a docked assistant leaves it waiting', () => {
+    requestDraft('@')
+    render(<Teacher landing={false} />)
+    const field = screen.getByRole('textbox', { name: /Ask the assistant/ }) as HTMLTextAreaElement
+    expect(field.value).toBe('')
+    expect(takeDraft()).toBe('@')
   })
 })

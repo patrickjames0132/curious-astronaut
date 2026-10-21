@@ -99,7 +99,7 @@ describe('the sibling index, one entry per chat (v8.25.0)', () => {
       'compare with @thread[PPO › Citation Graph]',
       'ppo:knowledge',
     )
-    expect(index.map((entry) => entry.title)).toEqual(['PPO › Citation Graph', 'General'])
+    expect(index.map((entry) => entry.title)).toEqual(['PPO › Citation Graph', 'New chat'])
     expect(index[0]).toMatchObject({
       mentioned: true,
       history: [

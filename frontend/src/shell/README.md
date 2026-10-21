@@ -3,8 +3,7 @@
 The left rail names explorations and nests their threads. `SideBar.tsx` owns the
 parent navigation; `SessionRow.tsx` supplies the shared rows and menus; `ThreadList.tsx` shows General and graph
 threads beneath the active exploration. A row selects that discussion and its
-graph together. The ellipsis opens Rename/Delete, with inline editing after Rename; General
-keeps its name. Running conversations show a working indicator even off-screen.
+graph together. The ellipsis opens Rename/Delete, with inline editing after Rename. Running conversations show a working indicator even off-screen.
 
 `useSessions.ts` remains the thin server-list CRUD client. `useExplorations.ts`
 coordinates that list with the live Redux exploration records. Returning to a
@@ -45,13 +44,43 @@ for the actual transcript.
 
 `test/shell/useExplorations.test.ts` exercises the real hook with isolated Redux
 stores and stubbed APIs. It covers empty sessions, debounced streams, stable row
-identity, one-time naming, delayed naming, background writes, legacy reads and
+identity, one-time naming, delayed naming, a new General chat's naming (v8.31.0), background writes, legacy reads and
 deletions. `saveQueue.test.ts` covers ordered writes and browser-close recovery.
 
 Explorations and threads share `SessionRow`: identical typography, spacing,
 hover controls, Rename/Delete menu and inline name editing (Enter or blur saves;
-Escape cancels). General is permanent and has no rename/delete menu. Deleting
-an active graph thread returns to General and discards its transcript.
+Escape cancels). Deleting an active thread returns to a General chat and
+discards its transcript.
+
+**Chats and Papers** (v8.31.0, Patrick). One General chat meant a reader
+who'd used it for a search had to clear it to talk about anything else, so
+an exploration can hold several chats now — and once it could, a flat list
+mixing them with paper threads stopped saying which row was which.
+`ThreadList` groups them: **Chats** (threads with no paper) then **Papers**
+(one per paper opened; the header shows once there is one), each header a
+caret that folds the group and a ＋ on hover.
+
+- **A thread's group is what it is**, never what's typed in it. The
+  Papers ＋ opens a chat with `@` typed (`newGeneralChat({ forPaper })`,
+  handing the draft to the composer through `teacher/composerDraft`); delete
+  the `@` and it's an ordinary chat, which it was all along. A paper joins
+  Papers only when one is opened.
+- **Both ＋s reuse an empty chat** rather than adding one, so chats opened
+  and abandoned don't pile up as `New chat`s.
+- **Every chat is named from its first exchange**, the first one included
+  (an exploration saved before keeps its `General`). A new chat is **New
+  chat** until its first answer or search has landed and settled; then
+  `useExplorations` names it with the titler an exploration's first save
+  uses (`titleForConversation`), falling back to the question without its
+  `@` attachments line. One try per chat, and only while it still wears the
+  placeholder (`awaitsTitle`), so a reader's own rename always wins.
+- Every chat renames like any thread, and deletes while another remains:
+  the last one's menu has no Delete (`onDelete` absent).
+- **A chat's ⋮ has ↻ Re-summarize**, as an exploration's does: its
+  first-exchange name goes stale as the talk wanders, so `ThreadList` titles
+  it again from every question it holds (attachment lines stripped; a null
+  title leaves the name). Paper threads don't get it: their natural name is
+  the paper's, though they rename like any thread.
 
 Each exploration has a caret. Only the active, expanded exploration renders
 its thread list; a fresh unsaved exploration never appends an orphan General

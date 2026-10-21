@@ -294,15 +294,6 @@ than deleted so the plan doesn't get re-proposed.
 
 ### Teacher & agent reach
 
-- [ ] **More than one General chat per exploration** — today an
-      exploration has a single General chat, so a reader who used it for a
-      search and wants to keep those results up has to clear it to talk about
-      something else. Let them spin off another General thread inside the
-      same exploration, alongside the first, each with its own transcript
-      (and its own entry in the `@` list and the sibling index,
-      `teacher/history.ts`). Settle how they're named and ordered in the rail
-      before building. *(From the `todos.md` inbox, 2026-10-18.)*
-
 - [ ] **Lesson images should show the concept itself, first** — the tutor's
       image search (v8.24.0) does a decent job, but what it finds tends to
       illustrate *auxiliary* ideas the lesson touches on, placed after their

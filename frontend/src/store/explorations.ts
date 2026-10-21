@@ -129,9 +129,52 @@ export function newExploration(id = nanoid()): ExplorationRecord {
     activeThreadId: threadId,
     revision: 0,
     threads: [
-      { id: threadId, title: 'General', identity: null, data: { chat: [], layout: 'timeline' } },
+      // Named from its first question, like every chat since v8.31.0. An
+      // exploration saved before keeps its `General`.
+      {
+        id: threadId,
+        title: NEW_CHAT_TITLE,
+        identity: null,
+        data: { chat: [], layout: 'timeline' },
+      },
     ],
   }
+}
+
+/** What a new General chat is called until its first question names it
+ *  (v8.31.0; `shell/useExplorations` titles it). */
+export const NEW_CHAT_TITLE = 'New chat'
+
+/**
+ * Whether a General chat still wears the placeholder title, numbered or not,
+ * so its first question should name it.
+ *
+ * @param thread The thread.
+ * @returns True for a General chat titled `New chat` or `New chat (n)`.
+ */
+export function awaitsTitle(thread: Pick<ThreadRecord, 'title' | 'identity'>): boolean {
+  return !thread.identity && /^New chat( \(\d+\))?$/.test(thread.title)
+}
+
+/**
+ * A title no other thread in the exploration wears (v8.31.0). Chats are named
+ * by title wherever they are referenced — the `@` list, a sent
+ * `@thread[Title]`, the sibling index — so two General chats called alike
+ * would be one chat to all of them. A clash gets the next free ` (n)`.
+ *
+ * @param threads The exploration's threads.
+ * @param title The title wanted.
+ * @param exceptId The thread being named, whose own title doesn't clash.
+ * @returns The title, or it numbered.
+ */
+export function uniqueTitle(threads: ThreadRecord[], title: string, exceptId?: string): string {
+  const taken = new Set(
+    threads.filter((thread) => thread.id !== exceptId).map((thread) => thread.title),
+  )
+  if (!taken.has(title)) return title
+  let count = 2
+  while (taken.has(`${title} (${count})`)) count++
+  return `${title} (${count})`
 }
 
 /** The surface a thread shows, or null for General (which has no cards).
@@ -159,17 +202,43 @@ const slice = createSlice({
   name: 'explorations',
   initialState,
   reducers: {
-    /** Remove a graph thread; General is permanent.
+    /** Remove a thread. A General chat goes only while another remains
+     * (v8.31.0): an exploration always keeps one.
      * @param state Exploration state.
      * @param action Thread id to remove.
      */
     threadRemoved(state, action: PayloadAction<string>) {
       for (const record of Object.values(state.byId)) {
         const thread = record.threads.find((item) => item.id === action.payload)
-        if (!thread?.identity) continue
+        if (!thread) continue
+        if (!thread.identity && record.threads.filter((item) => !item.identity).length < 2) continue
         record.threads = record.threads.filter((item) => item.id !== thread.id)
         record.revision++
       }
+    },
+    /** Start another General chat in the active exploration (v8.31.0), after
+     * the General chats already there, so they stay together at the top of
+     * the rail. Titled `New chat` until its first question names it.
+     * @param state Exploration state.
+     * @param action The new thread's id (made by `prepare`).
+     */
+    generalChatAdded: {
+      reducer(state, action: PayloadAction<string>) {
+        const record = state.byId[state.activeId]
+        if (!record) return
+        let after = -1
+        record.threads.forEach((thread, index) => {
+          if (!thread.identity) after = index
+        })
+        record.threads.splice(after + 1, 0, {
+          id: action.payload,
+          title: uniqueTitle(record.threads, NEW_CHAT_TITLE),
+          identity: null,
+          data: { chat: [], layout: 'timeline' },
+        })
+        record.revision++
+      },
+      prepare: () => ({ payload: nanoid() }),
     },
     /** Mark an intentional view edit for autosave.
      * @param state Exploration state.
@@ -196,15 +265,17 @@ const slice = createSlice({
     explorationRemoved(state, action: PayloadAction<string>) {
       delete state.byId[action.payload]
     },
-    /** Persist a reader's graph-thread title.
+    /** Persist a thread's title: a reader's rename, or (v8.31.0) a new
+     * General chat named from its first question, which may land after the
+     * reader has moved to another exploration. Kept unique (`uniqueTitle`).
      * @param state Exploration state.
      * @param action Thread and title.
      */
     threadRenamed(state, action: PayloadAction<{ id: string; title: string }>) {
-      const record = state.byId[state.activeId]
-      const thread = record.threads.find((item) => item.id === action.payload.id)
-      if (thread?.identity) {
-        thread.title = action.payload.title
+      for (const record of Object.values(state.byId)) {
+        const thread = record.threads.find((item) => item.id === action.payload.id)
+        if (!thread) continue
+        thread.title = uniqueTitle(record.threads, action.payload.title, thread.id)
         record.revision++
       }
     },
@@ -534,6 +605,7 @@ const slice = createSlice({
 })
 export const {
   threadRemoved,
+  generalChatAdded,
   threadEdited,
   explorationRenamed,
   explorationRemoved,

@@ -11,8 +11,14 @@ continuity that release protected now belongs to the parent exploration.
 ## Ownership and navigation
 
 `explorations.ts` owns the parent records, thread order and names, summaries,
-and parked workspace states. General is created with each exploration and keeps
-its name. A graph thread's identity is provider + resolved seed id, so returning
+and parked workspace states. A chat (a thread with no paper, `identity:
+null`; "General" before v8.31.0) is created with each exploration, titled
+`New chat` until its first exchange names it; more can join it since
+v8.31.0 (`generalChatAdded`, inserted after the last chat; `newGeneralChat`
+reuses an empty one instead), and the last one left can't be deleted. Titles stay
+unique in an exploration (`uniqueTitle`, a clash gets ` (n)`), because a
+chat is referenced by title: the `@` list, a sent `@thread[Title]`, the
+sibling index. A graph thread's identity is provider + resolved seed id, so returning
 to the same paper reuses its thread, while identical ids from different providers
 cannot collide. The seed title supplies the initial thread name; users can rename it.
 

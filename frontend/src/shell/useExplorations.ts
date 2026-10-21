@@ -7,10 +7,12 @@ import { useCallback, useEffect, useRef } from 'react'
 import { getSession, saveSession, titleForConversation } from '../api'
 import { useAppDispatch, useAppSelector, useAppStore } from '../store'
 import {
+  awaitsTitle,
   explorationOpened,
   explorationRemoved,
   explorationRenamed,
   newExploration,
+  threadRenamed,
   threadSummarized,
   threadTool,
 } from '../store/explorations'
@@ -18,7 +20,8 @@ import { explorationBody, migrateExploration } from '../store/threadPersistence'
 import { loadGraph, errorSet, discoveryMerged } from '../store/workspace'
 import { conversationHistory } from '../teacher/history'
 import { conversationDropped, pendingDiscoveriesDrained } from '../store/transcript'
-import { chatKey, chatSummary, type ChatTool } from '../store/chats'
+import { chatKey, chatSummary, chatTurns, type ChatTool } from '../store/chats'
+import { splitAttached } from '../mentions/attachments'
 import { ExplorationWrites } from './saveQueue'
 import { useSessions } from './useSessions'
 
@@ -126,6 +129,40 @@ export function useExplorations() {
     workspace.selectedNodeIds,
     flush,
   ])
+  // Name each new chat from its first question (v8.31.0), once its first
+  // answer (or search) has landed: the same titler an exploration's first save
+  // uses, falling back to the question itself. One try per chat, and only
+  // while it still wears `New chat`, so a reader's own rename always wins.
+  const titling = useRef(new Set<string>())
+  useEffect(() => {
+    for (const record of Object.values(records.byId)) {
+      for (const thread of record.threads) {
+        if (!awaitsTitle(thread) || titling.current.has(thread.id)) continue
+        const turns = chatTurns(transcript, thread, 'graph')
+        // Answered and settled: a search writes its list while it runs, and a
+        // title read off half a list would name the wrong thing.
+        if (!turns.some((turn) => turn.role === 'assistant' && turn.text)) continue
+        if (transcript.byKey[thread.id]?.running.length) continue
+        titling.current.add(thread.id)
+        const question = turns.find((turn) => turn.role === 'user')
+        // The question as typed, without the `@` attachments line.
+        const fallback = question
+          ? splitAttached(question.text).body.split('\n')[0].slice(0, 60)
+          : ''
+        void titleForConversation(turns.slice(0, 4).map((turn) => turn.text))
+          .catch(() => null)
+          .then((title) => {
+            const now = Object.values(store.getState().explorations.byId)
+              .flatMap((item) => item.threads)
+              .find((item) => item.id === thread.id)
+            const name = title || fallback
+            if (name && now && awaitsTitle(now))
+              dispatch(threadRenamed({ id: thread.id, title: name }))
+          })
+      }
+    }
+  }, [records, transcript, dispatch, store])
+
   useEffect(() => {
     const hide = () => flush(true)
     const visibility = () => {

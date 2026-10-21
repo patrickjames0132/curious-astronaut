@@ -21,7 +21,11 @@ than this one.
 ## Sending and streaming
 
 `Teacher.tsx` owns input, menus, scope controls, scroll behavior and transcript
-rendering. `useConversation.ts` asks the router whether the message wants the
+rendering. `composerDraft.ts` (v8.31.0) hands its input a draft from outside:
+the rail's Papers ＋ opens a chat with `@` typed. The composer remounts with
+every thread, so the draft waits until a General chat's composer mounts (or
+hears the event, if one is already up) and takes it once; a docked one leaves
+it. `useConversation.ts` asks the router whether the message wants the
 researcher or lecturer; graphless conversations bypass that choice. The routing
 label lets readers correct a model-selected destination **in either
 direction**: `lectureInChat` and `ask` both take a `routed` flag and stamp

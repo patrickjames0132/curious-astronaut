@@ -80,6 +80,7 @@ import {
 import { mentionText, readMessage } from '../mentions/parse'
 import type { MentionChoice } from '../mentions/parse'
 import { useMentionSuggestions } from '../mentions/useMentionSuggestions'
+import { DRAFT_EVENT, takeDraft } from './composerDraft'
 import Lightbox from '../figures/Lightbox'
 import ChatMessage from './transcript/ChatMessage'
 import { useConversation } from './useConversation'
@@ -491,6 +492,29 @@ export default function Teacher({
     }
   }
 
+  // A draft handed over from the rail (v8.31.0): the Papers ＋ opens a chat
+  // with `@` typed, ready to search (`composerDraft`). Taken on mount — the
+  // composer remounts with each thread — or when one arrives while already
+  // here, and only on the General chat, the one whose `@` searches.
+  const onMentionInput = mentions.onInput
+  useEffect(() => {
+    if (!landing) return
+    const take = () => {
+      const draft = takeDraft()
+      const field = inputRef.current
+      if (draft === null || !field) return
+      setInput(draft)
+      requestAnimationFrame(() => {
+        field.focus()
+        field.setSelectionRange(draft.length, draft.length)
+        onMentionInput(draft, draft.length)
+      })
+    }
+    take()
+    window.addEventListener(DRAFT_EVENT, take)
+    return () => window.removeEventListener(DRAFT_EVENT, take)
+  }, [landing, onMentionInput])
+
   // Grow the textarea to fit its content (up to the CSS max-height, past which
   // it scrolls): reset to auto so it can shrink back, then match scrollHeight.
   // Runs on every input change, including the reset to '' after a submit.
@@ -900,12 +924,14 @@ export default function Teacher({
               : []),
             subject?.identity
               ? `Asking about ${subject.title} · ${scopeCount} papers`
-              : 'General · Search and discuss across your exploration',
+              : // A chat names itself (v8.31.0: Chats in the rail, each
+                // titled from its first question), not a fixed "General".
+                `${subject?.title ?? 'Chat'} · Search and discuss across your exploration`,
           ]}
           tip={
             landing
               ? 'Type @ and press Enter to search for papers, or arrow down to attach a paper or another chat from this exploration (such as a paper’s Knowledge Graph conversation) to your question. A paper’s Open button (or Shift+Enter) opens it in a thread of its own.'
-              : 'Type @ to name a paper on this graph (the answer starts from it) or to bring another chat from this exploration into your question, such as this paper’s Knowledge Graph conversation. To find or open papers not on the graph, use the General chat.'
+              : 'Type @ to name a paper on this graph (the answer starts from it) or to bring another chat from this exploration into your question, such as this paper’s Knowledge Graph conversation. To find or open papers not on the graph, use a chat (Chats in the rail).'
           }
         />
         <AttachedChips

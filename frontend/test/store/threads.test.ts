@@ -7,6 +7,8 @@ import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it, vi } from 'vitest'
 import workspace, {
   activateThread,
+  deleteThread,
+  newGeneralChat,
   loadGraph,
   nodeSelectionSet,
   openPaper,
@@ -22,8 +24,10 @@ import transcript, {
   turnStarted,
 } from '../../src/store/transcript'
 import explorations, {
+  awaitsTitle,
   explorationOpened,
   newExploration,
+  threadRenamed,
   threadTool,
 } from '../../src/store/explorations'
 import { migrateExploration, explorationBody } from '../../src/store/threadPersistence'
@@ -416,5 +420,63 @@ describe('legacy migration', () => {
     const conversations = fresh.getState().transcript.byKey
     expect(conversations[threadId].chat[0].text).toBe('graph question')
     expect(conversations[`${threadId}:knowledge`].chat[1].text).toBe('course answer')
+  })
+})
+
+describe('more than one General chat (v8.31.0)', () => {
+  /** The active exploration's threads.
+   * @param store The store.
+   * @returns Its threads, in rail order.
+   */
+  const threads = (store: ReturnType<typeof makeStore>) => {
+    const state = store.getState()
+    return state.explorations.byId[state.explorations.activeId].threads
+  }
+
+  it('starts one after the chats, opens it, keeps the old one, and reuses an empty one', async () => {
+    const store = makeStore()
+    store.dispatch(explorationOpened(newExploration('explore')))
+    const first = activeThread(store).id
+    store.dispatch(turnStarted('search results to keep'))
+    await store.dispatch(loadGraph({ seed: 'DQN' }))
+    await store.dispatch(activateThread(first))
+    await store.dispatch(newGeneralChat())
+    const second = activeThread(store).id
+    // An empty chat is reused rather than joined by another.
+    await store.dispatch(newGeneralChat())
+    expect(activeThread(store).id).toBe(second)
+    // Chats stay together above the paper, titled apart.
+    expect(threads(store).map((thread) => thread.title)).toEqual([
+      'New chat',
+      'New chat (2)',
+      'DQN',
+    ])
+    expect(awaitsTitle(activeThread(store))).toBe(true)
+    expect(store.getState().transcript.byKey[first].chat[0].text).toBe('search results to keep')
+  })
+
+  it('deletes a General chat into another, but never the last one', async () => {
+    const store = makeStore()
+    store.dispatch(explorationOpened(newExploration('explore')))
+    const general = activeThread(store).id
+    await store.dispatch(deleteThread(general))
+    expect(threads(store)).toHaveLength(1)
+    await store.dispatch(newGeneralChat())
+    const second = activeThread(store).id
+    await store.dispatch(deleteThread(second))
+    expect(threads(store).map((thread) => thread.id)).toEqual([general])
+    expect(activeThread(store).id).toBe(general)
+  })
+
+  it('keeps titles unique, since chats are named by title', async () => {
+    const store = makeStore()
+    store.dispatch(explorationOpened(newExploration('explore')))
+    const first = activeThread(store).id
+    store.dispatch(turnStarted('a question'))
+    store.dispatch(threadRenamed({ id: first, title: 'Replay' }))
+    await store.dispatch(newGeneralChat())
+    store.dispatch(threadRenamed({ id: activeThread(store).id, title: 'Replay' }))
+    expect(activeThread(store).title).toBe('Replay (2)')
+    expect(awaitsTitle(activeThread(store))).toBe(false)
   })
 })
