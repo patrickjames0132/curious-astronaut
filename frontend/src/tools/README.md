@@ -28,6 +28,14 @@ keeps its internal names (the `'graph'` tool id, `GraphExplorer`,
   disabled under a "Coming soon" badge; the `soon` flag on `ToolCard` is still
   there for the next tool.
 
+The cards use their icon's accent (glass blue for citations, gold for knowledge)
+for a brighter border, tinted surface and soft glow on hover or keyboard focus.
+They lift 4px and grow 2.5%, with a smaller pressed state; the grid leaves room
+for that movement. Individual `translate` and `scale` properties compose with
+the entrance animation instead of being overridden by its filled `transform`.
+Reduced motion keeps the highlight and glow but disables movement and transitions.
+Keyboard focus retains an explicit outline; disabled cards never lift or glow.
+
 Opening a card dispatches `openTool` (`store/workspace.ts`). **Clicking a
 thread in the rail always lands here** (`openThread`, since v8.16.0), even
 the thread already on screen; until then a revisit reopened the tool last

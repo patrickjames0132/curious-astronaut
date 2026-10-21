@@ -4476,6 +4476,17 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Graph-choice cards glow and lift** *(v8.30.2)* — inspired by Patrick’s
+      card-gallery reference, the Citation Graph and Knowledge Graph cards
+      brighten their borders and surfaces, glow in their blue/gold accents,
+      lift 4px and grow 2.5% on hover or keyboard focus. Larger outlined icon
+      tiles and wider card spacing support the treatment; pressing a card
+      settles it slightly. Individual CSS translate/scale properties keep the
+      entrance animation’s filled transform from overriding the hover lift.
+      Keyboard focus retains a clear outline; reduced motion keeps the glow
+      without movement, and disabled cards stay still. Approved in the browser,
+      2026-10-20.
+
 - [x] **Theme fades, light-mode helmet outlines, and click-away info tips**
       *(v8.30.1)* — the light/dark toggle crossfades the complete page with
       View Transitions (a fade-in fallback where unavailable), and the
