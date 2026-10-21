@@ -4453,6 +4453,19 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Theme fades, light-mode helmet outlines, and click-away info tips**
+      *(v8.29.1)* — the light/dark toggle crossfades the complete page with
+      View Transitions (a fade-in fallback where unavailable), and the
+      sun/moon action glyph fades and turns. Reduced motion skips both;
+      startup and configured defaults apply immediately. The rail helmet
+      keeps its blue shell outline only in the app’s light theme; the tab
+      favicon does the same using the browser’s reported color scheme,
+      independently of the app. Chrome may retain its cached variant until
+      a refresh; reviewed and accepted as-is. Pinned ⓘ tips now close on an
+      outside pointer press, including on a non-focusable graph canvas,
+      while clicks inside keep them open and Escape still dismisses them.
+      Approved in the browser by Patrick, 2026-10-20.
+
 - [x] **Library filters and Paper filters, and no tool row beside a
       graph** *(v8.28.0)* — from the `todos.md` inbox (2026-10-18: "move the
       search-filters icon out of the chat bar"), then reshaped over three

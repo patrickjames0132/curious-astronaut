@@ -20,6 +20,7 @@
  */
 
 import { useSyncExternalStore } from 'react'
+import { flushSync } from 'react-dom'
 
 /** The two themes. Dark is the default and the app's native look. */
 export type Theme = 'dark' | 'light'
@@ -85,14 +86,30 @@ paint(current)
  */
 export function setTheme(theme: Theme): void {
   if (theme === current) return
-  current = theme
-  paint(theme)
+  /** Commit DOM and canvas subscribers together before the new snapshot. */
+  function apply() {
+    current = theme
+    paint(theme)
+    for (const listener of listeners) listener()
+  }
+  const animate =
+    typeof document !== 'undefined' &&
+    !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  if (animate && document.startViewTransition) {
+    document.startViewTransition(() => flushSync(apply))
+  } else {
+    apply()
+    if (animate)
+      document.documentElement.animate?.([{ opacity: 0.6 }, { opacity: 1 }], {
+        duration: 280,
+        easing: 'ease-out',
+      })
+  }
   try {
     localStorage.setItem(STORAGE_KEY, theme)
   } catch {
     // Persistence is a nicety; the toggle still works for this session.
   }
-  for (const listener of listeners) listener()
 }
 
 /**
