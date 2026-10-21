@@ -25,7 +25,13 @@ rendering. `composerDraft.ts` (v8.31.0) hands its input a draft from outside:
 the rail's Papers ＋ opens a chat with `@` typed. The composer remounts with
 every thread, so the draft waits until a General chat's composer mounts (or
 hears the event, if one is already up) and takes it once; a docked one leaves
-it. `useConversation.ts` asks the router whether the message wants the
+it. The draft is addressed to the new chat (v8.32.1): the ＋ hands it over
+before the switch, so the General chat being left hears it first, and before
+the address it took the `@` and was remounted away with it, which left the
+first new chat empty. A chat that opens with its draft waiting skips the
+bar's entrance (`drafted`, v8.32.1): the `@` list opens inside the bar's block,
+and the block's fade left the list see-through over the landing picture.
+`useConversation.ts` asks the router whether the message wants the
 researcher or lecturer; graphless conversations bypass that choice. The routing
 label lets readers correct a model-selected destination **in either
 direction**: `lectureInChat` and `ask` both take a `routed` flag and stamp

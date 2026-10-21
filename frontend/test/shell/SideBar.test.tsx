@@ -139,7 +139,9 @@ it('the Papers ＋ opens a chat with @ typed, which stays a chat', async () => {
   const record = state.explorations.byId[state.explorations.activeId]
   const active = record.threads.find((thread) => thread.id === record.activeThreadId)!
   expect(active.identity).toBeNull()
-  expect(takeDraft()).toBe('@')
+  // Addressed to the chat it opened, so the composer being left can't take it.
+  expect(takeDraft('another-chat')).toBeNull()
+  expect(takeDraft(active.id)).toBe('@')
 })
 
 /** The first chat's id.

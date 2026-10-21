@@ -132,8 +132,9 @@ question or losing the paper.
   *open* or *context* depending on whether anything was typed after it. So
   where the composer passes `onOpen` (the General chat), each paper row ends
   in an **Open** button, a sibling of the row in `.mention-paper` rather
-  than nested in it (a button can't hold a button), quiet until its row is
-  hovered or selected. On the keyboard it is **Shift+Enter** on the paper's
+  than nested in it (a button can't hold a button), quiet until the pointer
+  is on it (v8.32.1: lit with its whole row, a hovered row read as an
+  invitation to press Open rather than to pick the paper). On the keyboard it is **Shift+Enter** on the paper's
   row. The docked bars pass no `onOpen`: there `@` points at papers on the
   graph rather than opening them. The
   footer is pinned: the panel is capped at 320px but only the row list

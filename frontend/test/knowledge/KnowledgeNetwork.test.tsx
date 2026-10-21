@@ -627,6 +627,50 @@ it('shows the tutor working as one line that unfolds into every step so far', as
   await screen.findByText('Done.')
 })
 
+it('unfolds from the first step, before a second arrives (v8.32.1)', async () => {
+  vi.spyOn(api, 'expandKnowledge').mockResolvedValueOnce(ROOT_CHILDREN)
+  let finish: () => void = () => undefined
+  vi.spyOn(api, 'streamLesson').mockImplementation(
+    (_body, handlers) =>
+      new Promise<void>((resolve) => {
+        // The opening image search: one step, held for the whole search.
+        handlers.onStep?.('Searching your library, papers and the web for a Q table…')
+        finish = () => {
+          handlers.onToken('Done.')
+          handlers.onDone()
+          resolve()
+        }
+      }),
+  )
+  mount()
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('node: Q-learning'))
+  const line = await screen.findByRole('button', { name: /Searching your library/ })
+  expect((line as HTMLButtonElement).disabled).toBe(false)
+  fireEvent.click(line)
+  const steps = screen.getByRole('list', { name: 'Steps so far' })
+  expect(steps.textContent).toContain('Searching your library, papers and the web for a Q table…')
+  act(() => finish())
+  await screen.findByText('Done.')
+})
+
+it('folds a long author list behind the shared disclosure (v8.32.1)', async () => {
+  vi.spyOn(api, 'streamLesson').mockImplementation(async (_body, handlers) => {
+    handlers.onToken('A lesson.')
+    handlers.onDone()
+  })
+  const authors = Array.from({ length: 40 }, (_, index) => `Author ${index}`).join(', ')
+  const map = createMap({ ...THREAD.paper!, authors })
+  map.nodes[map.rootId].expanded = true
+  mount(map)
+  fireEvent.click(await screen.findByText('node: Playing Atari'))
+  const toggle = await screen.findByRole('button', { name: /Show all authors/ })
+  expect(screen.queryByText(/Author 39/)).toBeNull()
+  fireEvent.click(toggle)
+  expect(screen.getByText(/Author 39/)).toBeTruthy()
+  expect(screen.getByText(/· 2013/)).toBeTruthy()
+})
+
 it('asks before breaking a concept down again, as on the paper (v8.26.0)', async () => {
   const expand = vi
     .spyOn(api, 'expandKnowledge')

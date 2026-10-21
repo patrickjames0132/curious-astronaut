@@ -181,6 +181,14 @@
     rise 0.7s var(--ease-rise) 0.12s both,
     fade 0.7s var(--ease-fade) 0.12s both;
 }
+/* Except a chat opened with its `@` typed (the rail's Papers ＋, v8.32.1):
+   the `@` list opens inside this block, and fading the block fades the list
+   with it, so the picture showed through the list for most of the rise. The
+   bar is there at once, the list pops in on its own, and the picture and
+   greeting still rise in behind it. */
+.teacher.landing.empty.drafted .ask-dock {
+  animation: none;
+}
 /* Each turn arrives the same way. Deliberately a plain CSS animation and not
    state-driven: it fires when the element is *created*, which is exactly the
    trigger we want — once per turn. A streaming answer re-renders on every

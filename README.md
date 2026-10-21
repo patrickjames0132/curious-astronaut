@@ -37,9 +37,10 @@ Graph or Knowledge Graph conversation, e.g. `@thread[PPO › Knowledge Graph]`) 
 bring it into the agent's context. Lectures remain part of their thread's history, including follow-up
 questions after a reload. Existing saved sessions migrate lazily when opened.
 
-Long author lists on the paper’s card home and detail panel collapse to an
-ellipsis, with **Show all authors ▾** and **Show fewer ▴** controls. The year
-stays visible, and expanding preserves the complete author list.
+Long author lists on the paper’s card home, detail panel and Knowledge Graph
+panel collapse to an ellipsis, with **Show all authors ▾** and **Show fewer ▴**
+controls. The year stays visible, and expanding preserves the complete author
+list.
 
 The graph-choice cards glow in their blue or gold accent, lift slightly, and
 grow on hover or keyboard focus. Reduced-motion settings keep the highlight

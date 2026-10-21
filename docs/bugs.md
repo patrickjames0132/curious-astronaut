@@ -22,6 +22,26 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The Papers ＋ draft was taken by the chat being left (v8.32.1)
+
+- **Symptom.** The rail's Papers ＋ should open a new chat with `@` typed and
+  the paper search open. From a General chat, the first click opened an empty
+  chat; a second click worked.
+- **Root cause.** `newGeneralChat` calls `requestDraft('@')` *before*
+  `activateThread`, so the composer still on screen hears the draft event
+  first. When that composer was a General chat's, it took the draft, and the
+  thread switch then remounted the composer (`Teacher` is keyed by epoch),
+  discarding it. A second click found the new chat empty and reused it, so
+  nothing remounted and the composer on screen kept the `@`.
+- **Fix.** A draft carries the chat it is for (`requestDraft(text,
+  chatKey)`), and `takeDraft(chatKey)` hands it only to that chat's composer,
+  which reads its key from `transcript.activeKey` and retries when it changes.
+- **Lesson / guard.** A one-shot handoff across a remount has two listeners,
+  the leaving one and the arriving one, so it needs an address.
+  `Teacher.test.tsx`'s "the General chat being left leaves a draft for the new
+  chat" and `SideBar.test.tsx`'s Papers ＋ test both fail on an unaddressed
+  draft.
+
 ### Every Wikipedia image was dropped as page furniture (v8.24.0, pre-release)
 
 - **Symptom.** Lesson images almost never came from the web, though the web

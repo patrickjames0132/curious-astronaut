@@ -35,6 +35,7 @@ import QuickResponse from '../ui/QuickResponse'
 import AnswerMarkdown from '../teacher/transcript/AnswerMarkdown'
 import { usePresence } from '../ui/usePresence'
 import { useResizablePanel } from '../ui/useResizablePanel'
+import AuthorList from '../ui/AuthorList'
 import { nodeLook } from './look'
 import {
   lessonText,
@@ -306,6 +307,10 @@ function MenuIcon({ name }: { name: keyof typeof MENU_ICONS }) {
  * click unfolds every step so far, the tutor's train of thought, as plain
  * lines (the researcher's trace, without its chips).
  *
+ * It opens from the first step, the one on the line included (v8.32.1).
+ * Listing only the steps before it left the toggle disabled until a second
+ * arrived, and the first, the opening image search, is the longest wait.
+ *
  * @param props Component props.
  * @param props.text The step now.
  * @param props.steps Every step so far, oldest first.
@@ -323,7 +328,6 @@ function StepLine({
   onQuick?: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const earlier = steps.filter((step, index) => index < steps.length - 1 || step !== text)
   return (
     <div className={`lesson-step${open ? ' open' : ''}`}>
       <div className="lesson-step-row">
@@ -334,7 +338,7 @@ function StepLine({
           onClick={() => setOpen((previous) => !previous)}
           aria-expanded={open}
           title={open ? 'Hide the steps' : 'Show every step so far'}
-          disabled={!earlier.length}
+          disabled={!steps.length}
         >
           {/* Keyed by its words, so each new step mounts and plays the rise. */}
           <span key={text} className="lesson-step-text" aria-live="polite">
@@ -342,7 +346,7 @@ function StepLine({
           </span>
           {/* After the words (v8.26.0): before them, it sat against the
               spinner as two odd marks side by side. */}
-          {earlier.length > 0 && (
+          {steps.length > 0 && (
             <span className={`trace-caret${open ? ' open' : ''}`} aria-hidden="true">
               ▸
             </span>
@@ -355,9 +359,9 @@ function StepLine({
           />
         )}
       </div>
-      {open && earlier.length > 0 && (
+      {open && steps.length > 0 && (
         <ol className="lesson-steps" aria-label="Steps so far">
-          {earlier.map((step, index) => (
+          {steps.map((step, index) => (
             <li key={index}>{step}</li>
           ))}
         </ol>
@@ -519,7 +523,6 @@ export default function KnowledgePanel({
   const { lead, rest } = splitLead(node.images ?? draft?.images)
   const { parts, leftover } = splitAnswer(body, rest)
   const kindWord = isSynthesis ? 'synthesis' : isRoot ? 'paper' : 'concept'
-  const meta = node.paper ? [node.paper.authors, node.paper.year].filter(Boolean).join(' · ') : ''
   // The ⋮ menu's entries (v8.26.0), in three groups (Patrick): the lesson
   // (rewrite it); what shows (hide this node, unhide its hidden children;
   // a synthesis is never archived, so it can't hide); and what can't be
@@ -780,7 +783,16 @@ export default function KnowledgePanel({
           {isSynthesis ? 'Synthesis' : isRoot ? 'Paper' : 'Concept'}
         </p>
         <h2 className="lesson-title">{node.title}</h2>
-        {meta && <p className="lesson-meta">{meta}</p>}
+        {/* A long author list folds behind the shared disclosure (v8.32.1),
+            as on the Paper Graph's detail panel: a large collaboration's
+            list ran a full screen above the lesson. */}
+        {node.paper && (node.paper.authors || node.paper.year) && (
+          <p className="lesson-meta">
+            {node.paper.authors && <AuthorList key={node.id} authors={node.paper.authors} />}
+            {node.paper.authors && node.paper.year ? ' · ' : ''}
+            {node.paper.year}
+          </p>
+        )}
 
         {/* Its immediate links, in a card that folds away (v8.23.0). */}
         {groups.length > 0 && (
