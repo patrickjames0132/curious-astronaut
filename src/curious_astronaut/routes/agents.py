@@ -113,6 +113,22 @@ def _opt_source_ids(payload: dict) -> list[str] | None:
     return [source_id for source_id in raw if isinstance(source_id, str) and source_id]
 
 
+def _opt_quick(payload: dict) -> bool:
+    """Whether a request asks for a quick response (v8.30.0).
+
+    Every chat bar's ⚡ Quick response re-asks a question with ``quick: true``:
+    the researcher answers with no tools (see ``researcher.answer``). Only a
+    literal ``true`` counts, so a stray truthy value can't strip the tools.
+
+    Args:
+        payload: The parsed JSON body.
+
+    Returns:
+        True only for ``"quick": true``.
+    """
+    return payload.get("quick") is True
+
+
 def _node(raw: dict) -> Node:
     """Build a typed ``Node`` from a frontend node payload.
 
@@ -424,9 +440,11 @@ def api_ask() -> ResponseReturnValue:
 
     Body:
         ``{question, seed, nodes, provider?, source_ids?,
-        history?}`` — ``provider`` (``s2``/``openalex``) matches the graph's
-        backend so the researcher's expand/hydrate use it (it has no paper
-        search here since v8.28.0, so the bar's filters aren't read);
+        history?, quick?}`` — ``provider`` (``s2``/``openalex``) matches the
+        graph's backend so the researcher's expand/hydrate use it (it has no
+        paper search here since v8.28.0, so the bar's filters aren't read);
+        ``quick: true`` answers with no tools, now (a quick response,
+        v8.30.0; the same on every ``ask`` route);
         ``source_ids`` scopes the library search to a subset of uploaded
         sources. ``history`` is the client's own copy of the conversation,
         validated and bounded by ``_resumed_history`` on every request.
@@ -475,6 +493,7 @@ def api_ask() -> ResponseReturnValue:
                     # paper filters, which only ever bound that search, aren't
                     # read here either.
                     paper_search=False,
+                    quick=_opt_quick(payload),
                 )
             ),
         )
@@ -492,7 +511,8 @@ def api_ask_sources() -> ResponseReturnValue:
     graph-thread questions.
 
     Body:
-        ``{question, history?, thread_context?, provider?, source_ids?}`` — ``provider``
+        ``{question, history?, thread_context?, provider?, source_ids?,
+        quick?}`` — ``provider``
         (``s2``/``openalex``) is the backend the agent's paper search runs
         against, sent by the header's Data source dropdown exactly as
         ``/api/ask`` does; ``source_ids`` scopes retrieval to a subset of
@@ -527,6 +547,7 @@ def api_ask_sources() -> ResponseReturnValue:
                     sibling_context=_sibling_context(payload),
                     source_ids=source_ids,
                     provider=provider,
+                    quick=_opt_quick(payload),
                     **_opt_filters(payload, provider),
                 )
             ),
@@ -575,6 +596,7 @@ def api_ask_course() -> ResponseReturnValue:
                     # Like the Citation Graph assistant's (v8.28.0): the course
                     # is the map here, and finding papers is the General chat's.
                     paper_search=False,
+                    quick=_opt_quick(payload),
                 )
             ),
         )

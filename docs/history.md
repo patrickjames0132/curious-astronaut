@@ -927,6 +927,29 @@
 
 ### AI teacher & lectures
 
+- [x] **Quick response on every chat bar, not just the tutor's lessons** *(v8.30.0)* —
+      a lesson's ⚡ Quick response (v8.24.0) skips the image search and
+      answers from the tutor's own knowledge. Offer the same on the General
+      chat, the Citation Graph assistant and the Knowledge Graph Assistant:
+      answer without the researcher's tool calls (library, paper and web
+      search) when the reader just wants the model's take now. Decide whether
+      it's a toggle on the bar or a per-message action while an answer is
+      working, as the lesson's is. *(From the `todos.md` inbox, 2026-10-18.)*
+      **Shipped** as a per-message action, the lesson's shape (Patrick's
+      settings preference: automatic defaults over up-front choices): while
+      an answer is still searching, **⚡ Quick response** sits beside
+      "Working" on its trace header, in the General chat, the Citation Graph
+      assistant and the Knowledge Graph Assistant. A click stops the run,
+      drops the working exchange and re-asks the same question (same named
+      papers, scope and filters, kept in `useConversation`'s `lastAsk`) with
+      `quick: true`. On the server every `ask` route reads it
+      (`_opt_quick`, literal `true` only) and `researcher.answer(quick=True)`
+      withholds every tool through its `prepare` (`_unless_quick`), so the
+      coverage guard demands nothing and a QUICK RESPONSE note closes the
+      prompt; the graph's papers, the course and the conversation still
+      ground it, and the provenance line says nothing was searched. The link
+      went shared, `ui/QuickResponse`, so the lesson's and the chat's are one.
+
 - [x] **Let the Citation Graph assistant's `@` name papers on its own graph** *(v8.29.0)*
       — since v8.28.0 the docked `@` offers chats only, because paper lookups
       (and the quick search) were the General chat's job. But naming a paper

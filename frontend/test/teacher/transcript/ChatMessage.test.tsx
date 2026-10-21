@@ -372,6 +372,55 @@ describe('the route line', () => {
   })
 })
 
+describe('⚡ Quick response on a working answer', () => {
+  const TRACE: TraceEvent = { action: 'search', ok: true, pending: true, query: 'q' } as TraceEvent
+
+  it('rides the trace header while the agent searches, and asks on click', () => {
+    const onQuick = vi.fn()
+    const onActivate = vi.fn()
+    render(
+      <ChatMessage
+        message={turn({ trace: [TRACE] })}
+        active={false}
+        streaming
+        working
+        onActivate={onActivate}
+        onQuick={onQuick}
+        onEnlarge={() => {}}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Quick response' }))
+    expect(onQuick).toHaveBeenCalledOnce()
+    // Not also a click on the bubble, which re-lights its papers.
+    expect(onActivate).not.toHaveBeenCalled()
+  })
+
+  it('goes once the prose has begun, or the run has ended', () => {
+    const { rerender } = render(
+      <ChatMessage
+        message={turn({ trace: [TRACE], text: 'Answering…' })}
+        active={false}
+        streaming
+        working
+        onQuick={() => {}}
+        onEnlarge={() => {}}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Quick response' })).toBeNull()
+    rerender(
+      <ChatMessage
+        message={turn({ trace: [TRACE] })}
+        active={false}
+        streaming={false}
+        working={false}
+        onQuick={() => {}}
+        onEnlarge={() => {}}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Quick response' })).toBeNull()
+  })
+})
+
 describe('the paper-search chip', () => {
   /** A turn whose trace holds one paper search, rendered mid-run so it is open. */
   const searching = (trace: TraceEvent) =>

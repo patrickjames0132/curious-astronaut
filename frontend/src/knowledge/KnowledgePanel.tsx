@@ -31,6 +31,7 @@ import type { AnswerFigure } from '../api'
 import FigCard from '../figures/FigCard'
 import { splitAnswer } from '../figures/split'
 import Fold from '../ui/Fold'
+import QuickResponse from '../ui/QuickResponse'
 import AnswerMarkdown from '../teacher/transcript/AnswerMarkdown'
 import { usePresence } from '../ui/usePresence'
 import { useResizablePanel } from '../ui/useResizablePanel'
@@ -299,20 +300,6 @@ function MenuIcon({ name }: { name: keyof typeof MENU_ICONS }) {
 }
 
 /**
- * The Quick response bolt: an outline that lights up on hover (`--bolt`)
- * (knowledge.css), drawn inline so it takes the link's colour.
- *
- * @returns The icon.
- */
-function Bolt() {
-  return (
-    <svg className="lesson-quick-bolt" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M13.5 2 5 13.5h6L9.5 22 19 9.5h-6.2L13.5 2Z" />
-    </svg>
-  )
-}
-
-/**
  * What the tutor is doing (v8.24.0): one line, each new step rising in from
  * below in place of the last (Patrick: like a chat app's "thinking" line;
  * ported from the parked `feature/visuals`), cut short with an ellipsis. A
@@ -362,15 +349,10 @@ function StepLine({
           )}
         </button>
         {onQuick && (
-          <button
-            type="button"
-            className="link-btn lesson-quick"
+          <QuickResponse
             onClick={onQuick}
             title="Skip the image search: the lesson now, from the tutor's own knowledge"
-          >
-            <Bolt />
-            Quick response
-          </button>
+          />
         )}
       </div>
       {open && earlier.length > 0 && (

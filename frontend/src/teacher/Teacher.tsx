@@ -177,6 +177,7 @@ export default function Teacher({
     send,
     reroute,
     retryAnswer,
+    quickAnswer,
     stopAsk,
     clearChat,
   } = useConversation()
@@ -748,6 +749,13 @@ export default function Teacher({
         working={(asking || searching) && index === chat.length - 1}
         onActivate={clickable ? () => onChatClick(index, grounded) : undefined}
         onRetry={message.failed ? () => retryAnswer(index) : undefined}
+        // ⚡ Quick response, on the answer still searching (v8.30.0). A
+        // lecture has no tools to skip, and a direct search is not an answer.
+        onQuick={
+          asking && index === chat.length - 1 && !message.beats?.length
+            ? () => quickAnswer(index)
+            : undefined
+        }
         onRefClick={onRefClick}
         onPaperSeed={onPaperSeed}
         provider={provider}

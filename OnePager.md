@@ -303,15 +303,6 @@ than deleted so the plan doesn't get re-proposed.
       `teacher/history.ts`). Settle how they're named and ordered in the rail
       before building. *(From the `todos.md` inbox, 2026-10-18.)*
 
-- [ ] **Quick response on every chat bar, not just the tutor's lessons** —
-      a lesson's ⚡ Quick response (v8.24.0) skips the image search and
-      answers from the tutor's own knowledge. Offer the same on the General
-      chat, the Citation Graph assistant and the Knowledge Graph Assistant:
-      answer without the researcher's tool calls (library, paper and web
-      search) when the reader just wants the model's take now. Decide whether
-      it's a toggle on the bar or a per-message action while an answer is
-      working, as the lesson's is. *(From the `todos.md` inbox, 2026-10-18.)*
-
 - [ ] **Lesson images should show the concept itself, first** — the tutor's
       image search (v8.24.0) does a decent job, but what it finds tends to
       illustrate *auxiliary* ideas the lesson touches on, placed after their

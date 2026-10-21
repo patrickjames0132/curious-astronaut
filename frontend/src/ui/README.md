@@ -23,6 +23,10 @@ ui/
                          Esc closes it. The 3D course's navigation help, and
                          since v8.25.0 the assistants' cut-short notes
                          (`teacher/ComposerNotes`)
+  QuickResponse.tsx    — ⚡ Quick response, the quiet bolt link that stops
+                         slow work and asks for an answer now: the lesson's
+                         step line (v8.24.0) and, since v8.30.0, every chat's
+                         working answer (`quickResponse.css`)
   Switch.tsx           — the on/off switch (a hidden real checkbox under a
                          painted track and knob), from the settings modal
                          (the knowledge panel's "I know this" used it too,

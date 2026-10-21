@@ -496,8 +496,9 @@ export const GRAPH_TOUR: TourStep[] = [
       'in full, hops the graph along its citations, searches your uploaded library and the ' +
       'web, then answers with numbered citations (click one to highlight its paper on the ' +
       'graph). Papers its hops find join the map with a faint halo. It doesn’t search for ' +
-      'new papers past the graph: that’s the General chat’s job. ' +
-      'Press Enter to send; ⇧ Shift+Enter starts a new line for longer questions.',
+      'new papers past the graph: that’s the General chat’s job. While it’s still ' +
+      'searching, “Quick response” beside “Working” stops the search and answers now, ' +
+      'from what’s on screen and the model’s own knowledge. Press Enter to send; ⇧ Shift+Enter starts a new line for longer questions.',
   },
   {
     target: '[data-tour="ask"]',

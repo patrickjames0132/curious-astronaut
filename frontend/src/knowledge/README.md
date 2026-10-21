@@ -549,7 +549,8 @@ branch, the way the assistant shows figures in its answers.
   instant rather than smooth so it keeps up with the stream).
 - **Quick response**, a link at the line's end behind an outline bolt
   that lights up on hover (`--bolt`: the title's blue in dark mode, the
-  gold accent in light): `quick` stops the run
+  gold accent in light; `ui/QuickResponse` since v8.30.0, shared with
+  every chat's working answer): `quick` stops the run
   (an `AbortController` kept per lesson at module level, beside
   `IN_FLIGHT`) and writes the lesson from the tutor's own knowledge alone,
   `quick: true`, with no image search. The stopped run's failure is

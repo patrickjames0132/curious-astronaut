@@ -994,6 +994,13 @@
 /* The trace's own header: a caret plus what it is hiding. Quiet by
    construction — it sits above the answer, and while the answer is what the
    reader came for the trace should not compete with it. */
+/* The toggle and, while the agent searches, ⚡ Quick response beside it. */
+.trace-head {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .trace-toggle {
   align-self: flex-start;
   display: inline-flex;

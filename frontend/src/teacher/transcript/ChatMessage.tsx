@@ -28,6 +28,7 @@ import BeatList from './BeatList'
 import { provenanceLine } from './provenance'
 import { describeScope } from '../../scope/resolve'
 import Fold from '../../ui/Fold'
+import QuickResponse from '../../ui/QuickResponse'
 import AttachedChips from '../../mentions/AttachedChips'
 import { splitAttached } from '../../mentions/attachments'
 
@@ -162,11 +163,25 @@ function TraceLine({ trace }: { trace: TraceEvent }) {
  * the automatic collapse stops fighting them for the rest of that turn: the
  * point of the affordance is to be in control of it.
  *
- * @param trace   The steps to show.
- * @param working This turn's agent is still running.
+ * **⚡ Quick response rides its header** (v8.30.0) while the agent is still
+ * searching: the one place a reader is already looking when the wait feels
+ * long, as on the lesson's step line.
+ *
+ * @param props Component props.
+ * @param props.trace   The steps to show.
+ * @param props.working This turn's agent is still running.
+ * @param props.onQuick Stop searching and answer now, when that's on offer.
  * @returns The collapsible trace block.
  */
-function TraceBlock({ trace, working }: { trace: TraceEvent[]; working: boolean }) {
+function TraceBlock({
+  trace,
+  working,
+  onQuick,
+}: {
+  trace: TraceEvent[]
+  working: boolean
+  onQuick?: () => void
+}) {
   const [open, setOpen] = useState(working)
   const chosenByReader = useRef(false)
   useEffect(() => {
@@ -175,23 +190,31 @@ function TraceBlock({ trace, working }: { trace: TraceEvent[]; working: boolean 
   const steps = trace.length
   return (
     <div className={`chat-trace${open ? '' : ' collapsed'}`}>
-      <button
-        type="button"
-        className="trace-toggle"
-        aria-expanded={open}
-        onClick={(event) => {
-          // The bubble itself re-lights this answer's papers; toggling the
-          // trace is not that.
-          event.stopPropagation()
-          chosenByReader.current = true
-          setOpen((prev) => !prev)
-        }}
-      >
-        <span className={`trace-caret${open ? ' open' : ''}`} aria-hidden="true">
-          ▸
-        </span>
-        {working ? 'Working' : `${steps} step${steps > 1 ? 's' : ''}`}
-      </button>
+      <div className="trace-head">
+        <button
+          type="button"
+          className="trace-toggle"
+          aria-expanded={open}
+          onClick={(event) => {
+            // The bubble itself re-lights this answer's papers; toggling the
+            // trace is not that.
+            event.stopPropagation()
+            chosenByReader.current = true
+            setOpen((prev) => !prev)
+          }}
+        >
+          <span className={`trace-caret${open ? ' open' : ''}`} aria-hidden="true">
+            ▸
+          </span>
+          {working ? 'Working' : `${steps} step${steps > 1 ? 's' : ''}`}
+        </button>
+        {working && onQuick && (
+          <QuickResponse
+            onClick={onQuick}
+            title="Stop searching: an answer now, from what's already here and the model's own knowledge"
+          />
+        )}
+      </div>
       <Fold open={open}>
         <div className="trace-steps">
           {trace.map((event, index) => (
@@ -223,6 +246,7 @@ export default function ChatMessage({
   activeBeat,
   onBeatClick,
   onReroute,
+  onQuick,
   // Defaults open: a caller that forgets to manage this shows the lecture
   // rather than silently hiding it, which is the right way round to fail.
   beatsOpen = true,
@@ -255,6 +279,9 @@ export default function ChatMessage({
   /** Send this turn's question to the other assistant — only wired when a
    *  model chose this one, so a reader's own choice carries no offer. */
   onReroute?: () => void
+  /** ⚡ Quick response: stop this working answer's search and answer now
+   *  (v8.30.0). Offered only while it is still searching, before prose. */
+  onQuick?: () => void
   /** The seed of the graph currently on screen, so a turn from another one can
    *  say which. Undefined graph-free, where nothing is on screen to differ. */
   /** Whether this turn's beats are expanded. */
@@ -326,7 +353,11 @@ export default function ChatMessage({
         </div>
       )}
       {message.trace && message.trace.length > 0 && (
-        <TraceBlock trace={message.trace} working={!!working} />
+        <TraceBlock
+          trace={message.trace}
+          working={!!working}
+          onQuick={!body ? onQuick : undefined}
+        />
       )}
       {message.failed && !message.text && (
         <div className="chat-failed" role="status">

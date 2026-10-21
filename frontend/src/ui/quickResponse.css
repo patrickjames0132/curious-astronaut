@@ -1,0 +1,32 @@
+/* Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
+   Description: ⚡ Quick response (QuickResponse.tsx) — a quiet link at the end
+   of a working line, there only while it would help, behind an outline bolt
+   that lights up on hover (`--bolt`: the title's blue in dark, the gold
+   accent in light). The lesson's since v8.24.0; every chat's since v8.30.0. */
+
+.quick-response {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  font-size: 12px;
+}
+.quick-response:hover {
+  color: var(--text-strong);
+}
+.quick-bolt {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  transition:
+    fill 0.15s ease,
+    stroke 0.15s ease;
+}
+.quick-response:hover .quick-bolt {
+  fill: var(--bolt);
+  stroke: var(--bolt);
+}
