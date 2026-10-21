@@ -277,19 +277,23 @@ def _with_images(pictures: tutor.Pictures | None) -> list[Any]:
 
     A quick lesson and one with images are different lessons: the first
     must not be served when images are wanted, nor the second for a quick
-    response. ``images`` is in it so a new cap misses the old lessons.
+    response. ``images`` and ``min_images`` are in it so a new cap or floor
+    misses the old lessons.
 
     Args:
         pictures: The lesson's ``Pictures``, or None for a quick response.
 
     Returns:
         ``[]`` for a quick lesson (its key is the one quick lessons always
-        had, so lessons written before v8.24.0 still serve), else the knob
+        had, so lessons written before v8.24.0 still serve), else the knobs
         and the paper.
     """
     if pictures is None:
         return []
-    return ["images", factory.agent_entry("tutor").extras["images"], pictures.paper_ref]
+    # "lead" (v8.32.0): lessons cached before lead images can't be served as
+    # ones that open on their subject's picture.
+    extras = factory.agent_entry("tutor").extras
+    return ["images", "lead", extras["images"], extras["min_images"], pictures.paper_ref]
 
 
 def _relay(key: str, cached: Any, lesson: Iterator[tutor.LessonEvent]) -> Iterator[str]:

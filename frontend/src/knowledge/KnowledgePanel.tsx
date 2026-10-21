@@ -29,7 +29,7 @@
 import { useEffect, useRef, useState, type AnimationEvent, type CSSProperties } from 'react'
 import type { AnswerFigure } from '../api'
 import FigCard from '../figures/FigCard'
-import { splitAnswer } from '../figures/split'
+import { splitAnswer, splitLead } from '../figures/split'
 import Fold from '../ui/Fold'
 import QuickResponse from '../ui/QuickResponse'
 import AnswerMarkdown from '../teacher/transcript/AnswerMarkdown'
@@ -513,8 +513,11 @@ export default function KnowledgePanel({
   // Its closing "How it fits in" section shows in its own card (v8.23.0).
   const { body, fit } = splitLesson(text)
   // Its images sit at their `<<FIG n>>` markers, after the paragraphs they
-  // illustrate (v8.24.0); one whose marker went missing shows at the end.
-  const { parts, leftover } = splitAnswer(body, node.images ?? draft?.images)
+  // illustrate (v8.24.0); one whose marker went missing shows at the end. Its
+  // lead image, showing the subject itself, opens it instead (v8.32.0):
+  // above the first paragraph whatever the tutor did with its marker.
+  const { lead, rest } = splitLead(node.images ?? draft?.images)
+  const { parts, leftover } = splitAnswer(body, rest)
   const kindWord = isSynthesis ? 'synthesis' : isRoot ? 'paper' : 'concept'
   const meta = node.paper ? [node.paper.authors, node.paper.year].filter(Boolean).join(' · ') : ''
   // The ⋮ menu's entries (v8.26.0), in three groups (Patrick): the lesson
@@ -806,6 +809,11 @@ export default function KnowledgePanel({
         <div className="lesson-body" ref={bodyRef}>
           {text ? (
             <>
+              {lead && (
+                <div className="lesson-image lesson-lead">
+                  <FigCard figure={lead} onEnlarge={onEnlarge} />
+                </div>
+              )}
               {parts.map((part, index) =>
                 typeof part === 'string' ? (
                   <AnswerMarkdown key={index} text={part} />

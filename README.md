@@ -21,7 +21,7 @@ docks its own AI assistant (🎓): the **Citation Graph Assistant** and the
 have none. The
 **Knowledge Graph** is a short course on the ideas a paper rests on: the paper
 at the centre, the concepts it needs around it. Double-click any concept to
-break it down further, click one for a lesson written for this course (with real images from
+break it down further, click one for a lesson written for this course (opening on a picture of the idea itself, with real images from
 your library, papers and the web where they help, each credited, or ⚡ Quick response for the lesson
 alone; highlight a passage to **Explain** it in the assistant,
 **Expand** it into a new concept, or **Chat** about it, attached to the

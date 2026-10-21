@@ -927,6 +927,42 @@
 
 ### AI teacher & lectures
 
+- [x] **Lesson images should show the concept itself, first** *(v8.32.0)* — the tutor's
+      image search (v8.24.0) does a decent job, but what it finds tends to
+      illustrate *auxiliary* ideas the lesson touches on, placed after their
+      paragraphs. As well as those, it should look for an image that depicts
+      the lesson's own concept (the canonical diagram of an actor–critic
+      loop, say) and open the lesson with it. Likely a change to the tutor's
+      image brief in `routes/knowledge.py` / the tutor's prompt, plus a
+      "lead image" slot the panel places before the first paragraph.
+      *(From the `todos.md` inbox, 2026-10-18.)*
+      **Shipped**, and it grew a floor and two sliders:
+      - **A lead image first.** The tutor's first search is for the
+        subject itself, its best-known diagram (`find_images(lead=True)`);
+        a candidate that shows the subject is placed with
+        `show_image(lead=True)` and the panel puts it above the first
+        paragraph wherever its marker landed (`splitLead`). None fits, and
+        the lesson opens on prose: never a side idea's picture as the lead.
+        A lesson that tries to finish without the lead search is sent back
+        once to make it (`SEARCH_FIRST`), within the same search budget.
+      - **One image wasn't enough** (Patrick, at the browser test: "usually
+        I either get one or the other"). The log showed every lesson in an
+        evening placing exactly one and stopping: with one required, the
+        model treated the floor as the goal. So the floor is a knob,
+        `min_images` (default 2, never above `images`): the prompt asks for
+        "at least N and at most M", and a lesson holding fewer is sent back
+        while it has searches left or candidates unplaced. 0 hands the
+        choice back to the tutor. The log marks lead searches and
+        placements, and how many images a lesson held when sent back.
+      - **Sliders in settings** (Patrick): Images per lesson is one track
+        with two thumbs (fewest and most, 0–6), so the fewest can't stand
+        above the most (dragging the most below it pulls it down); Lesson
+        length is a single slider (100–1500 words, steps of 50). Each reads
+        its value out, and a ↺ while overridden restores the default.
+      - Cache keys carry `"lead"` and `min_images`, so lessons cached before
+        can't be served as new ones; a lesson already in a course gets a
+        lead image through ⋮ → Rewrite this lesson.
+
 - [x] **More than one General chat per exploration** *(v8.31.0)* — today an
       exploration has a single General chat, so a reader who used it for a
       search and wants to keep those results up has to clear it to talk about

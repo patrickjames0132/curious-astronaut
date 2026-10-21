@@ -267,7 +267,7 @@ def test_a_lesson_with_images_searches_looks_places_and_streams(library, no_web,
         turn = _turns(messages)
         if turn == 0:
             seen["prompt"] = messages[0].parts[-1].content
-            arguments = {"what": "a backup diagram"}
+            arguments = {"what": "a backup diagram", "lead": True}
             yield {0: DeltaToolCall(name="find_images", json_args=json.dumps(arguments))}
         elif turn == 1:
             seen["shown"] = [
@@ -285,7 +285,7 @@ def test_a_lesson_with_images_searches_looks_places_and_streams(library, no_web,
     with tutor_main.illustrated_lesson_agent.override(model=model):
         streamed = list(tutor.lesson(CONCEPT, "Q-learning needs it.", [], "", pictures=PICTURES))
     assert "IMAGES." not in seen["prompt"]  # the tools' guidance is in the instructions
-    assert seen["prompt"].endswith("Show at most 3 images.")
+    assert seen["prompt"].endswith("Show at least 2 and at most 3 images.")
     # The tutor looked at the pixels themselves, numbered with their words.
     pictures = [item for item in seen["shown"] if isinstance(item, BinaryContent)]
     words = [item for item in seen["shown"] if isinstance(item, str)]
@@ -378,13 +378,77 @@ def test_a_lesson_is_sent_back_until_it_has_searched_and_placed_an_image(library
     # Never looked: sent to search.
     with pytest.raises(images.ModelRetry, match="Search before you write"):
         images.must_show_an_image(context, lesson)
-    # Looked, placed nothing, can search again: sent to place one.
-    images.find_images(context, "a backup diagram")
-    with pytest.raises(images.ModelRetry, match="Every lesson shows at least one image"):
+    # Looked (for its lead image first), placed nothing, can search again:
+    # sent to place one.
+    images.find_images(context, "a backup diagram", lead=True)
+    with pytest.raises(images.ModelRetry, match="Every lesson shows at least 1 image; this one shows 0"):
         images.must_show_an_image(context, lesson)
     # Placed one: kept.
     images.show_image(context, 1, "The backup.")
     assert images.must_show_an_image(context, lesson) is lesson
+
+
+def test_a_lesson_is_sent_back_until_it_shows_its_fewest_images(library, no_web, monkeypatch):
+    """v8.32.0: with one image required, every lesson placed exactly one (the
+    lead or a paragraph's) and stopped; ``least`` asks for more, short of
+    the cap, and gives way once nothing is left to place."""
+    monkeypatch.setattr(images, "image_bytes", lambda key: (_png(300, 200), "image/png"))
+    deps = _deps(least=2, searches_left=1)
+    context = _Context(deps)
+    lesson = tutor.Lesson(text="A lesson.")
+    images.find_images(context, "the Bellman backup diagram", lead=True)
+    images.show_image(context, 1, "The backup.", lead=True)
+    with pytest.raises(images.ModelRetry, match="at least 2 images; this one shows 1"):
+        images.must_show_an_image(context, lesson)
+    images.show_image(context, 2, "Another.")
+    assert images.must_show_an_image(context, lesson) is lesson
+    # Searches spent and every candidate placed: kept with fewer.
+    short = _Context(_deps(least=3, searches_left=1))
+    images.find_images(short, "the Bellman backup diagram", lead=True)
+    images.show_image(short, 1, "The backup.")
+    images.show_image(short, 2, "Another.")
+    assert images.must_show_an_image(short, lesson) is lesson
+    # At the cap: kept, whatever the floor.
+    capped = _Context(_deps(least=3, images_left=1))
+    images.find_images(capped, "the Bellman backup diagram", lead=True)
+    images.show_image(capped, 1, "The backup.")
+    assert images.must_show_an_image(capped, lesson) is lesson
+    # 0 leaves it to the tutor: not even the lead search is demanded.
+    assert images.must_show_an_image(_Context(_deps(least=0)), lesson) is lesson
+
+
+def test_a_lesson_searches_for_its_lead_image_first(library, no_web, monkeypatch):
+    """v8.32.0: a lesson that placed a side idea's picture but never looked
+    for one of its own subject is sent to look, while it has a search left;
+    once it has looked, it is kept whether or not a lead was placed."""
+    monkeypatch.setattr(images, "image_bytes", lambda key: (_png(300, 200), "image/png"))
+    deps = _deps()
+    context = _Context(deps)
+    lesson = tutor.Lesson(text="A lesson.")
+    images.find_images(context, "a plot of discounting")
+    images.show_image(context, 1, "Discounting.")
+    with pytest.raises(images.ModelRetry, match="first for the subject itself"):
+        images.must_show_an_image(context, lesson)
+    images.find_images(context, "the Bellman backup diagram", lead=True)
+    assert images.must_show_an_image(context, lesson) is lesson
+    # Out of searches, the lead search isn't demanded.
+    spent = _Context(_deps(searches_left=0))
+    spent.deps.images.append(deps.images[0])
+    assert images.must_show_an_image(spent, lesson) is lesson
+
+
+def test_a_lead_image_is_marked_and_opens_the_lesson(library, no_web, monkeypatch):
+    monkeypatch.setattr(images, "image_bytes", lambda key: (_png(300, 200), "image/png"))
+    deps = _deps()
+    context = _Context(deps)
+    images.find_images(context, "the Bellman backup diagram", lead=True)
+    answer = images.show_image(context, 1, "The backup.", lead=True)
+    assert "first line" in answer
+    assert deps.images[0].lead is True and deps.lead_slot == 1
+    # One lead per lesson: a second is placed like any other.
+    answer = images.show_image(context, 2, "Another.", lead=True)
+    assert "right after the" in answer
+    assert deps.images[1].lead is False
 
 
 def test_a_lesson_without_an_image_is_kept_when_none_can_be_had(monkeypatch):
@@ -411,7 +475,7 @@ def test_a_lesson_that_never_searched_is_sent_back_and_only_the_kept_draft_strea
         if turn == 0:
             yield {0: DeltaToolCall(name="final_result", json_args='{"text": "From memory."}')}
         elif turn == 1:
-            arguments = {"what": "a backup diagram"}
+            arguments = {"what": "a backup diagram", "lead": True}
             yield {0: DeltaToolCall(name="find_images", json_args=json.dumps(arguments))}
         elif turn == 2:
             yield {0: DeltaToolCall(name="show_image", json_args='{"number": 1, "description": "d"}')}

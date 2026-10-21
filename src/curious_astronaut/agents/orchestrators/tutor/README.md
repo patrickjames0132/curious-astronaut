@@ -72,8 +72,8 @@ tutor/
 All read the tutor's `config.llm.agents` entry **per call**: the model
 through `factory.model_for` and the knobs from `extras` (`children`, the
 most concepts one expansion lists, `lesson_words`, the target lesson
-length, `images`, the most images a lesson shows, 0 for none, and
-`image_searches`, the searches a lesson may make for them; see
+length, `images`, the most images a lesson shows, 0 for none,
+`min_images`, the fewest, and `image_searches`, the searches a lesson may make for them; see
 `config.TutorExtras`). A settings edit therefore applies to the
 next expansion without a restart. The tutor sits on the lecturer's tier: the
 settings modal's "Apply Default Models" gives it the vendor's advanced model.
@@ -148,6 +148,20 @@ enough to ship.
   `PER_SEARCH` 8), slots a source can't fill go to the others in turn, and
   the candidates are interleaved, one from each source in turn, so their
   order favours none. The tutor judges them on their merits.
+- **A lead image first** (v8.32.0, from the OnePager ticket "Lesson images
+  should show the concept itself, first"). Left to itself the tutor
+  illustrated *side* ideas a lesson touched on, each after its paragraph,
+  and the lesson's own concept went unpictured. Now its first search is for
+  the subject itself, its best-known diagram (`find_images(..., lead=True)`,
+  which sets `LessonDeps.lead_searched`), and a candidate that shows the
+  subject is placed with `show_image(..., lead=True)`: marked `lead` on its
+  `LessonImage`, one per lesson, and told to open the lesson with its
+  marker. The panel puts it above the first paragraph whatever the model
+  did with the marker. `send_back` sends a lesson that never made the lead
+  search back to make it (`SEARCH_FIRST`, reworded), while it has a search
+  left; *placing* a lead isn't required, since a side idea's picture as the
+  opening is worse than prose. The lesson cache key gains `"lead"`, so older
+  lessons aren't served as ones with a lead.
 - **Several images are welcome** where more than one paragraph would be
   clearer with a picture, each searched for on its own, up to the `images`
   knob; one is the least, not the goal.
@@ -181,12 +195,24 @@ enough to ship.
   tutor searched in one lesson of four and wrote the rest from memory (the
   `lesson images` log lines showed `0 search(es)`). `must_show_an_image`,
   an output validator on both illustrated agents, sends a lesson back until
-  it has searched (`SEARCH_FIRST`) and placed an image (`PLACE_ONE`: place
+  it has searched (`SEARCH_FIRST`) and placed an image (`place_more`: place
   the best candidate, or search again with a different description). It
   goes out without one only when its searches are spent with nothing found,
   or after `NUDGES` returns, so a model that won't comply still gives the
   reader a lesson. With it, the three lessons that had placed nothing each
-  placed a fitting image. A rejected draft must never reach the page, and the
+  placed a fitting image.
+- **…and one isn't enough** (v8.32.0, Patrick). With one required, the log
+  showed every lesson in an evening placing exactly one, the lead or a
+  paragraph's, and stopping, though the prompt welcomed several: the model
+  treats the floor as the goal. So the floor is a knob, `min_images`
+  (default 2, never above `images`; `LessonDeps.least`), the prompt asks
+  for "at least N and at most M", and `send_back` returns a lesson holding
+  fewer while it has searches left or candidates unplaced. Requiring a
+  *placement* rather than just a search trades some weaker second images
+  for the guarantee; 0 hands the choice back to the tutor (not even the
+  lead search is demanded). The log now marks lead searches and
+  placements, and says how many of how many images a lesson held when it
+  was sent back. A rejected draft must never reach the page, and the
   text should still stream (Patrick), so `send_back` is the one rule both
   read: the validator enforces it, and the stream checks it as each draft
   starts. It depends only on what the tools did before the draft, never on
@@ -194,7 +220,8 @@ enough to ship.
   back is held.
 - **Budgets are knobs**, like the researcher's search limits:
   `image_searches` (default 4) caps the searches a lesson makes
-  (`LessonDeps.searches`), and `images` caps what it places; the tools answer
+  (`LessonDeps.searches`), `images` caps what it places and `min_images`
+  sets the fewest; the tools answer
   in words when either is spent, or for a number they never showed, or an
   image already placed.
 - **The status line follows the tools.** Nothing streams while a tool runs,

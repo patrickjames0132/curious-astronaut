@@ -385,7 +385,7 @@ def lesson(
     if deps is None:
         yield from _stream_text(lesson_agent, "".join(parts))
     else:
-        parts.append(f" Show at most {deps.images_left} images.")
+        parts.append(_image_count(deps))
         yield from _stream_text(illustrated_lesson_agent, "".join(parts), deps)
 
 
@@ -413,9 +413,24 @@ def _image_deps(
         paper_title=pictures.paper_title,
         provider=pictures.provider,
         images_left=limit,
+        least=min(extras["min_images"], limit),
         searches=extras["image_searches"],
         paper_lesson=paper_lesson,
     )
+
+
+def _image_count(deps: images.LessonDeps) -> str:
+    """The prompt's line on how many images to show.
+
+    Args:
+        deps: The lesson's image run-state.
+
+    Returns:
+        The line, opening with a space.
+    """
+    if deps.least <= 0:
+        return f" Show at most {deps.images_left} images."
+    return f" Show at least {deps.least} and at most {deps.images_left} images."
 
 
 def _stream_text(
@@ -574,7 +589,7 @@ def synthesis_lesson(
     if deps is None:
         yield from _stream_text(synthesis_agent, prompt)
     else:
-        prompt += f" Show at most {deps.images_left} images."
+        prompt += _image_count(deps)
         yield from _stream_text(illustrated_synthesis_agent, prompt, deps)
 
 

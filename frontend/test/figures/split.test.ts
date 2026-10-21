@@ -12,7 +12,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { AnswerFigure } from '../../src/api'
-import { splitAnswer } from '../../src/figures/split'
+import { splitAnswer, splitLead } from '../../src/figures/split'
 
 /** A minimal attached figure occupying `slot`. */
 function makeFigure(slot: number): AnswerFigure {
@@ -69,5 +69,26 @@ describe('splitAnswer', () => {
 
   it('always yields at least one part so the bubble renders', () => {
     expect(splitAnswer('', []).parts).toEqual([''])
+  })
+})
+
+describe('splitLead (v8.32.0)', () => {
+  it('takes the lead image out, so its marker drops from the prose', () => {
+    const lead = { ...makeFigure(2), lead: true }
+    const other = makeFigure(1)
+    const { lead: found, rest } = splitLead([other, lead])
+    expect(found).toBe(lead)
+    expect(rest).toEqual([other])
+    const { parts } = splitAnswer('One.\n\n<<FIG 2>>\n\nTwo.', rest)
+    // One run of prose, the marker gone (the blank lines it leaves read as
+    // one paragraph break in Markdown).
+    expect(parts).toHaveLength(1)
+    expect(parts[0]).toMatch(/^One\.\n+Two\.$/)
+  })
+
+  it('leaves a lesson with no lead as it was', () => {
+    const figures = [makeFigure(1)]
+    expect(splitLead(figures)).toEqual({ lead: null, rest: figures })
+    expect(splitLead(undefined)).toEqual({ lead: null, rest: undefined })
   })
 })

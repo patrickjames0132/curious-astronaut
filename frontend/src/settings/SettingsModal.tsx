@@ -29,7 +29,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import Tour from '../tour/Tour'
 import { SETTINGS_TOUR, TOUR_KEYS } from '../tour/steps'
 import {
@@ -222,6 +222,187 @@ function ExtrasNumber({
         })
       }
     />
+  )
+}
+
+/** One agent-extras knob a slider edits: its key and the code default it falls back to. */
+interface SliderKnob {
+  key: string
+  fallback: number
+}
+
+/**
+ * The ↺ beside a slider: shown only while the knob is overridden, it deletes
+ * the overrides so the code defaults apply again (a slider, unlike a number
+ * box, can't be cleared).
+ *
+ * @returns The reset button, or null when nothing is overridden.
+ */
+function SliderReset({
+  draft,
+  edit,
+  agentId,
+  knobs,
+}: {
+  draft: AppConfig
+  edit: Edit
+  agentId: string
+  knobs: SliderKnob[]
+}) {
+  const extras = draft.llm.agents.find((candidate) => candidate.id === agentId)?.extras ?? {}
+  if (!knobs.some((knob) => knob.key in extras)) return null
+  return (
+    <button
+      type="button"
+      className="settings-slider-reset"
+      title={`Back to the default (${knobs.map((knob) => knob.fallback).join(' – ')})`}
+      aria-label="Back to the default"
+      onClick={() =>
+        edit((next) => {
+          const nextExtras = agentEntry(next, agentId).extras
+          for (const knob of knobs) delete nextExtras[knob.key]
+        })
+      }
+    >
+      ↺
+    </button>
+  )
+}
+
+/**
+ * A single-thumb slider over one agent-extras knob, with its value read out
+ * beside it. Unset, it sits at the code default; moving it writes an
+ * override, and ↺ removes it.
+ *
+ * @returns The slider row.
+ */
+function ExtrasSlider({
+  draft,
+  edit,
+  agentId,
+  knob,
+  min,
+  max,
+  step = 1,
+  readout,
+}: {
+  draft: AppConfig
+  edit: Edit
+  agentId: string
+  knob: SliderKnob
+  min: number
+  max: number
+  step?: number
+  /** The value as the reader should read it ("350 words"). */
+  readout: (value: number) => string
+}) {
+  const entry = draft.llm.agents.find((candidate) => candidate.id === agentId)
+  const value = entry?.extras?.[knob.key] ?? knob.fallback
+  const fill = ((value - min) / (max - min)) * 100
+  return (
+    <div className="settings-slider">
+      <input
+        type="range"
+        className="settings-slider-single"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        aria-label={readout(value)}
+        style={{ '--fill': `${fill}%` } as CSSProperties}
+        onChange={(event) =>
+          edit((next) => {
+            agentEntry(next, agentId).extras[knob.key] = Number(event.target.value)
+          })
+        }
+      />
+      <span className="settings-slider-readout">{readout(value)}</span>
+      <SliderReset draft={draft} edit={edit} agentId={agentId} knobs={[knob]} />
+    </div>
+  )
+}
+
+/**
+ * A two-thumb slider over a pair of agent-extras knobs, a floor and a cap
+ * (the tutor's fewest and most images), on one track so the floor can never
+ * stand above the cap: the floor's thumb stops at the cap's, and dragging
+ * the cap below the floor pulls the floor down with it.
+ *
+ * @returns The slider row.
+ */
+function ExtrasRange({
+  draft,
+  edit,
+  agentId,
+  floor,
+  cap,
+  min,
+  max,
+  readout,
+  labels,
+}: {
+  draft: AppConfig
+  edit: Edit
+  agentId: string
+  floor: SliderKnob
+  cap: SliderKnob
+  min: number
+  max: number
+  /** The pair as the reader should read it ("2 – 3"). */
+  readout: (low: number, high: number) => string
+  /** Each thumb's accessible name. */
+  labels: { floor: string; cap: string }
+}) {
+  const extras = draft.llm.agents.find((candidate) => candidate.id === agentId)?.extras ?? {}
+  const high = extras[cap.key] ?? cap.fallback
+  const low = Math.min(extras[floor.key] ?? floor.fallback, high)
+  const pct = (value: number) => ((value - min) / (max - min)) * 100
+  return (
+    <div className="settings-slider">
+      <div className="settings-range">
+        <div className="settings-range-track" />
+        <div
+          className="settings-range-fill"
+          style={{ left: `${pct(low)}%`, width: `${pct(high) - pct(low)}%` }}
+        />
+        {/* Two overlapping inputs share the track; the floor's thumb comes to
+            the top at the far right, where the cap's would otherwise bury it. */}
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={low}
+          aria-label={labels.floor}
+          style={{ zIndex: low >= max ? 3 : 1 }}
+          onChange={(event) =>
+            edit((next) => {
+              agentEntry(next, agentId).extras[floor.key] = Math.min(
+                Number(event.target.value),
+                high,
+              )
+            })
+          }
+        />
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={high}
+          aria-label={labels.cap}
+          style={{ zIndex: 2 }}
+          onChange={(event) =>
+            edit((next) => {
+              const nextExtras = agentEntry(next, agentId).extras
+              const value = Number(event.target.value)
+              nextExtras[cap.key] = value
+              if ((nextExtras[floor.key] ?? floor.fallback) > value) nextExtras[floor.key] = value
+            })
+          }
+        />
+      </div>
+      <span className="settings-slider-readout">{readout(low, high)}</span>
+      <SliderReset draft={draft} edit={edit} agentId={agentId} knobs={[floor, cap]} />
+    </div>
   )
 }
 
@@ -1311,14 +1492,17 @@ const ROW_DEFS: RowDef[] = [
     page: 'agents',
     group: 'Tutor',
     label: 'Lesson length',
-    hint: 'Roughly how long a lesson runs, in words (100–1500). Longer lessons cost more and take longer to write. Lessons already written stay as they are; new ones use the new length. Empty = the code default.',
+    hint: 'Roughly how long a lesson runs, in words (100–1500). Longer lessons cost more and take longer to write. Lessons already written stay as they are; new ones use the new length. ↺ goes back to the default.',
     control: (draft, edit) => (
-      <ExtrasNumber
+      <ExtrasSlider
         draft={draft}
         edit={edit}
         agentId="tutor"
-        extrasKey="lesson_words"
-        fallback={350}
+        knob={{ key: 'lesson_words', fallback: 350 }}
+        min={100}
+        max={1500}
+        step={50}
+        readout={(words) => `${words} words`}
       />
     ),
   },
@@ -1328,15 +1512,20 @@ const ROW_DEFS: RowDef[] = [
     page: 'agents',
     group: 'Tutor',
     label: 'Images per lesson',
-    hint: 'The most images a lesson shows (up to 6), which the tutor finds in your library, papers and the web while it writes, each credited and described. Every lesson shows at least one, unless nothing it finds shows the idea. Choosing them needs a model that can see images; web images need one with web search. 0 = no lesson images (every lesson a quick response). Empty = the code default.',
+    hint: 'The fewest and most images a lesson shows (up to 6), which the tutor finds in your library, papers and the web while it writes, each credited and described. A lesson with fewer than the fewest is sent back to find and place more, unless nothing it finds shows the idea, since a wrong picture is worse than none; each extra image can mean another search, so a higher floor makes lessons slower. Fewest at 0 = the tutor decides; most at 0 = no lesson images (every lesson a quick response). Choosing them needs a model that can see images; web images need one with web search. ↺ goes back to the default.',
     control: (draft, edit) => (
-      <ExtrasNumber
+      <ExtrasRange
         draft={draft}
         edit={edit}
         agentId="tutor"
-        extrasKey="images"
-        fallback={3}
+        floor={{ key: 'min_images', fallback: 2 }}
+        cap={{ key: 'images', fallback: 3 }}
         min={0}
+        max={6}
+        labels={{ floor: 'Fewest images per lesson', cap: 'Most images per lesson' }}
+        readout={(low, high) =>
+          high === 0 ? 'Off' : low === high ? `${high}` : `${low} – ${high}`
+        }
       />
     ),
   },

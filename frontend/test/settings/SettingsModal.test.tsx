@@ -215,6 +215,46 @@ describe('SettingsModal', () => {
     expect(body.config.llm.agents.find((agent) => agent.id === 'researcher')?.extras).toEqual({})
   })
 
+  it("the images slider's fewest can't stand above its most", async () => {
+    await renderOpen()
+    openAgentTuning()
+    const fewest = (await screen.findByLabelText('Fewest images per lesson')) as HTMLInputElement
+    const most = screen.getByLabelText('Most images per lesson') as HTMLInputElement
+    // Unset, the thumbs sit at the code defaults.
+    expect([fewest.value, most.value]).toEqual(['2', '3'])
+    expect(screen.getByText('2 – 3')).toBeTruthy()
+    // The fewest stops at the most.
+    fireEvent.change(fewest, { target: { value: '5' } })
+    expect(fewest.value).toBe('3')
+    // Dragging the most below the fewest pulls it down too.
+    fireEvent.change(most, { target: { value: '1' } })
+    expect([fewest.value, most.value]).toEqual(['1', '1'])
+    fireEvent.click(await screen.findByText('Save'))
+    await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
+    const body = fetchState.lastPutBody as { config: AppConfig }
+    const tutor = () => body.config.llm.agents.find((agent) => agent.id === 'tutor')?.extras
+    expect(tutor()).toMatchObject({ images: 1, min_images: 1 })
+    // ↺ deletes both overrides.
+    fireEvent.click(
+      most.closest('.settings-slider')!.querySelector('.settings-slider-reset') as HTMLElement,
+    )
+    expect(screen.getByText('2 – 3')).toBeTruthy()
+  })
+
+  it('the lesson length slider writes the override and ↺ clears it', async () => {
+    await renderOpen()
+    openAgentTuning()
+    const length = (await screen.findByLabelText('350 words')) as HTMLInputElement
+    fireEvent.change(length, { target: { value: '600' } })
+    expect(screen.getByText('600 words')).toBeTruthy()
+    const reset = screen
+      .getByText('600 words')
+      .closest('.settings-slider')!
+      .querySelector('.settings-slider-reset') as HTMLButtonElement
+    fireEvent.click(reset)
+    expect(screen.getByText('350 words')).toBeTruthy()
+  })
+
   it('the 📁 button picks a file natively and switches to it', async () => {
     fetchState.pickAnswer = '/elsewhere/config.json'
     await renderOpen()

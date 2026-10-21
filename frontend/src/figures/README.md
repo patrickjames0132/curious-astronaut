@@ -34,8 +34,10 @@ is mounted.
 `splitAnswer(text, figures)` returns the prose split into interleaved
 text/figure parts, plus the `leftover` figures whose marker never appeared
 (those render at the end — the pre-inline fallback, which also covers old
-saved sessions whose figures carry no slot). The details that earn their
-keep:
+saved sessions whose figures carry no slot). `splitLead(figures)` (v8.32.0)
+takes a lesson's lead image out first, so the knowledge panel can open the
+lesson with it; its marker, finding no figure, drops from the prose like
+any unmatched one. The details that earn their keep:
 
 - **`FIG_TAIL` holds back a partial marker** at the end of streaming prose
   (`<<FI`, `<<FIG 1`) so a marker split across token chunks never flashes

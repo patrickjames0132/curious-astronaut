@@ -84,6 +84,16 @@ overlays).
 - **Agent knobs edit `llm.agents` extras**: a blank input shows the code
   default as a placeholder; typing writes an override into the entry's
   `extras`; clearing deletes the override.
+- **Bounded knobs with a natural range are sliders** (v8.32.0, Patrick):
+  the tutor's lesson length (`ExtrasSlider`, 100–1500 words in steps of 50)
+  and its images per lesson (`ExtrasRange`, one track with two thumbs for
+  `min_images` and `images`, 0–6). Each reads its value out beside it, and
+  unset sits at the code default. A slider can't be cleared like a number
+  box, so a ↺ shows while it's overridden and deletes the override. The two
+  thumbs are one control so the fewest can never stand above the most: the
+  floor's thumb stops at the cap's, and dragging the cap below the floor
+  pulls the floor down with it, so the saved config never holds one above
+  the other.
 - **Every section carries a one-paragraph `blurb`** saying what it is for.
 - **Library is a section of four sub-pages** (since v7.29.0; the config
   block is `sources`, the app calls the feature the Library): *General*

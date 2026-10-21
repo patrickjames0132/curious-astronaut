@@ -539,6 +539,32 @@ it('streams a lesson once the tutor writes, its images already in place', async 
   expect(course().nodes['q learning'].images).toEqual([PLACED])
 })
 
+it('opens a lesson on its lead image, wherever the tutor put its marker (v8.32.0)', async () => {
+  vi.spyOn(api, 'expandKnowledge').mockResolvedValueOnce(ROOT_CHILDREN)
+  const LEAD = { ...PLACED, slot: 2, caption: 'The Q-learning loop', lead: true }
+  vi.spyOn(api, 'streamLesson').mockImplementation(async (_body, handlers) => {
+    handlers.onImage?.(PLACED)
+    handlers.onImage?.(LEAD)
+    // The lead's marker lands mid-lesson; it still opens the lesson.
+    handlers.onToken('Q-learning learns values.\n\n<<FIG 1>>\n\nIt updates a table.\n\n<<FIG 2>>')
+    handlers.onDone()
+  })
+  const store = mount()
+  const course = () => store.getState().explorations.byId.saved.threads[1].knowledge!
+  await screen.findByText('node: Q-learning')
+  fireEvent.click(screen.getByText('node: Q-learning'))
+  await waitFor(() => expect(course().nodes['q learning'].lesson).toBeDefined())
+  const body = (await screen.findByText('It updates a table.')).closest('.lesson-body')!
+  const order = Array.from(body.querySelectorAll('p, figure')).map((element) =>
+    element.tagName === 'FIGURE'
+      ? element.textContent?.includes('loop')
+        ? 'lead'
+        : 'figure'
+      : element.textContent,
+  )
+  expect(order).toEqual(['lead', 'Q-learning learns values.', 'figure', 'It updates a table.'])
+})
+
 it('a quick response stops the image search and writes the lesson now', async () => {
   vi.spyOn(api, 'expandKnowledge').mockResolvedValueOnce(ROOT_CHILDREN)
   const signals: (AbortSignal | undefined)[] = []

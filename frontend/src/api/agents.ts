@@ -333,6 +333,12 @@ export interface AnswerFigure {
    * (v8.24.0, lesson images), shown under the caption.
    */
   description?: string
+  /**
+   * A lesson's lead image (v8.32.0): it shows the lesson's own subject, and
+   * the panel opens the lesson with it, above the first paragraph, wherever
+   * its marker landed. At most one per lesson.
+   */
+  lead?: boolean
 }
 
 /** Callbacks for {@link streamAsk}. Optional ones may be omitted. */

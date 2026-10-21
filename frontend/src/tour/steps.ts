@@ -214,7 +214,8 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
     title: 'Click a node for its lesson',
     body:
       'A panel opens with what it is, why the course needs it, and its lesson — written ' +
-      'for this course the first time you open it and kept after that. It comes with a few ' +
+      'for this course the first time you open it and kept after that. It opens on a picture ' +
+      'of the idea itself when the tutor finds one, and comes with a few more ' +
       'images from your library, the paper or the web where they help, each credited and ' +
       'described (click one to enlarge it); a line says what the tutor is doing until it’s ready ' +
       '(click it for every step so far), ' +

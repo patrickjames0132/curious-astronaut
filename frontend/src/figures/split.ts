@@ -19,6 +19,23 @@ const FIG_MARKER = /<<FIG (\d+)>>/g
 const FIG_TAIL = /<<(?:F(?:I(?:G(?: ?(?:\d+>?)?)?)?)?)?$/
 
 /**
+ * Take a lesson's lead image out of its figures (v8.32.0), so the panel can
+ * open the lesson with it. The rest go to {@link splitAnswer} as ever, and
+ * the lead's own `<<FIG n>>` marker, finding no figure there, disappears
+ * from the prose like any unmatched marker.
+ *
+ * @param figures The lesson's images.
+ * @returns The lead image (or null) and the others.
+ */
+export function splitLead(figures?: AnswerFigure[]): {
+  lead: AnswerFigure | null
+  rest: AnswerFigure[] | undefined
+} {
+  const lead = figures?.find((figure) => figure.lead) ?? null
+  return { lead, rest: lead ? figures?.filter((figure) => figure !== lead) : figures }
+}
+
+/**
  * Split answer prose on `<<FIG n>>` markers, pairing each marker with the
  * attached figure whose `slot` is n. Returns the interleaved text/figure
  * parts, plus the figures whose marker never appeared in the prose — those
