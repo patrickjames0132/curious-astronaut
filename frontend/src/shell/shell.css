@@ -224,6 +224,55 @@
 .rail-more[aria-expanded='true'] {
   opacity: 1;
 }
+/* The thread groups (v8.31.0): Chats, then Papers. A header is a quiet
+   label with a caret, its ＋ the ⋮'s twin, shown on hover like it; the rows
+   sit indented beneath it. */
+.thread-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.thread-group-head:first-child {
+  margin-top: 0;
+}
+.thread-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.thread-group-toggle:hover {
+  color: var(--text-strong);
+}
+.thread-group-toggle svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  transition: transform 0.15s ease;
+}
+.thread-group-head:hover .rail-more,
+.thread-group-head .rail-more:focus-visible {
+  opacity: 1;
+}
+.rail-add {
+  font-size: 13px;
+}
+.thread-group {
+  margin-left: 8px;
+}
 .rail-more:hover {
   color: var(--text-strong);
   background: var(--hover, rgba(127, 127, 127, 0.16));

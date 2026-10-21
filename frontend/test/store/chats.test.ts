@@ -49,7 +49,7 @@ describe('explorationChats', () => {
     )
     const labels = explorationChats(record, { byKey: {} }).map((chat) => chat.label)
     expect(labels).toEqual([
-      'General',
+      'New chat',
       'PPO › Citation Graph',
       'PPO › Knowledge Graph',
       'DQN › Citation Graph',

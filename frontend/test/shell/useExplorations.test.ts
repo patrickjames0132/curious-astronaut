@@ -10,8 +10,13 @@ import { createElement, type ReactNode } from 'react'
 import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../../src/api'
-import workspace, { viewFiltersSet, loadGraph, deleteThread } from '../../src/store/workspace'
-import explorations, { threadEdited } from '../../src/store/explorations'
+import workspace, {
+  viewFiltersSet,
+  loadGraph,
+  deleteThread,
+  newGeneralChat,
+} from '../../src/store/workspace'
+import explorations, { threadEdited, threadRenamed } from '../../src/store/explorations'
 import transcript, {
   backgroundDiscovery,
   tokenAppended,
@@ -96,7 +101,8 @@ describe('exploration persistence', () => {
     })
     await tick()
     expect(saved.every((body) => body.id === id)).toBe(true)
-    expect(api.titleForConversation).toHaveBeenCalledTimes(1)
+    // Twice: the exploration's name, and (v8.31.0) its first chat's.
+    expect(api.titleForConversation).toHaveBeenCalledTimes(2)
   })
   it('re-summarizes a title from every question asked, and keeps the name on a null', async () => {
     vi.spyOn(api, 'renameSession').mockResolvedValue(true as never)
@@ -243,7 +249,7 @@ describe('exploration persistence', () => {
     expect(store.getState().workspace.discoveredNodes.map((node) => node.id)).toContain('new-paper')
     expect(store.getState().transcript.byKey[key].pendingDiscoveries.nodes).toEqual([])
   })
-  it('persists deletion of the last graph even when General is empty', async () => {
+  it('persists deletion of the last graph even when the chat is empty', async () => {
     vi.spyOn(api, 'fetchGraphStream').mockResolvedValue({
       seed: { id: 'only', title: 'Only graph' },
       nodes: [],
@@ -260,7 +266,7 @@ describe('exploration persistence', () => {
     })
     await tick()
     expect(saved.at(-1)?.exploration?.threads).toHaveLength(1)
-    expect(saved.at(-1)?.exploration?.threads[0].title).toBe('General')
+    expect(saved.at(-1)?.exploration?.threads[0].title).toBe('New chat')
   })
   it('drops all owned conversations on deletion so late tokens cannot resurrect them', async () => {
     const { result, store } = setup()
@@ -280,5 +286,72 @@ describe('exploration persistence', () => {
     await tick()
     expect(saved).toHaveLength(count)
     expect(store.getState().transcript.byKey[key]).toBeUndefined()
+  })
+})
+
+describe('naming a new General chat (v8.31.0)', () => {
+  /** The active thread's title.
+   * @param store The store.
+   * @returns Its title.
+   */
+  const title = (store: ReturnType<typeof makeStore>) => {
+    const state = store.getState()
+    const record = state.explorations.byId[state.explorations.activeId]
+    return record.threads.find((thread) => thread.id === record.activeThreadId)!.title
+  }
+  /** Ask and answer once in the active chat.
+   * @param store The store.
+   */
+  const exchange = (store: ReturnType<typeof makeStore>) =>
+    act(() => {
+      store.dispatch(turnStarted('Attached: @Playing Atari\n\nwhat is a replay buffer?'))
+      store.dispatch(tokenAppended('A store of past transitions.'))
+      store.dispatch(turnCompleted())
+    })
+
+  it('names it from its first exchange, once answered', async () => {
+    const { store } = setup()
+    await act(async () => {
+      await store.dispatch(newGeneralChat())
+    })
+    vi.mocked(api.titleForConversation).mockResolvedValue('Replay buffers')
+    act(() => {
+      store.dispatch(turnStarted('what is a replay buffer?'))
+    })
+    await tick()
+    expect(title(store)).toBe('New chat')
+    exchange(store)
+    await tick()
+    expect(title(store)).toBe('Replay buffers')
+  })
+
+  it('falls back to the question, without its attachments, when the titler has none', async () => {
+    const { store } = setup()
+    await act(async () => {
+      await store.dispatch(newGeneralChat())
+    })
+    exchange(store)
+    await tick()
+    expect(title(store)).toBe('what is a replay buffer?')
+  })
+
+  it("never overwrites the reader's own name", async () => {
+    const { store } = setup()
+    await act(async () => {
+      await store.dispatch(newGeneralChat())
+    })
+    let finish: (title: string) => void = () => {}
+    vi.mocked(api.titleForConversation).mockImplementation(
+      () => new Promise((resolve) => (finish = resolve)),
+    )
+    exchange(store)
+    await tick()
+    const state = store.getState()
+    const id = state.explorations.byId[state.explorations.activeId].activeThreadId
+    act(() => {
+      store.dispatch(threadRenamed({ id, title: 'Mine' }))
+    })
+    await act(async () => finish('Replay buffers'))
+    expect(title(store)).toBe('Mine')
   })
 })

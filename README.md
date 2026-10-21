@@ -9,8 +9,10 @@ intellectual ancestors), the papers that cite it (its descendants), and its
 nearest neighbors by meaning. Then wander: open any paper and **Explore in a
 thread** to re-center the graph on it and keep exploring.
 
-Each **exploration** contains a permanent **General** discussion and a thread
-for each paper. A paper thread opens on its **card home**: the paper (title,
+Each **exploration** holds its threads in two groups in the sidebar: **Chats**,
+for searches and broad questions (start as many as you like with the ＋; each
+is named after its first question), and **Papers**, a thread for each paper
+you open (its ＋ opens a chat with `@` typed, ready to find one). A paper thread opens on its **card home**: the paper (title,
 authors, TL;DR) and a card for each tool that works on it: the **Citation Graph**
 and the **Knowledge Graph**. The Citation Graph builds only when you open its card, and clicking a thread in the sidebar always
 brings you back to its cards; the graph you left is kept in memory, conversation and all. Each graph
@@ -220,7 +222,7 @@ The Vite dev server proxies `/api/*` to Flask.
    A search streams: cached papers appear immediately (⚡ **opens instantly**
    marks the ones whose whole neighborhood is cached, so a click costs no API
    call), then the scout's finds arrive lookup by lookup with a trace chip
-   each. The **Paper filters** popover (on the General chat) holds a publication-year window (1800 → now)
+   each. The **Paper filters** popover (on your chats) holds a publication-year window (1800 → now)
    and **fields of study** — hard limits, not hints, and they bind the
    assistant's own paper searches too (though never an `@` lookup: you named
    that paper, so a filter has no business hiding it). Citation links on the graph are never
@@ -347,7 +349,7 @@ The Vite dev server proxies `/api/*` to Flask.
      So the docked panel is one thing: the conversation, with the 📚 Library filters
      icon inside its bar. Over a graph the assistant works from the graph and
      grows it along citations rather than searching for papers, so the paper
-     filters stay on the General chat. It was a stack of two folding
+     filters stay on your chats. It was a stack of two folding
      sections from v7.10.0, a **Lecture** section above a **Chat** one, which
      was itself a fix for an older shape where the two took turns and asking a
      question tucked away the lecture you were reading.

@@ -927,6 +927,37 @@
 
 ### AI teacher & lectures
 
+- [x] **More than one General chat per exploration** *(v8.31.0)* — today an
+      exploration has a single General chat, so a reader who used it for a
+      search and wants to keep those results up has to clear it to talk about
+      something else. Let them spin off another General thread inside the
+      same exploration, alongside the first, each with its own transcript
+      (and its own entry in the `@` list and the sibling index,
+      `teacher/history.ts`). Settle how they're named and ordered in the rail
+      before building. *(From the `todos.md` inbox, 2026-10-18.)*
+      **Shipped**, and it grew into a regrouped rail (Patrick, at the first
+      browser round: "should we add some hierarchy now to threads?"):
+      - **Chats and Papers.** An exploration's threads sit in two groups:
+        **Chats** (threads with no paper; as many as you like) and **Papers**
+        (one per paper opened; the header shows once there is one), each with
+        a caret that folds it and a ＋. A thread's group is what it *is*,
+        never what's typed in it.
+      - **Chats ＋** starts a chat; **Papers ＋** opens one with `@` typed,
+        ready to search (`teacher/composerDraft`), Patrick's worry being that
+        the `@` route to a new paper was unintuitive. Delete the `@` and it's
+        an ordinary chat, which it was all along. Both reuse an empty chat
+        rather than piling up `New chat`s.
+      - **Every chat is named from its first exchange**, the first one
+        included (older explorations keep `General`): `New chat` until its
+        first answer or search has settled, then `titleForConversation`,
+        falling back to the question; a reader's rename always wins. Titles
+        stay unique (`uniqueTitle`), since `@` references chats by title. A
+        chat's ⋮ adds ↻ Re-summarize, from every question it holds.
+      - Any chat renames, and deletes while another remains.
+      - **"General chat" left the UI**: the tour, the docked assistant's tip
+        and its prompts, the note over the bar (now the chat's own name) and
+        the README say "chats" / "Chats in the sidebar".
+
 - [x] **Quick response on every chat bar, not just the tutor's lessons** *(v8.30.0)* —
       a lesson's ⚡ Quick response (v8.24.0) skips the image search and
       answers from the tutor's own knowledge. Offer the same on the General

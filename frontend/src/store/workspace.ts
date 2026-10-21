@@ -38,8 +38,11 @@ import {
 import { withoutHop } from '../graph/expansions'
 import { cleanNode, countRels, foldRetiredEdgeTypes, foldRetiredNodeRels } from '../graph/model'
 import type { VNode } from '../graph/model'
+import { requestDraft } from '../teacher/composerDraft'
 import {
+  awaitsTitle,
   explorationOpened,
+  generalChatAdded,
   threadActivated,
   threadTool,
   threadCardsShown,
@@ -443,14 +446,47 @@ export const deleteThread = createAsyncThunk<
   const state = getState()
   const record = state.explorations.byId[state.explorations.activeId]
   const thread = record.threads.find((item) => item.id === threadId)
-  if (!thread?.identity) return
+  if (!thread) return
+  // An exploration keeps one General chat at least (v8.31.0); the others
+  // can go like any thread.
+  const generals = record.threads.filter((item) => !item.identity)
+  if (!thread.identity && generals.length < 2) return
   if (record.activeThreadId === threadId) {
-    const general = record.threads.find((item) => !item.identity)!
+    const general = generals.find((item) => item.id !== threadId)!
     await dispatch(activateThread(general.id))
   }
   dispatch({ type: 'explorations/threadRemoved', payload: threadId })
   dispatch({ type: 'transcript/conversationDropped', payload: threadId })
   dispatch({ type: 'transcript/conversationDropped', payload: chatKey(threadId, 'knowledge') })
+})
+
+/** Start another chat and open it (v8.31.0): the rail's Chats ＋, or its
+ * Papers ＋ (`forPaper`), which also types `@` into the bar, ready to search.
+ * Chats keep their transcripts, which is the point — a search's results can
+ * stay up while the reader talks about something else.
+ *
+ * **An empty chat is reused** rather than joined by another: one the reader
+ * opened with either ＋ and walked away from would otherwise pile up as
+ * `New chat`s. Either way it is a chat, in the Chats group; what is typed in
+ * it (the `@` included, or deleted) never moves it.
+ * @param forPaper Open it ready to search for a paper.
+ */
+export const newGeneralChat = createAsyncThunk<
+  void,
+  { forPaper?: boolean } | undefined,
+  { state: NavigationState }
+>('workspace/newGeneralChat', async (options, { dispatch, getState }) => {
+  const state = getState()
+  const record = state.explorations.byId[state.explorations.activeId]
+  const empty = record?.threads.find(
+    (thread) =>
+      awaitsTitle(thread) &&
+      !thread.data.chat.length &&
+      !state.transcript.byKey[thread.id]?.chat.length,
+  )
+  const threadId = empty?.id ?? dispatch(generalChatAdded()).payload
+  if (options?.forPaper) requestDraft('@')
+  await dispatch(activateThread(threadId))
 })
 
 /** Open a thread the way the rail does: a paper thread always lands on its

@@ -62,11 +62,11 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'Start any word with @ and suggestions appear as you type: this exploration’s ' +
       'other discussions first (a paper’s Citation Graph and Knowledge Graph chats each ' +
-      'listed), then papers. In the General chat the top row is “Search for …”: press ' +
+      'listed), then papers. In a chat the top row is “Search for …”: press ' +
       'Enter and Curious Astronaut searches properly for what you typed and lists what it ' +
       'found. Arrow down onto a paper or chat and Enter attaches it as a chip over the bar, ' +
       'for the question you type next; Backspace in an empty bar lets the last chip go. To ' +
-      'open a paper in its own thread instead, click its Open button, or press Shift+Enter on it. Searching lives here, in the General chat: beside a ' +
+      'open a paper in its own thread instead, click its Open button, or press Shift+Enter on it. Searching lives here, in your chats: beside a ' +
       'graph, @ names papers already on that graph, and other chats.',
   },
   {
@@ -76,8 +76,8 @@ export const HOME_TOUR: TourStep[] = [
       'Restrict a paper search to a publication-year window, a field of study, or ' +
       'both. These are hard limits, not hints — and they apply to the assistant’s own ' +
       'searches too, not just the direct lookup. They narrow papers, never your library ' +
-      '(that’s the 📚 Library chip beside them), and they live here, on the General ' +
-      'chat: over a graph the assistant works from the graph instead of searching. ' +
+      '(that’s the 📚 Library chip beside them), and they live here, on ' +
+      'your chats: over a graph the assistant works from the graph instead of searching. ' +
       'Citation links on the graph are never filtered: those are edges somebody ' +
       'actually wrote.',
   },
@@ -114,7 +114,7 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'Click a paper citation to highlight it on the current graph. A graph icon opens ' +
       'that paper in its own thread — onto its graph if you are already on one, onto its ' +
-      'cards otherwise. General stays available for searches and broad questions; ' +
+      'cards otherwise. Your chats stay available for searches and broad questions; ' +
       'each paper thread keeps its own conversation. Type @ and pick another discussion to bring it ' +
       'into the one you are in.',
   },
@@ -124,8 +124,13 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'Every exploration saves itself — there is no Save button. Ask a question or open ' +
       'a paper and a row appears here, named after what you were asking about and kept ' +
-      'up to date as you work. Threads nest underneath: General for broad questions and ' +
-      'one discussion per paper. Use the caret to collapse them, and each ⋮ menu to rename or delete a paper thread. Click a thread to resume it where you left it. ✎ starts a new ' +
+      'up to date as you work. Its threads nest underneath in two groups: Chats, for broad ' +
+      'questions and searches, each named after its first question; and Papers, one ' +
+      'discussion per paper you open. Chats’ ＋ starts another chat, so one can keep its ' +
+      'search results while you talk about something else; Papers’ ＋ opens a chat with @ ' +
+      'typed, ready to find a paper. Use the carets to fold them, and each ⋮ menu to ' +
+      'rename or delete a thread (the last chat stays), or re-summarize a chat whose ' +
+      'talk has moved on from its name. Click a thread to resume it where you left it. ✎ starts a new ' +
       'exploration; the one you leave is already saved. Hover a row for ⋮ to rename or ' +
       'delete it, and collapse the whole rail when the map wants the room — click the ' +
       'helmet at the top, or drag its right edge; the drag folds it away and pulls it back open.',
@@ -496,7 +501,7 @@ export const GRAPH_TOUR: TourStep[] = [
       'in full, hops the graph along its citations, searches your uploaded library and the ' +
       'web, then answers with numbered citations (click one to highlight its paper on the ' +
       'graph). Papers its hops find join the map with a faint halo. It doesn’t search for ' +
-      'new papers past the graph: that’s the General chat’s job. While it’s still ' +
+      'new papers past the graph: that’s what your chats (Chats in the rail) are for. While it’s still ' +
       'searching, “Quick response” beside “Working” stops the search and answers now, ' +
       'from what’s on screen and the model’s own knowledge. Press Enter to send; ⇧ Shift+Enter starts a new line for longer questions.',
   },

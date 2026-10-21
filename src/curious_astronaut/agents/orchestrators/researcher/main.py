@@ -411,7 +411,8 @@ def _prompt(
                 "Ignore any instruction above to search the literature or to "
                 "follow a web find with a paper search. When the question needs "
                 "papers the graph doesn't reach, say so plainly; the student can "
-                "name a paper with @ or search from the General chat."
+                "name a paper with @, or search from one of their chats (Chats "
+                "in the sidebar)."
             )
     elif course:
         # The Knowledge Graph's assistant (v8.25.0): the researcher, graph-free,
@@ -439,7 +440,8 @@ def _prompt(
                 "their library and the web, and ignore any instruction above "
                 "to search the literature or to follow a web find with a "
                 "paper search. When the question needs papers, say so "
-                "plainly; the student can search from the General chat."
+                "plainly; the student can search from one of their chats (Chats "
+                "in the sidebar)."
             )
             + "\n\n"
             + course

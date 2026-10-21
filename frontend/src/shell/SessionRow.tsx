@@ -19,7 +19,8 @@ interface SessionRowProps {
   onRename: (name: string) => void
   /** Ask for a fresh title; the item only shows when this is given. */
   onResummarize?: () => void
-  onDelete: () => void
+  /** Remove it; the item only shows when this is given. */
+  onDelete?: () => void
 }
 
 /**
@@ -39,8 +40,8 @@ interface SessionRowProps {
  * @param onToggle Toggle child threads.
  * @param onOpen  Restore this exploration.
  * @param onRename Commit a new name.
- * @param onResummarize Ask the summarizer for a fresh title (explorations only).
- * @param onDelete Remove it.
+ * @param onResummarize Ask the summarizer for a fresh title (explorations, and chats since v8.31.0).
+ * @param onDelete Remove it (absent: the menu offers no Delete).
  * @returns The rendered row.
  */
 export default function SessionRow({
@@ -179,17 +180,19 @@ export default function SessionRow({
                 ↻ Re-summarize
               </button>
             )}
-            <button
-              type="button"
-              role="menuitem"
-              className="danger"
-              onClick={() => {
-                setMenuOpen(false)
-                onDelete()
-              }}
-            >
-              🗑 Delete
-            </button>
+            {onDelete && (
+              <button
+                type="button"
+                role="menuitem"
+                className="danger"
+                onClick={() => {
+                  setMenuOpen(false)
+                  onDelete()
+                }}
+              >
+                🗑 Delete
+              </button>
+            )}
           </div>
         </>
       )}
