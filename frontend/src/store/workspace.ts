@@ -485,7 +485,7 @@ export const newGeneralChat = createAsyncThunk<
       !state.transcript.byKey[thread.id]?.chat.length,
   )
   const threadId = empty?.id ?? dispatch(generalChatAdded()).payload
-  if (options?.forPaper) requestDraft('@')
+  if (options?.forPaper) requestDraft('@', threadId)
   await dispatch(activateThread(threadId))
 })
 

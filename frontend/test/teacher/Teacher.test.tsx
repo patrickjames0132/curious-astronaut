@@ -28,7 +28,7 @@ import explorationsReducer from '../../src/store/explorations'
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { requestDraft, takeDraft } from '../../src/teacher/composerDraft'
 import type { MentionPaper } from '../../src/api'
 import type { MentionThread } from '../../src/mentions/parse'
@@ -551,19 +551,45 @@ describe('Enter in the composer, with the @ dropdown open', () => {
 })
 
 describe('a draft from the rail (v8.31.0)', () => {
+  // The store's chat before any thread opens (`transcript.ts`'s first key).
+  const CHAT = 'initial'
+
   it('the General chat takes the Papers ＋ draft, @ typed and ready', async () => {
-    requestDraft('@')
+    requestDraft('@', CHAT)
     render(<Teacher landing />)
     const field = screen.getByRole('textbox', { name: /Ask the assistant/ }) as HTMLTextAreaElement
     await waitFor(() => expect(field.value).toBe('@'))
-    expect(takeDraft()).toBeNull()
+    expect(takeDraft(CHAT)).toBeNull()
   })
 
   it('a docked assistant leaves it waiting', () => {
-    requestDraft('@')
+    requestDraft('@', CHAT)
     render(<Teacher landing={false} />)
     const field = screen.getByRole('textbox', { name: /Ask the assistant/ }) as HTMLTextAreaElement
     expect(field.value).toBe('')
-    expect(takeDraft()).toBe('@')
+    expect(takeDraft(CHAT)).toBe('@')
+  })
+
+  it("a chat opened with its draft skips the bar's entrance (v8.32.1)", async () => {
+    requestDraft('@', CHAT)
+    const { container } = render(<Teacher landing />)
+    // From the first render, so the fade never starts under the open list.
+    expect(container.querySelector('.teacher.drafted')).not.toBeNull()
+    const field = screen.getByRole('textbox', { name: /Ask the assistant/ }) as HTMLTextAreaElement
+    await waitFor(() => expect(field.value).toBe('@'))
+  })
+
+  it('a chat opened plainly keeps its entrance', () => {
+    const { container } = render(<Teacher landing />)
+    expect(container.querySelector('.teacher.drafted')).toBeNull()
+  })
+
+  it('the General chat being left leaves a draft for the new chat (v8.32.1)', () => {
+    render(<Teacher landing />)
+    const field = screen.getByRole('textbox', { name: /Ask the assistant/ }) as HTMLTextAreaElement
+    // The ＋ hands the draft over before the switch: this composer hears it.
+    act(() => requestDraft('@', 'new-chat'))
+    expect(field.value).toBe('')
+    expect(takeDraft('new-chat')).toBe('@')
   })
 })

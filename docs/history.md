@@ -4543,6 +4543,35 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **The Papers ＋ `@` on the first new chat, the lesson steps from the
+      first step, and three polishes** *(v8.32.1)* — two bugs from the
+      `todos.md` inbox (2026-10-20), and three polishes from Patrick's browser
+      review of them.
+      **The Papers ＋ opened its first new chat without the `@`.**
+      `newGeneralChat` handed the draft over before switching threads, so the
+      General chat being left heard it first, took it, and was remounted away
+      with it; a second click reused the empty chat, nothing remounted, and it
+      worked. Drafts are now addressed to their chat (`composerDraft`'s
+      `requestDraft(text, chatKey)`), and only that chat's composer takes one
+      (see [docs/bugs.md](bugs.md)).
+      **The lesson's steps couldn't be unfolded until a second step arrived.**
+      `StepLine` listed only the steps before the one on the line, so its
+      toggle was disabled through the first, the opening image search and
+      the longest wait. It now opens from the first step and lists every step
+      so far, the current one included.
+      **A chat opened with its `@` arrives with the bar in place** (from
+      review: the landing picture showed through the `@` list). The list
+      opens inside `.ask-dock`, whose entrance fade made the whole block,
+      list included, see-through for most of the rise; a composer that finds
+      a draft waiting on its first render (`draftWaiting`) skips the bar's
+      entrance (`.drafted`), while the picture and greeting still rise in
+      behind it.
+      **The quick search's Open lights only under the pointer**, no longer
+      with its hovered or keyboard-selected row (Shift+Enter still opens).
+      **The Knowledge Graph panel folds long author lists** behind the shared
+      `ui/AuthorList` disclosure, as the detail panel and card home have since
+      v8.31.1. Approved by Patrick, 2026-10-21.
+
 - [x] **Expandable author lists** *(v8.31.1)* — papers with hundreds of
       authors no longer push the card home or detail panel’s useful content
       off-screen. Both use the shared `ui/AuthorList`: over 160 characters,

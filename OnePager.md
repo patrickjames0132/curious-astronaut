@@ -1268,16 +1268,6 @@ than deleted so the plan doesn't get re-proposed.
       both graphs. Give each graph its own sub-page, in line with the existing
       settings UX (sub-pages over controls on the landing page). *(From the `todos.md` inbox, 2026-10-20.)*
 
-- [ ] **"Show me steps" can't be expanded until a few steps have been
-      written** — while the tutor is writing its steps, the expand button
-      works, but only after the first few steps have arrived. It should open
-      from the first step. Bug; root cause not yet looked at. *(From the `todos.md` inbox, 2026-10-20.)*
-
-- [ ] **The + next to a paper's group doesn't open the @ menu on the first
-      new chat** — clicking the plus button beside the paper's group should
-      start a chat with the @ mention open; on the first new chat it doesn't.
-      Bug; root cause not yet looked at. *(From the `todos.md` inbox, 2026-10-20.)*
-
 ### Enhancements & tech debt
 
 - [ ] **Make the backend's researcher layout match the three assistants** —

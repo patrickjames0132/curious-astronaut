@@ -80,7 +80,7 @@ import {
 import { mentionText, readMessage } from '../mentions/parse'
 import type { MentionChoice } from '../mentions/parse'
 import { useMentionSuggestions } from '../mentions/useMentionSuggestions'
-import { DRAFT_EVENT, takeDraft } from './composerDraft'
+import { DRAFT_EVENT, draftWaiting, takeDraft } from './composerDraft'
 import Lightbox from '../figures/Lightbox'
 import ChatMessage from './transcript/ChatMessage'
 import { useConversation } from './useConversation'
@@ -495,14 +495,24 @@ export default function Teacher({
   // A draft handed over from the rail (v8.31.0): the Papers ＋ opens a chat
   // with `@` typed, ready to search (`composerDraft`). Taken on mount — the
   // composer remounts with each thread — or when one arrives while already
-  // here, and only on the General chat, the one whose `@` searches.
+  // here, and only on the General chat, the one whose `@` searches. Only
+  // the draft addressed to this chat: the one being left hears it too.
   const onMentionInput = mentions.onInput
+  const chatId = useAppSelector((state) => state.transcript.activeKey)
+  // A chat opened with its `@` typed arrives with the bar already in place
+  // (`drafted`, teacher.css, v8.32.1): the list opens inside the bar's
+  // block, and that block's entrance fade left the list see-through, the
+  // picture showing through it, for most of the rise. Asked on the first
+  // render so the entrance never starts; set again on taking, for a draft
+  // that comes after.
+  const [drafted, setDrafted] = useState(() => draftWaiting(chatId))
   useEffect(() => {
     if (!landing) return
     const take = () => {
-      const draft = takeDraft()
+      const draft = takeDraft(chatId)
       const field = inputRef.current
       if (draft === null || !field) return
+      setDrafted(true)
       setInput(draft)
       requestAnimationFrame(() => {
         field.focus()
@@ -513,7 +523,7 @@ export default function Teacher({
     take()
     window.addEventListener(DRAFT_EVENT, take)
     return () => window.removeEventListener(DRAFT_EVENT, take)
-  }, [landing, onMentionInput])
+  }, [landing, chatId, onMentionInput])
 
   // Grow the textarea to fit its content (up to the CSS max-height, past which
   // it scrolls): reset to auto so it can shrink back, then match scrollHeight.
@@ -820,7 +830,7 @@ export default function Teacher({
 
   return (
     <section
-      className={`teacher${landing ? ' landing' : ''}${landing && chat.length === 0 ? ' empty' : ''}${collapsed && !dock.present ? ' collapsed' : ''}${dock.closing ? ' closing' : ''}${reopening ? ' reopening' : ''}`}
+      className={`teacher${landing ? ' landing' : ''}${landing && chat.length === 0 ? ' empty' : ''}${drafted ? ' drafted' : ''}${collapsed && !dock.present ? ' collapsed' : ''}${dock.closing ? ' closing' : ''}${reopening ? ' reopening' : ''}`}
       data-tour="assistant-panel"
       // --panel-width feeds the slide keyframes (index.css).
       style={landing ? undefined : ({ width, '--panel-width': `${width}px` } as CSSProperties)}

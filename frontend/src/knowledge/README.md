@@ -549,7 +549,10 @@ branch, the way the assistant shows figures in its answers.
   line with an ellipsis (Patrick: it read awkwardly over six), and a click
   unfolds every step so far (`steps`) as plain lines, the researcher's
   trace without its chips. Its caret follows the words (v8.26.0): in front
-  of them it sat against the spinner, two odd marks side by side.
+  of them it sat against the spinner, two odd marks side by side. It
+  unfolds from the first step, the one on the line included (v8.32.1):
+  listing only the earlier steps left it disabled until a second arrived,
+  and the first, the opening image search, is the longest wait.
 - **The lesson follows its own writing**: while the text streams, the
   panel scrolls with it, but only while the reader is at the bottom, so
   scrolling up to re-read stops the chase (the assistant transcript's rule,

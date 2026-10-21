@@ -7,6 +7,7 @@ home — the root-level case of the hybrid structure rule:
 ui/
   AuthorList.tsx       — author lists over 160 characters collapse to an ellipsis
                          with a keyboard-accessible expand/collapse control
+                         (detail panel, card home, Knowledge Graph panel)
   useResizablePanel.ts — drag-to-resize for a docked panel, width
                          remembered in localStorage
   theme.ts             — the light/dark store (below)

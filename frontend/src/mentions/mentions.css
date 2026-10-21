@@ -92,12 +92,12 @@
   cursor: pointer;
   opacity: 0.55;
 }
-.mention-paper:hover .mention-open,
-.mention-paper:has(.mention-row.on) .mention-open {
+/* Lit only under the pointer itself (v8.32.1, Patrick): lit with its whole
+   row, a hovered row read as an invitation to press Open rather than to pick
+   the paper. */
+.mention-open:hover {
   opacity: 1;
   color: var(--accent);
-}
-.mention-open:hover {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 /* The search row sits above the section heads, so it needs their air below. */
