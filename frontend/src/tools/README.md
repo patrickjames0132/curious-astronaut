@@ -85,3 +85,10 @@ one-time fetch. `test/store/threads.test.ts` ("card home") covers the
 navigation underneath: opening onto cards without a build, building in place
 without a twin thread, resuming on the last tool, opening from the rail onto
 the cards without a rebuild, and saving `tool`/`paper`.
+
+Author lists longer than 160 characters use the shared `ui/AuthorList` disclosure:
+a preview ending at a comma or word boundary with an ellipsis, then “Show all
+authors” / “Show fewer”. The accent-colored, semibold text button uses a disclosure chevron instead of an underline.
+A normal word space separates it from the authors, so a wrapped control aligns
+with the start of the text rather than retaining an inline margin. The full provider text is preserved, and the
+publication year stays visible when the author list is collapsed.
