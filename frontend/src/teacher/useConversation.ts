@@ -304,6 +304,15 @@ export function useConversation() {
   // The chat index the in-flight answer streams into (for onCited's active
   // marking) — chat.length + 1 at turn start (user turn, then assistant).
   const askIdxRef = useRef(0)
+  // The researcher question in flight (or last asked), as `ask` was given it,
+  // for ⚡ Quick response to ask again without tools.
+  const lastAsk = useRef<{
+    question: string
+    sourceIds: string[] | undefined
+    filters?: SearchOptions
+    mentioned?: MentionPaper[]
+    scope: ResolvedScope
+  } | null>(null)
 
   const highlight = useCallback((ids: string[]) => dispatch(highlightSet(ids)), [dispatch])
 
@@ -418,6 +427,8 @@ export function useConversation() {
    *                  either direction costs one click. False (every caller
    *                  but the router) leaves no offer: graph-free questions,
    *                  retries and corrections were never a choice a model made.
+   * @param quick     A quick response (v8.30.0): the researcher answers with no
+   *                  tools. Set by {@link quickAnswer}, never by a typed send.
    */
   const ask = useCallback(
     async (
@@ -428,6 +439,7 @@ export function useConversation() {
       mentioned?: MentionPaper[],
       scope?: ResolvedScope,
       routed = false,
+      quick = false,
     ) => {
       // The turn's scope, resolved ONCE — by `send`, with the message's
       // request in play, or here from the store for the callers that skip
@@ -435,6 +447,9 @@ export function useConversation() {
       // its visible set on its next render, and the papers this turn is
       // about must not change under it.
       const turnScope = scope ?? defaultScope
+      // Kept so ⚡ Quick response can ask this again, the same way, minus the
+      // tools — read before anything below can change the store.
+      lastAsk.current = { question, sourceIds, filters, mentioned, scope: turnScope }
       // The turn's period binds what the researcher goes looking for, too —
       // the same wire fields the ▽ filters use, tightened by it.
       const turnFilters = filtersForTurn(
@@ -545,6 +560,7 @@ export function useConversation() {
               history,
               thread_context: siblingContext(store.getState(), question, key),
               ...askFilters(turnFilters),
+              ...(quick && { quick: true }),
             },
             {
               signal: ctrl.signal,
@@ -610,6 +626,7 @@ export function useConversation() {
               history,
               thread_context: siblingContext(store.getState(), question, key),
               ...askFilters(filters),
+              ...(quick && { quick: true }),
             },
             {
               signal: ctrl.signal,
@@ -1013,6 +1030,41 @@ export function useConversation() {
     [ask, dispatch, rescope, store],
   )
 
+  /**
+   * ⚡ Quick response (v8.30.0): stop the answer still working and ask its
+   * question again with no tools — the model's own take, now. The lesson's
+   * quick response (v8.24.0), for chat.
+   *
+   * The stopped exchange goes, as a retry's failed one does, so the
+   * transcript ends with the quick answer rather than a half-searched one
+   * above it. Its question is re-asked exactly as it was sent (the papers it
+   * named, its scope and filters), read from `lastAsk`: the turn on screen
+   * holds the text but not those.
+   *
+   * @param index The working assistant turn's position in the chat.
+   */
+  const quickAnswer = useCallback(
+    (index: number) => {
+      const last = lastAsk.current
+      const answer = selectConversation(store.getState()).chat[index]
+      if (!last || answer?.role !== 'assistant') return
+      // Stop first, so nothing more of the old run lands once its turn is gone.
+      askCtrl.current?.abort()
+      dispatch(failedTurnDropped(index))
+      void ask(
+        last.question,
+        last.sourceIds,
+        last.filters,
+        undefined,
+        last.mentioned,
+        last.scope,
+        false,
+        true,
+      )
+    },
+    [ask, askCtrl, dispatch, store],
+  )
+
   return {
     hasGraph: !!seedNode,
     asking: running > 0 || routing,
@@ -1029,6 +1081,7 @@ export function useConversation() {
     activeChatBeat,
     onChatBeatClick,
     retryAnswer,
+    quickAnswer,
     stopAsk,
     clearChat,
   }

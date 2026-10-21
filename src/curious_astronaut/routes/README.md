@@ -378,6 +378,8 @@ Thin wrappers over `services/sources`. Points worth knowing:
 | `POST /api/ask_sources` | chat with no graph open (library + search) |
 | `POST /api/ask_course` | the Knowledge Graph's course assistant (v8.25.0; no paper search since v8.28.0): the same graph-free researcher, with the thread's course laid out and bounded by `_course_context` (the open lesson whole, the others' openings) |
 
+All three `ask` routes take `quick: true` since v8.30.0: ⚡ Quick response, the researcher with no tools (`_opt_quick`; see the researcher's README).
+
 Since v8.25.0 the sibling index (`thread_context`) has one entry per
 **chat**, not per thread (a paper thread's Citation Graph and Knowledge
 Graph each, see `frontend/src/store/chats.ts`), and a mentioned Knowledge

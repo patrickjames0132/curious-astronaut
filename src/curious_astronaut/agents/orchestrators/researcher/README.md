@@ -175,6 +175,24 @@ nobody was watching. Two log lines in sequence are the measurement.
 - **`tools.py`** — `ResearcherDeps` (the run-state) and the six tools.
 - **`main.py`** — the `Answer` model, the `Agent`, the sync event bridge.
 
+## Quick response (v8.30.0)
+
+`answer(quick=True)` is the chat's version of the lesson's quick response:
+every chat bar offers ⚡ Quick response while an answer is still searching,
+and the frontend stops that run and re-asks with `quick: true` on whichever
+route it came from (`routes/agents._opt_quick`; only a literal `true`
+counts). Every tool is withheld through its `prepare` (`_unless_quick`,
+folded into the library, web and paper gates), so the model sees none
+rather than ones that refuse; `_unconsulted` returns nothing, so the
+coverage guard and `_doomed` demand no source and the prose streams as
+written; and `_prompt` ends with a QUICK RESPONSE note saying why, since the
+system prompt describes every tool. What is already in front of the model
+— the graph's numbered papers, the course, the conversation — still
+grounds it, and the provenance line reports truthfully that nothing was
+searched. This is the reader's explicit, per-message choice, made visibly
+on a slow answer; it doesn't turn the researcher into a general assistant
+by default.
+
 ## No paper search over a graph (v8.28.0)
 
 `answer(paper_search=False)` takes `find_papers` away (a `prepare` gate, like

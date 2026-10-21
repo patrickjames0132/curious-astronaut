@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { configureStore } from '@reduxjs/toolkit'
-import { act, cleanup, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { Provider } from 'react-redux'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -379,6 +379,41 @@ describe('the scope priority list, resolved once per turn', () => {
     // the selection, so nothing is lost by clearing it.
     expect(selectedWhileStreaming).toEqual(['r1', 'r2'])
     expect(store.getState().workspace.selectedNodeIds).toEqual([])
+  })
+
+  it('⚡ Quick response stops a working answer and asks it again with no tools, in its place', async () => {
+    const { store, result, streamAsk } = await setUp(answer('citations'))
+    // The first run is still searching: it has a trace and waits until stopped.
+    streamAsk.mockImplementationOnce(async (_body, options) => {
+      options.onTrace?.({ action: 'search', ok: true, pending: true, query: 'q' } as api.TraceEvent)
+      await new Promise<void>((resolve) =>
+        options.signal?.addEventListener('abort', () => resolve()),
+      )
+    })
+    const chat = () => store.getState().transcript.byKey[store.getState().transcript.activeKey].chat
+    let first: Promise<void> = Promise.resolve()
+    act(() => {
+      first = result.current.send('what do the citations say?', undefined)
+    })
+    await waitFor(() => expect(streamAsk).toHaveBeenCalledOnce())
+    await act(async () => {
+      result.current.quickAnswer(chat().length - 1)
+      await first
+    })
+    expect(streamAsk).toHaveBeenCalledTimes(2)
+    expect(streamAsk.mock.calls[0][0].quick).toBeUndefined()
+    expect(streamAsk.mock.calls[1][0]).toMatchObject({
+      question: 'what do the citations say?',
+      quick: true,
+    })
+    // The same papers as the run it replaced.
+    expect(streamAsk.mock.calls[1][0].nodes).toEqual(streamAsk.mock.calls[0][0].nodes)
+    // One exchange, the quick one: the stopped answer is gone, not failed.
+    const questions = chat().filter((turn) => turn.role === 'user')
+    expect(questions).toHaveLength(1)
+    const last = chat()[chat().length - 1]
+    expect(last.text).toBe('An answer.')
+    expect(last.failed).toBeUndefined()
   })
 
   it('re-asks a corrected turn for the same papers, against the graph as it stands', async () => {

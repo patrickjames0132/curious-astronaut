@@ -128,6 +128,15 @@ transcript/
   ends. **A reader's own click wins from then on** — the automatic collapse
   stops fighting them for the rest of that turn, because the point of an
   affordance is to be in control of it.
+- **⚡ Quick response rides the trace's header** (v8.30.0) while the agent
+  is still searching, before any prose: the lesson's link (v8.24.0,
+  `ui/QuickResponse`), for chat. `ChatMessage` shows it when handed
+  `onQuick` and the turn has no text yet; the composer decides when to hand
+  it over (the last turn, a researcher answer, not a lecture). A click
+  stops the run, drops the working exchange and asks the question again
+  with `quick: true` — no tools — so the transcript ends with the quick
+  answer, whose provenance line then reads "answered from background
+  knowledge — nothing was searched" (or names the graph papers it cited).
 - **The paper-search chip names the corpus** — `🔎 Searching OpenAlex for
   “…”` while the scout runs, `🔎 Searched OpenAlex for “…” · 3 new` once it
   has. The name is read off the trace event (`TraceEvent.provider`, v7.30.0),

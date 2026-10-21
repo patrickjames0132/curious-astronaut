@@ -1023,6 +1023,32 @@ def test_without_paper_search_the_web_hands_nothing_off(monkeypatch):
     assert "find_papers" not in tool_return(seen, 1)
 
 
+def test_a_quick_response_has_no_tools_and_answers_anyway(monkeypatch):
+    """v8.30.0: a quick response withholds every tool, so the coverage guard
+    must demand nothing: an `answered` turn with a library and the web on, which
+    would otherwise be bounced for skipping them, streams as written."""
+    monkeypatch.setitem(researcher_config.BUDGETS, "web_searches", 2)
+    seen: dict = {}
+    model = scripted([final("From what I know, it learns Q-values.", [])], seen=seen)
+    out = run(model, monkeypatch, library=[{"id": "s1", "title": "RL Book"}], quick=True)
+    assert seen["tools"] == []
+    text = "".join(event.text for event in out if isinstance(event, events.Token))
+    assert text == "From what I know, it learns Q-values."
+    prompt = "".join(
+        str(part.content) for part in seen["turns"][0][-1].parts if part.part_kind == "user-prompt"
+    )
+    assert "QUICK RESPONSE" in prompt
+    provenance = next(event for event in out if isinstance(event, events.Provenance))
+    assert provenance.searches == 0 and provenance.web_searches == 0
+
+
+def test_a_normal_run_keeps_its_tools(monkeypatch):
+    seen: dict = {}
+    model = scripted([final("Paper [1] covers it.", [1])], seen=seen)
+    run(model, monkeypatch)
+    assert {"read_paper", "expand_node", "show_figure"} <= set(seen["tools"])
+
+
 def test_paper_search_is_on_by_default(monkeypatch):
     seen: dict = {}
     model = scripted([final("Answering.", [])], seen=seen)

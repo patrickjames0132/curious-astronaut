@@ -102,6 +102,10 @@ class ResearcherDeps:
     #: what the web hand-off and the coverage guard already read, so neither
     #: asks for a search the model has no tool to make.
     paper_search: bool = True
+    #: A quick response (v8.30.0; see ``main.answer``): the reader asked for
+    #: the model's own take, now, so every tool is withheld and the coverage
+    #: guard demands nothing.
+    quick: bool = False
     steps_left: int = 0
     full_reads_left: int = 0
     summary_reads_left: int = 0

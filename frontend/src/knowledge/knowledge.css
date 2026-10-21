@@ -844,36 +844,6 @@
 .lesson-steps li + li {
   margin-top: 3px;
 }
-/* Quick response (v8.24.0): skip the image search and have the lesson now.
-   A quiet link at the line's end, there only while it would help, behind an
-   outline bolt that lights up on hover (`--bolt`: the title's blue in dark,
-   the gold accent in light). */
-.lesson-quick {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0;
-  font-size: 12px;
-}
-.lesson-quick:hover {
-  color: var(--text-strong);
-}
-.lesson-quick-bolt {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linejoin: round;
-  transition:
-    fill 0.15s ease,
-    stroke 0.15s ease;
-}
-.lesson-quick:hover .lesson-quick-bolt {
-  fill: var(--bolt);
-  stroke: var(--bolt);
-}
 @keyframes lesson-step-in {
   from {
     opacity: 0;

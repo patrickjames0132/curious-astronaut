@@ -402,6 +402,8 @@ export async function streamAsk(
      */
     history?: HistoryTurn[]
     thread_context?: ThreadContext[]
+    /** A quick response (v8.30.0): answer with no tools, now. */
+    quick?: boolean
   },
   handlers: AskHandlers,
 ): Promise<void> {
@@ -543,6 +545,8 @@ export async function streamAskSources(
     /** See `streamAsk` — the client's copy, for a retry after a reload. */
     history?: HistoryTurn[]
     thread_context?: ThreadContext[]
+    /** A quick response (v8.30.0): answer with no tools, now. */
+    quick?: boolean
   },
   handlers: AskSourcesHandlers,
 ): Promise<void> {
@@ -620,6 +624,8 @@ export async function streamAskCourse(
     source_ids?: string[]
     history?: HistoryTurn[]
     thread_context?: ThreadContext[]
+    /** A quick response (v8.30.0): answer with no tools, now. */
+    quick?: boolean
   },
   handlers: AskSourcesHandlers,
 ): Promise<void> {

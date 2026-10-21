@@ -84,6 +84,8 @@ export interface CourseQuestion {
   sourceIds?: string[]
   /** History to send, for a retry; the chat's own completed turns by default. */
   history?: HistoryTurn[]
+  /** A quick response (v8.30.0): answer with no tools, now. */
+  quick?: boolean
 }
 
 /**
@@ -126,6 +128,7 @@ export function askCourse(request: CourseQuestion) {
           source_ids: sourceIds,
           history,
           thread_context: siblingContext(getState(), question, key),
+          ...(request.quick && { quick: true }),
         },
         {
           signal: ctrl.signal,

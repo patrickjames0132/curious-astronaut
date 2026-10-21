@@ -241,14 +241,19 @@ export default function CourseAssistant({
   }
 
   /**
-   * Ask a failed question again, with the history up to it.
+   * Ask a failed question again, with the history up to it — or, for ⚡
+   * Quick response, a question still being answered, with no tools.
    *
-   * @param index The failed assistant turn.
+   * @param index The failed (or working) assistant turn.
+   * @param quick Stop the working answer and ask for a quick response.
    */
-  const retry = (index: number) => {
+  const retry = (index: number, quick = false) => {
     const question = chat[index - 1]
     if (!question || question.role !== 'user') return
     const history = conversationHistory(chat.slice(0, index - 1))
+    // A quick response stops the answer still working first, so nothing
+    // more of it lands once its turn is gone.
+    if (quick) stopCourseAsk(thread.id)
     dispatch(failedTurnDropped(index, key))
     void dispatch(
       askCourse({
@@ -257,6 +262,7 @@ export default function CourseAssistant({
         provider,
         history,
         sourceIds: sources.scope,
+        quick,
       }),
     )
   }
@@ -299,6 +305,9 @@ export default function CourseAssistant({
             streaming={asking}
             working={asking && index === chat.length - 1}
             onRetry={message.failed ? () => retry(index) : undefined}
+            // ⚡ Quick response (v8.30.0): the same question again, with no
+            // tools, in place of the answer still searching.
+            onQuick={asking && index === chat.length - 1 ? () => retry(index, true) : undefined}
             onThreadOpen={(id) => void dispatch(openChat(id))}
             onPaperSeed={(nodeId, refProvider) =>
               void dispatch(seedPaper({ seed: nodeId, provider: refProvider }))

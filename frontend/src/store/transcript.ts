@@ -341,7 +341,8 @@ const transcriptSlice = createSlice({
      * Removes the failed assistant turn *and* the question that produced it,
      * so the retry re-runs through the ordinary `turnStarted` path and the
      * transcript ends up with one exchange rather than a graveyard of
-     * attempts.
+     * attempts. ⚡ Quick response (v8.30.0) drops a *working* exchange the
+     * same way, once its run is stopped, before asking it again with no tools.
      *
      * @param state  The slice state (mutated via immer).
      * @param action Carries the failed turn's index, and the conversation in `meta`.

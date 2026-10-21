@@ -56,6 +56,9 @@ assistant/
   picked from its `@` list attaches as a chip over the bar (v8.29.0), as in
   the Citation Graph's, and waits for a question: chips alone send nothing.
   Its list has no search row, so Enter with nothing arrowed onto sends.
+  While an answer is still searching, ⚡ Quick response on it stops the
+  run and asks again with no tools (v8.30.0; `retry(index, true)`,
+  `askCourse`'s `quick`), as on the Citation Graph's and the General chat.
 - **The tutor's suggested syntheses are still to come.** The OnePager's
   Knowledge Graph assistant ticket planned them as this assistant's tool; it
   shipped without them (Patrick, 2026-10-17) and they stay an open follow-up.

@@ -86,6 +86,12 @@ not visible. Highlight and error effects consult the current store before
 changing the screen. Controllers are retained by thread so returning to a running
 discussion can stop it. A successful terminal response marks the turn complete;
 aborted or failed partial prose remains visible but never enters model history.
+⚡ **Quick response** (v8.30.0, `quickAnswer`) is the one stop that replaces
+rather than keeps: on an answer still searching it aborts the run, drops the
+working exchange (`failedTurnDropped`, as a retry does) and re-asks the same
+question with `quick: true`, the researcher with no tools. `ask` keeps what
+it was given in `lastAsk` (the question, named papers, scope and filters),
+so the quick answer is about exactly the same papers.
 
 ## History and cross-thread knowledge
 

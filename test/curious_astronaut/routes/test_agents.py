@@ -190,6 +190,30 @@ def test_the_citation_graph_assistant_runs_without_paper_search(client, monkeypa
     assert "year_from" not in seen["kwargs"]
 
 
+@pytest.mark.parametrize(
+    ("route", "extra"),
+    [
+        ("/api/ask", {"seed": SEED, "nodes": NODES}),
+        ("/api/ask_sources", {}),
+        ("/api/ask_course", {"course": {"paper": "Atari", "items": [{"title": "Q-learning", "kind": "concept"}]}}),
+    ],
+)
+def test_every_ask_route_carries_a_quick_response(client, monkeypatch, route, extra):
+    """v8.30.0: ⚡ Quick response on every chat bar sends `quick: true`; only
+    a literal true counts, so anything else leaves the tools on."""
+    seen = {}
+
+    def fake_run(**kwargs):
+        seen["kwargs"] = kwargs
+        yield events.Token(text="Now.")
+
+    patch_agents(monkeypatch, fake_run)
+    client.post(route, json={"question": "why?", "quick": True, **extra}).data
+    assert seen["kwargs"]["quick"] is True
+    client.post(route, json={"question": "why?", "quick": "yes", **extra}).data
+    assert seen["kwargs"]["quick"] is False
+
+
 def test_an_empty_scope_survives_the_wire_as_an_empty_list(client, monkeypatch):
     """"No sources selected" and "no scope at all" are opposite instructions
     that both look falsy, and only the list/None distinction tells them apart.
