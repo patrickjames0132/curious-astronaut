@@ -1,0 +1,25 @@
+/* Shared author disclosure on the card home and in paper details. */
+.author-list {
+  overflow-wrap: anywhere;
+}
+.author-list-toggle {
+  margin: 0;
+  vertical-align: baseline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+.author-list-toggle:hover {
+  color: var(--text-strong);
+}
+.author-list-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}

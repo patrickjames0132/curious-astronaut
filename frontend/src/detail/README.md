@@ -161,3 +161,10 @@ or resume that paper's thread directly. From the graph they land on its graph;
 from anywhere else they land on its cards, after one `/api/paper` lookup that
 resolves the thread's id (`store/workspace.ts`'s `seedPaper`). The
 canvas's existing detail panel remains available by selecting a graph node.
+
+Author lists longer than 160 characters use the shared `ui/AuthorList` disclosure:
+a preview ending at a comma or word boundary with an ellipsis, then “Show all
+authors” / “Show fewer”. The accent-colored, semibold text button uses a disclosure chevron instead of an underline.
+A normal word space separates it from the authors, so a wrapped control aligns
+with the start of the text rather than retaining an inline margin. The full provider text is preserved, and the
+publication year stays visible when the author list is collapsed.
