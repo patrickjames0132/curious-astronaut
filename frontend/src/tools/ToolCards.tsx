@@ -15,6 +15,7 @@ import { useEffect, type ReactNode } from 'react'
 import { fetchPaperDetail, type PaperDetails } from '../api'
 import { useAppDispatch } from '../store'
 import { threadPaperSet, type ThreadRecord, type ThreadTool } from '../store/explorations'
+import AuthorList from '../ui/AuthorList'
 import './tools.css'
 
 /** One card on the home: what it opens and how it introduces itself. */
@@ -122,7 +123,6 @@ export default function ToolCards({
   }, [dispatch, missing, seedRef, provider, thread.id])
 
   const paper: Partial<PaperDetails> = thread.paper ?? {}
-  const meta = [paper.authors, paper.year].filter(Boolean).join(' · ')
   const summary = paper.tldr || paper.abstract
 
   return (
@@ -130,7 +130,13 @@ export default function ToolCards({
       <div className="tool-home-inner">
         <header className="tool-home-paper">
           <h1>{paper.title ?? thread.data.graph_ref?.seed.title ?? thread.title}</h1>
-          {meta && <p className="tool-home-meta">{meta}</p>}
+          {(paper.authors || paper.year) && (
+            <p className="tool-home-meta">
+              {paper.authors && <AuthorList key={thread.id} authors={paper.authors} />}
+              {paper.authors && paper.year ? ' · ' : ''}
+              {paper.year}
+            </p>
+          )}
           {summary && (
             <p className="tool-home-summary">
               {paper.tldr && <span className="tool-home-label">TL;DR</span>}

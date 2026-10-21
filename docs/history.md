@@ -4543,6 +4543,18 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Expandable author lists** *(v8.31.1)* — papers with hundreds of
+      authors no longer push the card home or detail panel’s useful content
+      off-screen. Both use the shared `ui/AuthorList`: over 160 characters,
+      collapse at a comma or word boundary with an ellipsis; “Show all authors
+      ▾” reveals the original text and “Show fewer ▴” collapses it. The year
+      stays visible, a different paper starts collapsed, and the disclosure
+      exposes its expanded state and controlled text to assistive technology.
+      Browser review settled on blue semibold text with a caret and no
+      underline, separated by a normal space so a wrapped control aligns
+      with the author text instead of retaining a left-margin indent.
+      Approved by Patrick, 2026-10-20.
+
 - [x] **Graph-choice cards glow and lift** *(v8.30.2)* — inspired by Patrick’s
       card-gallery reference, the Citation Graph and Knowledge Graph cards
       brighten their borders and surfaces, glow in their blue/gold accents,

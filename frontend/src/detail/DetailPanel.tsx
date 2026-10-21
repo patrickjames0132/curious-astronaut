@@ -39,6 +39,7 @@ import { BADGE_COLOR } from '../graph/theme'
 import MathText from '../notation/MathText'
 import MarkIcon from '../ui/MarkIcon'
 import { useResizablePanel } from '../ui/useResizablePanel'
+import AuthorList from '../ui/AuthorList'
 import './detail.css'
 
 /** Where one of a paper's Expand buttons stands. `fresh` marks a hop that
@@ -520,7 +521,11 @@ export default function DetailPanel({
         <MathText>{node.title}</MathText>
       </h2>
       <div className="detail-meta">
-        {node.authors && <div>Authors: {node.authors}</div>}
+        {node.authors && (
+          <div>
+            Authors: <AuthorList key={node.id} authors={node.authors} />
+          </div>
+        )}
         {node.venue && (
           <div className="detail-venue" title="Publication venue">
             Publisher: <i>{node.venue}</i>
