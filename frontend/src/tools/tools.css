@@ -51,16 +51,18 @@
 .tool-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  gap: 24px;
   margin-top: 36px;
 }
 .tool-card {
+  --card-accent: var(--accent);
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 22px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--card-accent) 22%, var(--border));
+  border-radius: 18px;
   background: var(--panel);
   color: var(--text);
   font: inherit;
@@ -68,19 +70,39 @@
   cursor: pointer;
   transition:
     border-color var(--motion-pop) var(--ease-rise),
-    transform var(--motion-pop) var(--ease-rise),
+    background-color var(--motion-pop) var(--ease-rise),
+    translate var(--motion-pop) var(--ease-rise),
+    scale var(--motion-pop) var(--ease-rise),
     box-shadow var(--motion-pop) var(--ease-rise);
   animation: rise var(--motion-switch) var(--ease-rise) both;
 }
 .tool-card:nth-child(2) {
   animation-delay: 60ms;
 }
+.tool-card-knowledge {
+  --card-accent: var(--seed-ref);
+}
+/* Individual transforms compose with the entrance animation's transform;
+   its forwards fill must not pin the hover lift back at translateY(0). */
 .tool-card:hover:not(:disabled),
+.tool-card:focus-visible:not(:disabled) {
+  z-index: 1;
+  border-color: var(--card-accent);
+  background-color: color-mix(in srgb, var(--card-accent) 10%, var(--panel));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--card-accent) 30%, transparent),
+    0 8px 24px color-mix(in srgb, var(--card-accent) 22%, transparent),
+    0 18px 44px var(--shadow);
+  translate: 0 -4px;
+  scale: 1.025;
+}
 .tool-card:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 6px 20px var(--shadow);
-  transform: translateY(-1px);
-  outline: none;
+  outline: 2px solid var(--card-accent);
+  outline-offset: 4px;
+}
+.tool-card:active:not(:disabled) {
+  translate: 0 -1px;
+  scale: 1.01;
 }
 .tool-card:disabled {
   cursor: default;
@@ -95,15 +117,12 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-.tool-card-knowledge .tool-card-icon {
-  color: var(--seed-ref);
-  background: color-mix(in srgb, var(--seed-ref) 16%, transparent);
+  width: 48px;
+  height: 48px;
+  border: 1px solid color-mix(in srgb, var(--card-accent) 45%, transparent);
+  border-radius: 14px;
+  color: var(--card-accent);
+  background: color-mix(in srgb, var(--card-accent) 16%, transparent);
 }
 .tool-card-title {
   color: var(--text-strong);
@@ -215,6 +234,12 @@
   .tool-surface.scroll-down {
     animation: none;
     transition: none;
+  }
+  .tool-card:hover:not(:disabled),
+  .tool-card:focus-visible:not(:disabled),
+  .tool-card:active:not(:disabled) {
+    translate: none;
+    scale: none;
   }
 }
 
