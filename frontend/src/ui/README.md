@@ -20,7 +20,7 @@ ui/
   useBoxSelect.ts      — the alt-drag box over a graph canvas (below)
   InfoTip.tsx          — an ⓘ whose tooltip holds text there isn't room
                          for: hover or focus previews it, a click pins it,
-                         Esc closes it. The 3D course's navigation help, and
+                         Click away or Esc closes it. The 3D course's navigation help, and
                          since v8.25.0 the assistants' cut-short notes
                          (`teacher/ComposerNotes`)
   QuickResponse.tsx    — ⚡ Quick response, the quiet bolt link that stops
@@ -208,3 +208,7 @@ Users: the trace steps and lecture beats in a chat turn
 its folded reasons (`knowledge/KnowledgePanel`). (The graph controls used it briefly, and moved
 to a fade-into-a-button instead — see `graph/controls/README.md`.) Verified by
 `test/ui/Fold.test.tsx`.
+
+Theme toggles crossfade the whole scene over 280ms through View Transitions,
+with a fade-in fallback and a fading, rotating sun/moon glyph. Reduced motion
+skips both animations; startup and configured defaults apply immediately.

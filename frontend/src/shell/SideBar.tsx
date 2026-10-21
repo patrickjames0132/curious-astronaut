@@ -397,7 +397,7 @@ export default function SideBar({
               showing ▶ while paused. The U+FE0E forces text presentation:
               without it the sun renders as colour emoji and sizes the row
               differently from the moon. */}
-          <span className="rail-glyph" aria-hidden="true">
+          <span key={theme} className="rail-glyph theme-glyph" aria-hidden="true">
             {theme === 'dark' ? '☀︎' : '☾'}
           </span>
           {open && (
@@ -437,9 +437,8 @@ const VISOR = 'M16 32C16 22.5 23 17 32 17s16 5.5 16 15c0 9-7 15-16 15s-16-6-16-1
 
 /**
  * The helmet mark from `public/favicon.svg`, inline so the theme can reach it:
- * on the light rail its ivory shell would vanish into white, so the shell and
- * comm boxes take a glass-blue outline (`--helmet-outline`, transparent on
- * dark). The reflection is pared down to the sheen and the ghosted graph
+ * the shell and comm boxes have a glass-blue outline only in light mode.
+ * The reflection is pared down to the sheen and the ghosted graph
  * edges — at 22px the favicon's node dots and second sheen are noise.
  *
  * @returns The helmet as an inline SVG.

@@ -28,8 +28,7 @@
   /* The wordmark (.rail-brand): the visor rim's glass blue on dark (7.5:1 on
      the rail), a deeper glass on light (below). */
   --brand: #6fb6ce;
-  /* The sidebar helmet's shell outline: none on dark, where the ivory shell
-     stands out by itself. */
+  /* Only light mode needs an outline around the ivory helmet. */
   --helmet-outline: transparent;
   /* Chat bubbles. On dark the answer sits on the page colour and the question
      on --chip, and both read; light needs its own pair (below). */
@@ -395,5 +394,34 @@ a:hover {
   to {
     margin-right: calc(-1 * var(--panel-width, 340px));
     opacity: 0;
+  }
+}
+
+/* Crossfade the complete scene, including graph canvases, on a theme change. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 280ms;
+  animation-timing-function: ease-in-out;
+}
+.theme-glyph {
+  animation: theme-glyph-in 280ms ease-out;
+}
+@keyframes theme-glyph-in {
+  from {
+    opacity: 0;
+    transform: rotate(-35deg) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-glyph {
+    animation: none;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
   }
 }

@@ -153,11 +153,7 @@
   width: 22px;
   height: 22px;
 }
-/* The shell's outline is a theme decision (`--helmet-outline`): on light the
-   ivory shell would melt into the white rail, so it always wears the visor
-   rim's glass blue; on dark it stands out by itself and wears none. About 1px
-   on screen — the SVG draws at ~0.42px per unit, so thinner reads as a smudge
-   rather than a rim. */
+/* Glass-blue outline in light mode; no outer outline in dark mode. */
 .helmet-shell {
   fill: #f7f5f0;
   stroke: var(--helmet-outline);

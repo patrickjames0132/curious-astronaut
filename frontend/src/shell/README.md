@@ -57,3 +57,8 @@ Each exploration has a caret. Only the active, expanded exploration renders
 its thread list; a fresh unsaved exploration never appends an orphan General
 beneath another session. `SideBar.test.tsx` verifies collapse, new-exploration
 navigation, rename and active-thread deletion.
+
+The rail helmet has a glass-blue shell outline only in the app’s light theme.
+The browser favicon similarly drops its outline when the browser reports a dark
+color scheme (`prefers-color-scheme`), independently of the app setting.
+The theme action glyph fades and turns as the new palette fades in.

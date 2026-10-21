@@ -29,11 +29,15 @@ beneath it, back with a double-click), and tick off
 what you already know (shift-click or alt-drag to tick off several at once, or 🔍 find concepts
 by name and select every match). There's a
 3D mode too. The legend stays beside search and wraps only as space tightens;
-on narrow 3D graph panels, ⓘ beside search holds the navigation hints. Paper citations highlight the current graph; graph icons open or resume that paper's thread
+on narrow 3D graph panels, ⓘ beside search holds the navigation hints (click away or press Esc to close). Paper citations highlight the current graph; graph icons open or resume that paper's thread
 directly (onto its graph if you're on one, onto its cards otherwise). Type **@** and pick another chat from the suggestions (a thread's Citation
 Graph or Knowledge Graph conversation, e.g. `@thread[PPO › Knowledge Graph]`) to
 bring it into the agent's context. Lectures remain part of their thread's history, including follow-up
 questions after a reload. Existing saved sessions migrate lazily when opened.
+
+The light/dark toggle crossfades the page and animates its icon, respecting
+reduced-motion preferences. The helmet has a blue outline in light mode only;
+the browser favicon follows the browser’s reported color scheme independently.
 
 It connects to the academic-graph ecosystem **dynamically** — there's no local
 corpus of papers to store. The only things kept on disk are a small cache of
