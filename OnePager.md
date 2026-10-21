@@ -443,6 +443,46 @@ than deleted so the plan doesn't get re-proposed.
       Decide what a new thread inherits (everything, or its exploration's
       choice). *(From the `todos.md` inbox, 2026-10-09.)*
 
+- [ ] **The Citation Graph assistant should expand a paper the way the reader
+      does** — Patrick's question: does the assistant open up references like
+      the reader can when expanding a node? It has the tool (`expand_node`),
+      but **the two paths have drifted apart**. The reader's Expand buttons
+      (`POST /api/graph/expand`, v8.18.0) go through `growth.hop_hits`: every
+      reference, citers picked by the tau rule over the paper's whole history,
+      the reader's build shape, the corpus first on an arXiv id. The
+      assistant's `expand_node` goes through `traversal.neighbors` capped at
+      `expand_limit` (8), the newest citers. That was the reader's behaviour
+      too until v8.18.0's polish, and the route's docstring says so. Make them
+      share one path (Patrick: "it should use the same tools"), and decide
+      whether the assistant still needs a smaller cap for its step budget.
+      Pairs with "Reconcile when the researcher should search vs. expand"
+      above. *(From the `todos.md` inbox, 2026-10-20.)*
+
+- [ ] **The researcher always searches the library first, even when the
+      library can't help** — Patrick noticed the agent reaches for the web and
+      the library before S2 or OpenAlex every time, including a quantum
+      computing conversation over a library holding only ML papers. The
+      library half is by design: since v6.7.0 `_must_have_looked` makes
+      `search_sources` run before any substantive answer (see "The guard is
+      gated on a field the model writes" above). The ask is for the agent to
+      see that the library is off-topic and move on, or skip it. Options: let
+      the guard accept a cheap relevance check (the library's subjects against
+      the question) in place of a full search, or have the first weak
+      `search_sources` result release the guard. Measure first: how much of a
+      turn the useless search costs. Related to "Scope a thread to its own set
+      of library sources" above, which would make the library thread-local
+      instead. *(From the `todos.md` inbox, 2026-10-20.)*
+
+- [ ] **Investigate: can the Knowledge Graph Assistant see the graph, and can
+      it show images?** Two of Patrick's questions, to answer from the code
+      before building anything. (1) **The graph:** the assistant runs the
+      researcher graph-free and gets the course only as text through
+      `_course_context` (noted in the syntheses follow-up under Phase 5), so
+      it can read the concepts but can't point at nodes or act on them by id.
+      (2) **Images:** whether `show_figure` / `show_source_figure` (paper,
+      library, web and S2 figures) are registered for the course variant. Write
+      down what it can do today, then file what's missing. *(From the `todos.md` inbox, 2026-10-20.)*
+
 ### Citations & graph data
 
 - [ ] **A real switch between the corpus and the live S2 API** — today the
@@ -1213,6 +1253,31 @@ than deleted so the plan doesn't get re-proposed.
       spinner card with a progress bar over an empty canvas. Shape not yet
       decided. *(From the `todos.md` inbox, 2026-10-09.)*
 
+- [ ] **A response timer in the chat box** — while the agent is responding,
+      show a running timer in the chat box's upper-right corner; when the turn
+      ends, replace it with "responded in: <time>". Gives the reader a number
+      for the wait the "researcher is slow" ticket is about. *(From the `todos.md` inbox, 2026-10-20.)*
+
+- [ ] **Pick the agent from the chat bar** — a quick agent-selection button
+      in the chat bar, so switching agents doesn't mean opening settings every
+      time. Settings keeps the default; the chat-bar button switches agents
+      for the conversation. *(From the `todos.md` inbox, 2026-10-20.)*
+
+- [ ] **Split Graph settings into Citation Graph and Knowledge Graph
+      sub-pages** — the Graph section of `SettingsModal.tsx` holds settings for
+      both graphs. Give each graph its own sub-page, in line with the existing
+      settings UX (sub-pages over controls on the landing page). *(From the `todos.md` inbox, 2026-10-20.)*
+
+- [ ] **"Show me steps" can't be expanded until a few steps have been
+      written** — while the tutor is writing its steps, the expand button
+      works, but only after the first few steps have arrived. It should open
+      from the first step. Bug; root cause not yet looked at. *(From the `todos.md` inbox, 2026-10-20.)*
+
+- [ ] **The + next to a paper's group doesn't open the @ menu on the first
+      new chat** — clicking the plus button beside the paper's group should
+      start a chat with the @ mention open; on the first new chat it doesn't.
+      Bug; root cause not yet looked at. *(From the `todos.md` inbox, 2026-10-20.)*
+
 ### Enhancements & tech debt
 
 - [ ] **Make the backend's researcher layout match the three assistants** —
@@ -1567,6 +1632,16 @@ than deleted so the plan doesn't get re-proposed.
       inbox, 2026-07-20; narrowed 2026-08-09 when CI shipped, and again
       2026-09-27 when publishing did — leaving only deploy.)*
 
+- [ ] **Reorganize the frontend's graph and knowledge packages** —
+      `frontend/src/graph/` is really the *Citation Graph* (the Paper Graph),
+      named before the Knowledge Graph (`frontend/src/knowledge/`) existed, so
+      the folders no longer say which graph is which. Rename and restructure
+      them so the two graphs read as siblings, with shared pieces visibly
+      shared, and bring the READMEs (`frontend/src/README.md`'s map
+      included), tests (`frontend/test/` mirrors `src/`) and imports along in
+      one sweep. The frontend twin of "Make the backend's researcher layout
+      match the three assistants" above. *(From the `todos.md` inbox, 2026-10-20.)*
+
 ### Larger phases
 
 - [ ] **Phase 5 — Knowledge network: a short course on a paper's
@@ -1606,6 +1681,12 @@ than deleted so the plan doesn't get re-proposed.
         Open: a third view beside force and 3D, or a mode of the force view;
         and whether the Connections card should grow a tree to explore in
         place (Patrick sketched one, 2026-10-15, and left it to this view).
+        **Reframed 2026-10-20** (from the `todos.md` inbox): the ticket is
+        about **assessing what the reader knows**. Take the nodes and concepts
+        the reader has marked as known (the check-offs), and build the
+        tree/pyramid from them, so the layout shows what the reader already
+        has and what still sits between them and the paper. The layout above
+        is how that assessment gets drawn, not the goal in itself.
       - **The tutor's suggested syntheses, as the Knowledge Graph
         Assistant's tool.** The assistant shipped in v8.25.0 (the researcher
         generalized, `knowledge/assistant/`); its synthesis half was deferred
