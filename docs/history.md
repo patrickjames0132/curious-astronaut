@@ -4543,6 +4543,13 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **The graph-card icon tiles grow too** *(v8.32.2)* — the citation and
+      knowledge icons and their rounded squares scale together by another
+      8% when their card is hovered or keyboard-focused, with the card’s own
+      easing and duration. Pressing settles the tile to 4% extra scale;
+      disabled cards and reduced-motion preferences skip the effect.
+      Approved in the browser by Patrick, 2026-10-21.
+
 - [x] **The Papers ＋ `@` on the first new chat, the lesson steps from the
       first step, and three polishes** *(v8.32.1)* — two bugs from the
       `todos.md` inbox (2026-10-20), and three polishes from Patrick's browser

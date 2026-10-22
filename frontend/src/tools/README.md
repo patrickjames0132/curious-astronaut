@@ -30,7 +30,9 @@ keeps its internal names (the `'graph'` tool id, `GraphExplorer`,
 
 The cards use their icon's accent (glass blue for citations, gold for knowledge)
 for a brighter border, tinted surface and soft glow on hover or keyboard focus.
-They lift 4px and grow 2.5%, with a smaller pressed state; the grid leaves room
+They lift 4px and grow 2.5%, with a smaller pressed state. The icon and its
+rounded square grow together by another 8% (4% while pressed), using the
+same timing on hover and keyboard focus; the grid leaves room
 for that movement. Individual `translate` and `scale` properties compose with
 the entrance animation instead of being overridden by its filled `transform`.
 Reduced motion keeps the highlight and glow but disables movement and transitions.

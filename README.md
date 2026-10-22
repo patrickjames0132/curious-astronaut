@@ -43,8 +43,8 @@ controls. The year stays visible, and expanding preserves the complete author
 list.
 
 The graph-choice cards glow in their blue or gold accent, lift slightly, and
-grow on hover or keyboard focus. Reduced-motion settings keep the highlight
-without movement.
+grow on hover or keyboard focus; their icons and rounded squares grow together
+a little further. Reduced-motion settings keep the highlight without movement.
 
 The light/dark toggle crossfades the page and animates its icon, respecting
 reduced-motion preferences. The helmet has a blue outline in light mode only;

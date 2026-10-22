@@ -214,6 +214,17 @@
    reduced motion the surface never animates, so it never ends and the
    panel would stay hidden. */
 @media (prefers-reduced-motion: no-preference) {
+  .tool-card-icon {
+    transition: scale var(--motion-pop) var(--ease-rise);
+  }
+  .tool-card:hover:not(:disabled) .tool-card-icon,
+  .tool-card:focus-visible:not(:disabled) .tool-card-icon {
+    scale: 1.08;
+  }
+  .tool-card:active:not(:disabled) .tool-card-icon {
+    scale: 1.04;
+  }
+
   .tool-surface.scroll-down .knowledge-panel,
   .tool-surface.scroll-down .detail {
     animation: none;
