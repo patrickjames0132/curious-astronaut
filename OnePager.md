@@ -1251,6 +1251,30 @@ than deleted so the plan doesn't get re-proposed.
       lesson back when it has fewer images than `min_images`. Bring the row
       hints and the Tutor's README along. *(Patrick, 2026-10-21.)*
 
+- [ ] **Auto-correct spelling in the chat bars** — typos in a question go
+      to the agent as typed. Correct them as the reader types, in every chat
+      bar (General, and the Citation Graph and Knowledge Graph assistants).
+      Decide between the browser's own spellcheck (`spellCheck` on the
+      textarea: underlines only, no correction) and a real auto-correct, and
+      keep it away from what must not change: `@` mentions, arXiv ids, paper
+      titles and math. *(From the `todos.md` inbox, 2026-10-22.)*
+
+- [ ] **Recent chats in the collapsed sidebar** — with the sidebar collapsed,
+      there's no way back to a recent chat without opening it again. Add
+      buttons for the most recent chats to the collapsed rail, so switching
+      between them stays one click. Decide how many, and what each button
+      shows when there's only an icon's width. *(From the `todos.md` inbox,
+      2026-10-22.)*
+
+- [ ] **Make library source references clickable in every chat** — in a chat
+      answer a `[Sn, p.N]` citation renders as plain text, "(title, p.N)"
+      (`teacher/transcript/AnswerMarkdown.tsx`, a `.source-ref` span), with
+      nothing to click; Patrick believes the Knowledge Graph's lesson images
+      already link to their library source. Make the chat references open
+      the source at that page too, in all three chats, and check the lesson
+      images to reuse whatever they do. *(From the `todos.md` inbox,
+      2026-10-22.)*
+
 ### Enhancements & tech debt
 
 - [ ] **Make the backend's researcher layout match the three assistants** —
