@@ -76,3 +76,7 @@ sent with the reader's question), `test/teacher/history.test.ts` (the per-chat s
 mentioned course chat's outline), `test/store/threads.test.ts` (the chat
 saved and restored beside the thread's own), `test/App.test.tsx` (where it
 docks), and on the server `test/curious_astronaut/routes/test_agents.py`.
+
+Quick response preserves the working answer’s original start time when replacing
+the exchange, so its running and completed timers include the full wait. New
+messages and ordinary retries start a fresh clock.

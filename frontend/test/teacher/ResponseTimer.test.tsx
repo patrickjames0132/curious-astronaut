@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
- * Description: An answer's response timer (v8.33.0) — a running clock while the answer is on its way, "responded in" once it completes, nothing for a run that ended without completing.
+ * Description: An answer's response timer (v8.33.0) — a running clock while the answer is on its way, a dimmed clock once it completes, nothing for a run that ended without completing.
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { act, cleanup, render, screen } from '@testing-library/react'
@@ -17,11 +17,13 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-it('reads tenths under a minute, then minutes and padded seconds', () => {
-  expect(formatDuration(4230)).toBe('4.2s')
-  expect(formatDuration(59_940)).toBe('59.9s')
+it('reads whole elapsed seconds under a minute, then minutes and padded seconds', () => {
+  expect(formatDuration(4230)).toBe('4s')
+  expect(formatDuration(59_940)).toBe('59s')
+  expect(formatDuration(59_999)).toBe('59s')
+  expect(formatDuration(60_000)).toBe('1m 00s')
   expect(formatDuration(65_000)).toBe('1m 05s')
-  expect(formatDuration(-5)).toBe('0.0s')
+  expect(formatDuration(-5)).toBe('0s')
 })
 
 it('runs while the answer is on its way', () => {
@@ -29,12 +31,16 @@ it('runs while the answer is on its way', () => {
   act(() => {
     vi.advanceTimersByTime(2300)
   })
-  expect(screen.getByTitle('How long this answer has been running').textContent).toBe('2.3s')
+  expect(screen.getByTitle('How long this answer has been running').textContent).toBe('2s')
 })
 
 it('says how long a completed answer took', () => {
   render(<ResponseTimer respondedIn={12_500} running={false} />)
-  expect(screen.getByTitle('How long this answer took').textContent).toBe('responded in: 12.5s')
+  const timer = screen.getByTitle('How long this answer took')
+  expect(timer.textContent).toBe('12s')
+  expect(timer.getAttribute('aria-label')).toBe('Responded in 12s')
+  expect(timer.querySelector('svg')?.getAttribute('stroke')).toBe('currentColor')
+  expect(timer.classList.contains('running')).toBe(false)
 })
 
 it('shows nothing for a run that ended without completing, or a turn from before it', () => {

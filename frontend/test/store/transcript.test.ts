@@ -347,6 +347,14 @@ describe("an answer's response timer (v8.33.0)", () => {
     expect(answer().startedAt).toBeUndefined()
   })
 
+  it('preserves an explicit original start, including zero, for a continued answer', () => {
+    const state = playAll(
+      at(12_000, () => turnStarted('quick answer', undefined, 0)),
+      at(15_000, () => turnCompleted()),
+    )
+    expect(active(state).chat[1].respondedIn).toBe(15_000)
+  })
+
   it('gives each answer its own clock', () => {
     const state = playAll(
       at(0, () => turnStarted('first?')),

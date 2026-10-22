@@ -383,6 +383,7 @@ describe('the scope priority list, resolved once per turn', () => {
 
   it('⚡ Quick response stops a working answer and asks it again with no tools, in its place', async () => {
     const { store, result, streamAsk } = await setUp(answer('citations'))
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(1000)
     // The first run is still searching: it has a trace and waits until stopped.
     streamAsk.mockImplementationOnce(async (_body, options) => {
       options.onTrace?.({ action: 'search', ok: true, pending: true, query: 'q' } as api.TraceEvent)
@@ -397,6 +398,7 @@ describe('the scope priority list, resolved once per turn', () => {
     })
     await waitFor(() => expect(streamAsk).toHaveBeenCalledOnce())
     await act(async () => {
+      clock.mockReturnValue(12_000)
       result.current.quickAnswer(chat().length - 1)
       await first
     })
@@ -412,6 +414,7 @@ describe('the scope priority list, resolved once per turn', () => {
     const questions = chat().filter((turn) => turn.role === 'user')
     expect(questions).toHaveLength(1)
     const last = chat()[chat().length - 1]
+    expect(last.respondedIn).toBe(11_000)
     expect(last.text).toBe('An answer.')
     expect(last.failed).toBeUndefined()
   })

@@ -190,7 +190,9 @@ right of its block in the transcript (level with the "7 steps" toggle, or
 in a slim header strip of its own when there are no steps: a float squeezed
 every line under it, `teacher.css`) (`transcript/ChatMessage`, so every
 chat's answers wear one): a running clock while the answer is on its way,
-then "responded in: …". It was first a single readout over the chat bar;
+then a dimmed clock and duration. Both use whole elapsed seconds (and minutes
+for longer answers), with a monochrome icon matching the readout. The completed
+readout keeps “Responded in” in its accessible label, without the visible prefix. It was first a single readout over the chat bar;
 Patrick wanted it on the answer it times. The times are the turn's
 (`ChatMsg.startedAt` / `respondedIn`, see `store/README.md`), so a
 background answer keeps its clock across thread switches and a finished
@@ -268,3 +270,7 @@ component tests exercise layout controls, lecture folding and citation clicks
 offline. Browser handoff checks the complete flow:
 General search, two graph threads, independent follow-ups, cross-thread comparison,
 and return to the first graph without losing its conversation or selection.
+
+Quick response preserves the working answer’s original start time when replacing
+the exchange, so its running and completed timers include the full wait. New
+messages and ordinary retries start a fresh clock.
