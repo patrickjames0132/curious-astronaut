@@ -8,13 +8,14 @@
  * not onto its panels" — so the detail panel only appears once a paper is
  * clicked. The seed is no longer auto-selected; the chat-citation path and the
  * guided tour open it explicitly, from GraphExplorer. And the clicks: a
- * second click on the open paper closes it.
+ * lone second click on the open paper closes it once the double-click window
+ * has passed, and a quick double-click goes to `onDoubleClick` (v8.33.0).
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useSelection } from '../../src/detail/useSelection'
 import type { GraphResponse } from '../../src/api'
@@ -70,11 +71,11 @@ function makeWorld(seedId: string) {
   return { graph, base, seed, neighbor }
 }
 
-/** Mount the hook over one world. */
-function mount(world: ReturnType<typeof makeWorld>) {
+/** Mount the hook over one world; `onDoubleClick` records the re-seeds. */
+function mount(world: ReturnType<typeof makeWorld>, onDoubleClick = vi.fn()) {
   return renderHook(
     ({ graph, base }: Pick<ReturnType<typeof makeWorld>, 'graph' | 'base'>) =>
-      useSelection({ base, graph, provider: 's2' }),
+      useSelection({ base, graph, provider: 's2', onDoubleClick }),
     { initialProps: { graph: world.graph, base: world.base } },
   )
 }
@@ -115,22 +116,82 @@ describe('useSelection on a new graph', () => {
 })
 
 describe('useSelection clicks', () => {
-  it('a second click on the open paper closes it, and a third opens it again', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  /** Let the double-click window pass between two clicks. */
+  const pause = () => act(() => vi.advanceTimersByTime(400))
+
+  it('a second click on the open paper closes it once the double-click window passes', () => {
     const world = makeWorld('seed-1')
     const { result } = mount(world)
     act(() => result.current.onNodeClick(world.neighbor))
     expect(result.current.selectedId).toBe(world.neighbor.id)
+    pause()
     act(() => result.current.onNodeClick(world.neighbor))
+    // Not yet: a second click inside the window would be a double-click.
+    expect(result.current.selectedId).toBe(world.neighbor.id)
+    pause()
     expect(result.current.selectedId).toBeNull()
     act(() => result.current.onNodeClick(world.neighbor))
     expect(result.current.selectedId).toBe(world.neighbor.id)
   })
 
+  it('a quick double-click hands the paper over and leaves it open', () => {
+    const world = makeWorld('seed-1')
+    const onDoubleClick = vi.fn()
+    const { result } = mount(world, onDoubleClick)
+    act(() => result.current.onNodeClick(world.neighbor))
+    act(() => result.current.onNodeClick(world.neighbor))
+    expect(onDoubleClick).toHaveBeenCalledExactlyOnceWith(world.neighbor)
+    pause()
+    expect(result.current.selectedId).toBe(world.neighbor.id)
+  })
+
+  it('a double-click on the open paper re-seeds instead of closing it', () => {
+    const world = makeWorld('seed-1')
+    const onDoubleClick = vi.fn()
+    const { result } = mount(world, onDoubleClick)
+    act(() => result.current.onNodeClick(world.neighbor))
+    pause()
+    act(() => result.current.onNodeClick(world.neighbor))
+    act(() => result.current.onNodeClick(world.neighbor))
+    expect(onDoubleClick).toHaveBeenCalledOnce()
+    pause()
+    expect(result.current.selectedId).toBe(world.neighbor.id)
+  })
+
+  it('two slow clicks are not a double-click', () => {
+    const world = makeWorld('seed-1')
+    const onDoubleClick = vi.fn()
+    const { result } = mount(world, onDoubleClick)
+    act(() => result.current.onNodeClick(world.neighbor))
+    pause()
+    act(() => result.current.onNodeClick(world.neighbor))
+    pause()
+    expect(onDoubleClick).not.toHaveBeenCalled()
+  })
+
   it('a click on another paper moves the selection rather than closing it', () => {
     const world = makeWorld('seed-1')
-    const { result } = mount(world)
+    const onDoubleClick = vi.fn()
+    const { result } = mount(world, onDoubleClick)
     act(() => result.current.onNodeClick(world.neighbor))
     act(() => result.current.onNodeClick(world.seed))
     expect(result.current.selectedId).toBe(world.seed.id)
+    expect(onDoubleClick).not.toHaveBeenCalled()
+  })
+
+  it('a close still waiting when the next graph lands does nothing', () => {
+    const world = makeWorld('seed-1')
+    const { result, rerender } = mount(world)
+    act(() => result.current.onNodeClick(world.neighbor))
+    pause()
+    act(() => result.current.onNodeClick(world.neighbor))
+    const next = makeWorld('seed-2')
+    rerender({ graph: next.graph, base: next.base })
+    act(() => result.current.onNodeClick(next.neighbor))
+    pause()
+    expect(result.current.selectedId).toBe(next.neighbor.id)
   })
 })

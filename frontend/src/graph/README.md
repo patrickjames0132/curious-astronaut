@@ -72,7 +72,9 @@ round (which cost the double-click re-seed), then a ⌘-click, an extra
 modifier to learn (Patrick, v8.21.0: "it doesn't need a cmd-click"). In the
 same change the double-click re-seed went too: once a second click closed
 the panel, the two fought over one gesture, and "Explore in a thread" in the
-panel re-seeds. The find moved above the held focus as well: with a panel
+panel re-seeded alone. It came back in v8.33.0, sharing the gesture the
+Knowledge Graph's way: a click on the open paper waits out the double-click
+window before closing (`detail/useSelection`). The find moved above the held focus as well: with a panel
 open most of the time, a held focus outranking the find would hide every
 find behind it.
 

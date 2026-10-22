@@ -4,15 +4,27 @@
   position: relative;
   width: 340px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   border-left: 1px solid var(--border);
   background: var(--panel);
-  padding: 20px;
-  overflow-y: auto;
+  overflow: hidden;
   /* Slides in on the first selection and out when it clears (panel-in /
      panel-out, index.css); switching papers keeps the same element, so it
      doesn't replay. It slides out from behind the assistant panel, which
      comes after it in the row and paints on top. */
   animation: panel-in var(--motion-panel) var(--ease-rise) both;
+}
+/* What scrolls (v8.33.0): the panel itself did, and its resize handle, sized
+   to it, scrolled away with a long abstract or figures, leaving nothing to
+   grab below the first screenful. The handle and the ✕ stay put on the
+   panel — the Knowledge Graph's lesson-panel fix (`.knowledge-panel-scroll`,
+   v8.23.0). */
+.detail-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 20px;
+  overflow-y: auto;
 }
 .detail.closing {
   animation: panel-out var(--motion-panel) var(--ease-fade) both;

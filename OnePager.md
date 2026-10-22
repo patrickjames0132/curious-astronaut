@@ -806,28 +806,6 @@ than deleted so the plan doesn't get re-proposed.
 
 ### UI & rendering polish
 
-- [ ] **The Paper Graph's detail panel can only be resized near its top.**
-      Its resize handle (`.panel-resize-handle`, `app.css`) is placed against
-      `.detail`, which is itself the scroller, so the handle covers the first
-      screenful and scrolls up out of reach with a long abstract or figures.
-      The Knowledge Graph's lesson panel had the same bug and got an inner
-      scroller in v8.23.0 (`.knowledge-panel-scroll`, see
-      `frontend/src/knowledge/README.md`): the handle and the ✕ stay on the
-      still panel. The same move fits `detail/DetailPanel.tsx`; check the
-      assistant panel (`teacher/`) while there, though it already scrolls an
-      inner pane. Found by Patrick, 2026-10-15.
-- [ ] **Bring the double-click re-seed back to the Paper Graph?** v8.21.0
-      removed it: a second click on the open paper closes its panel, and the
-      two fought over one gesture (the double-click got hard to land). The
-      Knowledge Graph then showed they can live together (v8.23.0): a click
-      on the open item waits out the 350 ms double-click window before
-      closing, so a quick second click is still the double-click. Patrick,
-      2026-10-14: "maybe we should bring the double click back to citation
-      graph (perhaps I was wrong to remove it so quickly)". The same wait in
-      `detail/useSelection`'s click would restore it; "Explore in a thread"
-      stays in the panel either way. Update the hint line and the tour with
-      it.
-
 - [ ] **Draw the Curious Astronaut full-figure mascot properly** — the
       **helmet mark is done and usable** (favicon, app tile, dock) and nothing
       is blocked on this. What is *not* done is the whole-body character: three
