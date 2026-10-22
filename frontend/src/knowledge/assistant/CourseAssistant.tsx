@@ -51,6 +51,7 @@ import { openChat, seedPaper } from '../../store/workspace'
 import HopDots from '../../teacher/HopDots'
 import { ClearGlyph } from '../../teacher/Teacher'
 import ComposerNotes from '../../teacher/ComposerNotes'
+import ModelPicker from '../../teacher/ModelPicker'
 import SourcePicker from '../../teacher/SourcePicker'
 import { useSourceScope } from '../../teacher/useSourceScope'
 import { conversationHistory } from '../../teacher/history'
@@ -127,7 +128,8 @@ export default function CourseAssistant({
   const [lightbox, setLightbox] = useState<AnswerFigure | null>(null)
   // Which uploaded sources its answers may search (the 📚 picker, v8.25.0).
   const sources = useSourceScope()
-  const [sourcesOpen, setSourcesOpen] = useState(false)
+  // Which of the bar's popovers is open: one at a time.
+  const [openPopover, setOpenPopover] = useState<'sources' | 'model' | null>(null)
   const { width, onHandlePointerDown, dragging } = useResizablePanel('ca.courseAssistantWidth', 340)
 
   // Closing and reopening slide the panel, as Teacher's does.
@@ -403,9 +405,19 @@ export default function CourseAssistant({
             }
             aria-label="Ask the Knowledge Graph Assistant a question"
           />
+          {/* Model (v8.33.0), to 📚's left as in the Citation Graph's bar. */}
+          <ModelPicker
+            conversationKey={key}
+            open={openPopover === 'model'}
+            onOpenChange={(nowOpen) => setOpenPopover(nowOpen ? 'model' : null)}
+          />
           {/* 📚 Library, inside the bar as under the Citation Graph's
               (v8.28.0; a chip under it from v8.25.0). */}
-          <SourcePicker scope={sources} open={sourcesOpen} onOpenChange={setSourcesOpen} />
+          <SourcePicker
+            scope={sources}
+            open={openPopover === 'sources'}
+            onOpenChange={(nowOpen) => setOpenPopover(nowOpen ? 'sources' : null)}
+          />
           {chat.length > 0 && (
             <button
               type="button"

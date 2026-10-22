@@ -148,7 +148,7 @@ describes figure placement.
 
 ## The composer's notes and the 📚 picker, shared (v8.25.0)
 
-Three pieces of the composer are shared with the Knowledge Graph Assistant
+Four pieces of the composer are shared with the Knowledge Graph Assistant
 (`knowledge/assistant/`), so the two bars read as one:
 
 - **`ComposerNotes.tsx`**, the quiet lines over the bar: what the message is
@@ -168,6 +168,34 @@ Three pieces of the composer are shared with the Knowledge Graph Assistant
   (v8.29.0), in this composer and the Knowledge Graph Assistant's alike, and
   a sent question shows the same chips above its text. Chips alone send
   nothing: Send waits for the question, and the placeholder asks for it.
+- **`ModelPicker.tsx`** (v8.33.0), the Model picker beside 📚, a small network icon (a chip in the landing
+  row, an icon in the docked bar): which model the researcher answers on in
+  this conversation, from what `GET /api/settings/models` lists (fetched on
+  each open, so a key added in Settings shows without a reload), under a
+  "Settings default" that goes back to Settings → Agents. The pick is the
+  conversation's (`Conversation.model`), sent with its every ask and read by
+  `routes/agents._opt_model`; docked, a dot on the icon says the chat has
+  its own. The bar's popovers stay one-at-a-time (`openScope`). On the
+  empty landing chat its popover drops down from a bar centred mid-page, so
+  it measures the room left and cuts its scrolling list (the only part that
+  scrolls) to end 8px clear of the window's edge, however small that makes
+  it; the wheel scrolls it in the smaller box. It never flips over the
+  question box (Patrick). Measured in Patrick's browser, not guessed: two
+  blind tries missed, because the shared `.scope-pop` cap made the popover a
+  scroller of its own, and then because a 120px floor on the list still
+  overran the 150px left under the landing bar.
+
+**`ResponseTimer.tsx`** (v8.33.0) times each answer, pinned to the top
+right of its block in the transcript (level with the "7 steps" toggle, or
+in a slim header strip of its own when there are no steps: a float squeezed
+every line under it, `teacher.css`) (`transcript/ChatMessage`, so every
+chat's answers wear one): a running clock while the answer is on its way,
+then "responded in: …". It was first a single readout over the chat bar;
+Patrick wanted it on the answer it times. The times are the turn's
+(`ChatMsg.startedAt` / `respondedIn`, see `store/README.md`), so a
+background answer keeps its clock across thread switches and a finished
+one keeps its time across a reload. A failed or stopped answer never
+completes, so it shows none.
 - **`SourcePicker.tsx`** and **`useSourceScope.ts`**, the 📚 picker and its
   choice (tracked by exclusion, so a new upload is searchable by default).
   Each panel keeps its own choice. Since v8.28.0 it is named **Library

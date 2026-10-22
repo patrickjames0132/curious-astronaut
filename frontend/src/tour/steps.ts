@@ -492,6 +492,17 @@ export const GRAPH_TOUR: TourStep[] = [
       'leaves your library alone, which works with a single uploaded source too.',
   },
   {
+    target: '[data-tour="model-picker"]',
+    stage: 'assistant',
+    presentIf: '[data-tour="model-picker"]',
+    title: 'Pick the model for this chat',
+    body:
+      'The network icon beside it picks which model answers in this chat, from every model your ' +
+      'providers list. A dot on it means this chat has its own pick; “Settings default” ' +
+      'goes back to the one Settings → Agents sets for the Researcher. At the top right of ' +
+      'each answer, a clock runs while it’s on its way and then says how long it took.',
+  },
+  {
     target: '[data-tour="ask"]',
     stage: 'assistant',
     presentIf: '[data-tour="assistant-btn"]',

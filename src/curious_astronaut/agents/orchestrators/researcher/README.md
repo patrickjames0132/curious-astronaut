@@ -175,6 +175,17 @@ nobody was watching. Two log lines in sequence are the measurement.
 - **`tools.py`** — `ResearcherDeps` (the run-state) and the six tools.
 - **`main.py`** — the `Answer` model, the `Agent`, the sync event bridge.
 
+## A chat's own model (v8.33.0)
+
+`answer(model=...)` runs the researcher on the `provider:model` the reader
+picked in that conversation's chat bar (Model, `teacher/ModelPicker`), via
+`factory.model_for(AGENT_ID, model)`; None runs it on its configured model.
+Every ask route reads it with `routes/agents._opt_model`, which passes on
+only a `provider:model` naming a known vendor and drops anything else to
+None, so a malformed pick falls back to Settings rather than failing the
+answer. Only the researcher's own model changes: the paper and web scouts
+it sends out keep theirs, since the picker is about who answers.
+
 ## Quick response (v8.30.0)
 
 `answer(quick=True)` is the chat's version of the lesson's quick response:

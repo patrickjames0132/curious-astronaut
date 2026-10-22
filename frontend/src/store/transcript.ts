@@ -86,6 +86,12 @@ export interface Conversation {
    * to the workspace, as it always did.)
    */
   pendingDiscoveries: { nodes: GraphNode[]; edges: GraphEdge[] }
+  /**
+   * The researcher model this conversation's chat bar picked (v8.33.0), as
+   * `"provider:model"`, sent with every question asked here; absent, the
+   * model Settings configures. For this sitting only: it isn't saved.
+   */
+  model?: string
 }
 
 export interface TranscriptState {
@@ -139,6 +145,19 @@ function target(state: TranscriptState, key: string | undefined): Conversation |
 
 /** Actions carry an optional target key in `meta`. */
 type Keyed = { key?: string }
+
+/** A keyed action stamped with when it was dispatched (`Date.now()`). */
+type Timed = Keyed & { at: number }
+
+/**
+ * Build the `prepare` half of a keyed action that also stamps the time —
+ * here, not in the reducer, which has to stay pure.
+ *
+ * @returns A prepare callback stamping the payload, `meta.key` and `meta.at`.
+ */
+function timed<Payload>() {
+  return (payload: Payload, key?: string) => ({ payload, meta: { key, at: Date.now() } })
+}
 
 /**
  * Build the `prepare` half of a keyed action: payload first, key second.
@@ -264,6 +283,23 @@ const transcriptSlice = createSlice({
       prepare: keyed<string>(),
     },
     /**
+     * Pick the researcher model for a conversation (v8.33.0, the chat bar's
+     * picker), or null to go back to the one Settings configures.
+     *
+     * @param state  The slice state (mutated via immer).
+     * @param action Carries the `"provider:model"` or null, and the
+     *   conversation in `meta`.
+     */
+    conversationModelSet: {
+      reducer(state, action: PayloadAction<string | null, string, Keyed>) {
+        const conversation = target(state, action.meta.key)
+        if (!conversation) return
+        if (action.payload) conversation.model = action.payload
+        else delete conversation.model
+      },
+      prepare: keyed<string | null>(),
+    },
+    /**
      * A paper the agent found. Merged into the workspace when this
      * conversation is the active one (the workspace slice handles that); held
      * here when it is not, so a background find can't land on the graph the
@@ -383,21 +419,33 @@ const transcriptSlice = createSlice({
       prepare: keyed<NonNullable<ChatMsg['borrowedThreads']>>(),
     },
     turnCompleted: {
-      reducer(state, action: PayloadAction<undefined, string, Keyed>) {
+      reducer(state, action: PayloadAction<undefined, string, Timed>) {
         const conversation = target(state, action.meta.key)
         const msg = conversation && lastMsg(conversation)
-        if (msg) msg.unfinished = false
+        if (!msg) return
+        msg.unfinished = false
+        // The answer's clock stops: what it shows from now on (v8.33.0).
+        if (msg.startedAt !== undefined) {
+          msg.respondedIn = action.meta.at - msg.startedAt
+          delete msg.startedAt
+        }
       },
-      prepare: (key?: string) => ({ payload: undefined, meta: { key } }),
+      prepare: (key?: string) => ({ payload: undefined, meta: { key, at: Date.now() } }),
     },
     turnStarted: {
-      reducer(state, action: PayloadAction<string, string, Keyed>) {
+      reducer(state, action: PayloadAction<string, string, Timed>) {
         const conversation = target(state, action.meta.key)
         if (!conversation) return
         conversation.chat.push({ role: 'user', text: action.payload })
-        conversation.chat.push({ role: 'assistant', text: '', unfinished: true })
+        // The answer's clock starts with its turn (v8.33.0, `ResponseTimer`).
+        conversation.chat.push({
+          role: 'assistant',
+          text: '',
+          unfinished: true,
+          startedAt: action.meta.at,
+        })
       },
-      prepare: keyed<string>(),
+      prepare: timed<string>(),
     },
     /**
      * A streamed answer token lands on the in-flight turn.
@@ -730,6 +778,7 @@ export const {
   provenanceSet,
   paperRefsSet,
   chatCleared,
+  conversationModelSet,
 } = transcriptSlice.actions
 export default transcriptSlice.reducer
 

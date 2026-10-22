@@ -49,7 +49,10 @@ assistant/
   and the one-line notes over the bar (`teacher/SourcePicker`,
   `teacher/ComposerNotes`; Patrick noticed the picker missing at the first
   browser round). Like the docked Citation Graph assistant's, the picker is
-  a round icon inside the bar since v8.28.0, with no row under it. Also
+  a round icon inside the bar since v8.28.0, with no row under it. The
+  Model picker came the same way (v8.33.0, `teacher/ModelPicker`): the bar
+  arbitrates its two popovers so only one is open (`openPopover`); and its
+  answers wear the same response timer, which `ChatMessage` draws. Also
   since v8.28.0 it doesn't search for papers (`/api/ask_course` runs the
   researcher with `paper_search=False`): it answers from the course, the
   library and the web, and finding papers is the General chat's job. A chat

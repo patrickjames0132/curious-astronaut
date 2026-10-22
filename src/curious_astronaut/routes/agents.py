@@ -129,6 +129,31 @@ def _opt_quick(payload: dict) -> bool:
     return payload.get("quick") is True
 
 
+def _opt_model(payload: dict) -> str | None:
+    """The researcher model a chat bar picked for its conversation (v8.33.0).
+
+    The bar's picker overrides the researcher's configured model for one
+    conversation; Settings keeps the default. Anything that isn't a
+    ``"provider:model"`` string naming a vendor the factory knows is ignored,
+    so a malformed value falls back to the configured model rather than
+    failing the answer. A known but unconfigured vendor still reaches the
+    factory, which reports it as an answer error, as it does for config.
+
+    Args:
+        payload: The parsed JSON body.
+
+    Returns:
+        The override, or None for the configured model.
+    """
+    raw = payload.get("model")
+    if not isinstance(raw, str) or ":" not in raw:
+        return None
+    vendor, name = raw.split(":", 1)
+    if not name.strip() or vendor not in type(config.llm.providers).model_fields:
+        return None
+    return raw
+
+
 def _node(raw: dict) -> Node:
     """Build a typed ``Node`` from a frontend node payload.
 
@@ -440,11 +465,13 @@ def api_ask() -> ResponseReturnValue:
 
     Body:
         ``{question, seed, nodes, provider?, source_ids?,
-        history?, quick?}`` — ``provider`` (``s2``/``openalex``) matches the
+        history?, quick?, model?}`` — ``provider`` (``s2``/``openalex``) matches the
         graph's backend so the researcher's expand/hydrate use it (it has no
         paper search here since v8.28.0, so the bar's filters aren't read);
         ``quick: true`` answers with no tools, now (a quick response,
-        v8.30.0; the same on every ``ask`` route);
+        v8.30.0; the same on every ``ask`` route); ``model`` is the chat
+        bar's ``"provider:model"`` pick for the researcher (``_opt_model``,
+        v8.33.0; likewise on every ``ask`` route);
         ``source_ids`` scopes the library search to a subset of uploaded
         sources. ``history`` is the client's own copy of the conversation,
         validated and bounded by ``_resumed_history`` on every request.
@@ -494,6 +521,7 @@ def api_ask() -> ResponseReturnValue:
                     # read here either.
                     paper_search=False,
                     quick=_opt_quick(payload),
+                    model=_opt_model(payload),
                 )
             ),
         )
@@ -512,7 +540,7 @@ def api_ask_sources() -> ResponseReturnValue:
 
     Body:
         ``{question, history?, thread_context?, provider?, source_ids?,
-        quick?}`` — ``provider``
+        quick?, model?}`` — ``provider``
         (``s2``/``openalex``) is the backend the agent's paper search runs
         against, sent by the header's Data source dropdown exactly as
         ``/api/ask`` does; ``source_ids`` scopes retrieval to a subset of
@@ -548,6 +576,7 @@ def api_ask_sources() -> ResponseReturnValue:
                     source_ids=source_ids,
                     provider=provider,
                     quick=_opt_quick(payload),
+                    model=_opt_model(payload),
                     **_opt_filters(payload, provider),
                 )
             ),
@@ -567,7 +596,7 @@ def api_ask_course() -> ResponseReturnValue:
 
     Body:
         ``{question, course, history?, thread_context?, provider?,
-        source_ids?}`` — ``course`` as ``_course_context`` reads it; the rest
+        source_ids?, quick?, model?}`` — ``course`` as ``_course_context`` reads it; the rest
         as for ``/api/ask_sources``.
 
     Returns:
@@ -597,6 +626,7 @@ def api_ask_course() -> ResponseReturnValue:
                     # is the map here, and finding papers is the General chat's.
                     paper_search=False,
                     quick=_opt_quick(payload),
+                    model=_opt_model(payload),
                 )
             ),
         )

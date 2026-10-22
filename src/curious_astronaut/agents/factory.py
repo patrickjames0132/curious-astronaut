@@ -90,11 +90,16 @@ def supports_web_search(agent_id: str) -> bool:
     return agent_entry(agent_id).provider in WEB_SEARCH_VENDORS
 
 
-def build_model(agent_id: str) -> Model:
+def build_model(agent_id: str, model: str | None = None) -> Model:
     """Build the model an agent's entry names, with explicit credentials.
 
     Args:
         agent_id: The agent's ``config.llm.agents`` entry id.
+        model: A ``"provider:model"`` string to build in place of the entry's
+            own, or None for the entry's. The chat bar's model picker sends
+            one per conversation (v8.33.0); it meets the same vendor checks
+            as a configured model, so an unconfigured vendor is the same
+            request-time error.
 
     Returns:
         A ready PydanticAI ``Model`` carrying a provider built from this
@@ -113,7 +118,7 @@ def build_model(agent_id: str) -> Model:
             without a case arm here — loudly, rather than mysteriously.
     """
     entry = agent_entry(agent_id)
-    provider_name, model_name = entry.model.split(":", 1)
+    provider_name, model_name = (model or entry.model).split(":", 1)
     vendors = config.llm.providers
     vendor = getattr(vendors, provider_name, None)
     if vendor is None:
@@ -181,7 +186,8 @@ def build_model(agent_id: str) -> Model:
             )
 
 
-#: Live models, keyed by agent id, beside the config that produced them.
+#: Live models, keyed by agent id (plus the override, for a model the chat
+#: bar's picker chose), beside the config that produced them.
 #: Constructing one builds a provider and its HTTP client, so rebuilding per
 #: run would churn connections; keeping one forever would pin the app to
 #: whatever config.json said at boot. Storing the fingerprint alongside gets
@@ -190,7 +196,7 @@ def build_model(agent_id: str) -> Model:
 _MODELS: dict[str, tuple[str, Model]] = {}
 
 
-def _fingerprint(entry: AgentConfig) -> str:
+def _fingerprint(entry: AgentConfig, model: str | None = None) -> str:
     """Everything about the config that would change an agent's model.
 
     That is the entry's ``provider:model`` string *and* the named vendor's
@@ -201,16 +207,18 @@ def _fingerprint(entry: AgentConfig) -> str:
 
     Args:
         entry: The agent's config entry.
+        model: The ``"provider:model"`` string overriding the entry's, if any.
 
     Returns:
         An opaque string that differs whenever the model would.
     """
-    provider_name = entry.model.split(":", 1)[0]
+    model_string = model or entry.model
+    provider_name = model_string.split(":", 1)[0]
     vendor = getattr(config.llm.providers, provider_name, None)
-    return f"{entry.model}|{vendor.model_dump_json() if vendor is not None else ''}"
+    return f"{model_string}|{vendor.model_dump_json() if vendor is not None else ''}"
 
 
-def model_for(agent_id: str) -> Model:
+def model_for(agent_id: str, model: str | None = None) -> Model:
     """The agent's model, built on first use and rebuilt when config changes.
 
     **Call this per run, not at import.** Building at import is what made a
@@ -222,6 +230,9 @@ def model_for(agent_id: str) -> Model:
 
     Args:
         agent_id: The agent's ``config.llm.agents`` entry id.
+        model: A ``"provider:model"`` string overriding the entry's, or None
+            (see ``build_model``). Each override is cached beside the
+            entry's own model, so switching back and forth rebuilds nothing.
 
     Returns:
         A ready ``Model`` — the same object as last call while the relevant
@@ -233,10 +244,11 @@ def model_for(agent_id: str) -> Model:
         NotImplementedError: When no case arm constructs that vendor.
     """
     entry = agent_entry(agent_id)
-    fingerprint = _fingerprint(entry)
-    cached = _MODELS.get(agent_id)
+    fingerprint = _fingerprint(entry, model)
+    slot = agent_id if model is None else f"{agent_id}|{model}"
+    cached = _MODELS.get(slot)
     if cached is not None and cached[0] == fingerprint:
         return cached[1]
-    model = build_model(agent_id)
-    _MODELS[agent_id] = (fingerprint, model)
-    return model
+    built = build_model(agent_id, model)
+    _MODELS[slot] = (fingerprint, built)
+    return built

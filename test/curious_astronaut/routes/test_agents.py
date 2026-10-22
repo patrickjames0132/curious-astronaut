@@ -214,6 +214,35 @@ def test_every_ask_route_carries_a_quick_response(client, monkeypatch, route, ex
     assert seen["kwargs"]["quick"] is False
 
 
+@pytest.mark.parametrize(
+    ("route", "extra"),
+    [
+        ("/api/ask", {"seed": SEED, "nodes": NODES}),
+        ("/api/ask_sources", {}),
+        ("/api/ask_course", {"course": {"paper": "Atari", "items": [{"title": "Q-learning", "kind": "concept"}]}}),
+    ],
+)
+def test_every_ask_route_carries_the_chat_bars_model_pick(client, monkeypatch, route, extra):
+    """v8.33.0: the chat bar's model picker sends `model`; only a
+    "provider:model" naming a known vendor reaches the researcher, and anything
+    else falls back to the configured model (None) instead of failing."""
+    seen = {}
+
+    def fake_run(**kwargs):
+        seen["kwargs"] = kwargs
+        yield events.Token(text="Hi.")
+
+    patch_agents(monkeypatch, fake_run)
+    sent = {"question": "why?", **extra}
+    client.post(route, json={**sent, "model": "openai:gpt-test"}).data
+    assert seen["kwargs"]["model"] == "openai:gpt-test"
+    for junk in ("gpt-test", "nobody:gpt-test", "openai:", 7):
+        client.post(route, json={**sent, "model": junk}).data
+        assert seen["kwargs"]["model"] is None
+    client.post(route, json=sent).data
+    assert seen["kwargs"]["model"] is None
+
+
 def test_an_empty_scope_survives_the_wire_as_an_empty_list(client, monkeypatch):
     """"No sources selected" and "no scope at all" are opposite instructions
     that both look falsy, and only the list/None distinction tells them apart.

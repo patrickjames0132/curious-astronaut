@@ -129,6 +129,7 @@ export function askCourse(request: CourseQuestion) {
           history,
           thread_context: siblingContext(getState(), question, key),
           ...(request.quick && { quick: true }),
+          model: getState().transcript.byKey[key]?.model,
         },
         {
           signal: ctrl.signal,

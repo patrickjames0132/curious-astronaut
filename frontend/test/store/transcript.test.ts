@@ -15,12 +15,13 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Beat } from '../../src/api'
 import workspaceReducer, { workspaceCleared } from '../../src/store/workspace'
 import reducer, {
   answerFailed,
   chatBeatAdded,
+  conversationModelSet,
   backgroundDiscovery,
   conversationDropped,
   failedTurnDropped,
@@ -32,6 +33,7 @@ import reducer, {
   conversationStarted,
   traceAdded,
   tracesSettled,
+  turnCompleted,
   turnRouted,
   tokenAppended,
   turnStarted,
@@ -317,5 +319,61 @@ describe('a lecture in the transcript', () => {
     expect(state.activeKey).toBe('later')
     expect(state.byKey[asked].chat[1].beats?.length).toBe(1)
     expect(state.byKey.later.chat).toEqual([])
+  })
+})
+
+describe("an answer's response timer (v8.33.0)", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  /** Dispatch `make()`'s action as if at `when` ms, since it stamps Date.now(). */
+  function at<Action>(when: number, make: () => Action): Action {
+    vi.spyOn(Date, 'now').mockReturnValue(when)
+    const action = make()
+    vi.restoreAllMocks()
+    return action
+  }
+
+  it('starts with the turn and keeps how long it took once complete', () => {
+    let state = playAll(at(1000, () => turnStarted('why?')))
+    const answer = () => active(state).chat[1]
+    expect(answer().startedAt).toBe(1000)
+    expect(answer().respondedIn).toBeUndefined()
+    state = reducer(
+      state,
+      at(13_500, () => turnCompleted()),
+    )
+    expect(answer().respondedIn).toBe(12_500)
+    // The start goes once there is a time: the saved turn carries the answer.
+    expect(answer().startedAt).toBeUndefined()
+  })
+
+  it('gives each answer its own clock', () => {
+    const state = playAll(
+      at(0, () => turnStarted('first?')),
+      at(900, () => turnCompleted()),
+      at(2000, () => turnStarted('second?')),
+      at(5000, () => turnCompleted()),
+    )
+    const answers = active(state).chat.filter((turn) => turn.role === 'assistant')
+    expect(answers.map((turn) => turn.respondedIn)).toEqual([900, 3000])
+  })
+
+  it('shows no time for an answer that failed', () => {
+    const state = playAll(
+      at(0, () => turnStarted('why?')),
+      answerFailed('This answer stopped before it finished.'),
+    )
+    expect(active(state).chat[1].respondedIn).toBeUndefined()
+  })
+})
+
+describe('the chat bar model pick (v8.33.0)', () => {
+  it('belongs to its conversation, and null goes back to the Settings default', () => {
+    let state = playAll(conversationModelSet('openai:gpt-test'))
+    expect(active(state).model).toBe('openai:gpt-test')
+    state = reducer(state, conversationStarted('other'))
+    expect(active(state).model).toBeUndefined()
+    state = reducer(state, conversationModelSet(null, Object.keys(state.byKey)[0]))
+    expect(Object.values(state.byKey).every((conversation) => !conversation.model)).toBe(true)
   })
 })

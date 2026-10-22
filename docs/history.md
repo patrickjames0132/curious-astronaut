@@ -4543,6 +4543,44 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Pick the model from the chat bar** *(v8.34.0)* — a quick
+      agent-selection button in the chat bar, so switching agents doesn't
+      mean opening settings every time. Settings keeps the default; the
+      chat-bar button switches agents for the conversation. *(From the
+      `todos.md` inbox, 2026-10-20.)* **Shipped** as the Researcher's
+      **model** (Patrick's pick of the two readings): `teacher/ModelPicker`, a
+      network-icon button leading each bar's pickers (left of 📚, in General
+      and both graph assistants), listing what `GET /api/settings/models`
+      lists under a "Settings default". The pick is the conversation's
+      (`Conversation.model`, this sitting only), sent as `model` on all three
+      ask routes; `routes/agents._opt_model` passes on only a known vendor's
+      `provider:model`, and `factory.model_for(agent_id, model)` caches each
+      override beside the configured model. Only the researcher's model
+      changes; its scouts keep theirs. The popover drops down on the landing
+      chat and cuts its list (the one scroller; the shared `.scope-pop` cap
+      had nested a second) to stop 8px short of the window, measured in
+      Patrick's browser after two blind fixes missed. Approved by Patrick,
+      2026-10-21.
+
+- [x] **A response timer on every answer** *(v8.34.0)* — while the agent is
+      responding, show a running timer in the chat box's upper-right corner;
+      when the turn ends, replace it with "responded in: <time>". Gives the
+      reader a number for the wait the "researcher is slow" ticket is about.
+      *(From the `todos.md` inbox, 2026-10-20.)* **Shipped:** `teacher/ResponseTimer`,
+      pinned to the top right of each answer's block (`transcript/ChatMessage`,
+      so all three chats' answers wear one). It was first one readout over the
+      chat bar; Patrick wanted it on the answer it times. `turnStarted` /
+      `turnCompleted` stamp `Date.now()` in their `prepare` onto the assistant
+      turn (`ChatMsg.startedAt` → `respondedIn`), so a background answer keeps
+      its clock and a finished one's time saves with the thread; failed or
+      stopped answers keep none. Three rounds of browser polish: a float
+      squeezed every line under it (the step list and the prose box both size
+      themselves beside a float), so it is pinned instead, sharing the "N
+      steps" row or a slim strip of its own; the toggle, ⚡ Quick response and
+      the clock now share one 12px voice (Quick response had been inheriting
+      `.link-btn`'s larger size); and the thinking dots share the clock's line
+      rather than sitting under the strip. Approved by Patrick, 2026-10-21.
+
 - [x] **Bring the double-click re-seed back to the Paper Graph** *(v8.33.0)* — v8.21.0
       removed it: a second click on the open paper closes its panel, and the
       two fought over one gesture (the double-click got hard to land). The
