@@ -89,12 +89,23 @@ figures.
 - **The click gesture** (v8.21.0): a click opens a paper, **centres it** and
   **holds its links in focus** while its panel is open (`GraphExplorer`
   derives the held focus from `selectedId`; it was a ⌘-click before), and a
-  **click on the open paper closes it**, letting go of the focus. Until
-  v8.21.0 a quick (<350 ms) second click was a double-click that re-seeded
-  the graph on the paper; with a second click also closing the panel, the
-  two fought over one gesture (Patrick found the double-click hard to land),
-  so the double-click went and re-seeding is the panel's **"Explore in a
-  thread"** alone, by node id so journal papers work as seeds too.
+  **click on the open paper closes it**, letting go of the focus. A quick
+  (<350 ms) second click on the same paper is a **double-click that
+  re-seeds** on it, as the panel's **"Explore in a thread"** does (by node id,
+  so journal papers work as seeds too). v8.21.0 dropped the double-click:
+  with a second click also closing the panel, the two fought over one
+  gesture (Patrick found the double-click hard to land). The Knowledge Graph
+  then showed they can share it (`knowledge/look.ts`'s `useNodeClicks`,
+  v8.23.0), and v8.33.0 brought it back the same way: a click on the open
+  paper **waits out the double-click window** before closing, so a second
+  click inside it re-seeds instead and only a lone click closes. The cost is
+  a 350 ms pause before a close-by-click lands; the ✕ and Esc stay instant.
+- **The panel scrolls an inner pane** (`.detail-scroll`, v8.33.0), not
+  itself. The resize handle is sized to the panel, so while `.detail` was the
+  scroller the handle scrolled up with a long abstract or figures and left
+  nothing to grab below the first screenful. The handle and the ✕ now sit on
+  the still `<aside>` — the lesson panel's v8.23.0 fix
+  (`.knowledge-panel-scroll`).
 - **`DetailPanel` is purely presentational**, and its `CodeRow`/
   `CodeSection`/`CategoryTags` children are single-parent — nested in the
   parent's file per the hybrid structure rule. The HF section caps rows

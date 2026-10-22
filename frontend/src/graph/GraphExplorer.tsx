@@ -312,6 +312,15 @@ export default function GraphExplorer({
     if (seedRef) dispatch(loadGraph({ seed: seedRef, refresh: true }))
   }, [dispatch, seedRef])
 
+  // A quick double-click re-seeds the whole graph on the paper (back in
+  // v8.33.0; see `useSelection`), as the panel's "Explore in a thread" does.
+  const onDoubleClick = useCallback(
+    (node: VNode) => {
+      if (!node.is_seed) doLoadGraph(node.id)
+    },
+    [doLoadGraph],
+  )
+
   // Selection: the open detail panel, its hydration + figures + code links +
   // category tags.
   const {
@@ -324,7 +333,7 @@ export default function GraphExplorer({
     categories,
     onNodeClick,
     mergeDetail,
-  } = useSelection({ base, graph, provider })
+  } = useSelection({ base, graph, provider, onDoubleClick })
   // The detail panel slides out rather than vanishing (ui/usePresence). The
   // selection is already null by then, so the exit shows the last paper that
   // was actually in the panel.
@@ -353,7 +362,8 @@ export default function GraphExplorer({
    * usual select (which also holds its links in focus), and centres the
    * paper in view (v8.21.0, as the Knowledge Graph does): a
    * pan, no zoom change. A click on the paper already open closes its panel
-   * and lets go of the focus (`useSelection`).
+   * and lets go of the focus, and a quick double-click re-seeds on the paper
+   * (`useSelection`).
    */
   const onCanvasNodeClick = useCallback(
     (node: VNode, event?: MouseEvent) => {

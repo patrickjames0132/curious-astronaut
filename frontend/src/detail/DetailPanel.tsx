@@ -510,119 +510,123 @@ export default function DetailPanel({
       <button className="link-btn close" onClick={onClose}>
         ✕
       </button>
-      <div className="detail-badges">
-        {[...badges].map(([label, rel]) => (
-          <span key={label} className="badge" style={{ color: BADGE_COLOR[rel] }}>
-            {label}
-          </span>
-        ))}
-      </div>
-      <h2>
-        <MathText>{node.title}</MathText>
-      </h2>
-      <div className="detail-meta">
-        {node.authors && (
-          <div>
-            Authors: <AuthorList key={node.id} authors={node.authors} />
-          </div>
-        )}
-        {node.venue && (
-          <div className="detail-venue" title="Publication venue">
-            Publisher: <i>{node.venue}</i>
-          </div>
-        )}
-        <div>
-          {formatPubDate(node.pub_date, node.year)} · {(node.citation_count ?? 0).toLocaleString()}{' '}
-          citations
-        </div>
-      </div>
-      <CategoryTags
-        categories={pending ? undefined : categories}
-        arxivPending={pending && !!node.arxiv_id}
-        fieldsOfStudy={node.fields_of_study ?? []}
-        fieldsLabel={fieldsLabel}
-      />
-      {pending ? (
-        <div className="detail-summary-skel">
-          <Skeleton variant="line" />
-          <Skeleton variant="line" />
-          <Skeleton variant="line-short" />
-        </div>
-      ) : (
-        <SummarySection node={node} onGenerateTldr={onGenerateTldr} />
-      )}
-      <div className="detail-actions" data-tour="detail-actions">
-        {node.url && (
-          <a href={node.url} target="_blank" rel="noreferrer">
-            Abstract ↗
-          </a>
-        )}
-        {node.url && node.arxiv_id ? (
-          <a href={node.url.replace('/abs/', '/pdf/')} target="_blank" rel="noreferrer">
-            PDF ↗
-          </a>
-        ) : (
-          node.oa_pdf && (
-            <a href={node.oa_pdf} target="_blank" rel="noreferrer">
-              PDF ↗
-            </a>
-          )
-        )}
-        {onTogglePin && (
-          <button className="ghost-btn" onClick={onTogglePin}>
-            {isPinned ? 'Unpin' : 'Pin'}
-          </button>
-        )}
-        {!node.is_seed && onExpand && (
-          <ExpandRow expansion={expansion} onExpand={onExpand} onUnexpand={onUnexpand} />
-        )}
-        {!node.is_seed && (
-          <button className="explore-btn" onClick={() => onExplore(node.id)}>
-            Explore in a thread →
-          </button>
-        )}
-      </div>
-      {pending && node.arxiv_id && (
-        <div className="detail-code-skel">
-          <Skeleton variant="row" />
-          <Skeleton variant="row" />
-        </div>
-      )}
-      {!pending && codeLinks && codeLinks.available && <CodeSection code={codeLinks} />}
-      {pending && node.arxiv_id && (
-        <div className="detail-figs-skel">
-          <Skeleton variant="fig" />
-        </div>
-      )}
-      {!pending && figures && figures.available && figures.figures.length > 0 && (
-        <div className="detail-figs" data-tour="detail-figures">
-          <div className="detail-figs-head">Figures</div>
-          {figures.figures.map((figure, index) => (
-            <figure key={index} className="detail-fig">
-              <button
-                type="button"
-                className="detail-fig-btn"
-                onClick={() =>
-                  onEnlarge({ image: figure.image, caption: figure.caption, title: null })
-                }
-                title="Click to enlarge"
-                aria-label="Enlarge figure"
-              >
-                <img
-                  src={figure.image}
-                  alt={figure.caption || `Figure ${index + 1}`}
-                  loading="lazy"
-                />
-              </button>
-              {figure.caption && (
-                <figcaption>
-                  <MathText>{figure.caption}</MathText>
-                </figcaption>
-              )}
-            </figure>
+      {/* The scroller (v8.33.0): the panel itself scrolled until then, and the
+          resize handle, sized to it, scrolled away with a long abstract. */}
+      <div className="detail-scroll">
+        <div className="detail-badges">
+          {[...badges].map(([label, rel]) => (
+            <span key={label} className="badge" style={{ color: BADGE_COLOR[rel] }}>
+              {label}
+            </span>
           ))}
         </div>
-      )}
+        <h2>
+          <MathText>{node.title}</MathText>
+        </h2>
+        <div className="detail-meta">
+          {node.authors && (
+            <div>
+              Authors: <AuthorList key={node.id} authors={node.authors} />
+            </div>
+          )}
+          {node.venue && (
+            <div className="detail-venue" title="Publication venue">
+              Publisher: <i>{node.venue}</i>
+            </div>
+          )}
+          <div>
+            {formatPubDate(node.pub_date, node.year)} ·{' '}
+            {(node.citation_count ?? 0).toLocaleString()} citations
+          </div>
+        </div>
+        <CategoryTags
+          categories={pending ? undefined : categories}
+          arxivPending={pending && !!node.arxiv_id}
+          fieldsOfStudy={node.fields_of_study ?? []}
+          fieldsLabel={fieldsLabel}
+        />
+        {pending ? (
+          <div className="detail-summary-skel">
+            <Skeleton variant="line" />
+            <Skeleton variant="line" />
+            <Skeleton variant="line-short" />
+          </div>
+        ) : (
+          <SummarySection node={node} onGenerateTldr={onGenerateTldr} />
+        )}
+        <div className="detail-actions" data-tour="detail-actions">
+          {node.url && (
+            <a href={node.url} target="_blank" rel="noreferrer">
+              Abstract ↗
+            </a>
+          )}
+          {node.url && node.arxiv_id ? (
+            <a href={node.url.replace('/abs/', '/pdf/')} target="_blank" rel="noreferrer">
+              PDF ↗
+            </a>
+          ) : (
+            node.oa_pdf && (
+              <a href={node.oa_pdf} target="_blank" rel="noreferrer">
+                PDF ↗
+              </a>
+            )
+          )}
+          {onTogglePin && (
+            <button className="ghost-btn" onClick={onTogglePin}>
+              {isPinned ? 'Unpin' : 'Pin'}
+            </button>
+          )}
+          {!node.is_seed && onExpand && (
+            <ExpandRow expansion={expansion} onExpand={onExpand} onUnexpand={onUnexpand} />
+          )}
+          {!node.is_seed && (
+            <button className="explore-btn" onClick={() => onExplore(node.id)}>
+              Explore in a thread →
+            </button>
+          )}
+        </div>
+        {pending && node.arxiv_id && (
+          <div className="detail-code-skel">
+            <Skeleton variant="row" />
+            <Skeleton variant="row" />
+          </div>
+        )}
+        {!pending && codeLinks && codeLinks.available && <CodeSection code={codeLinks} />}
+        {pending && node.arxiv_id && (
+          <div className="detail-figs-skel">
+            <Skeleton variant="fig" />
+          </div>
+        )}
+        {!pending && figures && figures.available && figures.figures.length > 0 && (
+          <div className="detail-figs" data-tour="detail-figures">
+            <div className="detail-figs-head">Figures</div>
+            {figures.figures.map((figure, index) => (
+              <figure key={index} className="detail-fig">
+                <button
+                  type="button"
+                  className="detail-fig-btn"
+                  onClick={() =>
+                    onEnlarge({ image: figure.image, caption: figure.caption, title: null })
+                  }
+                  title="Click to enlarge"
+                  aria-label="Enlarge figure"
+                >
+                  <img
+                    src={figure.image}
+                    alt={figure.caption || `Figure ${index + 1}`}
+                    loading="lazy"
+                  />
+                </button>
+                {figure.caption && (
+                  <figcaption>
+                    <MathText>{figure.caption}</MathText>
+                  </figcaption>
+                )}
+              </figure>
+            ))}
+          </div>
+        )}
+      </div>
     </aside>
   )
 }

@@ -4543,6 +4543,43 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Bring the double-click re-seed back to the Paper Graph** *(v8.33.0)* — v8.21.0
+      removed it: a second click on the open paper closes its panel, and the
+      two fought over one gesture (the double-click got hard to land). The
+      Knowledge Graph then showed they can live together (v8.23.0): a click
+      on the open item waits out the 350 ms double-click window before
+      closing, so a quick second click is still the double-click. Patrick,
+      2026-10-14: "maybe we should bring the double click back to citation
+      graph (perhaps I was wrong to remove it so quickly)". The same wait in
+      `detail/useSelection`'s click would restore it; "Explore in a thread"
+      stays in the panel either way. Update the hint line and the tour with
+      it. **Shipped:** `useSelection` takes `onDoubleClick` again, and its
+      click mirrors `useNodeClicks`: a quick (<350 ms) second click on the
+      same paper is the double-click; a click on the open paper schedules its
+      close for after the window, and the next click cancels it (as does
+      unmount or a new graph). `GraphExplorer` re-seeds through the same
+      `loadGraph` as "Explore in a thread" (so the paper gets its own
+      thread), skipping the seed. The cost is a 350 ms pause on a
+      close-by-click; ✕ and Esc stay instant. Hint line ("· double-click to
+      explore"), the "Open a paper" tour step and the detail / graph /
+      controls READMEs updated. Approved by Patrick, 2026-10-21.
+- [x] **The Paper Graph's detail panel can only be resized near its top** *(v8.33.0)* —
+      Its resize handle (`.panel-resize-handle`, `app.css`) is placed against
+      `.detail`, which is itself the scroller, so the handle covers the first
+      screenful and scrolls up out of reach with a long abstract or figures.
+      The Knowledge Graph's lesson panel had the same bug and got an inner
+      scroller in v8.23.0 (`.knowledge-panel-scroll`, see
+      `frontend/src/knowledge/README.md`): the handle and the ✕ stay on the
+      still panel. The same move fits `detail/DetailPanel.tsx`; check the
+      assistant panel (`teacher/`) while there, though it already scrolls an
+      inner pane. Found by Patrick, 2026-10-15.
+      **Shipped:** the panel's content moved into an inner `.detail-scroll`
+      pane (`detail.css`), and `.detail` became a still flex column with
+      `overflow: hidden`, so the handle and the ✕ stay on it however far the
+      paper scrolls. The assistant panel needed nothing: it already scrolls
+      `.teacher-scroll`. Shipped with the double-click above. Approved by
+      Patrick, 2026-10-21.
+
 - [x] **The graph-card icon tiles grow too** *(v8.32.2)* — the citation and
       knowledge icons and their rounded squares scale together by another
       8% when their card is hovered or keyboard-focused, with the card’s own

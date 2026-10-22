@@ -269,7 +269,7 @@ The Vite dev server proxies `/api/*` to Flask.
    details (TL;DR, abstract/PDF links, arXiv & Semantic Scholar category
    tags, figures — mined straight from the open-access PDF for journal
    papers, tables and algorithms included — code & artifacts);
-   **Explore in a thread** from its panel to re-seed on it — journal papers included. **Expand any
+   double-click it, or **Explore in a thread** from its panel, to re-seed on it — journal papers included. **Expand any
    paper on the same graph** from its panel: **+ References** brings in every
    paper it cites, **+ Citations** its citers picked the way the seed's are
    (the tau rule over its whole history), and the paper turns pink and moves

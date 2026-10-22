@@ -5,9 +5,10 @@
  * Selection state for the explorer: which node is open in the detail panel,
  * its lazily-hydrated details (abstract/TL;DR), its lazily-fetched figures,
  * code links, and arXiv category tags, and the click handler: a click opens
- * a paper, and a click on the paper already open closes it. (A quick
- * double-click re-seeded the graph until v8.21.0; the panel's "Explore in a
- * thread" does that now, and a double-click is two clicks.)
+ * a paper, a click on the paper already open closes it, and a quick
+ * double-click hands the paper to `onDoubleClick`, which re-seeds the graph
+ * on it. (The double-click was gone from v8.21.0 to v8.33.0, when it came
+ * back the Knowledge Graph's way: see `onNodeClick`.)
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -34,7 +35,13 @@ export interface UseSelectionArgs {
   /** The active provider — detail hydration comes from the backend the graph
    *  was built with. */
   provider: Provider
+  /** A quick double-click on a paper (the explorer re-seeds on it). */
+  onDoubleClick: (node: VNode) => void
 }
+
+/** How long two clicks on one paper may be apart and still count as a
+ *  double-click — the Knowledge Graph's window (`knowledge/look.ts`). */
+const DOUBLE_CLICK_MS = 350
 
 /** What {@link useSelection} returns for GraphExplorer to wire up. */
 export interface SelectionApi {
@@ -56,7 +63,8 @@ export interface SelectionApi {
   codeLinks: Record<string, CodeLinksResponse>
   /** The paper's own arXiv category tags per arXiv id, as they finish loading. */
   categories: Record<string, CategoriesResponse>
-  /** Canvas click handler: select on click; a click on the open paper closes it. */
+  /** Canvas click handler: select on click; a lone click on the open paper
+   *  closes it; a quick double-click goes to `onDoubleClick`. */
   onNodeClick: (node: VNode) => void
   /** Overlay extra hydrated fields onto one node — e.g. a TL;DR the panel
    *  just generated — so `selected` (and the graph's session save, via the
@@ -73,7 +81,12 @@ export interface SelectionApi {
  *
  * @returns The selection state + handlers (see {@link SelectionApi}).
  */
-export function useSelection({ base, graph, provider }: UseSelectionArgs): SelectionApi {
+export function useSelection({
+  base,
+  graph,
+  provider,
+  onDoubleClick,
+}: UseSelectionArgs): SelectionApi {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [details, setDetails] = useState<Record<string, Partial<GraphNode>>>({})
   // The node id whose summary hydration is in flight — drives the panel's
@@ -158,15 +171,39 @@ export function useSelection({ base, graph, provider }: UseSelectionArgs): Selec
   }, [selected])
 
   // A click opens a paper; a click on the paper already open closes its
-  // panel (v8.21.0), which also lets go of its held focus. Until v8.21.0 a
-  // quick second click was a double-click that re-seeded the graph on the
-  // paper; with the second click closing the panel, the two fought over the
-  // same gesture (Patrick: hard to land), so re-seeding is the panel's
-  // "Explore in a thread" button alone.
+  // panel (v8.21.0), which also lets go of its held focus; a quick second
+  // click on the same paper is a double-click, handed to the explorer to
+  // re-seed on. v8.21.0 dropped the double-click: with the second click
+  // closing the panel the two fought over one gesture (Patrick: hard to
+  // land). The Knowledge Graph then showed they can share it (v8.23.0,
+  // `useNodeClicks`), and v8.33.0 brought it back the same way: a click on
+  // the open paper waits out the double-click window before closing, so a
+  // second click inside it re-seeds instead, and only a lone click closes.
+  const lastClick = useRef({ id: '', time: 0 })
+  const closing = useRef<number | null>(null)
+  const cancelClose = useCallback(() => {
+    if (closing.current === null) return
+    clearTimeout(closing.current)
+    closing.current = null
+  }, [])
+  // A close still waiting on unmount, or when the next graph lands, has
+  // nothing left to close.
+  useEffect(() => cancelClose, [graph, cancelClose])
   const onNodeClick = useCallback(
     (node: VNode) => {
+      cancelClose()
+      const now = performance.now()
+      if (lastClick.current.id === node.id && now - lastClick.current.time < DOUBLE_CLICK_MS) {
+        lastClick.current = { id: '', time: 0 }
+        onDoubleClick(node)
+        return
+      }
+      lastClick.current = { id: node.id, time: now }
       if (node.id === selectedId) {
-        setSelectedId(null)
+        closing.current = window.setTimeout(() => {
+          closing.current = null
+          setSelectedId(null)
+        }, DOUBLE_CLICK_MS)
         return
       }
       setSelectedId(node.id)
@@ -185,7 +222,7 @@ export function useSelection({ base, graph, provider }: UseSelectionArgs): Selec
           .finally(() => setDetailLoading((cur) => (cur === node.id ? null : cur)))
       }
     },
-    [details, provider, selectedId],
+    [details, provider, selectedId, onDoubleClick, cancelClose],
   )
 
   /** Merge extra fields into a node's hydrated-detail overlay. */
