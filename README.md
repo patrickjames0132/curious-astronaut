@@ -359,7 +359,8 @@ The Vite dev server proxies `/api/*` to Flask.
      picker (pick which model answers in this chat; Settings keeps the default)
      and the 📚 Library filters icon inside its bar. Every answer carries a
      **response timer** at its top right: a running clock while it's on its
-     way, then "responded in: …". Over a graph the assistant works from the graph and
+     way, then a dimmed clock and duration, in whole seconds. ⚡ Quick response
+     preserves the original start time, so the duration includes the full wait. Over a graph the assistant works from the graph and
      grows it along citations rather than searching for papers, so the paper
      filters stay on your chats. It was a stack of two folding
      sections from v7.10.0, a **Lecture** section above a **Chat** one, which

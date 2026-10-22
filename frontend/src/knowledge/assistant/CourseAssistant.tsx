@@ -265,6 +265,7 @@ export default function CourseAssistant({
         history,
         sourceIds: sources.scope,
         quick,
+        startedAt: quick ? chat[index]?.startedAt : undefined,
       }),
     )
   }

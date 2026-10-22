@@ -427,6 +427,7 @@ export function useConversation() {
    *                  either direction costs one click. False (every caller
    *                  but the router) leaves no offer: graph-free questions,
    *                  retries and corrections were never a choice a model made.
+   * @param startedAt Original start time when Quick response continues an answer.
    * @param quick     A quick response (v8.30.0): the researcher answers with no
    *                  tools. Set by {@link quickAnswer}, never by a typed send.
    */
@@ -440,6 +441,7 @@ export function useConversation() {
       scope?: ResolvedScope,
       routed = false,
       quick = false,
+      startedAt?: number,
     ) => {
       // The turn's scope, resolved ONCE — by `send`, with the message's
       // request in play, or here from the store for the callers that skip
@@ -479,7 +481,7 @@ export function useConversation() {
       const streamId = `ask:${nextStreamId()}`
       dispatch(streamStarted(streamId, key))
       history ??= conversationHistory(store.getState().transcript.byKey[key]?.chat ?? [])
-      dispatch(turnStarted(question, key))
+      dispatch(turnStarted(question, key, quick ? startedAt : undefined))
       dispatch(turnContextSet(borrowedChats(store.getState(), question, key), key))
       // Stamp the turn with the graph it is about, while that is still what is
       // on screen. Skipped graph-free: there is no graph to name, and an
@@ -1062,6 +1064,7 @@ export function useConversation() {
         last.scope,
         false,
         true,
+        answer.startedAt,
       )
     },
     [ask, askCtrl, dispatch, store],

@@ -1467,14 +1467,24 @@
   padding-top: 32px;
 }
 .response-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   position: absolute;
   top: 11px;
   right: 12px;
   font-size: 12px;
   line-height: 18px;
-  color: var(--text-dim);
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.response-timer.running {
+  color: var(--text);
+}
+.response-timer svg {
+  flex-shrink: 0;
 }
 
 /* --- the model picker (v8.33.0, `ModelPicker`) --- */

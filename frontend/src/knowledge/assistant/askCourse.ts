@@ -86,6 +86,8 @@ export interface CourseQuestion {
   history?: HistoryTurn[]
   /** A quick response (v8.30.0): answer with no tools, now. */
   quick?: boolean
+  /** Original start time when Quick response continues the same wait. */
+  startedAt?: number
 }
 
 /**
@@ -114,7 +116,7 @@ export function askCourse(request: CourseQuestion) {
     dispatch(streamStarted(streamId, key))
     const history =
       request.history ?? conversationHistory(getState().transcript.byKey[key]?.chat ?? [])
-    dispatch(turnStarted(question, key))
+    dispatch(turnStarted(question, key, request.quick ? request.startedAt : undefined))
     dispatch(turnContextSet(borrowedChats(getState(), question, key), key))
     let failed = false
     let failure = 'This answer stopped before it finished.'

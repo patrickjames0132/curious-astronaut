@@ -203,3 +203,7 @@ keys, labels, which chats an exploration offers, and old and new mentions. Trans
 the keyed stream reducers. Shell tests cover write ordering, teardown recovery,
 read-only legacy opening, deletion and preserving names. Build with `npm run build`
 and run the offline suite with `npm test`.
+
+Quick response preserves the working answer’s original start time when replacing
+the exchange, so its running and completed timers include the full wait. New
+messages and ordinary retries start a fresh clock.

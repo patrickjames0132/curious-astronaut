@@ -150,16 +150,6 @@ type Keyed = { key?: string }
 type Timed = Keyed & { at: number }
 
 /**
- * Build the `prepare` half of a keyed action that also stamps the time —
- * here, not in the reducer, which has to stay pure.
- *
- * @returns A prepare callback stamping the payload, `meta.key` and `meta.at`.
- */
-function timed<Payload>() {
-  return (payload: Payload, key?: string) => ({ payload, meta: { key, at: Date.now() } })
-}
-
-/**
  * Build the `prepare` half of a keyed action: payload first, key second.
  *
  * @returns A prepare callback stamping the payload and `meta.key`.
@@ -445,7 +435,11 @@ const transcriptSlice = createSlice({
           startedAt: action.meta.at,
         })
       },
-      prepare: timed<string>(),
+      // Quick response replaces the exchange, but continues its original clock.
+      prepare: (question: string, key?: string, startedAt?: number) => ({
+        payload: question,
+        meta: { key, at: startedAt ?? Date.now() },
+      }),
     },
     /**
      * A streamed answer token lands on the in-flight turn.

@@ -4543,6 +4543,18 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Concise chat clocks that survive Quick response** *(v8.34.1)* —
+      general chats and the Citation and Knowledge Graph assistants share
+      a monochrome clock icon matching the timer’s text, with whole elapsed
+      seconds rather than decimals (minutes and padded seconds after a minute).
+      Completed answers show a dimmed clock and duration instead of the visible
+      “responded in:” prefix; tooltips and accessible labels keep its meaning.
+      Quick response carries the original start time into the replacement
+      exchange, so both its live clock and final duration include the entire
+      wait. New messages and ordinary retries still start fresh. Regression
+      tests cover the replacement and an original timestamp of zero.
+      Approved in the browser by Patrick, 2026-10-22.
+
 - [x] **Pick the model from the chat bar** *(v8.34.0)* — a quick
       agent-selection button in the chat bar, so switching agents doesn't
       mean opening settings every time. Settings keeps the default; the
