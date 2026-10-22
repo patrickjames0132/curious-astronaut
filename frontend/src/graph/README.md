@@ -109,6 +109,14 @@ deliberately stay as the reader set them — the scope overrode the view for
 these papers, it did not edit the controls. (v7.23.0 did this with a stored
 `revealedNodeIds`; it is derived now.)
 
+**The Surveys chip** (`surveyRings`, off by default, saved with the other
+view filters) rings the surveys and reviews orange on the canvas. It **marks,
+it never hides**: a survey is drawn whether the chip is on or off, so it isn't
+a member of `enabled` (whose chips decide what's drawn), it plays no part in
+`nodeOk`, and it never changes the default scope. The legend's survey entry
+shows only while a ring is drawn. Which papers are surveys is the backend's
+call (`services/graph/README.md`, "Which papers are surveys").
+
 ## The core constraint: react-force-graph MUTATES your objects
 
 Everything in this folder is shaped by one fact. The simulation writes
@@ -168,6 +176,9 @@ to anything in this folder.
   chrome can never disagree about what "a reference" looks like. `REL_COLOR`
   drives the graph, chips, and legend; `BADGE_COLOR` drives the detail-panel
   badges, in a lighter green that reads better on the panel's surface.
+  `SURVEY_COLOR` (orange) is not a relation colour: it is a survey's outline,
+  drawn in place of the black one so the fill still shows the relation.
+- `nodeFill`: a disc's fill — the expanded pink, else the relation's colour.
   (`BADGE_LABEL` sat beside it to make a `latest` node show a "citation"
   badge — the one place the two citer pools were already presented as one
   relation, years before v7.17.0 made that true everywhere. It went with the

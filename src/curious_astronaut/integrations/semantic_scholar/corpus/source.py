@@ -181,6 +181,9 @@ def _row_to_entry(row: tuple) -> dict:
         "authors": _format_authors(authors_json),
         "url": url,
         "fields_of_study": [],
+        # The corpus doesn't ingest S2's publicationTypes, so a citer's survey
+        # flag is unknown here; the graph's survey pass looks it up.
+        "is_survey": None,
     }
     return {"node": node, "influential": bool(influential)}
 

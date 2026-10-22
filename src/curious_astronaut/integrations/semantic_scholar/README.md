@@ -270,6 +270,14 @@ nodes of a traversal — summary-light, hydrated lazily on click), and
 render in a pick-a-paper list, where authorship is how humans recognize a
 paper; the ~65 anonymous dots of a graph don't need it).
 
+**`publicationTypes` rides every tier**, small as it is, because its `Review`
+type is the app's survey flag (`is_review` → the node's `is_survey`: true or
+false when requested, None when not). It is the most reliable survey signal
+measured (`services/graph/README.md`, "Which papers are surveys"), which is
+also why the graph's survey pass asks S2 even for papers that came from the
+offline corpus or from OpenAlex. The corpus doesn't ingest the field, so its
+citers arrive with `is_survey` None.
+
 ## Who uses it, and how/why
 
 - **`services/graph.py`** — when the graph is built with `provider="s2"`,

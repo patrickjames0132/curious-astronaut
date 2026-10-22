@@ -264,8 +264,10 @@ The Vite dev server proxies `/api/*` to Flask.
    here — *landmark*, *band*, *tail edge*, the sizing rules — is defined once,
    with a worked example, in
    [docs/landmark-vocabulary.md](docs/landmark-vocabulary.md).) Node size =
-   citations; thick links = influential citations; a
-   faint halo = added by expanding. Click a node for
+   citations; thick links = influential citations; turn on the **Surveys**
+   chip and surveys and reviews (the field's own overviews) are ringed
+   orange, flagged from Semantic Scholar's `Review` type for every provider
+   and source. Click a node for
    details (TL;DR, abstract/PDF links, arXiv & Semantic Scholar category
    tags, figures — mined straight from the open-access PDF for journal
    papers, tables and algorithms included — code & artifacts);

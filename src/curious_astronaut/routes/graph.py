@@ -41,7 +41,7 @@ from ..agents.orchestrators import summarizer
 from ..integrations import arxiv, caps, huggingface, openalex, semantic_scholar
 from ..services import graph as graph_service
 from ..services import pdf as pdf_service
-from ..services.graph import Provider, growth
+from ..services.graph import Provider, growth, surveys
 from ..services.graph.shape import BuildShape
 from ..storage import cache
 from .sse import sse, sse_response
@@ -337,6 +337,7 @@ def api_graph_expand() -> ResponseReturnValue:
         current_app.logger.warning("expand failed for %s (%s, %s): %s", node_id, hop, provider, exc)
         return jsonify({"error": f"{_provider_name(provider)} is unavailable — try again."}), 502
     grown = growth.expand(node_id, hop, hits, known_ids)
+    surveys.flag_surveys(grown.nodes)
     return jsonify(
         {
             "nodes": [{**node.model_dump(), "discovered": True} for node in grown.nodes],

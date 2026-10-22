@@ -310,7 +310,9 @@ export const GRAPH_TOUR: TourStep[] = [
       'it. Blue references are the papers this one built on; green citations are the ' +
       'papers that built on it — every one of them, from its most-cited classics to work ' +
       'published this year. Which of those you care about is yours to say: the year and ' +
-      'citation-count sliders below draw that line however you like.',
+      'citation-count sliders below draw that line however you like. The Surveys ' +
+      'chip rings the surveys and reviews in orange: the field’s own overviews of a ' +
+      'period.',
   },
   {
     target: '[data-tour="relations"]',
@@ -512,7 +514,7 @@ export const GRAPH_TOUR: TourStep[] = [
       'selected — or in every visible paper when you haven’t picked any. It reads them ' +
       'in full, hops the graph along its citations, searches your uploaded library and the ' +
       'web, then answers with numbered citations (click one to highlight its paper on the ' +
-      'graph). Papers its hops find join the map with a faint halo. It doesn’t search for ' +
+      'graph). Papers its hops find join the map beside the paper they came from. It doesn’t search for ' +
       'new papers past the graph: that’s what your chats (Chats in the rail) are for. While it’s still ' +
       'searching, “Quick response” beside “Working” stops the search and answers now, ' +
       'from what’s on screen and the model’s own knowledge. Press Enter to send; ⇧ Shift+Enter starts a new line for longer questions.',

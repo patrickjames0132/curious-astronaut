@@ -59,8 +59,8 @@ tools) into the live graph:
 panel's Expand row calls `/api/graph/expand`, and `GraphExplorer` dispatches
 what comes back as `discoveryMerged`, just as a researcher discovery would.
 So an expanded paper is drawn, anchored, saved with the thread, and in the
-assistant's scope like any other, and it wears the same faint halo. The
-legend now says *"Added by expanding"*, since the reader expands too.
+assistant's scope like any other. (Expanded papers wore a faint halo,
+legend *"Added by expanding"*, until the survey ring retired it.)
 
 ## `usePaperLinks` — the citations among the papers on screen
 

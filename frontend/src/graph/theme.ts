@@ -19,7 +19,7 @@ import type { EdgeType } from '../api'
 export interface CanvasInk {
   /** Node labels. */
   ink: string
-  /** The softer pinned-node ring and the added-by-expanding halo. */
+  /** The softer pinned-node ring. */
   soft: string
   /** The solid detail-selection ring. */
   hard: string
@@ -96,6 +96,17 @@ export const REL_COLOR: Record<string, string> = {
  * relation still shows in the detail panel's badge.
  */
 export const EXPANDED_COLOR = '#f472b6'
+
+/**
+ * The outline of a survey or review paper: orange, a hue no relation or other
+ * marking uses (gold is the seed's, pink an expanded paper's). Not a relation
+ * — a paper is a survey however it reached the graph — so it replaces the
+ * disc's black outline and leaves the fill to the relation, which keeps a
+ * survey's reference blue or citation green readable (Patrick asked for the
+ * ring over a first cut's orange fill). The Surveys chip turns the ring on
+ * and wears the colour itself.
+ */
+export const SURVEY_COLOR = '#fb923c'
 
 /** Relation colours for the detail-panel badges. Mirrors REL_COLOR, but the
  * citing relation takes a lighter mid-green (#4ade80) than the graph's, which

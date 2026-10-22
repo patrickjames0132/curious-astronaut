@@ -537,34 +537,17 @@ than deleted so the plan doesn't get re-proposed.
       "Settings modal — the corpus vs. live-citations toggle" ticket, filed
       2026-07-16, on 2026-10-02 — same feature, filed twice.)*
 
-- [ ] **Surveys as a first-class node kind** — a review/survey paper is a
-      different animal from a primary result: it's the field's own overlook of
-      a period, and right now it's an anonymous dot like everything else.
-      Identify them, give them their **own node colour and filter chip**, and
-      let the user **scope the researcher and lecturer to them** — "teach me
-      this field from its surveys" is a genuinely different (and often better)
-      first pass than the citation lineage.
-
-      **The data is there and we simply don't ask for it**, which makes the
-      first step small: S2 exposes `publicationTypes` (carrying `Review`) and
-      OpenAlex a `type` field (`review`) — neither appears in
-      `semantic_scholar/nodes.py`'s `NEIGHBOR_FIELDS` nor
-      `openalex/nodes.py`'s `NEIGHBOR_SELECT`, so it's a field addition on both
-      before anything else can be built. Worth checking coverage on a real
-      graph first: if the flag is sparse or noisy, a title/abstract heuristic
-      ("a survey of", "a review of", ": a survey") may have to back it up, and
-      that changes the ticket's shape.
-
-      **Then two halves.** *Rendering* — surveys aren't a graph *relation*
-      (a paper is a survey regardless of how it reached the canvas), so this is
-      an **overlay** on the existing relation colouring rather than a new
-      relation, and the chip is a filter over a property, not over `rels`.
-      That's a real difference from the sibling "filter chip for
-      teacher-discovered and search nodes" ticket, which does filter `rels`.
-      *Scoping* — the agents already accept a hand-picked node set
-      (`selectedNodeIds` → `selectGroundingNodes`), so "only the surveys" could
-      ride that existing seam rather than needing its own plumbing.
-      *(From the `todos.md` inbox, 2026-08-14.)*
+- [ ] **Scope the agents to the surveys** — the scoping half of the surveys
+      ticket, left open when its rendering half shipped in v8.35.0 (see
+      `docs/history.md`). Every paper now carries a provider-neutral
+      `is_survey`, and the Surveys chip rings them orange, but the chip only
+      *marks*: it never hides, so it can't narrow the default scope the way a
+      view filter does. "Teach me this field from its surveys" therefore
+      still has no one-gesture path. The clean route is a **message scope**: a
+      `surveys` kind on the router's `LectureScope`, resolved in
+      `scope/resolve.ts` as `papers.filter((node) => node.is_survey)`, so
+      asking for "the surveys" scopes a lecture or question to them like "the
+      references" does. *(Split from the surveys ticket, 2026-10-22.)*
 
 - [ ] **Replace the STOP/SKIP citation rules with a citation-threshold predicate**
       — the standing goal (Patrick, 2026-07-20). Rip out the STOP rule, the SKIP

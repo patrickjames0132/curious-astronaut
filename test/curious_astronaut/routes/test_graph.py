@@ -462,6 +462,24 @@ def test_expand_adds_new_papers_flagged_discovered(client, monkeypatch):
     assert ("known", "p1") in {(edge["source"], edge["target"]) for edge in response.json["edges"]}
 
 
+def test_expand_flags_the_new_papers_surveys(client, monkeypatch):
+    """An expansion's citers can come from the corpus, which doesn't know which
+    are surveys, so the route sends the new papers through the survey pass."""
+    base = {"arxiv_id": None, "abstract": None, "tldr": None, "year": 2020, "month": None,
+            "pub_date": None, "citation_count": 5, "authors": None, "url": "u", "title": "T"}
+    monkeypatch.setattr(graph_routes.growth, "hop_hits", lambda *args: [
+        {"node": {**base, "id": "CorpusId:1"}},
+        {"node": {**base, "id": "CorpusId:2"}},
+    ])
+    monkeypatch.setattr(graph_routes.surveys, "lookup_review_flags",
+                        lambda node_ids: {"CorpusId:1": True, "CorpusId:2": False})
+    response = client.post("/api/graph/expand", json={"id": "p1", "hop": "citations"})
+    assert {node["id"]: node["is_survey"] for node in response.json["nodes"]} == {
+        "CorpusId:1": True,
+        "CorpusId:2": False,
+    }
+
+
 def test_expand_rejects_a_bad_request_and_maps_provider_failure(client, monkeypatch):
     assert client.post("/api/graph/expand", json={"id": "p1", "hop": "similar"}).status_code == 400
     assert client.post("/api/graph/expand", json={"hop": "references"}).status_code == 400

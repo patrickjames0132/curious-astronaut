@@ -81,6 +81,12 @@ export interface GraphNode {
    *  when there's no ar5iv render. Detail-tier under S2; absent on
    *  pre-v5.27 sessions/snapshots. */
   oa_pdf?: string | null
+  /** A survey or review — the field's own overview of a period rather than a
+   *  primary result (ringed orange, shown or hidden by the Surveys chip).
+   *  Provider-neutral: the backend's survey pass decides it (S2's `Review`
+   *  type today). Null when unknown; absent on sessions/snapshots saved
+   *  before it existed. Either way, not a survey. */
+  is_survey?: boolean | null
   /** Roles relative to the seed: 'seed' | 'reference' | 'citation'.
    * A restored session may also carry 'latest', 'similar' or 'search', all
    * retired (v7.17.0, v7.5.0, v7.3.0) — `primaryRel` renders anything it

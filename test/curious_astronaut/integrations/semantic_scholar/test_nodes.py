@@ -109,6 +109,23 @@ def test_node_oa_pdf_from_open_access_field():
     assert nodes.node({"paperId": "a", "openAccessPdf": {"url": ""}})["oa_pdf"] is None
 
 
+def test_node_is_survey_from_publication_types():
+    """A ``Review`` publication type marks a survey; a null list is a known no;
+    an absent field (not requested) is unknown, for the survey pass to fill."""
+    assert nodes.node({"paperId": "a", "publicationTypes": ["JournalArticle", "Review"]})[
+        "is_survey"
+    ] is True
+    assert nodes.node({"paperId": "a", "publicationTypes": ["JournalArticle"]})["is_survey"] is False
+    assert nodes.node({"paperId": "a", "publicationTypes": None})["is_survey"] is False
+    assert nodes.node({"paperId": "a"})["is_survey"] is None
+
+
+def test_neighbor_fields_request_publication_types():
+    """Live neighbors carry the flag for free; the survey pass only looks up the rest."""
+    assert "publicationTypes" in nodes.NEIGHBOR_FIELDS.split(",")
+    assert "publicationTypes" in nodes.DETAIL_FIELDS.split(",")
+
+
 def test_node_id_is_the_corpus_id_when_s2_has_one():
     # The offline corpus knows papers only by corpus id, so a live node must
     # wear the same id or one paper gets two (v8.18.0).

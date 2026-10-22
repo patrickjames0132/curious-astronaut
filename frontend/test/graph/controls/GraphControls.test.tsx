@@ -190,6 +190,55 @@ describe('the seed chip', () => {
   })
 })
 
+describe('the Surveys chip', () => {
+  /**
+   * The chip by its label (its accessible name is just "Surveys").
+   *
+   * @returns The chip button.
+   */
+  const surveyChip = () => screen.getByRole('button', { name: 'Surveys' })
+
+  it('is absent without a handler', () => {
+    renderPanel({})
+    expect(screen.queryByRole('button', { name: 'Surveys' })).toBeNull()
+  })
+
+  it('sits right after Citations, reads plain "Surveys" and starts off', () => {
+    const { container } = renderPanel({ onToggleSurveys: () => {} })
+    const labels = [...container.querySelectorAll('.ctrl-rels .rel-toggle')].map(
+      (chip) => chip.textContent,
+    )
+    expect(labels.slice(-2)).toEqual(['Citations', 'Surveys'])
+    expect(surveyChip().classList.contains('on')).toBe(false)
+    expect(surveyChip().getAttribute('title')).toMatch(/^Ring the surveys/)
+  })
+
+  it('offers to stop ringing the surveys while on, and toggles', () => {
+    const onToggleSurveys = vi.fn()
+    renderPanel({ onToggleSurveys, surveyRings: true })
+    expect(surveyChip().getAttribute('title')).toMatch(/^Stop ringing the surveys/)
+    fireEvent.click(surveyChip())
+    expect(onToggleSurveys).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads as on while the surveys are ringed', () => {
+    renderPanel({ onToggleSurveys: () => {}, surveyRings: true })
+    expect(surveyChip().classList.contains('on')).toBe(true)
+  })
+
+  it('stands without a count slider once sizing is user-controlled', () => {
+    const { container } = renderPanel({
+      onToggleSurveys: () => {},
+      showRelCaps: true,
+      relTotals: { reference: 40, citation: 120 },
+      enabled: new Set(['seed', 'reference', 'citation']),
+    })
+    expect(surveyChip()).toBeTruthy()
+    // One slider per relation that has papers to trim; none for Surveys.
+    expect(container.querySelectorAll('.rel-cap-slider')).toHaveLength(2)
+  })
+})
+
 describe('per-chip count sliders', () => {
   const withCaps = {
     showRelCaps: true,
