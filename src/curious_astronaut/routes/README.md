@@ -381,6 +381,8 @@ Thin wrappers over `services/sources`. Points worth knowing:
 
 All three `ask` routes take `quick: true` since v8.30.0: ⚡ Quick response, the researcher with no tools (`_opt_quick`; see the researcher's README).
 
+All three also take `model` since v8.33.0: the chat bar's Model pick, a `provider:model` the researcher answers on in place of its configured model (`_opt_model`, which drops anything but a known vendor's string to the configured model; see the researcher's README).
+
 Since v8.25.0 the sibling index (`thread_context`) has one entry per
 **chat**, not per thread (a paper thread's Citation Graph and Knowledge
 Graph each, see `frontend/src/store/chats.ts`), and a mentioned Knowledge

@@ -1020,10 +1020,29 @@
   border-radius: 6px;
   background: none;
   color: var(--text-dim);
-  font-size: 11px;
+  /* One voice for the header row (v8.33.0): the toggle, ⚡ Quick response
+     and the answer's timer share this size, colour and line height, where
+     they were 11px, a larger link-btn size and 12px in another grey. */
+  font-size: 12px;
+  line-height: 18px;
   font-family: inherit;
   cursor: pointer;
   transition: color 0.15s ease;
+}
+.trace-head .quick-response {
+  /* Beats `.link-btn`'s own size, which loads after `quickResponse.css`. */
+  font-size: 12px;
+  line-height: 18px;
+  padding: 2px 0;
+  margin-bottom: 2px;
+  color: var(--text-dim);
+}
+.trace-head .quick-response:hover {
+  color: var(--text-strong);
+}
+.trace-head .quick-bolt {
+  width: 12px;
+  height: 12px;
 }
 .trace-toggle:hover {
   color: var(--text);
@@ -1426,4 +1445,79 @@
 }
 .composer-notes-hint {
   color: var(--muted);
+}
+
+/* --- an answer's response timer (v8.33.0, `ResponseTimer`) --- */
+/* Pinned to the answer block's top right, in the header row's voice (see
+   `.trace-toggle`: same size, grey and line height, the row's 2px inset). It was a float first, and both
+   things under it — the step list (a flex box) and the answer's prose box —
+   sized themselves beside a float for their whole height, so every line came
+   out short of the block's width (Patrick, v8.33.0). Pinned, it shares the
+   step list's header row with the "7 steps" toggle, which is short enough
+   never to reach it; an answer with no steps gets a slim header strip of its
+   own instead, so the clock never sits on top of a word. Tabular figures, so
+   the running clock doesn't jitter. */
+.chat.assistant:has(> .response-timer) {
+  position: relative;
+}
+/* Not while the "thinking" dots are all it holds: there is no text yet for
+   the clock to sit over, and the strip pushed the dots a line below it
+   (Patrick, v8.33.0). They share the clock's line instead. */
+.chat.assistant:has(> .response-timer):not(:has(> .chat-trace)):not(:has(> .hop-dots)) {
+  padding-top: 32px;
+}
+.response-timer {
+  position: absolute;
+  top: 11px;
+  right: 12px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* --- the model picker (v8.33.0, `ModelPicker`) --- */
+/* Docked, a pick for this chat wears a dot on the bar's icon, the way a
+   narrowed Library wears its count: the circle itself is never lit. The
+   landing chip lights up, as `.scope-btn.on` does. */
+.teacher-ask .model-picker .scope-btn.on::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+/* A vendor can list dozens of models: the list is the one thing that
+   scrolls. The popover drops the shared `.scope-pop` cap and its own scroll,
+   which nested a second scroller around this one and kept the box's bottom
+   pinned where `ModelPicker` couldn't move it. `ModelPicker` shortens the
+   list further when the window has less room than this. A rule above it, so
+   a model scrolled up under "Settings default" reads as passing behind it
+   rather than colliding with it. */
+.model-pop {
+  max-height: none;
+  overflow: hidden;
+}
+.model-pop-list {
+  max-height: 260px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+.model-pop-vendor {
+  padding: 8px 8px 2px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.model-pop-default {
+  color: var(--muted);
+}
+/* The glyph sits on the text baseline by default and read low beside 📚. */
+.model-glyph {
+  display: block;
 }

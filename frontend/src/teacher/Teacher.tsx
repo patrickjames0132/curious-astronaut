@@ -81,6 +81,7 @@ import { mentionText, readMessage } from '../mentions/parse'
 import type { MentionChoice } from '../mentions/parse'
 import { useMentionSuggestions } from '../mentions/useMentionSuggestions'
 import { DRAFT_EVENT, draftWaiting, takeDraft } from './composerDraft'
+import ModelPicker from './ModelPicker'
 import Lightbox from '../figures/Lightbox'
 import ChatMessage from './transcript/ChatMessage'
 import { useConversation } from './useConversation'
@@ -253,7 +254,9 @@ export default function Teacher({
   const shownMentions = mentions.open ? mentions : lastMentions.current
   // Which scope picker's popover is open — one shared slot, so opening either
   // picker closes the other (their popovers overlap when both are open).
-  const [openScope, setOpenScope] = useState<'lectures' | 'sources' | 'filters' | null>(null)
+  const [openScope, setOpenScope] = useState<'lectures' | 'sources' | 'filters' | 'model' | null>(
+    null,
+  )
   // The bar's filters. They bind every paper search — the reader's `@`
   // lookups excepted (see routes/search.py's api_mentions) and the
   // assistant's own included — which is why they sit beside the input rather
@@ -711,6 +714,18 @@ export default function Teacher({
     />
   )
 
+  // Model (v8.33.0): the researcher's model for this conversation, first of
+  // the bar's pickers wherever they are (Patrick), to 📚's left — a chip
+  // leading the landing row, an icon in the docked bar.
+  const modelPicker = (
+    <ModelPicker
+      conversationKey={activeKey}
+      dataTour="model-picker"
+      open={openScope === 'model'}
+      onOpenChange={(nowOpen) => setOpenScope(nowOpen ? 'model' : null)}
+    />
+  )
+
   // The paper filters, beside the library picker in the landing chat's tool
   // row — and only there (v8.28.0; see `activeOptions`). Its popover anchors
   // to that row (`.ask-tools` is positioned), so it spans the panel rather
@@ -998,6 +1013,8 @@ export default function Teacher({
               under the bar, and a row of icon-only chips there read as
               clutter. Paper filters don't come along — they belong to the
               General chat, the one that searches papers. */}
+          {/* Model first, then 📚 (Patrick, v8.33.0), as in the landing row. */}
+          {!landing && modelPicker}
           {!landing && sourcePicker}
           {/* Clear, inside the bar beside the send rather than floating above the
               transcript — same round shape and size, but muted rather than
@@ -1053,6 +1070,7 @@ export default function Teacher({
             so the filters are often the row's only chip. */}
         {landing && (
           <div className="ask-tools">
+            {modelPicker}
             {sourcePicker}
             {searchControls}
           </div>

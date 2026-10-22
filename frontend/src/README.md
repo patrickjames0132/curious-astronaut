@@ -76,13 +76,17 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
       │                             v7.23.0: a lecture is asked for in words)
       ├─ notes over the bar        teacher/ComposerNotes.tsx (one line each,
       │                             an ⓘ with them in full when cut, v8.25.0)
-      ├─ chat turns                teacher/transcript/ChatMessage.tsx
+      ├─ chat turns                teacher/transcript/ChatMessage.tsx (each
+      │  │                          answer's clock at its top right,
+      │  │                          teacher/ResponseTimer.tsx, v8.33.0)
       │  ├─ lecture beats          teacher/transcript/BeatList.tsx (a turn
       │  │                          whose answer IS a lecture, behind its own
       │  │                          caret — newest open, older ones folded)
       │  └─ inline figures         figures/FigCard.tsx
       ├─ ask bar                    the question (🗑 clear and send beside it;
-      │  │                          docked, the 📚 library-filters icon, v8.28.0)
+      │  │                          docked, the 📚 library-filters icon, v8.28.0,
+      │  │                          and the network-icon Model picker, teacher/ModelPicker.tsx,
+      │  │                          v8.33.0)
       │  └─ @ suggestions          mentions/MentionSuggestions.tsx — opens
       │                             UPWARD out of the bar; anchored to it,
       │                             because it belongs to the text being typed
@@ -90,7 +94,8 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
       │                             above, paper results below
       ├─ tool row (landing only)    teacher/SourcePicker.tsx over ScopePicker.tsx
       │                             (📚 Library filters, useSourceScope.ts; with
-      │                             the Knowledge Graph Assistant, v8.25.0) and
+      │                             the Knowledge Graph Assistant, v8.25.0), the
+      │                             network-icon Model picker, and
       │                             search/SearchControls.tsx (▽ Paper filters —
       │                             year slider, field picker), labelled chips
       │                             under the bar (`.ask-tools`). Docked there

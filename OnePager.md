@@ -1231,20 +1231,25 @@ than deleted so the plan doesn't get re-proposed.
       spinner card with a progress bar over an empty canvas. Shape not yet
       decided. *(From the `todos.md` inbox, 2026-10-09.)*
 
-- [ ] **A response timer in the chat box** — while the agent is responding,
-      show a running timer in the chat box's upper-right corner; when the turn
-      ends, replace it with "responded in: <time>". Gives the reader a number
-      for the wait the "researcher is slow" ticket is about. *(From the `todos.md` inbox, 2026-10-20.)*
-
-- [ ] **Pick the agent from the chat bar** — a quick agent-selection button
-      in the chat bar, so switching agents doesn't mean opening settings every
-      time. Settings keeps the default; the chat-bar button switches agents
-      for the conversation. *(From the `todos.md` inbox, 2026-10-20.)*
-
 - [ ] **Split Graph settings into Citation Graph and Knowledge Graph
       sub-pages** — the Graph section of `SettingsModal.tsx` holds settings for
       both graphs. Give each graph its own sub-page, in line with the existing
       settings UX (sub-pages over controls on the landing page). *(From the `todos.md` inbox, 2026-10-20.)*
+      **Parked, 2026-10-21:** the Graph section holds only Citation Graph
+      settings today, and the Knowledge Graph's knobs live under Agents →
+      Tutor. Patrick expects more Knowledge Graph settings to arrive as it
+      grows, so the split waits until there's enough to fill its sub-page.
+
+- [ ] **Turn the Tutor's lesson length and images per lesson back into
+      number fields** — two Tutor rows under Agents → Agent Settings.
+      **Lesson length** (`lesson_words`) is an `ExtrasSlider` (100–1500,
+      step 50): make it an incremental number field again, as it was before
+      the slider. **Images per lesson** is an `ExtrasRange` over two knobs, a
+      floor (`min_images`, default 2) and a cap (`images`, default 3): drop
+      the min/max pair for one incremental number field. That means deciding
+      what happens to the floor in the tutor's backend, which today sends a
+      lesson back when it has fewer images than `min_images`. Bring the row
+      hints and the Tutor's README along. *(Patrick, 2026-10-21.)*
 
 ### Enhancements & tech debt
 

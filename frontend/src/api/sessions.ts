@@ -146,6 +146,12 @@ export interface ChatMsg {
   failed?: string
   /** True until the stream ends successfully; partial prose stays out of history. */
   unfinished?: boolean
+  /** When this answer's turn started (`Date.now()`), while it runs: its
+   *  response timer counts from here (v8.33.0, `teacher/ResponseTimer`). */
+  startedAt?: number
+  /** How long this answer took, in ms, once it completed: the timer's
+   *  "responded in". Saved with the turn, so it survives a reload. */
+  respondedIn?: number
   /** Figures the agent pulled into this answer (assistant turns only). */
   figures?: AnswerFigure[]
   /** Library-retrieval summary — set only on the graph-free library-chat path

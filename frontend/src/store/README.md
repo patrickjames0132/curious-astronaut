@@ -114,6 +114,17 @@ until the thread is displayed; they also participate in saves while it is away.
 Deleting an exploration drops every owned conversation, so late events have
 nowhere to land.
 
+**Each answer is timed** (v8.33.0, `teacher/ResponseTimer`): `turnStarted`
+and `turnCompleted` stamp `Date.now()` in their `prepare` (the reducer stays
+pure, `timed()`), the first on the new assistant turn as `startedAt` and the
+second turning it into `respondedIn`. Both live on the `ChatMsg`, so a
+background answer keeps its clock and a finished one's time is saved with
+the thread; a turn that fails or is stopped never completes and keeps no
+time. **A conversation carries its model pick**: `model`, set by
+`conversationModelSet` from `teacher/ModelPicker` and read by every ask as
+it builds its request, so a background answer runs on the model it was
+asked with. The pick isn't saved: a reload goes back to the default.
+
 A turn begins with `unfinished: true`; only a successful terminal response
 clears that flag. Partial answers remain readable but do not become model history.
 Lectures live in `ChatMsg.beats`, not in a separate lecture slot. `teacher/history.ts`

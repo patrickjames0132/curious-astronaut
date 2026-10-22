@@ -561,6 +561,7 @@ export function useConversation() {
               thread_context: siblingContext(store.getState(), question, key),
               ...askFilters(turnFilters),
               ...(quick && { quick: true }),
+              model: store.getState().transcript.byKey[key]?.model,
             },
             {
               signal: ctrl.signal,
@@ -627,6 +628,7 @@ export function useConversation() {
               thread_context: siblingContext(store.getState(), question, key),
               ...askFilters(filters),
               ...(quick && { quick: true }),
+              model: store.getState().transcript.byKey[key]?.model,
             },
             {
               signal: ctrl.signal,

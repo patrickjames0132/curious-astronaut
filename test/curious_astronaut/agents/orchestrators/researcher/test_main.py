@@ -161,6 +161,25 @@ def test_answer_streams_token_deltas_and_maps_cited(monkeypatch):
     assert cited_of(out) == events.Cited(node_ids=["node02"])
 
 
+def test_the_chat_bars_model_pick_reaches_the_factory(monkeypatch):
+    """v8.33.0: a conversation's picked model is the one the researcher runs on;
+    without a pick, the factory gets None and builds the configured one."""
+    asked = []
+    real = researcher.main.factory.model_for
+
+    def spy(agent_id, model=None):
+        asked.append((agent_id, model))
+        return real(agent_id)
+
+    monkeypatch.setattr(researcher.main.factory, "model_for", spy)
+    monkeypatch.setattr(researcher.main.store, "list_sources", lambda: [])
+    final = [("final_result", ['{"kind": "answered", "text": "Yes.", "cited": []}'])]
+    for pick in ("openai:gpt-test", None):
+        with researcher.agent.override(model=scripted(final)):
+            list(researcher.answer("why?", SEED, NODES, model=pick))
+    assert asked == [("researcher", "openai:gpt-test"), ("researcher", None)]
+
+
 def test_read_traces_live_and_joins_cited(monkeypatch):
     seen: dict = {}
     model = scripted(

@@ -31,6 +31,7 @@ import Fold from '../../ui/Fold'
 import QuickResponse from '../../ui/QuickResponse'
 import AttachedChips from '../../mentions/AttachedChips'
 import { splitAttached } from '../../mentions/attachments'
+import ResponseTimer from '../ResponseTimer'
 
 /**
  * Why a failed search never turned anything up, in plain words — "the budget
@@ -302,6 +303,14 @@ export default function ChatMessage({
       className={`chat ${message.role}${clickable ? ' clickable' : ''}${active ? ' active' : ''}`}
       onClick={onActivate}
     >
+      {/* The answer's clock, at the block's top right (v8.33.0). */}
+      {message.role === 'assistant' && (
+        <ResponseTimer
+          startedAt={message.startedAt}
+          respondedIn={message.respondedIn}
+          running={!!working}
+        />
+      )}
       <AttachedChips
         chips={attached.map((item, index) => {
           const threadId = item.kind === 'thread' ? borrowedId(item.title) : undefined

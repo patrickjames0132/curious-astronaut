@@ -410,6 +410,9 @@ export async function streamAsk(
     thread_context?: ThreadContext[]
     /** A quick response (v8.30.0): answer with no tools, now. */
     quick?: boolean
+    /** The chat bar's researcher model pick, `"provider:model"` (v8.33.0);
+     *  absent, the model Settings configures. */
+    model?: string
   },
   handlers: AskHandlers,
 ): Promise<void> {
@@ -553,6 +556,9 @@ export async function streamAskSources(
     thread_context?: ThreadContext[]
     /** A quick response (v8.30.0): answer with no tools, now. */
     quick?: boolean
+    /** The chat bar's researcher model pick, `"provider:model"` (v8.33.0);
+     *  absent, the model Settings configures. */
+    model?: string
   },
   handlers: AskSourcesHandlers,
 ): Promise<void> {
@@ -632,6 +638,9 @@ export async function streamAskCourse(
     thread_context?: ThreadContext[]
     /** A quick response (v8.30.0): answer with no tools, now. */
     quick?: boolean
+    /** The chat bar's researcher model pick, `"provider:model"` (v8.33.0);
+     *  absent, the model Settings configures. */
+    model?: string
   },
   handlers: AskSourcesHandlers,
 ): Promise<void> {

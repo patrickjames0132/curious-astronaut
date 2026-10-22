@@ -163,3 +163,26 @@ def test_model_for_defers_the_blank_vendor_error_to_the_call(monkeypatch):
     monkeypatch.setattr(factory, "_MODELS", {})
     with pytest.raises(ValueError, match="google"):
         factory.model_for("probe")
+
+
+def test_model_for_builds_an_override_beside_the_configured_model(monkeypatch):
+    """v8.33.0: the chat bar's picker swaps the model for one conversation.
+
+    Each pick is cached in its own slot, so switching back to the configured
+    model hands back the very same object rather than rebuilding it."""
+    monkeypatch.setattr(config.llm, "agents", [make_entry()])
+    monkeypatch.setattr(factory, "_MODELS", {})
+    configured = factory.model_for("probe")
+    picked = factory.model_for("probe", "anthropic:claude-test-2")
+    assert picked.model_name == "claude-test-2"
+    assert factory.model_for("probe", "anthropic:claude-test-2") is picked
+    assert factory.model_for("probe") is configured
+
+
+def test_an_override_on_a_blank_vendor_is_the_same_request_time_error(monkeypatch):
+    """A pick gets no easier ride than config: a blank vendor still says so."""
+    monkeypatch.setattr(config.llm, "agents", [make_entry()])
+    monkeypatch.setattr(config.llm.providers.google, "api_key", "")
+    monkeypatch.setattr(factory, "_MODELS", {})
+    with pytest.raises(ValueError, match="google"):
+        factory.model_for("probe", "google:gemini-2.5-flash")

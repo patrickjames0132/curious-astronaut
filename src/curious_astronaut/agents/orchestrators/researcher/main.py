@@ -491,6 +491,7 @@ def answer(
     fields: list[str] | None = None,
     paper_search: bool = True,
     quick: bool = False,
+    model: str | None = None,
 ) -> Iterator[events.Event]:
     """Answer a question agentically: read / expand / search via tool use.
 
@@ -532,6 +533,10 @@ def answer(
             of the model (the numbered papers, the course, the conversation)
             still grounds it, and the provenance line reports that nothing
             was searched. The lesson's quick response (v8.24.0), for chat.
+        model: The ``"provider:model"`` the reader picked in the chat bar for
+            this conversation (v8.33.0), or None for the researcher's
+            configured model. Only the researcher's own model changes; the
+            scouts it sends out keep theirs.
 
     Yields:
         One ``SourceRefs`` up front when a library is in play, then ``Trace``
@@ -606,7 +611,7 @@ def answer(
             + sibling_context if sibling_context else ""
         ),
         deps=deps,
-        model=factory.model_for(AGENT_ID),
+        model=factory.model_for(AGENT_ID, model),
         message_history=prompts.history(history),
         usage_limits=UsageLimits(request_limit=BUDGETS["max_steps"] + 4),
     )

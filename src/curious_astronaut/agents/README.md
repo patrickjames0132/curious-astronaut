@@ -190,6 +190,14 @@ string plus the named vendor's whole block — so an edited key invalidates the
 model just as surely as a switched vendor does. Two threads racing only build
 the same model twice, so there is no lock.
 
+`model_for` also takes an **override** (v8.33.0): a `provider:model` string
+built in place of the entry's, for the chat bar's model picker, which swaps
+the researcher's model for one conversation. Each override is cached in its
+own slot beside the entry's model (`<agent>|<model>`), so flipping a chat
+between two models rebuilds nothing, and it meets the same vendor checks in
+`build_model`: an override on a blank vendor is the same request-time error
+as a configured one.
+
 The factory also sets `anthropic_eager_input_streaming` on Anthropic models —
 see `streams.py` below for why nothing streams without it.
 
