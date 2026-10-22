@@ -61,6 +61,7 @@ from ...integrations import semantic_scholar as s2
 from ...storage import cache
 from .model import Counts, Edge, Graph, Node, Seed
 from .shape import BuildShape
+from .surveys import flag_surveys
 
 # An S2 node id: ``CorpusId:<n>`` since v8.18.0 (see semantic_scholar/nodes.py),
 # or a bare 40-hex paperId — the scheme before it, and the fallback for a paper
@@ -73,7 +74,7 @@ log = logging.getLogger(__name__)
 #: by the caller (the header dropdown), defaulting to ``config.providers.default_provider``.
 Provider = Literal["s2", "openalex"]
 
-SNAPSHOT_VERSION = "v4"
+SNAPSHOT_VERSION = "v5"
 """Schema version baked into every graph-snapshot cache key.
 
 Bump it whenever the ``Graph`` model **loses** a field: ``extra="forbid"``
@@ -83,7 +84,10 @@ poisonous. They age out on the TTL. (v2 = v7.5.0, which dropped ``Counts.similar
 v3 = v7.17.0, which dropped ``Counts.latest`` and narrowed ``Edge.type`` to
 ``reference | citation``.) Bump it too when node ids change meaning: v4 =
 v8.18.0, when S2 node ids became corpus ids, because a v3 snapshot's hex ids
-would duplicate every paper an expansion brings back under its corpus id."""
+would duplicate every paper an expansion brings back under its corpus id.
+And bump it when a field gains a value old snapshots never computed: v5 =
+the survey release, whose ``Node.is_survey`` a v4 snapshot would validate
+without (it defaults), quietly drawing a graph with no surveys for a day."""
 
 
 def snapshot_prefix(provider: Provider) -> str:
@@ -362,6 +366,10 @@ def _upgrade_node(existing: Node, sighting: dict) -> None:
     for field_name in ("arxiv_id", "abstract", "tldr", "pub_date", "month", "authors", "url"):
         if getattr(existing, field_name) is None and sighting.get(field_name) is not None:
             setattr(existing, field_name, sighting[field_name])
+    # A survey flag is a yes from either sighting: OpenAlex's duplicate works
+    # can disagree, and only a ``review`` type ever says yes there.
+    if sighting.get("is_survey") is True or existing.is_survey is None:
+        existing.is_survey = sighting.get("is_survey", existing.is_survey)
 
 
 #: Progress callback: ``(steps_done, steps_total, label)``. The streaming
@@ -583,6 +591,10 @@ def build_graph(
         node_id = add_neighbor(citation["node"], "citation")
         if add_edge(node_id, seed_id, "citation", citation["influential"], citation_rank):
             citation_rank += 1
+
+    # Which papers are surveys, for the ones their provider left unknown: one
+    # S2 batch call at most, best-effort (see ``surveys.py``).
+    flag_surveys(nodes.values())
 
     graph = Graph(
         seed=Seed(arxiv_id=seed_node.arxiv_id, id=seed_id, title=seed_node.title),

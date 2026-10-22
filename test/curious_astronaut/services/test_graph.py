@@ -22,7 +22,7 @@ import inspect
 import pytest
 
 from curious_astronaut.config import config
-from curious_astronaut.services.graph import bands, budget, build
+from curious_astronaut.services.graph import bands, budget, build, surveys
 from curious_astronaut.services.graph.model import Counts, Edge, Graph, Seed
 
 
@@ -260,6 +260,50 @@ def test_openalex_duplicate_works_merge_via_arxiv_id(fake_openalex, monkeypatch)
         ("DOI:10/other", 1),
     ]
     assert graph.counts.citations == 2
+
+
+def test_build_resolves_survey_flags_the_provider_left_unknown(fake_s2, monkeypatch):
+    """Every assembled node goes through the survey pass, so a corpus-built citer
+    (whose flag the corpus can't know) still comes out flagged; a node that
+    already knows keeps its answer."""
+    monkeypatch.setattr(build.s2, "references", lambda pid, limit=None: [
+        {"node": make_node("CorpusId:2", is_survey=False), "influential": False},
+    ])
+
+    def citation_relations(pid, **kwargs):
+        return [{"node": make_node("CorpusId:1", is_survey=None), "influential": False}], []
+
+    monkeypatch.setattr(build.s2, "citation_relations", citation_relations)
+    asked: list[list[str]] = []
+
+    def lookup(node_ids):
+        asked.append(node_ids)
+        return {"CorpusId:1": True}
+
+    monkeypatch.setattr(surveys, "lookup_review_flags", lookup)
+
+    graph = build.build_graph("1706.03762", provider="s2")
+    by_id = {node.id: node for node in graph.nodes}
+    assert asked == [["CorpusId:1"]]
+    assert by_id["CorpusId:1"].is_survey is True
+    assert by_id["CorpusId:2"].is_survey is False
+
+
+def test_a_review_sighting_wins_a_merge(fake_openalex, monkeypatch):
+    """OpenAlex's duplicate works can disagree on type, and only ``review`` ever
+    says yes there: a later sighting typed review upgrades the merged node."""
+    def citation_relations(work_id, **kwargs):
+        return [
+            {"node": make_node("DOI:10/a", arxiv_id="1909.08593", is_survey=None),
+             "influential": False},
+            {"node": make_node("W12345", arxiv_id="1909.08593", is_survey=True),
+             "influential": False},
+        ], []
+
+    monkeypatch.setattr(build.openalex, "citation_relations", citation_relations)
+
+    graph = build.build_graph("1706.03762", provider="openalex")
+    assert {node.id: node for node in graph.nodes}["DOI:10/a"].is_survey is True
 
 
 def test_a_citer_that_is_the_seed_never_self_loops(fake_openalex, monkeypatch):

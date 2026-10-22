@@ -596,6 +596,10 @@
      vanished on the light legend (v8.16.0). */
   border: 1px solid var(--canvas-ink-soft);
 }
+.legend i.ring.survey {
+  /* The survey ring (theme's SURVEY_COLOR): orange, at the canvas's 2px. */
+  border: 2px solid #fb923c;
+}
 .legend i.ring.ghost {
   border: 1.5px dotted var(--canvas-ink-soft);
 }

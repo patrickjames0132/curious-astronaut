@@ -4,8 +4,7 @@
  * Description:
  * The ForceGraph2D wrapper: all canvas painting for the explorer — node
  * fills by relation (pink for a paper that has been expanded), the
- * dim/highlight/pin/selection rings, the faint
- * "added by expanding" halo, node labels, edge colors/widths/arrows (the
+ * dim/highlight/pin/selection rings, the survey ring, node labels, edge colors/widths/arrows (the
  * links between papers among them, drawn finer), and pointer areas.
  *
  * Purely presentational: the simulation's node/link objects, the fgRef, and
@@ -21,15 +20,14 @@
 import ForceGraph2DImport from 'react-force-graph-2d'
 import type { GraphNode } from '../../api'
 import { latexToUnicode } from '../../notation/latexToUnicode'
-import { edgeLit, edgeTypeFrom, nodeRadius, primaryRel } from '../model'
+import { edgeLit, edgeTypeFrom, nodeFill, nodeRadius } from '../model'
 import type { DragStep, PositionedVNode, VLink, VNode } from '../model'
 import {
   ARROW_COLOR,
   DIM_EDGE,
   EDGE_COLOR,
-  EXPANDED_COLOR,
-  REL_COLOR,
   SELECTION_RING,
+  SURVEY_COLOR,
   UNKNOWN_EDGE,
   dimColor,
   useCanvasInk,
@@ -59,6 +57,8 @@ export interface GraphCanvasProps {
   pinned: Set<string>
   /** Papers an Expand hop has run on (filled pink, see theme's EXPANDED_COLOR). */
   expandedIds: Set<string>
+  /** Ring the surveys orange (the Surveys chip; off by default). */
+  surveyRings: boolean
   /** The selected node id (bright ring + always-on label). */
   selectedId: string | null
   /** The teacher's scope — the running turn's message scope, else the
@@ -114,6 +114,7 @@ export default function GraphCanvas({
   anchorId,
   pinned,
   expandedIds,
+  surveyRings,
   selectedId,
   selectedIds,
   selectionDims,
@@ -207,7 +208,7 @@ export default function GraphCanvas({
         ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
         // A dimmed paper keeps a faint trace of its own colour, so who cites
         // and who is cited still shows behind a focus (v8.22.0; grey before).
-        const fill = expandedIds.has(node.id) ? EXPANDED_COLOR : REL_COLOR[primaryRel(node)]
+        const fill = nodeFill(node, expandedIds.has(node.id))
         ctx.fillStyle = dim ? dimColor(fill) : fill
         ctx.fill()
         // A thin black outline on every disc (v8.16.0), so overlapping papers
@@ -215,25 +216,20 @@ export default function GraphCanvas({
         // (black in both today). Constant on screen at any zoom,
         // and it strokes the fill's own arc, so the rings below still find
         // it as the current path.
-        ctx.lineWidth = 1 / globalScale
-        ctx.strokeStyle = dim ? canvasInk.outlineDim : canvasInk.outline
-        ctx.stroke()
-        if (node.discovered && !dim) {
-          // A faint halo marks a paper added by expanding (the reader's
-          // Expand buttons or the teacher's): a hairline with a little air
-          // round the disc. It was a bold dashed ring until v8.18.0, which
-          // made a cluster of them look like a stack of poker chips; the
-          // group's own place on the map already says where they came from.
-          ctx.beginPath()
-          ctx.arc(node.x, node.y, radius + 2, 0, 2 * Math.PI)
-          ctx.lineWidth = 0.8 / globalScale
-          ctx.strokeStyle = canvasInk.soft
-          ctx.stroke()
-          // Restore the fill's arc as the current path — the lit/pinned/
-          // selected rings below stroke it.
-          ctx.beginPath()
-          ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
+        //
+        // With the Surveys chip on, a survey's outline is orange instead,
+        // and twice as thick so the
+        // colour reads at a glance (1px of orange is all but invisible on a
+        // small disc). The fill stays its relation's, so a survey still says
+        // whether it's a reference or a citer.
+        if (surveyRings && node.is_survey && !node.is_seed) {
+          ctx.lineWidth = 2 / globalScale
+          ctx.strokeStyle = dim ? dimColor(SURVEY_COLOR) : SURVEY_COLOR
+        } else {
+          ctx.lineWidth = 1 / globalScale
+          ctx.strokeStyle = dim ? canvasInk.outlineDim : canvasInk.outline
         }
+        ctx.stroke()
         if (isLit && !dim) {
           ctx.lineWidth = 2 / globalScale
           ctx.strokeStyle = '#ffd166'

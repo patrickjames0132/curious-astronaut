@@ -27,11 +27,13 @@ import {
   foldRetiredEdgeTypes,
   foldRetiredNodeRels,
   formatPubDate,
+  nodeFill,
   nodeRadius,
   primaryRel,
   type VLink,
 } from '../../src/graph/model'
 import type { VNode } from '../../src/graph/model'
+import { EXPANDED_COLOR, REL_COLOR } from '../../src/graph/theme'
 
 /** A minimal valid GraphNode; override per test. */
 function makeNode(overrides: Partial<GraphNode> = {}): GraphNode {
@@ -116,6 +118,27 @@ describe('primaryRel', () => {
 
   it('falls back to unknown when a node has no relation at all', () => {
     expect(primaryRel(makeNode({ rels: [] }))).toBe('unknown')
+  })
+})
+
+describe('nodeFill', () => {
+  it('keeps a survey in its relation colour', () => {
+    // The survey mark is an orange outline drawn by the canvas, so the fill
+    // still says whether the survey is a reference or a citer.
+    expect(nodeFill(makeNode({ rels: ['citation'], is_survey: true }), false)).toBe(
+      REL_COLOR.citation,
+    )
+    expect(nodeFill(makeNode({ rels: ['reference'], is_survey: true }), false)).toBe(
+      REL_COLOR.reference,
+    )
+  })
+
+  it('fills the seed gold', () => {
+    expect(nodeFill(makeNode({ is_seed: true, rels: ['seed'] }), false)).toBe(REL_COLOR.seed)
+  })
+
+  it('lets an expanded paper turn pink', () => {
+    expect(nodeFill(makeNode({ rels: ['citation'] }), true)).toBe(EXPANDED_COLOR)
   })
 })
 

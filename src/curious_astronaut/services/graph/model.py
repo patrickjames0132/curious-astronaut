@@ -55,6 +55,13 @@ class Node(BaseModel):
     an ar5iv render) reads from. Detail-tier on S2 (neighbors carry None
     until hydration); OpenAlex fills it at neighbor tier too. Defaults so
     pre-oa_pdf cached snapshots validate."""
+    is_survey: bool | None = None
+    """Whether the paper is a survey or review — the field's own overview of a
+    period rather than a primary result. Provider-neutral: the graph, its
+    filter chip and the agents' scoping read only this, never where it came
+    from, and ``services/graph/surveys.py`` is the one place that resolves it
+    (S2's ``Review`` publication type today). None means unknown — the lookup
+    failed or the paper has no id S2 can resolve — and draws as not a survey."""
     rels: list[str]
     is_seed: bool
 

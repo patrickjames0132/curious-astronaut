@@ -243,6 +243,63 @@
 
 ### Graph explorer & timeline
 
+- [x] **Surveys as a first-class node kind** *(v8.35.0)* — a review/survey paper is a
+      different animal from a primary result: it's the field's own overlook of
+      a period, and right now it's an anonymous dot like everything else.
+      Identify them, give them their **own node colour and filter chip**, and
+      let the user **scope the researcher and lecturer to them** — "teach me
+      this field from its surveys" is a genuinely different (and often better)
+      first pass than the citation lineage.
+
+      **The data is there and we simply don't ask for it**, which makes the
+      first step small: S2 exposes `publicationTypes` (carrying `Review`) and
+      OpenAlex a `type` field (`review`) — neither appears in
+      `semantic_scholar/nodes.py`'s `NEIGHBOR_FIELDS` nor
+      `openalex/nodes.py`'s `NEIGHBOR_SELECT`, so it's a field addition on both
+      before anything else can be built. Worth checking coverage on a real
+      graph first: if the flag is sparse or noisy, a title/abstract heuristic
+      ("a survey of", "a review of", ": a survey") may have to back it up, and
+      that changes the ticket's shape.
+
+      **Then two halves.** *Rendering* — surveys aren't a graph *relation*
+      (a paper is a survey regardless of how it reached the canvas), so this is
+      an **overlay** on the existing relation colouring rather than a new
+      relation, and the chip is a filter over a property, not over `rels`.
+      That's a real difference from the sibling "filter chip for
+      teacher-discovered and search nodes" ticket, which does filter `rels`.
+      *Scoping* — the agents already accept a hand-picked node set
+      (`selectedNodeIds` → `selectGroundingNodes`), so "only the surveys" could
+      ride that existing seam rather than needing its own plumbing.
+      *(From the `todos.md` inbox, 2026-08-14.)*
+      **Shipped** (the rendering half; scoping stays open in the OnePager as
+      "Scope the agents to the surveys"). **Coverage was checked first**, on
+      the most-cited papers citing "Attention Is All You Need": S2's
+      `publicationTypes` → `Review` marked **50/50** titled surveys plus ones
+      whose titles don't say so (the XAI survey); OpenAlex's `type` marked
+      **4/50**, calling the rest `article`. So no title heuristic: S2's label
+      decides, behind a **provider-neutral** `Node.is_survey` resolved in one
+      place, `services/graph/surveys.py`, so dropping S2 one day (Patrick is
+      weighing a paid hosted UI, and S2's license limits what a website may
+      build on its data) is a change to that module alone. `publicationTypes`
+      rides S2's neighbor and detail fields; OpenAlex's `review` counts as a
+      yes and anything else as unknown; every unknown paper (corpus-built
+      citers, since the corpus doesn't ingest the field, and OpenAlex papers,
+      whose `DOI:`/`ARXIV:` ids S2 resolves) goes out in **one best-effort S2
+      batch call** per build, per Expand, per researcher hop. On the real
+      graph: 329 papers, 40 surveys, none left unknown. `SNAPSHOT_VERSION` →
+      v5 so cached graphs rebuild with the flag. **The UI took three cuts in
+      Patrick's browser:** an orange *fill* with a "Surveys only" chip that
+      narrowed the graph to them → an orange *ring* (the fill stays the
+      relation's, so reference vs. citation still reads) with a chip that hid
+      them → the final **Surveys chip, beside Citations, off by default, that
+      turns the 2px orange ring on and off** and never hides a paper. The
+      legend names the ring only while one is drawn, the detail panel adds an
+      orange "survey" badge, and the tour's Relation filters step mentions
+      the chip. The ring crowded the faint **"Added by expanding" halo**, so
+      the halo and its legend entry were retired: an expansion's papers
+      already sit with the pink paper they came from. Approved by Patrick,
+      2026-10-22.
+
 - [x] **Phase 2 — Graph explorer frontend** *(v1.0.0)* — force-directed canvas
       (`react-force-graph-2d`), seed via arXiv search, nodes colored by relation
       / sized by citations / edges typed & directed, detail panel with `tldr`.

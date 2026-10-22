@@ -33,12 +33,15 @@ from __future__ import annotations
 DETAIL_FIELDS = (
     "paperId,externalIds,title,abstract,tldr,year,publicationDate,"
     "citationCount,referenceCount,authors.name,s2FieldsOfStudy,fieldsOfStudy,"
-    "venue,publicationVenue,openAccessPdf"
+    "venue,publicationVenue,openAccessPdf,publicationTypes"
 )
 # Lighter fields for the many neighbors in a traversal — no abstract/tldr,
 # which we hydrate lazily when a node is opened. publicationDate gives month
-# granularity for the timeline layout.
-NEIGHBOR_FIELDS = "paperId,externalIds,title,year,publicationDate,citationCount"
+# granularity for the timeline layout. publicationTypes is tiny and is what
+# marks a survey (see ``is_review``), so it rides at neighbor tier.
+NEIGHBOR_FIELDS = (
+    "paperId,externalIds,title,year,publicationDate,citationCount,publicationTypes"
+)
 # Search hits render in a pick-a-paper list where authorship is how humans
 # recognize a paper — worth the extra field there, but not for the ~65
 # anonymous dots of a graph traversal.
@@ -99,6 +102,28 @@ def venue_name(paper: dict) -> str | None:
     return paper.get("venue") or None
 
 
+def is_review(paper: dict) -> bool | None:
+    """Whether S2 types the paper a review — the app's survey flag.
+
+    S2's ``publicationTypes`` carries ``Review`` for surveys and reviews. On a
+    real graph (the 50 most-cited titled surveys citing "Attention Is All You
+    Need", 2026-10-22) it marked all 50, plus surveys whose titles don't say
+    so; OpenAlex's own ``type`` marked 4 of the same 50. A null list is S2
+    answering "no types known", which counts as not a review.
+
+    Args:
+        paper: A raw S2 paper object.
+
+    Returns:
+        True or False when ``publicationTypes`` was requested; None when the
+        field is absent from the response (it wasn't asked for), so the
+        survey pass knows to look it up.
+    """
+    if "publicationTypes" not in paper:
+        return None
+    return "Review" in (paper.get("publicationTypes") or [])
+
+
 def canonical_id(paper: dict) -> str | None:
     """A paper's node id: ``CorpusId:<n>`` when S2 gives a corpus id, else its ``paperId``.
 
@@ -130,7 +155,7 @@ def node(paper: dict | None) -> dict | None:
     Returns:
         A node dict with keys ``id, arxiv_id, title, abstract, tldr, year,
         month, pub_date, citation_count, authors, url, fields_of_study,
-        venue, oa_pdf`` — or None when ``paper`` is empty or carries no
+        venue, oa_pdf, is_survey`` — or None when ``paper`` is empty or carries no
         ``paperId``. ``month`` (1–12) is parsed from S2's ``publicationDate``
         so the timeline can place papers between year lines; it is None when
         only the year is known. ``fields_of_study`` is empty — and ``venue``
@@ -138,6 +163,7 @@ def node(paper: dict | None) -> dict | None:
         them; all hydrate when the node is opened (DETAIL_FIELDS). ``oa_pdf``
         is S2's ``openAccessPdf`` URL — where the paper's PDF-mining
         fallback (full text and figures without an ar5iv render) reads from.
+        ``is_survey`` is S2's review flag (see :func:`is_review`).
     """
     if not paper or not paper.get("paperId"):
         return None
@@ -178,6 +204,7 @@ def node(paper: dict | None) -> dict | None:
         "fields_of_study": fields_of_study(paper),
         "venue": venue_name(paper),
         "oa_pdf": oa_pdf or None,
+        "is_survey": is_review(paper),
     }
 
 

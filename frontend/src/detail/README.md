@@ -21,6 +21,9 @@ figures.
 
 ## Design decisions worth knowing
 
+- **A survey gets a badge of its own.** The canvas rings a survey orange;
+  an orange "survey" badge beside the relation badge names it in the panel.
+
 - **One summary section, TL;DR first, the abstract a click away.** The
   `SummarySection` (in-file, single-parent) puts the TL;DR tab first and
   opens on it **when one already exists** — S2's own, or one generated

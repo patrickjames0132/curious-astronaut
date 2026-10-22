@@ -37,7 +37,6 @@ import {
   nodeSelectionAdded,
   nodeSelectionCleared,
   nodeSelectionToggled,
-  selectHasDiscovered,
   selectNodeSelectionSet,
   selectWorkspace,
   visibleNodesSet,
@@ -124,7 +123,6 @@ export default function GraphExplorer({
   // anyway, marked — the view shows what the agent is reasoning over, and a
   // filter is a lens, not a retraction of a pick or an ask.
   const selectedIds = useAppSelector(selectNodeSelectionSet)
-  const hasDiscovered = useAppSelector(selectHasDiscovered)
 
   // Declutter controls, one chip per relation. Two relations used to be held
   // on unconditionally here — `search` and `similar` — because they had no
@@ -132,6 +130,11 @@ export default function GraphExplorer({
   // node still carrying one comes from a session saved before that and is
   // shown via the edge-less branch in `nodeOk` below.
   const [enabled, setEnabled] = useState<Set<string>>(new Set(CHIP_TYPES))
+  // The Surveys chip: on rings the surveys and reviews orange, off (the
+  // default) leaves them looking like any paper. It marks, it never hides: a
+  // survey is drawn either way, so it isn't a member of `enabled` (whose
+  // chips decide what's drawn) and it never touches the default scope.
+  const [surveyRings, setSurveyRings] = useState(initialFilters.current?.surveys ?? false)
   const [yearLo, setYearLo] = useState(0)
   const [yearHi, setYearHi] = useState(0)
   // The citation-count window's knob positions (0…CITE_SLIDER_STEPS). Full-open
@@ -251,6 +254,7 @@ export default function GraphExplorer({
     setCiteLo(initialFilters.current?.citeLo ?? 0)
     setCiteHi(initialFilters.current?.citeHi ?? CITE_SLIDER_STEPS)
     setShowLinks(initialFilters.current?.links ?? false)
+    setSurveyRings(initialFilters.current?.surveys ?? false)
     setExpansions({})
     setHoverId(null)
   }, [base])
@@ -266,9 +270,10 @@ export default function GraphExplorer({
         citeHi,
         relCaps,
         links: showLinks,
+        surveys: surveyRings,
       }),
     )
-  }, [base, enabled, yearLo, yearHi, citeLo, citeHi, relCaps, showLinks, dispatch])
+  }, [base, enabled, yearLo, yearHi, citeLo, citeHi, relCaps, showLinks, surveyRings, dispatch])
 
   // Timeline layout physics (year-column pinning, collide force, year axis,
   // settle-freeze) — plus its keep-in-sync effects.
@@ -833,7 +838,18 @@ export default function GraphExplorer({
     [findSet, heldSet, selectedId, hoverSet, hoverId],
   )
 
+  // Whether a survey ring is on screen: the legend names it only then (the
+  // seed never wears one, so it doesn't count).
+  const hasSurveyRings = surveyRings && view.nodes.some((node) => !node.is_seed && node.is_survey)
+
+  /** Ring the surveys or stop (the Surveys chip). */
+  const toggleSurveys = useCallback(() => {
+    dispatch(threadEdited())
+    setSurveyRings((prev) => !prev)
+  }, [dispatch])
+
   /** Toggle one relation type's visibility (the filter chips). */
+
   const toggleType = useCallback(
     (type: string) => {
       dispatch(threadEdited())
@@ -911,6 +927,8 @@ export default function GraphExplorer({
             onLayout={setLayoutMode}
             enabled={enabled}
             onToggleType={toggleType}
+            surveyRings={surveyRings}
+            onToggleSurveys={toggleSurveys}
             showRelCaps={capsActive}
             relCaps={relCaps}
             relTotals={relTotals}
@@ -993,6 +1011,7 @@ export default function GraphExplorer({
             anchorId={anchorId}
             pinned={pinned}
             expandedIds={expandedIds}
+            surveyRings={surveyRings}
             selectedId={selectedId}
             selectedIds={selectedIds}
             selectionDims={!heldSet}
@@ -1039,8 +1058,8 @@ export default function GraphExplorer({
         )}
         {hasGraph && (
           <Legend
-            hasDiscovered={hasDiscovered}
             hasExpanded={expandedIds.size > 0}
+            hasSurveys={hasSurveyRings}
             hasGhosts={view.ghostIds.size > 0}
           />
         )}

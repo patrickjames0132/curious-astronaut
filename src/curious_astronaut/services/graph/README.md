@@ -14,6 +14,8 @@ graph/
                user-sized, and the cache-key suffix that keeps them apart
   growth.py  — growing a built graph with no agent (v8.18.0): expand any paper
                by one hop, and find the citations among the papers on it
+  surveys.py — which papers are surveys: the one place Node.is_survey is
+               resolved, for every provider and source
 ```
 
 `__init__.py` re-exports `build_graph`, `Provider`, `resolve_provider`, and the
@@ -86,7 +88,9 @@ by both the graph and search routes.
 `build_graph()` returns a typed **Pydantic `Graph`** (not a bare dict), with:
 - **`seed`** (`Seed`) — `{arxiv_id, id, title}`, a compact summary for the header.
 - **`nodes`** (`list[Node]`) — deduped papers, each the normalized node fields
-  plus a `rels` list (which relations surfaced it) and an `is_seed` flag.
+  plus a `rels` list (which relations surfaced it) and an `is_seed` flag. One
+  of those fields, `is_survey`, is settled at assembly rather than by the
+  provider alone (see "Which papers are surveys" below).
 - **`edges`** (`list[Edge]`) — `{source, target, type, influential, rank}`;
   `type` is `reference | citation` from the build; `influential` is S2's
   highly-influential flag (always `None` under OpenAlex); `rank` is the edge's
@@ -122,7 +126,10 @@ cache hit, a deliberate trade.
    `extra="forbid"`, so a stored snapshot carrying a since-deleted field is a
    validation *error*, not a miss. Bumping makes stale entries unreadable
    instead of poisonous, and they age out on the TTL. (v2 = v7.5.0, which
-   dropped `Counts.similar`.)
+   dropped `Counts.similar`.) It is also bumped when a field gains a value old
+   snapshots never computed: v5 came with `Node.is_survey`, which a v4 snapshot
+   would validate without (it defaults to unknown), drawing a day of graphs
+   with no surveys on them.
 
    It is a **function** rather than an f-string here because the bump proved
    what happens otherwise: `services/search.local_search` prefix-scans these
@@ -232,7 +239,8 @@ cache hit, a deliberate trade.
    works** for one paper (two works sharing an arXiv id) collapse into one node.
    First sighting wins the slot; later ones append their tag to `rels` and fill
    fields via `_upgrade_node` (max `citation_count`, fill-if-None for summary/date
-   fields). `add_neighbor` returns the **canonical id** the edge loops must use —
+   fields, and a survey flag that any sighting can turn to yes: OpenAlex's
+   duplicate works can disagree, and `review` is the only yes it ever gives). `add_neighbor` returns the **canonical id** the edge loops must use —
    for a merged paper it differs from the sighting's own id.
 
    A dedupe consequence for edges: two sightings can collapse onto one endpoint,
@@ -250,7 +258,11 @@ cache hit, a deliberate trade.
    Getting a direction backwards would silently invert the citation arrows in the
    UI, which is why this is the most-commented part of the code.
 
-6. **Assemble + cache.** Package the `Graph` and cache its `model_dump`. Note
+6. **Resolve survey flags.** `surveys.flag_surveys` fills in `is_survey` for
+   every node its provider left unknown: one S2 batch call at most, best-effort
+   (see the next section).
+
+7. **Assemble + cache.** Package the `Graph` and cache its `model_dump`. Note
    `counts.nodes < references + citations` whenever dedup merged a paper that
    appeared in multiple relations.
 
@@ -322,10 +334,57 @@ agent run. `growth.py` serves the two ways the reader grows it by hand.
   isn't re-asked on every growth. `MAX_LINK_IDS` (2000) caps one request,
   which bounds a forged one; an adaptive graph is a few hundred papers.
 
+## Which papers are surveys — `surveys.py`
+
+A survey or review is the field's own overview of a period, a different animal
+from a primary result, so the frontend can ring it orange (the Surveys chip,
+off by default).
+
+**The flag is provider-neutral on purpose.** The graph, its chip and the
+agents read `Node.is_survey` and nothing else; this module is the one place
+that decides it. If the app ever has to stop depending on Semantic Scholar,
+changing where the answer comes from is a change here and nowhere else.
+
+**Where the answer comes from today** — measured on a real graph before the
+ticket was built (2026-10-22, the most-cited papers citing "Attention Is All
+You Need"):
+
+| Signal | Titled surveys it marked |
+|---|---|
+| S2 `publicationTypes` → `Review` | **50 / 50**, plus surveys whose titles don't say so |
+| OpenAlex `type` → `review` | 4 / 50 (it calls most surveys `article`) |
+
+So S2's label decides it, in three layers:
+
+1. **Free where it can be.** `publicationTypes` rides S2's `NEIGHBOR_FIELDS`
+   and `DETAIL_FIELDS`, so every paper fetched live from S2 arrives knowing
+   (`semantic_scholar.nodes.is_review`: true or false, or None when the field
+   wasn't requested). OpenAlex's rare `review` is trusted as a yes and anything
+   else stays **unknown, never no** (`openalex.nodes._is_review`).
+2. **One lookup for the rest.** Every node still unknown goes out in **one**
+   `POST /paper/batch` asking for `paperId,publicationTypes` only. That covers
+   the two big gaps: **corpus-built citers** (the offline corpus doesn't ingest
+   the field) and **every OpenAlex paper** not typed `review`. One call covers
+   both providers because an OpenAlex node's id is `DOI:`/`ARXIV:` precisely so
+   S2 can resolve it. A bare OpenAlex `W…` id is the one kind it can't, and it
+   is left unknown rather than sent.
+3. **Best-effort.** A failed lookup logs a warning and leaves those papers
+   unknown, which draws them as not surveys. It never fails the graph.
+
+`build_graph` runs it once over the assembled nodes; the reader's Expand
+route (`routes/graph.py`) runs it over an expansion's new papers, whose
+citers may come from the corpus; the researcher's `expand_node` runs it over
+its discoveries. Unknown (`None`) and no (`False`) are kept apart on the wire
+so a later lookup knows what is still worth asking about; the frontend draws
+both as not surveys.
+
 ## Who uses it
 
 - **`routes/graph.py`** — `POST /api/graph/expand` and `POST /api/graph/links`
-  call `growth.expand` and `growth.links_between`.
+  call `growth.expand` and `growth.links_between`; the expand route then runs
+  `surveys.flag_surveys` over the new papers.
+- **The researcher's `expand_node`** (`agents/orchestrators/researcher/tools.py`)
+  — `surveys.flag_surveys` over the papers a hop discovers.
 - **`routes/graph.py`** — `GET /api/graph?seed=…&provider=…&refresh=…` calls
   `build_graph` and returns `graph.model_dump()` as JSON, catching `s2.S2Error`
   *and* `openalex.OpenAlexError` and turning either into an HTTP 502 (named for
@@ -353,6 +412,16 @@ corpus receives `budget.computed_cite_limit` (measure the pool you already
 fetched), the live fallback `budget.select_landmarks` (band it, since a prefix of a
 truncated pool strands the recent years), and both take the flat
 `UNBOUNDED_LANDMARK_CAP` payload guard (`integrations/caps.py`) only as a ceiling.
+
+**`test_surveys.py`** covers `surveys.py`: only unknown nodes S2 can resolve
+are looked up, all in one call (a `W…` id is never sent); a graph that already
+knows costs no call; a failed lookup leaves papers unknown and logs; the real
+lookup asks for `paperId,publicationTypes` only. `test_graph.py` adds that the
+build runs the pass over every assembled node and that a `review` sighting wins
+a merge. Because every build now makes this call, **`conftest._isolate` stubs
+`surveys.lookup_review_flags` for every test** (answering "nothing known"):
+the stubs a test writes for a provider's traversal would otherwise let the
+build reach the live API. A survey test patches it again.
 
 **`test_growth.py`** covers `growth.py`: an expansion links papers already on
 the graph and still adds `limit` new ones (every one with no limit), edge

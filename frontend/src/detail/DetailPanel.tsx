@@ -35,7 +35,7 @@ import type {
 } from '../api'
 import type { VNode } from '../graph/model'
 import { formatPubDate } from '../graph/model'
-import { BADGE_COLOR } from '../graph/theme'
+import { BADGE_COLOR, SURVEY_COLOR } from '../graph/theme'
 import MathText from '../notation/MathText'
 import MarkIcon from '../ui/MarkIcon'
 import { useResizablePanel } from '../ui/useResizablePanel'
@@ -519,6 +519,12 @@ export default function DetailPanel({
               {label}
             </span>
           ))}
+          {/* The canvas rings a survey orange; the panel names it. */}
+          {node.is_survey && (
+            <span className="badge" style={{ color: SURVEY_COLOR }}>
+              survey
+            </span>
+          )}
         </div>
         <h2>
           <MathText>{node.title}</MathText>

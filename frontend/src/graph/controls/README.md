@@ -8,12 +8,13 @@ parent is `graph/GraphExplorer.tsx`.
 controls/
   GraphControls.tsx — a panel that folds away into a sliders button, over:
                       layout toggle,
-                      per-relation filter chips, the dual-knob year slider,
+                      per-relation filter chips (Surveys among them),
+                      the dual-knob year slider,
                       the citation-count threshold slider, the "Links
                       between papers" switch, the count
                       readout + release/fit/refresh/clear action row, the
                       node-selector gesture hint, the per-layout hint line
-  Legend.tsx        — the color legend (agent entries appear on first use)
+  Legend.tsx        — the color legend (conditional entries appear while drawn)
 ```
 
 Both are purely presentational (the Phase 6 state directive): every set,
@@ -162,19 +163,28 @@ canvas about what "a reference" looks like, and both style via
   history).
   `GraphExplorer` passes the string (or `null`) based on the active provider.
 
+- **The Surveys chip looks like a relation chip, but isn't one.** It sits
+  after Citations in either layout, **off by default**, and switching it on
+  rings the surveys and reviews orange (`GraphExplorer`'s `surveyRings`). It
+  marks rather than filters: surveys are drawn either way, so it never heads a
+  count slider. Two earlier cuts got this wrong in instructive ways: a
+  separate "Surveys only" row with a count that narrowed the graph *to* the
+  surveys, then a chip that hid them when off. Patrick wanted neither: the
+  chip turns the mark on and off, and the papers stay put.
+
 ## `Legend` — never explain marks that aren't on screen
 
 The three relation entries (Seed / References / Citations) are static. Three
-are conditional. "Expanded" (pink) appears once an Expand hop has run on a
+are conditional. "Surveys" (an orange ring) appears while the Surveys chip has
+a ring drawn. "Expanded" (pink) appears once an Expand hop has run on a
 paper (v8.18.0): the paper an expansion grew from is filled pink so it stands
 out from the papers it brought. The pink is free because "Found by search",
-below, retired it. "Added by expanding" (faint halo) appears once an
-expansion has pulled a paper in, the reader's own (the detail panel's Expand
-buttons) or the agent's, from the workspace slice's `selectHasDiscovered` via
-`GraphExplorer`. It said "Discovered by teacher" until v8.18.0, when the
-reader could expand too. The links between papers have no entry: they draw
-in the relation colours already listed. (A "Cites (between papers)" entry
-for a dashed violet line lived only in the first cut.) A "Found by search" (pink) entry sat beside it until v7.5.0,
+below, retired it. "Added by expanding" (a faint halo round the papers an
+expansion pulled in) is gone: it crowded the survey ring, and an expansion's
+papers already sit with the pink paper they came from. The links between
+papers have no entry: they draw in the relation colours already listed. (A
+"Cites (between papers)" entry for a dashed violet line lived only in the
+first cut.) A "Found by search" (pink) entry sat beside it until v7.5.0,
 when the `search` and `similar` relations were removed outright; the legend
 lists what the graph can contain, and neither can arrive any more.
 

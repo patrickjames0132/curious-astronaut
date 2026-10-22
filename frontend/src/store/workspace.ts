@@ -67,6 +67,9 @@ export interface WorkspaceState {
     relCaps: Record<string, number>
     /** The "Links between papers" switch (v8.18.0); absent on older saves. */
     links?: boolean
+    /** The Surveys chip (true = surveys ringed orange); absent on saves from
+     *  before it existed, which start unringed like a fresh graph. */
+    surveys?: boolean
   }
   graph: GraphResponse | null
   /**
@@ -1399,11 +1402,4 @@ export const selectGraphEdges = createSelector(
   (state: StateWithWorkspace) => state.workspace.graph,
   (state: StateWithWorkspace) => state.workspace.discoveredEdges,
   (graph, discovered) => [...(graph?.edges ?? []), ...discovered],
-)
-
-export const selectHasDiscovered = createSelector(
-  (state: StateWithWorkspace) => state.workspace.graph,
-  (state: StateWithWorkspace) => state.workspace.discoveredNodes,
-  (graph, discovered) =>
-    discovered.length > 0 || (graph?.nodes.some((node) => node.discovered) ?? false),
 )

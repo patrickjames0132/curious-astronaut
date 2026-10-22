@@ -3,7 +3,7 @@
  *
  * Description:
  * The declutter panel over the graph: layout toggle (Force / Timeline),
- * relation filter chips, the dual-knob year range slider, the dual-knob
+ * relation filter chips and the Surveys chip beside them, the dual-knob year range slider, the dual-knob
  * citation-count window slider, the visible-count readout, and the pin/fit
  * actions — all under a header bar that collapses the whole panel to a slim
  * strip (the find control's collapse-until-wanted idea, panel-sized), giving
@@ -21,7 +21,7 @@
 
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { CHIP_TYPES, REL_COLOR, REL_LABEL } from '../theme'
+import { CHIP_TYPES, REL_COLOR, REL_LABEL, SURVEY_COLOR } from '../theme'
 import { CITE_SLIDER_STEPS, citationThreshold } from '../model'
 import '../graph.css'
 import MarkIcon from '../../ui/MarkIcon'
@@ -39,6 +39,12 @@ export interface GraphControlsProps {
   enabled: Set<string>
   /** Toggle one relation type on/off. */
   onToggleType: (type: string) => void
+  /** The Surveys chip is on: surveys and reviews are ringed orange (off by
+   *  default). Optional, like the caps: without `onToggleSurveys` the chip
+   *  isn't rendered. */
+  surveyRings?: boolean
+  /** Turn the survey rings on or off. */
+  onToggleSurveys?: () => void
   /** Show the per-chip count sliders — true only while the build is user-sized
    *  (the settings modal's automatic sizing turned off). An adaptive build is
    *  already trimmed by the backend, so the sliders stay out of the way.
@@ -120,6 +126,8 @@ export default function GraphControls({
   onLayout,
   enabled,
   onToggleType,
+  surveyRings = false,
+  onToggleSurveys,
   showRelCaps = false,
   relCaps = {},
   relTotals = {},
@@ -217,6 +225,26 @@ export default function GraphControls({
   // for a few frames auto meant the widest unwrapped row — the panel
   // ballooned before it closed. No width ever changes now.
   const panel = usePresence(!collapsed)
+  // The Surveys chip, beside the relation chips in either layout. It looks
+  // like one and toggles like one, but it marks rather than filters: on, the
+  // surveys are ringed orange; off, they look like any paper. Never hidden,
+  // so it never heads a count slider.
+  const surveyChip = onToggleSurveys && (
+    <button
+      key="survey"
+      className={`rel-toggle ${surveyRings ? 'on' : ''}`}
+      onClick={onToggleSurveys}
+      style={{ '--c': SURVEY_COLOR } as CSSProperties}
+      title={
+        surveyRings
+          ? 'Stop ringing the surveys and reviews'
+          : 'Ring the surveys and reviews in orange: the field’s own overviews of a period'
+      }
+    >
+      <i />
+      Surveys
+    </button>
+  )
 
   // The readout string for the panel's footer: a hand-pick wins over the
   // plain filter count. No denominator on the pick
@@ -328,6 +356,11 @@ export default function GraphControls({
                   </div>
                 )
               })}
+              {surveyChip && (
+                <div className="rel-cap-group" style={{ '--c': SURVEY_COLOR } as CSSProperties}>
+                  <div className="rel-cap-head">{surveyChip}</div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="ctrl-rels" data-tour="relations">
@@ -346,6 +379,7 @@ export default function GraphControls({
                   </button>
                 )
               })}
+              {surveyChip}
             </div>
           )}
 

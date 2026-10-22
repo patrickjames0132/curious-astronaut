@@ -33,10 +33,10 @@ from ..arxiv import extract_id
 # OpenAlex ``select`` field lists — the analogue of S2's three field tiers,
 # trimming the (large) default work object to what a graph node needs.
 # ``ids`` carries the OpenAlex id + DOI; ``locations`` is where an arXiv landing
-# page (hence the arXiv id) lives.
+# page (hence the arXiv id) lives; ``type`` can mark a survey (see ``_is_review``).
 NEIGHBOR_SELECT = (
     "id,ids,doi,title,display_name,publication_year,publication_date,"
-    "cited_by_count,authorships,locations"
+    "cited_by_count,authorships,locations,type"
 )
 # Detail adds the inverted-index abstract, the topic classification (both
 # heavy — only for a focused node: the seed or a clicked detail panel), and
@@ -254,6 +254,24 @@ def _oa_pdf(work: dict) -> str | None:
     return fallback
 
 
+def _is_review(work: dict) -> bool | None:
+    """The survey flag as far as OpenAlex can tell: True or unknown, never False.
+
+    OpenAlex types a work ``review`` only rarely: of the 50 most-cited titled
+    surveys citing "Attention Is All You Need" it marked 4 and called the
+    rest ``article`` (2026-10-22). So ``review`` is trusted as a yes, but any
+    other type is no evidence of a no; it stays None and the graph's survey
+    pass (``services/graph/surveys.py``) asks S2 instead.
+
+    Args:
+        work: A raw OpenAlex work object.
+
+    Returns:
+        True for a ``review``, otherwise None.
+    """
+    return True if work.get("type") == "review" else None
+
+
 def _authors(work: dict) -> str | None:
     """Comma-joined author display names from ``authorships`` (None when empty)."""
     names = [
@@ -270,7 +288,7 @@ def node(work: dict | None) -> dict | None:
     Produces the identical key set to ``semantic_scholar.nodes.node`` so both
     sources are interchangeable downstream: ``id, arxiv_id, title, abstract,
     tldr, year, month, pub_date, citation_count, authors, url,
-    fields_of_study, venue, oa_pdf``. ``tldr`` is always None (OpenAlex has none — the detail
+    fields_of_study, venue, oa_pdf, is_survey``. ``tldr`` is always None (OpenAlex has none — the detail
     panel shows the abstract instead); ``fields_of_study`` carries OpenAlex
     topic labels when ``topics`` was selected (``DETAIL_SELECT`` — the seed or a
     clicked detail node), and is ``[]`` for the light neighbor traversals.
@@ -325,4 +343,5 @@ def node(work: dict | None) -> dict | None:
         "fields_of_study": _fields_of_study(work),
         "venue": _venue(work),
         "oa_pdf": _oa_pdf(work),
+        "is_survey": _is_review(work),
     }

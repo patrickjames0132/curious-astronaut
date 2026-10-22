@@ -209,6 +209,13 @@ neighbor uses the light `NEIGHBOR_SELECT`. Abstracts arrive as an
 **inverted index** (`{word: [positions]}`); `reconstruct_abstract`
 rebuilds the string.
 
+`NEIGHBOR_SELECT` carries `type` for the survey flag, but OpenAlex's `review`
+type is **trusted as a yes and nothing else**: it marked 4 of 50 titled
+surveys in a real graph and called the rest `article` (2026-10-22). So any
+other type leaves `is_survey` None (unknown, not no), and the graph's survey
+pass asks S2 about the work through its `DOI:`/`ARXIV:` node id (see
+`services/graph/README.md`, "Which papers are surveys").
+
 ## Pricing & throttle (verified live 2026-07-09)
 
 OpenAlex meters usage: a free API key grants **$1/day**, the keyless `mailto`

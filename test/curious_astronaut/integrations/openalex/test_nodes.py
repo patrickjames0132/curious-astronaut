@@ -166,6 +166,7 @@ def test_node_full_shape_parity_and_month():
         "fields_of_study": [],
         "venue": None,
         "oa_pdf": None,
+        "is_survey": None,
     }
 
 
@@ -239,3 +240,12 @@ def test_node_oa_pdf_prefers_open_access_location():
     assert nodes.node(work)["oa_pdf"] == "https://closed/x.pdf"
     work["locations"] = []
     assert nodes.node(work)["oa_pdf"] is None
+
+
+def test_node_is_survey_trusts_only_a_review_type():
+    """OpenAlex's ``review`` is a yes; any other type is unknown, never a no —
+    it calls most surveys ``article``, so the graph's survey pass asks S2."""
+    work = {"id": "https://openalex.org/W1", "doi": "https://doi.org/10.1/x", "title": "T"}
+    assert nodes.node({**work, "type": "review"})["is_survey"] is True
+    assert nodes.node({**work, "type": "article"})["is_survey"] is None
+    assert nodes.node(work)["is_survey"] is None

@@ -11,7 +11,7 @@
  */
 
 import type { EdgeType, GraphEdge, GraphNode, GraphResponse } from '../api'
-import { REL_TYPES } from './theme'
+import { EXPANDED_COLOR, REL_COLOR, REL_TYPES } from './theme'
 
 /**
  * A pasted arXiv id or abs/pdf URL — jump straight to a graph instead of a
@@ -167,6 +167,21 @@ export function primaryRel(node: GraphNode): string {
   // point: a node whose relation the build has no meaning for still gets
   // drawn, in a colour that says so, rather than with an undefined fill.
   return 'unknown'
+}
+
+/**
+ * The colour a paper's disc is filled with: pink for a paper the reader has
+ * expanded (the anchor of what they're doing right now), else its relation's
+ * colour (the seed's gold included). A survey keeps its relation's fill and
+ * shows as an orange outline instead (see the canvas).
+ *
+ * @param node       The paper node.
+ * @param isExpanded Whether an Expand hop has run on it.
+ * @returns The fill colour.
+ */
+export function nodeFill(node: GraphNode, isExpanded: boolean): string {
+  if (isExpanded) return EXPANDED_COLOR
+  return REL_COLOR[primaryRel(node)]
 }
 
 /**

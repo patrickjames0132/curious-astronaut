@@ -3,7 +3,9 @@
 The ForceGraph2D wrapper — every canvas painter for the explorer: node
 fills by relation (and pink, `EXPANDED_COLOR`, for a paper an Expand hop has
 run on: `GraphExplorer` reads `expandedIds` off the discovery lists, the same
-way the Expand buttons read their ✓; v8.18.0), the ring/glow vocabulary, zoom-gated labels, edge
+way the Expand buttons read their ✓; v8.18.0; `model.nodeFill`), the
+outline (black, or a 2px orange `SURVEY_COLOR` ring for a survey while the
+Surveys chip is on, so its fill still says reference or citation), the ring/glow vocabulary, zoom-gated labels, edge
 colors/widths/arrows, and the enlarged pointer areas. One component
 (`GraphCanvas.tsx`), nested here per the hybrid structure rule: its only
 parent is `graph/GraphExplorer.tsx`.
@@ -43,12 +45,14 @@ arc on top of it.
   outranks the filters, and this is what keeps "the filters are a lens"
   honest: the reader can see which papers the lens would have dropped. The
   legend names it *"In scope, hidden by your filters"* while any is drawn.
-- **Faint halo** — added by expanding (`node.discovered`): the reader's
-  Expand buttons or the teacher's `expand_node`. A hairline in the soft ink
-  with a little air round the disc. It was a bold dashed ring until v8.18.0,
-  which made a cluster of expanded papers look like a stack of poker chips
-  (Patrick); the group's own place on the map already says where they came
-  from, so the mark only has to whisper.
+- **No expansion halo** (retired with the survey ring): a faint hairline once
+  marked a paper added by expanding (`node.discovered`), and it crowded the
+  orange survey ring. Nothing was lost: an expansion's papers sit with the pink
+  paper they came from (Force) or in its band (Timeline). It was a bold
+  dashed ring until v8.18.0, before that.
+- **Survey ring** — while the Surveys chip is on (`surveyRings`), a survey's
+  outline is orange (`SURVEY_COLOR`, 2px on screen) in place of the black
+  one, so its fill still says reference or citation.
 - **Pale ring** — user-pinned.
 - **Bright ring** — the open detail-panel node (`selectedId`).
 

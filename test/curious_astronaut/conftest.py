@@ -27,6 +27,7 @@ from pydantic_ai import models as ai_models
 
 from curious_astronaut.agents.orchestrators.researcher import config as researcher_config
 from curious_astronaut.config import config
+from curious_astronaut.services.graph import surveys
 from curious_astronaut.services.sources import embeddings
 
 # Hard guard: no live LLM calls, ever. Any agent run that reaches a real model
@@ -73,6 +74,13 @@ def _isolate(monkeypatch, tmp_path):
     monkeypatch.setitem(researcher_config.BUDGETS, "web_searches", 0)
     monkeypatch.setattr(config.providers.s2, "min_interval", 0.0)
     monkeypatch.setattr(config.providers.openalex, "min_interval", 0.0)
+    # The survey pass's S2 lookup answers "nothing known", for the same reason
+    # again: every graph build and expansion now makes one S2 batch call for
+    # the papers whose survey flag their provider left unknown, and the stubs
+    # tests write for a provider's traversal never cover it. Unstubbed, a
+    # build test would quietly reach the live API. A survey test opts back in
+    # by patching it again (see test_surveys.py).
+    monkeypatch.setattr(surveys, "lookup_review_flags", lambda node_ids: {})
 
 
 # --- deterministic offline embeddings -----------------------------------------

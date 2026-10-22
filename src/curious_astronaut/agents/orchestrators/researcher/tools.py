@@ -34,7 +34,7 @@ from ....integrations import semantic_scholar as s2
 from ....integrations.arxiv import figures as figures_mod
 from ....integrations.arxiv import fulltext
 from ....services import pdf as pdf_service
-from ....services.graph import Edge, Node, Provider
+from ....services.graph import Edge, Node, Provider, surveys
 from ....services.sources import retrieval
 from ... import captions, events, library_figures, prompts, traversal
 from ...workers.search import papers, web
@@ -538,6 +538,8 @@ def expand_node(
             ok=True, index=index, title=node.title, relation=relation, found=len(lines)
         )
     )
+    # The new papers' survey flags, where the hop's provider left them unknown.
+    surveys.flag_surveys(new_nodes)
     _canvas_growth(deps, node.id, new_nodes, new_edges)
     if not lines:
         return f'No new papers — {relation} of "{node.title}" is already on the graph.'
