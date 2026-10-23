@@ -188,7 +188,7 @@ def test_short_body_resumes_from_part(monkeypatch, corpus_tmp):
     recorded = install_urlopen(monkeypatch, [truncated, tail])
     target = corpus_tmp.raw_dataset("citations") / SHARD_NAME
 
-    download._fetch_shard(
+    download.fetch_shard(
         RELEASE_ID, "citations", SHARD_NAME, SHARD_URL, target, lambda done, whole: None
     )
 
@@ -208,7 +208,7 @@ def test_persistently_short_shard_fails_loudly(monkeypatch, corpus_tmp):
     target = corpus_tmp.raw_dataset("citations") / SHARD_NAME
 
     with pytest.raises(CorpusError, match="ended short"):
-        download._fetch_shard(
+        download.fetch_shard(
             RELEASE_ID, "citations", SHARD_NAME, SHARD_URL, target, lambda done, whole: None
         )
     assert not target.exists()
@@ -276,6 +276,24 @@ def test_download_release_refetches_wrong_sized_shard(monkeypatch, corpus_tmp):
     assert recorded[0].headers.get("Range") == f"bytes={cut}-"
     assert target.read_bytes() == body
 
+
+
+def test_download_release_reports_the_whole_job_skipped_shards_included(monkeypatch, corpus_tmp):
+    """The overall count covers every shard, so a resumed run starts part-way."""
+    body = make_body()
+    stub_listing(monkeypatch)
+    install_urlopen(monkeypatch, [lambda request: FakeResponse(body)])
+    reported = []
+
+    def on_overall(unit, done, total):
+        reported.append((unit, done, total))
+
+    download.download_release(RELEASE_ID, datasets_wanted=("citations",), on_overall=on_overall)
+    assert reported == [("shards", 0, 1), ("shards", 1, 1)]
+
+    reported.clear()
+    download.download_release(RELEASE_ID, datasets_wanted=("citations",), on_overall=on_overall)
+    assert reported == [("shards", 0, 1), ("shards", 1, 1)]  # skipped, still counted
 
 def test_verify_flags_short_shard(monkeypatch, corpus_tmp):
     """A shard smaller than the object the server holds is reported short."""
@@ -415,9 +433,147 @@ def test_expired_url_is_refreshed_and_retried(monkeypatch, corpus_tmp):
     recorded = install_urlopen(monkeypatch, [expired, lambda request: FakeResponse(body)])
     target = corpus_tmp.raw_dataset("citations") / SHARD_NAME
 
-    download._fetch_shard(
+    download.fetch_shard(
         RELEASE_ID, "citations", SHARD_NAME, SHARD_URL, target, lambda done, whole: None
     )
 
     assert target.read_bytes() == body
     assert recorded[1].full_url == fresh_url
+
+
+class SlowResponse(FakeResponse):
+    """A response on a crawling connection: each read advances a fake clock.
+
+    The clock is the test's, patched over ``download.time.monotonic``, so a
+    "40-second" read costs nothing.
+    """
+
+    def __init__(self, body: bytes, clock: dict, *, seconds_per_read: float = 40.0, **kwargs):
+        """Set up a response whose reads each take ``seconds_per_read`` of fake time.
+
+        Args:
+            body: The bytes this response would send in full.
+            clock: The shared fake clock (``{"now": seconds}``).
+            seconds_per_read: How far one read moves the clock.
+            **kwargs: Passed through to :class:`FakeResponse`.
+        """
+        super().__init__(body, **kwargs)
+        self._clock = clock
+        self._seconds_per_read = seconds_per_read
+
+    def read(self, size: int) -> bytes:
+        """Serve the next chunk, slowly.
+
+        Args:
+            size: Maximum bytes to return.
+
+        Returns:
+            The next chunk, or empty bytes at the limit.
+        """
+        self._clock["now"] += self._seconds_per_read
+        return super().read(size)
+
+
+@pytest.fixture()
+def fake_clock(monkeypatch):
+    """A controllable ``time.monotonic`` for the speed floor, plus small chunks
+    so a test body spans several reads."""
+    clock = {"now": 0.0}
+    monkeypatch.setattr(download.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(download, "_CHUNK_BYTES", 64)
+    return clock
+
+
+def test_a_slow_transfer_resumes_on_a_freshly_signed_link(
+    monkeypatch, corpus_tmp, fake_clock
+):
+    """What restarting the command by hand did on the 2026-10-06 pull: a
+    transfer crawling under the floor is abandoned, the dataset is re-listed for
+    a fresh link (a new connection on the old one stayed slow), and the shard
+    resumes from the bytes it already has."""
+    fresh_url = SHARD_URL.replace("sig=abc", "sig=fresh")
+    monkeypatch.setattr(download, "_refreshed_url", lambda release_id, dataset, filename: fresh_url)
+    body = make_body()
+    responses = [
+        lambda request: SlowResponse(body, fake_clock),
+        lambda request: FakeResponse(body[64:], status=206),
+    ]
+    recorded = install_urlopen(monkeypatch, responses)
+    target = corpus_tmp.raw_dataset("citations") / SHARD_NAME
+
+    download.fetch_shard(
+        RELEASE_ID, "citations", SHARD_NAME, SHARD_URL, target, lambda done, whole: None
+    )
+
+    assert target.read_bytes() == body
+    assert len(recorded) == 2
+    assert recorded[1].full_url == fresh_url
+    assert recorded[1].headers.get("Range") == "bytes=64-"  # one 64-byte read survived
+
+
+def test_a_failed_relisting_keeps_the_old_link(monkeypatch, corpus_tmp, fake_clock):
+    """The Datasets API throttles hard; if it won't re-list, the shard carries on
+    with the link it has rather than ending the pull."""
+    def unavailable(release_id, dataset, filename):
+        raise CorpusError("datasets GET -> gave up after 8 tries")
+
+    monkeypatch.setattr(download, "_refreshed_url", unavailable)
+    body = make_body()
+    recorded = install_urlopen(monkeypatch, [
+        lambda request: SlowResponse(body, fake_clock),
+        lambda request: FakeResponse(body[64:], status=206),
+    ])
+    target = corpus_tmp.raw_dataset("citations") / SHARD_NAME
+
+    download.fetch_shard(
+        RELEASE_ID, "citations", SHARD_NAME, SHARD_URL, target, lambda done, whole: None
+    )
+
+    assert target.read_bytes() == body
+    assert recorded[1].full_url == SHARD_URL
+
+
+def test_a_link_that_is_always_slow_still_finishes(monkeypatch, corpus_tmp, fake_clock):
+    """Past its restarts a shard keeps the slow connection: if every fresh
+    link crawls too, the link is just slow, and slow beats failed."""
+    monkeypatch.setattr(download, "_SLOW_RESTARTS", 2)
+    monkeypatch.setattr(download, "_refreshed_url", lambda release_id, dataset, filename: SHARD_URL)
+    body = make_body()
+    received = [0]
+
+    def slow(request):
+        offset = int(request.headers.get("Range", "bytes=0-")[6:-1])
+        received[0] = offset
+        return SlowResponse(body[offset:], fake_clock, status=206 if offset else 200)
+
+    recorded = install_urlopen(monkeypatch, [slow, slow, slow])
+    target = corpus_tmp.raw_dataset("citations") / SHARD_NAME
+
+    download.fetch_shard(
+        RELEASE_ID, "citations", SHARD_NAME, SHARD_URL, target, lambda done, whole: None
+    )
+
+    assert target.read_bytes() == body
+    assert len(recorded) == 3  # two restarts, then the floor is lifted
+
+
+def test_a_fast_connection_is_never_dropped(monkeypatch, corpus_tmp, fake_clock):
+    """Reads that keep up with the floor carry on, however long the shard.
+
+    The window is shrunk to one read so the speed check runs on every chunk:
+    64 bytes per microsecond is 64 MB/s, well over the floor.
+    """
+    monkeypatch.setattr(download, "_SLOW_WINDOW_SECONDS", 0.000001)
+    body = make_body()
+    recorded = install_urlopen(
+        monkeypatch,
+        [lambda request: SlowResponse(body, fake_clock, seconds_per_read=0.000001)],
+    )
+    target = corpus_tmp.raw_dataset("citations") / SHARD_NAME
+
+    download.fetch_shard(
+        RELEASE_ID, "citations", SHARD_NAME, SHARD_URL, target, lambda done, whole: None
+    )
+
+    assert target.read_bytes() == body
+    assert len(recorded) == 1

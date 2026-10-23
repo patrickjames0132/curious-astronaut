@@ -16,6 +16,19 @@ This module makes that survivable:
   truncated shard.
 * **Signed-URL expiry** (a mid-download 403/416) triggers a fresh listing from
   :mod:`datasets` and a retry, so a days-long pull rides out expiring links.
+* **A slow transfer is resumed on a freshly signed link.** S3 serves most
+  shards at ~25 MB/s, but during the 2026-10-06 pull every run slowed to
+  ~0.5–1.5 MB/s a few minutes after it started (after 3, 6 and 5 shards), and
+  killing and restarting the command made it fast again at once. Reconnecting
+  *inside* the process did not help, even though DNS (a 3-second TTL over many
+  addresses) landed each new connection on a different S3 server: 3.5.81.12,
+  16.15.45.234, 52.92.194.209, all slow. What a restart changes that a
+  reconnect doesn't is the link. A new run re-lists the dataset, and every link
+  carries a temporary AWS security token, so the working explanation is that a
+  link slows a few minutes after it's issued. So a shard whose speed stays
+  under :data:`_SLOW_BYTES_PER_SECOND` for :data:`_SLOW_WINDOW_SECONDS` is
+  re-listed for a fresh link and resumed with a ``Range`` request,
+  automatically, doing what a manual restart did.
 
 **Why completeness is checked explicitly.** CPython's
 ``http.client.HTTPResponse.read(amt)`` does *not* raise ``IncompleteRead`` when
@@ -48,6 +61,7 @@ from __future__ import annotations
 import gzip
 import json
 import logging
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -72,10 +86,30 @@ _CHUNK_BYTES = 4 * 1024 * 1024
 #: of spinning.
 _SHORT_READ_RETRIES = 5
 
+#: The speed floor below which a connection is dropped and the shard resumed
+#: on a fresh one, and the window it's measured over. 3 MB/s is an eighth of
+#: S3's usual ~25 MB/s, so only a genuinely stuck connection trips it, and
+#: 30 seconds keeps one slow patch from looking like a stuck connection.
+_SLOW_BYTES_PER_SECOND = 3_000_000
+_SLOW_WINDOW_SECONDS = 30.0
+
+#: How many slow connections one shard may abandon before the speed floor is
+#: lifted for it. If every connection is slow, the link itself is, and a slow
+#: shard still beats a failed run: past this the shard finishes at whatever
+#: speed it gets.
+_SLOW_RESTARTS = 20
+
 #: Progress callback: ``(dataset, filename, bytes_done, total_bytes)``. Fired as
 #: each shard streams so the CLI can render a live per-shard bar; ``total_bytes``
 #: is None when the server sends no ``Content-Length``.
 ProgressFn = Callable[[str, str, int, int | None], None]
+
+#: Whole-job progress: ``(unit, done, total)``, e.g. ``("shards", 12, 455)``.
+#: Fired once the job's size is known and again as each unit finishes (skipped
+#: ones included), so the CLI can draw the whole job beside the file streaming
+#: now. Counts files, not bytes, because S2's listings carry no sizes; the
+#: shards are similar enough (~1 GB each) for a count to track time.
+OverallFn = Callable[[str, int, int], None]
 
 #: Verify progress callback: ``(dataset, filename, index, total)``.
 VerifyProgressFn = Callable[[str, str, int, int], None]
@@ -99,6 +133,25 @@ class _ShortRead(Exception):
         super().__init__(f"body ended at {received} of {expected} bytes")
         self.received = received
         self.expected = expected
+
+
+class _SlowConnection(Exception):
+    """A connection stayed under the speed floor; resume on a fresh one.
+
+    Raised from inside the transfer, so the ``.part`` keeps everything that
+    arrived and the next attempt asks only for the rest.
+    """
+
+    def __init__(self, received: int, bytes_per_second: float) -> None:
+        """Record where the transfer stood and how slow it was.
+
+        Args:
+            received: Bytes in the ``.part`` when the connection was dropped.
+            bytes_per_second: The speed measured over the last window.
+        """
+        super().__init__(f"{bytes_per_second / 1e6:.2f} MB/s at {received} bytes")
+        self.received = received
+        self.bytes_per_second = bytes_per_second
 
 
 @dataclass(frozen=True)
@@ -189,7 +242,11 @@ def _remote_size(url: str) -> int | None:
 
 
 def _download_shard(
-    url: str, target: Path, on_progress: Callable[[int, int | None], None]
+    url: str,
+    target: Path,
+    on_progress: Callable[[int, int | None], None],
+    *,
+    enforce_speed: bool = True,
 ) -> int | None:
     """Stream one shard to ``target``, resuming a partial ``.part`` if present.
 
@@ -202,6 +259,9 @@ def _download_shard(
         target: The final ``.gz`` path; bytes accumulate in ``<target>.part``
             and it's renamed here on completion.
         on_progress: Called with ``(bytes_done, total_bytes)`` as data streams.
+        enforce_speed: Drop the connection when it stays under the speed floor
+            (see :data:`_SLOW_BYTES_PER_SECOND`). Off once a shard has used up
+            its restarts.
 
     Returns:
         The shard's total size in bytes as advertised by the server, or None
@@ -211,6 +271,8 @@ def _download_shard(
     Raises:
         _ShortRead: When the body ended early. The ``.part`` is left in place so
             the next attempt resumes the missing tail.
+        _SlowConnection: When the connection stayed under the speed floor for a
+            whole window. The ``.part`` likewise keeps what arrived.
         urllib.error.HTTPError: Propagated so the caller can detect an expired
             URL (403) or a range past EOF (416).
         CorpusError: On a non-recoverable network failure.
@@ -232,6 +294,8 @@ def _download_shard(
             mode = "ab" if have and response.status == 206 else "wb"
             if mode == "wb":
                 have = 0  # server ignored our Range — restart the file cleanly
+            window_start = time.monotonic()
+            window_bytes = 0
             with part.open(mode) as sink:
                 while True:
                     block = response.read(_CHUNK_BYTES)
@@ -239,7 +303,14 @@ def _download_shard(
                         break
                     sink.write(block)
                     have += len(block)
+                    window_bytes += len(block)
                     on_progress(have, total)
+                    elapsed = time.monotonic() - window_start
+                    if elapsed >= _SLOW_WINDOW_SECONDS:
+                        speed = window_bytes / elapsed
+                        if enforce_speed and speed < _SLOW_BYTES_PER_SECOND:
+                            raise _SlowConnection(have, speed)
+                        window_start, window_bytes = time.monotonic(), 0
     except urllib.error.URLError as exc:
         if isinstance(exc, urllib.error.HTTPError):
             raise
@@ -314,13 +385,15 @@ def _refreshed_url(release_id: str, dataset: str, filename: str) -> str:
     return refreshed
 
 
-def _fetch_shard(
+def fetch_shard(
     release_id: str,
     dataset: str,
     filename: str,
     url: str,
     target: Path,
     on_progress: Callable[[int, int | None], None],
+    *,
+    refresh_url: Callable[[], str] | None = None,
 ) -> int | None:
     """Download one shard whole, riding out short reads and expired URLs.
 
@@ -336,6 +409,10 @@ def _fetch_shard(
         url: The signed URL from the current listing.
         target: The final ``.gz`` path.
         on_progress: Called with ``(bytes_done, total_bytes)`` as data streams.
+        refresh_url: How to get a freshly signed URL for this file once the
+            current one expires. None re-lists the release's dataset, which is
+            right for a release shard; a weekly diff file (``refresh.py``) lives
+            in a different listing and passes its own.
 
     Returns:
         The shard's size as advertised by the server, or None when it sent no
@@ -348,9 +425,37 @@ def _fetch_shard(
     """
     current_url = url
     last_short: _ShortRead | None = None
-    for attempt in range(_SHORT_READ_RETRIES + 1):
+    slow_restarts = 0
+    attempt = 0
+    # Short reads and expired links share the retry budget, as they always
+    # have; a slow connection has its own (see _SLOW_RESTARTS).
+    while attempt <= _SHORT_READ_RETRIES:
         try:
-            return _download_shard(current_url, target, on_progress)
+            return _download_shard(
+                current_url, target, on_progress, enforce_speed=slow_restarts < _SLOW_RESTARTS
+            )
+        except _SlowConnection as exc:
+            slow_restarts += 1
+            # A warning, not info: Python prints warnings with no logging set up,
+            # so the CLI shows each restart (it shows nothing at info level).
+            log.warning(
+                "%s slowed to %.2f MB/s at %d bytes; resuming on a freshly signed link (%d/%d)",
+                filename,
+                exc.bytes_per_second / 1e6,
+                exc.received,
+                slow_restarts,
+                _SLOW_RESTARTS,
+            )
+            # A new connection on the same link stayed slow; a new link didn't
+            # (see the module docstring). A failed re-list keeps the old link
+            # rather than ending the pull.
+            try:
+                current_url = (
+                    refresh_url() if refresh_url else _refreshed_url(release_id, dataset, filename)
+                )
+            except CorpusError as listing_error:
+                log.warning("couldn't re-list %s for a fresh link: %s", filename, listing_error)
+            continue
         except _ShortRead as exc:
             last_short = exc
             log.warning(
@@ -362,15 +467,19 @@ def _fetch_shard(
                 _SHORT_READ_RETRIES + 1,
             )
             # The .part is deliberately left in place — the next pass resumes.
+            attempt += 1
         except urllib.error.HTTPError as exc:
             if exc.code not in (403, 416):
                 raise CorpusError(f"download {filename} -> HTTP {exc.code}") from exc
             log.info("URL for %s needs refreshing (HTTP %d)", filename, exc.code)
-            current_url = _refreshed_url(release_id, dataset, filename)
+            current_url = (
+                refresh_url() if refresh_url else _refreshed_url(release_id, dataset, filename)
+            )
             if exc.code == 416 and _settle_range_past_eof(current_url, target):
                 # The .part matched the object exactly and has been promoted,
                 # so what's on disk now *is* the shard's full size.
                 return target.stat().st_size
+            attempt += 1
     tail = (
         f"body ended short {_SHORT_READ_RETRIES + 1} times "
         f"(last: {last_short.received} of {last_short.expected} bytes)"
@@ -407,6 +516,7 @@ def download_release(
     datasets_wanted: tuple[str, ...] = DATASETS,
     shards: int | None = None,
     on_progress: ProgressFn | None = None,
+    on_overall: OverallFn | None = None,
 ) -> None:
     """Download (or resume) a release's shards into its ``raw/`` tree.
 
@@ -424,6 +534,8 @@ def download_release(
             e.g. ``shards=1`` pulls ~1 GB to prove the pipeline before the full
             300 GB). None downloads every shard.
         on_progress: Optional per-shard streaming callback (see :data:`ProgressFn`).
+        on_overall: Optional whole-job callback, counting shards across every
+            wanted dataset (see :data:`OverallFn`).
 
     Raises:
         CorpusError: When the corpus root is unconfigured, or a shard fails even
@@ -434,12 +546,21 @@ def download_release(
     paths = release_paths(release_id)
     state = _load_state(paths)
 
+    # Every dataset is listed before any shard downloads, so the whole job's
+    # size is known up front. Each maps stable filename -> latest signed URL,
+    # so a refresh re-keys cleanly.
+    listings: dict[str, dict[str, str]] = {}
     for dataset in datasets_wanted:
         urls = datasets.dataset_file_urls(release_id, dataset)
         if shards is not None:
             urls = urls[:shards]
-        # Map stable filename -> latest signed URL, so a refresh re-keys cleanly.
-        by_name = {datasets.shard_filename(url): url for url in urls}
+        listings[dataset] = {datasets.shard_filename(url): url for url in urls}
+    total_shards = sum(len(by_name) for by_name in listings.values())
+    finished = 0
+    if on_overall:
+        on_overall("shards", finished, total_shards)
+
+    for dataset, by_name in listings.items():
         dataset_state = state.setdefault(dataset, {})
         target_dir = paths.raw_dataset(dataset)
 
@@ -450,7 +571,10 @@ def download_release(
                 expected = recorded.get("expected")
                 actual = target.stat().st_size
                 if expected is None or actual == expected:
-                    continue  # already have this shard whole
+                    finished += 1  # already have this shard whole
+                    if on_overall:
+                        on_overall("shards", finished, total_shards)
+                    continue
                 log.warning(
                     "%s is %d bytes on disk but %d were expected; re-fetching",
                     filename,
@@ -472,7 +596,7 @@ def download_release(
                     on_progress(dataset, _filename, done, total)
 
             log.info("downloading %s shard %d/%d: %s", dataset, index, len(by_name), filename)
-            expected_size = _fetch_shard(release_id, dataset, filename, url, target, report)
+            expected_size = fetch_shard(release_id, dataset, filename, url, target, report)
 
             dataset_state[filename] = {
                 "bytes": target.stat().st_size,
@@ -480,6 +604,9 @@ def download_release(
                 "done": True,
             }
             _save_state(paths, state)
+            finished += 1
+            if on_overall:
+                on_overall("shards", finished, total_shards)
 
 
 def _gzip_is_readable(path: Path) -> str | None:
@@ -631,7 +758,7 @@ def verify_release(
                 target.unlink(missing_ok=True)
                 _part_path(target).unlink(missing_ok=True)
             log.info("repairing %s shard %s (%s)", dataset, filename, problem.kind)
-            expected_size = _fetch_shard(
+            expected_size = fetch_shard(
                 release_id, dataset, filename, url, target, _discard_progress
             )
             dataset_state[filename] = {

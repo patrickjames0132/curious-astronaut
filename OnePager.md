@@ -751,42 +751,6 @@ than deleted so the plan doesn't get re-proposed.
   distinguishes genuine landmark **recovery** from just a prettier Similar
   relation. Hits live S2 + OA, so keep it to a handful of seeds (shared IP).
 
-- [ ] **Refresh the corpus incrementally instead of re-downloading it** — a
-      monthly S2 release is re-pulled and re-ingested whole: ~400 GB of
-      shards, then the full ingest (citations bucketed into 1024 partitions,
-      papers compacted with a global `ORDER BY corpusid` sort) — hours of
-      disk on NVMe and, per the corpus README's own measurements, ~10.6h of
-      ingest alone on a spinning disk. Almost none of that is new: month over
-      month the citation graph *appends*. **The investigation first:** the
-      Datasets API is believed to expose a diff between two releases
-      (update/delete file lists per dataset) — confirm that against the live
-      API before anything else, since `datasets.py` today only calls
-      `/release/latest` and `/release/{id}/dataset/{name}`, and the whole
-      ticket rests on it. *(From the `todos.md` inbox, 2026-08-16 — Patrick's
-      "is that possible? worth investigating".)*
-
-      **If diffs exist, the ingest layout decides how hard this is, and the
-      two halves differ sharply.** *Citations* are hash-partitioned on
-      `citedcorpusid`, so an update file's edges scatter across all 1024
-      buckets — appending is cheap in principle (write new files into each
-      `bucket=<N>/`) but must preserve the within-bucket sort that makes row
-      groups prune, so it's an append-then-merge per touched bucket, not a
-      plain copy. *Papers* are the harder half: they are **globally sorted**
-      by `corpusid` for exactly the pruning reason the README measures, and
-      updated rows land anywhere in the 0–290M id range, so a naive append
-      destroys the clustering that made hydration ~30x faster. That points at
-      a re-compaction of the affected clustered files (which the existing
-      `_compacting/` + `MANIFEST.json` staging already knows how to commit
-      safely), plus a rebuild of the arXiv index.
-      **Two constraints not to lose:** deletes are real (S2 merges and
-      retracts records), so "append-only" is the wrong mental model; and
-      releases are currently *isolated* subtrees with `CURRENT` naming an
-      ingested one — an in-place incremental update mutates the release the
-      app is serving, which is precisely the half-built-state hole the README
-      warns about. Decide whether an incremental release copies-then-updates
-      (cheap on a filesystem with reflinks, expensive otherwise) or whether
-      `CURRENT` has to move aside for the duration.
-
 ### UI & rendering polish
 
 - [ ] **Draw the Curious Astronaut full-figure mascot properly** — the

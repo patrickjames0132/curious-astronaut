@@ -157,12 +157,17 @@ def _row_to_entry(row: tuple) -> dict:
 
     Args:
         row: ``(corpusid, arxiv_id, doi, title, year, publicationdate,
-            citationcount, authors_json, isinfluential)``.
+            citationcount, authors_json, is_review, isinfluential)`` —
+            ``is_review`` None on a release ingested before
+            ``publicationtypes`` was kept.
 
     Returns:
         A ``{"node": <node dict>, "influential": bool}`` entry.
     """
-    (corpus_id, arxiv_id, _doi, title, year, pub_date, citation_count, authors_json, influential) = row
+    (
+        corpus_id, arxiv_id, _doi, title, year, pub_date, citation_count, authors_json,
+        is_review, influential,
+    ) = row
     url = (
         f"https://arxiv.org/abs/{arxiv_id}"
         if arxiv_id
@@ -181,16 +186,18 @@ def _row_to_entry(row: tuple) -> dict:
         "authors": _format_authors(authors_json),
         "url": url,
         "fields_of_study": [],
-        # The corpus doesn't ingest S2's publicationTypes, so a citer's survey
-        # flag is unknown here; the graph's survey pass looks it up.
-        "is_survey": None,
+        # S2's Review type, as the live API's ``nodes.is_review`` reads it. A
+        # release ingested before publicationtypes was kept answers None
+        # (unknown), and the graph's survey pass asks S2 instead.
+        "is_survey": None if is_review is None else bool(is_review),
     }
     return {"node": node, "influential": bool(influential)}
 
 
 #: The wide display columns the **hydration phase** selects from ``papers`` —
-#: everything :func:`_row_to_entry` unpacks except the edge's ``isinfluential``,
-#: which rides in from the ranking phase and is appended in Python. Kept out of
+#: everything :func:`_row_to_entry` unpacks except the survey flag (appended per
+#: release, see ``_review_column``) and the edge's ``isinfluential``, which
+#: rides in from the ranking phase and is appended in Python. Kept out of
 #: the ranking deliberately: projecting these for all ~30k citers of a busy seed
 #: is what used to cost 39s (``authors``, a JSON blob per paper, was +18.6s by
 #: itself); hydrating them for only the ~63 winners against the clustered
@@ -198,6 +205,10 @@ def _row_to_entry(row: tuple) -> dict:
 _HYDRATE_SELECT = (
     "corpusid, arxiv_id, doi, title, year, publicationdate, citationcount, authors"
 )
+
+#: The survey flag, on a release that kept ``publicationtypes``. A null list is
+#: S2 answering "no types", which is a known no, as on the live API.
+_REVIEW_SQL = "coalesce(list_contains(publicationtypes, 'Review'), false)"
 
 
 class DuckDBCitationSource:
@@ -225,6 +236,31 @@ class DuckDBCitationSource:
         # is reported, which is the first moment anyone asked for the corpus.
         self._duckdb = optional.require("duckdb", "corpus")
         self._connection = self._duckdb.connect(":memory:")
+        self._review_sql: str | None = None
+
+    def _review_column(self) -> str:
+        """The SQL for a hydrated paper's survey flag, for this release's schema.
+
+        A release ingested before ``publicationtypes`` was kept has no such
+        column; it answers NULL (unknown) rather than failing, so a corpus can be
+        served from before its first re-ingest. Checked once per source.
+
+        Returns:
+            :data:`_REVIEW_SQL`, or ``NULL`` when the column is absent.
+        """
+        if self._review_sql is None:
+            try:
+                with self._lock:
+                    columns = {
+                        row[0]
+                        for row in self._connection.execute(
+                            f"DESCRIBE SELECT * FROM read_parquet('{self._papers_glob}')"
+                        ).fetchall()
+                    }
+            except self._duckdb.IOException:
+                columns = set()
+            self._review_sql = _REVIEW_SQL if "publicationtypes" in columns else "NULL"
+        return self._review_sql
 
     def resolve_corpus_id(self, arxiv_id: str | None, seed_ref: str) -> int | None:
         """Resolve a seed to its S2 ``corpusid``, or None when unresolvable.
@@ -360,13 +396,14 @@ class DuckDBCitationSource:
 
         Returns:
             ``corpusid → (corpusid, arxiv_id, doi, title, year, publicationdate,
-            citationcount, authors)`` for every id found.
+            citationcount, authors, is_review)`` for every id found.
         """
         if not corpus_ids:
             return {}
         placeholders = ", ".join("?" for _ in corpus_ids)
         query = (
-            f"SELECT {_HYDRATE_SELECT} FROM read_parquet('{self._papers_glob}') "
+            f"SELECT {_HYDRATE_SELECT}, {self._review_column()} "
+            f"FROM read_parquet('{self._papers_glob}') "
             f"WHERE corpusid IN ({placeholders})"
         )
         return {int(row[0]): row for row in self._run(query, list(corpus_ids))}

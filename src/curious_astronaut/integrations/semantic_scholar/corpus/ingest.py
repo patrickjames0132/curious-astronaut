@@ -71,13 +71,21 @@ NBUCKETS = 1024
 #: ingest fast and immune to a stray shard with an odd field. ``externalids`` and
 #: ``authors`` stay JSON: the arXiv/DOI ids are pulled out below, and authors are
 #: formatted lazily at query time (only for the handful of citers actually shown).
-_PAPERS_COLUMNS = (
+#:
+#: Two columns exist for the incremental refresh (``refresh.py``) and nothing
+#: else at first: ``publicationtypes`` (its ``Review`` is the survey flag, so the
+#: corpus can answer it without asking S2) and ``citationid`` — a weekly diff's
+#: citation deletes name *only* the ``citationid``, so a release without it can
+#: never apply them. Shared with the refresh through the projection helpers
+#: below, so a diff's rows land in exactly the shape the release already has.
+PAPERS_COLUMNS = (
     "{'corpusid': 'BIGINT', 'externalids': 'JSON', 'title': 'VARCHAR', "
     "'year': 'INTEGER', 'publicationdate': 'VARCHAR', 'citationcount': 'BIGINT', "
-    "'authors': 'JSON'}"
+    "'authors': 'JSON', 'publicationtypes': 'VARCHAR[]'}"
 )
-_CITATIONS_COLUMNS = (
-    "{'citingcorpusid': 'BIGINT', 'citedcorpusid': 'BIGINT', 'isinfluential': 'BOOLEAN'}"
+CITATIONS_COLUMNS = (
+    "{'citationid': 'BIGINT', 'citingcorpusid': 'BIGINT', 'citedcorpusid': 'BIGINT', "
+    "'isinfluential': 'BOOLEAN'}"
 )
 
 #: Progress callback: ``(dataset, shard_filename, shard_index, shard_total)``.
@@ -103,7 +111,7 @@ _SHARDS_PER_WORKER = 16
 _worker_connection: duckdb.DuckDBPyConnection | None = None
 
 
-def _connect() -> duckdb.DuckDBPyConnection:
+def connect() -> duckdb.DuckDBPyConnection:
     """A DuckDB connection tuned for a bulk single-machine ingest.
 
     The one setting that matters is ``partitioned_write_max_open_files``.
@@ -133,7 +141,53 @@ def _connect() -> duckdb.DuckDBPyConnection:
     return connection
 
 
-def _read_json(path_glob: str, columns: str) -> str:
+def papers_projection(source_sql: str) -> str:
+    """The SELECT that turns raw ``papers`` rows into the stored Parquet columns.
+
+    Args:
+        source_sql: A FROM-able source of raw rows read with :data:`PAPERS_COLUMNS`.
+
+    Returns:
+        The SELECT, without an ORDER BY.
+    """
+    return f"""
+        SELECT
+            corpusid,
+            json_extract_string(externalids, '$.ArXiv') AS arxiv_id,
+            json_extract_string(externalids, '$.DOI')   AS doi,
+            title,
+            year,
+            publicationdate,
+            citationcount,
+            authors,
+            publicationtypes
+        FROM {source_sql}
+        WHERE corpusid IS NOT NULL
+    """
+
+
+def citations_projection(source_sql: str) -> str:
+    """The SELECT that turns raw ``citations`` rows into the stored Parquet columns.
+
+    Args:
+        source_sql: A FROM-able source of raw rows read with :data:`CITATIONS_COLUMNS`.
+
+    Returns:
+        The SELECT (with the ``bucket`` partition column), without an ORDER BY.
+    """
+    return f"""
+        SELECT
+            citationid,
+            citingcorpusid,
+            citedcorpusid,
+            isinfluential,
+            citedcorpusid % {NBUCKETS} AS bucket
+        FROM {source_sql}
+        WHERE citedcorpusid IS NOT NULL AND citingcorpusid IS NOT NULL
+    """
+
+
+def read_json(path_glob: str, columns: str) -> str:
     """A DuckDB ``read_json`` call over gzipped newline-delimited JSON shards."""
     return (
         f"read_json('{path_glob}', format='newline_delimited', "
@@ -153,21 +207,11 @@ def _ingest_papers_shard(
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / (shard.stem + ".parquet")
+    source = read_json(shard.as_posix(), PAPERS_COLUMNS)
     connection.execute(
         f"""
-        COPY (
-            SELECT
-                corpusid,
-                json_extract_string(externalids, '$.ArXiv') AS arxiv_id,
-                json_extract_string(externalids, '$.DOI')   AS doi,
-                title,
-                year,
-                publicationdate,
-                citationcount,
-                authors
-            FROM {_read_json(shard.as_posix(), _PAPERS_COLUMNS)}
-            WHERE corpusid IS NOT NULL
-        ) TO '{out_file.as_posix()}' (FORMAT parquet, COMPRESSION zstd)
+        COPY ({papers_projection(source)})
+        TO '{out_file.as_posix()}' (FORMAT parquet, COMPRESSION zstd)
         """
     )
 
@@ -243,7 +287,7 @@ def _finish_papers_swap(papers_dir: Path) -> None:
     shutil.rmtree(compacting_dir)
 
 
-def _compact_papers(connection: duckdb.DuckDBPyConnection, papers_dir: Path) -> bool:
+def compact_papers(connection: duckdb.DuckDBPyConnection, papers_dir: Path) -> bool:
     """Rewrite the papers dataset globally sorted by ``corpusid`` (clustered).
 
     The sort must be **global, not per-shard**: every shard spans the whole
@@ -334,13 +378,7 @@ def _ingest_citations_shard(
     connection.execute(
         f"""
         COPY (
-            SELECT
-                citingcorpusid,
-                citedcorpusid,
-                isinfluential,
-                citedcorpusid % {NBUCKETS} AS bucket
-            FROM {_read_json(shard.as_posix(), _CITATIONS_COLUMNS)}
-            WHERE citedcorpusid IS NOT NULL AND citingcorpusid IS NOT NULL
+            {citations_projection(read_json(shard.as_posix(), CITATIONS_COLUMNS))}
             ORDER BY citedcorpusid
         ) TO '{out_dir.as_posix()}'
         (FORMAT parquet, COMPRESSION zstd, PARTITION_BY (bucket),
@@ -364,7 +402,7 @@ def _citations_worker(shard: Path, out_dir: Path) -> None:
     """
     global _worker_connection
     if _worker_connection is None:
-        _worker_connection = _connect()
+        _worker_connection = connect()
     _ingest_citations_shard(_worker_connection, shard, out_dir)
 
 
@@ -418,7 +456,7 @@ def _ingest_citations_shards(
             pool.shutdown()
 
 
-def _build_arxiv_index(connection: duckdb.DuckDBPyConnection, paths: ReleasePaths) -> None:
+def build_arxiv_index(connection: duckdb.DuckDBPyConnection, paths: ReleasePaths) -> None:
     """Build the ``arxiv_id → corpusid`` lookup from the ingested papers Parquet.
 
     A seed is nearly always an arXiv id, so resolving it to a corpus id is the
@@ -457,7 +495,7 @@ def ingest_release(
     Incremental: a shard whose output (or ``_done`` marker) already exists is
     skipped, so a rerun resumes after an interruption. Once every papers shard
     is in, the dataset is **compacted** — rewritten globally sorted by
-    ``corpusid`` (see :func:`_compact_papers`) — and the arXiv index rebuilt.
+    ``corpusid`` (see :func:`compact_papers`) — and the arXiv index rebuilt.
     Does **not** flip ``CURRENT`` — the CLI does that only once a full ingest
     succeeds, so the app never reads a half-built release.
 
@@ -479,7 +517,7 @@ def ingest_release(
     if corpus_root() is None:
         raise CorpusError("config.storage.s2_corpus is not set — nothing to ingest")
     paths = release_paths(release_id)
-    connection = _connect()
+    connection = connect()
 
     # papers first (citations don't depend on it, but the arXiv index does, and
     # ordering keeps a combined run's index fresh before anything queries it).
@@ -511,10 +549,10 @@ def ingest_release(
             # Long runs recycle worker processes — see _ingest_citations_shards.
             _ingest_citations_shards(connection, shards, out_dir, on_progress)
         if dataset == "papers":
-            compacted = _compact_papers(connection, out_dir)
+            compacted = compact_papers(connection, out_dir)
             if compacted or not (paths.parquet / "arxiv_index").exists():
                 log.info("building arXiv index for %s", release_id)
-                _build_arxiv_index(connection, paths)
+                build_arxiv_index(connection, paths)
 
     connection.close()
 
@@ -548,12 +586,12 @@ def compact_release(release_id: str) -> bool:
         raise CorpusError(
             f"release {release_id} has no ingested papers Parquet under {papers_dir}"
         )
-    connection = _connect()
+    connection = connect()
     try:
-        compacted = _compact_papers(connection, papers_dir)
+        compacted = compact_papers(connection, papers_dir)
         if compacted:
             log.info("rebuilding arXiv index for %s", release_id)
-            _build_arxiv_index(connection, paths)
+            build_arxiv_index(connection, paths)
     finally:
         connection.close()
     return compacted

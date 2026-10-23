@@ -559,7 +559,7 @@ nvtx = [
 
 [[package]]
 name = "curious-astronaut"
-version = "8.35.0"
+version = "8.36.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
@@ -571,6 +571,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-ai-slim", extra = ["anthropic", "google", "openai"] },
     { name = "sqlite-vec" },
+    { name = "tqdm" },
 ]
 
 [package.optional-dependencies]
@@ -611,6 +612,7 @@ requires-dist = [
     { name = "sqlite-vec", specifier = ">=0.1.6" },
     { name = "torch", marker = "sys_platform == 'win32' and extra == 'sources'", specifier = ">=2.9", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torch", marker = "sys_platform != 'win32' and extra == 'sources'", specifier = ">=2.9" },
+    { name = "tqdm", specifier = ">=4.66" },
 ]
 provides-extras = ["sources", "pdf", "corpus"]
 

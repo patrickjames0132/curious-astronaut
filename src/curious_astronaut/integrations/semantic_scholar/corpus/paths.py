@@ -4,7 +4,7 @@ Description:
 On-disk layout of the offline Semantic Scholar corpus — one root, per-release subtrees.
 
 Everything lives under the single ``config.storage.s2_corpus`` root: each
-monthly Datasets **release** gets its own subtree holding both halves (the
+weekly Datasets **release** gets its own subtree holding both halves (the
 downloaded shards and the ingested Parquet), and the ``CURRENT`` pointer sits
 at the top:
 
@@ -14,6 +14,8 @@ at the top:
         raw/papers/*.gz                  <- downloaded JSONL.gz shards
         raw/citations/*.gz
         download.json                    <- per-shard download checkpoint
+        diffs/<dataset>/<NN>_<to>/…/*.gz <- a refreshed release's weekly diff files
+        refresh.json                     <- a refreshed release's progress + base
         parquet/papers/*.parquet         <- ingested, queryable
         parquet/arxiv_index/*.parquet
         parquet/citations/bucket=NNN/*.parquet
@@ -27,7 +29,7 @@ for this, so a machine whose two roots pointed at one directory migrates with
 a config edit alone. A release's ``raw/`` shards remain deletable the moment
 its ingest succeeds — a re-ingest just means a re-download.)
 
-Isolating each release means a fresh monthly pull downloads and ingests
+Isolating each release means a fresh pull (or refresh) builds
 alongside the live one, and only flips ``CURRENT`` once it's complete. That
 guard has a known hole — re-ingesting a release ``CURRENT`` *already* points
 at exposes the half-built state live; move ``CURRENT`` aside first (see this
@@ -121,6 +123,22 @@ class ReleasePaths:
     def parquet_dataset(self, dataset: str) -> Path:
         """The Parquet directory for one dataset (``papers`` / ``citations``)."""
         return self.parquet / dataset
+
+    @property
+    def diffs(self) -> Path:
+        """Where a refreshed release keeps the weekly diff files it was built from.
+
+        Like ``raw/``, deletable once the refresh has succeeded.
+        """
+        return self._release_dir / "diffs"
+
+    @property
+    def refresh_state(self) -> Path:
+        """A refreshed release's checkpoint (JSON): its base release, which diff
+        files are down, and which build stages are done. Its presence is also
+        what marks a release as built by refresh rather than by ingest.
+        """
+        return self._release_dir / "refresh.json"
 
     @property
     def download_state(self) -> Path:
