@@ -4,7 +4,8 @@ Description:
 The astronaut CLI: ingest dispatch + clean SourceError messages, the
 list/forget library commands, `serve`'s host/port override plumbing
 (the actual serve blocks on a real server, so only the pass-through is
-tested), and `--version` reporting the installed package's metadata.
+tested), `--version` reporting the installed package's metadata, and the
+corpus commands' progress bars keeping log messages on lines of their own.
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
@@ -12,12 +13,16 @@ Charles Patrick James <charles.patrick.james@gmail.com>
 
 from __future__ import annotations
 
+import logging
+import re
 from importlib import metadata
 
 from click.testing import CliRunner
 
 from curious_astronaut import app as app_module
+from curious_astronaut import cli as cli_module
 from curious_astronaut.cli import cli
+from curious_astronaut.integrations.semantic_scholar.corpus import download
 from curious_astronaut.services import sources
 
 RECORD = {"id": "src01", "title": "Deep Learning", "kind": "pdf", "pages": 800, "n_chunks": 1200}
@@ -104,3 +109,32 @@ def test_version_is_advertised_in_help():
 
     assert result.exit_code == 0
     assert "--version" in result.output
+
+
+def test_corpus_download_draws_the_whole_job_and_keeps_warnings_on_their_own_line(
+    monkeypatch, tmp_path
+):
+    """A warning mid-transfer prints on a line of its own, not on the bar's end."""
+
+    def fake_download(release_id, *, datasets_wanted, shards, on_progress, on_overall):
+        on_overall("shards", 0, 2)
+        on_progress("citations", "shard.gz", 50, 100)
+        logging.getLogger(download.__name__).warning("S2 datasets 429; backing off 5s")
+        on_progress("citations", "shard.gz", 100, 100)
+        on_overall("shards", 1, 2)
+
+    monkeypatch.setattr(cli_module, "_require_corpus_root", lambda: tmp_path)
+    monkeypatch.setattr(download, "download_release", fake_download)
+
+    result = CliRunner().invoke(cli, ["corpus", "download", "--release", "2026-10-06"])
+
+    assert result.exit_code == 0
+    # What a terminal leaves on each line: cursor moves dropped, and only the
+    # text after a line's last carriage return.
+    shown = [
+        re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", line).split("\r")[-1]
+        for line in result.output.split("\n")
+    ]
+    assert "S2 datasets 429; backing off 5s" in shown
+    assert "1/2" in result.output and "shards" in result.output
+    assert "Download complete." in result.output

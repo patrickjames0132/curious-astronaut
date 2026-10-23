@@ -18,7 +18,11 @@ Charles Patrick James <charles.patrick.james@gmail.com>
 
 from __future__ import annotations
 
+import json
+import logging
+import sys
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -147,6 +151,113 @@ def forget(source_id: str) -> None:
 # --- Offline S2 citations corpus (the real Field-Landmarks fix) --------------
 
 
+class _CorpusProgress(logging.Handler):
+    """The corpus commands' progress bars, kept clear of log messages.
+
+    Two tqdm bars: the **whole job** on top (shards, diff files, or buckets,
+    counted done of total) and the **file streaming now** below it, in bytes.
+    A long pull runs for hours, so the top bar's rate and ETA are what answer
+    "how long is left"; the bottom one shows a single shard isn't stuck.
+
+    It is also the corpus package's log handler, because a warning printed
+    mid-transfer (a 429 backoff, a short read) used to land on the end of the
+    progress line and be overwritten by its next redraw. Messages go through
+    ``tqdm.write``, which lifts the bars, prints on a line of its own and
+    redraws them below.
+    """
+
+    def __init__(self) -> None:
+        """Handle warnings and up, as Python's no-config fallback did."""
+        super().__init__(logging.WARNING)
+        self._overall: Any = None
+        self._overall_unit: str | None = None
+        self._file: Any = None
+        self._file_name: str | None = None
+
+    def overall(self, unit: str, done: int, total: int, *, note: str | None = None) -> None:
+        """Move the whole-job bar, starting a new one when the unit changes.
+
+        Args:
+            unit: What's being counted (``shards``, ``diff files``, ``buckets``).
+            done: How many are finished.
+            total: How many there are.
+            note: Optional text shown after the bar, e.g. the current file.
+        """
+        from tqdm import tqdm
+
+        if self._overall is None or unit != self._overall_unit:
+            self.close()
+            self._overall = tqdm(
+                total=total, initial=done, unit=f" {unit}", desc="overall", dynamic_ncols=True
+            )
+            self._overall_unit = unit
+        else:
+            self._overall.total = total
+            self._overall.update(done - self._overall.n)
+        if note is not None:
+            self._overall.set_postfix_str(note)
+
+    def file(self, dataset: str, filename: str, done: int, total: int | None) -> None:
+        """Move the current file's byte bar, starting a new one per file.
+
+        Args:
+            dataset: The file's dataset.
+            filename: The file streaming now.
+            done: Bytes written so far (a resumed file starts part-way).
+            total: The file's full size, or None when the server didn't say.
+        """
+        from tqdm import tqdm
+
+        if self._file is None or filename != self._file_name:
+            if self._file is not None:
+                self._file.close()
+            self._file = tqdm(
+                total=total,
+                initial=done,
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+                desc=f"{dataset} {filename[:24]}",
+                leave=False,
+                dynamic_ncols=True,
+            )
+            self._file_name = filename
+        else:
+            self._file.update(done - self._file.n)
+
+    def message(self, text: str) -> None:
+        """Print a line above the bars.
+
+        Args:
+            text: The line to print.
+        """
+        from tqdm import tqdm
+
+        tqdm.write(text)
+
+    def close(self) -> None:
+        """Finish every open bar, leaving the whole-job bar's final state on screen."""
+        if self._file is not None:
+            self._file.close()
+            self._file, self._file_name = None, None
+        if self._overall is not None:
+            self._overall.close()
+            self._overall, self._overall_unit = None, None
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Print a log message on a line of its own, above the bars.
+
+        Args:
+            record: The log record to print.
+        """
+        from tqdm import tqdm
+
+        tqdm.write(self.format(record), file=sys.stderr)
+
+
+_PROGRESS = _CorpusProgress()
+
+
 @cli.group(help="Download/ingest the offline Semantic Scholar citations corpus.")
 def corpus() -> None:
     """Command group for the offline S2 citations corpus.
@@ -157,6 +268,9 @@ def corpus() -> None:
     Parquet, and ``activate`` flips the app over to a finished release. See
     ``integrations/semantic_scholar/corpus/README.md``.
     """
+    corpus_log = logging.getLogger("curious_astronaut.integrations.semantic_scholar.corpus")
+    if _PROGRESS not in corpus_log.handlers:
+        corpus_log.addHandler(_PROGRESS)
 
 
 def _require_corpus_root() -> Path:
@@ -207,9 +321,15 @@ def corpus_status() -> None:
         papers_done = paths.parquet_dataset("papers").exists()
         cites_done = paths.parquet_dataset("citations").exists()
         shards = paths.raw.exists()
+        # A refreshed release says where it came from, and whether it's whole.
+        origin = ""
+        if paths.refresh_state.exists():
+            refresh_state = json.loads(paths.refresh_state.read_text(encoding="utf-8"))
+            finished = "complete" if refresh_state.get("complete") else "in progress"
+            origin = f" refreshed-from={refresh_state.get('base')} ({finished})"
         click.echo(
             f"  {release}: shards={shards} papers-parquet={papers_done} "
-            f"citations-parquet={cites_done}"
+            f"citations-parquet={cites_done}{origin}"
         )
 
 
@@ -248,17 +368,19 @@ def corpus_download(release_id: str | None, datasets_opt: tuple[str, ...], shard
     wanted = datasets_opt or DATASETS
     click.echo(f"Downloading release {release_id} ({', '.join(wanted)})" + (f", {shards} shard(s) each" if shards else ""))
 
-    def on_progress(dataset: str, filename: str, done: int, total: int | None) -> None:
-        pct = f"{100 * done / total:5.1f}%" if total else "  ?  "
-        click.echo(f"\r  {dataset:9} {filename[:32]:32} {done / 1e6:8.1f} MB {pct}", nl=False)
-
     try:
         download.download_release(
-            release_id, datasets_wanted=tuple(wanted), shards=shards, on_progress=on_progress
+            release_id,
+            datasets_wanted=tuple(wanted),
+            shards=shards,
+            on_progress=_PROGRESS.file,
+            on_overall=_PROGRESS.overall,
         )
     except CorpusError as exc:
         raise click.ClickException(str(exc)) from exc
-    click.echo("\nDownload complete.")
+    finally:
+        _PROGRESS.close()
+    click.echo("Download complete.")
 
 
 @corpus.command("verify", help="Audit downloaded shards for truncation or corruption.")
@@ -316,7 +438,8 @@ def corpus_verify(
     )
 
     def on_progress(dataset: str, filename: str, index: int, total: int) -> None:
-        click.echo(f"\r  {dataset:9} shard {index}/{total}: {filename[:40]:40}", nl=False)
+        # Fired as each shard starts, so the ones before it are the finished ones.
+        _PROGRESS.overall(f"{dataset} shards", index - 1, total, note=filename)
 
     try:
         problems = download.verify_release(
@@ -328,8 +451,9 @@ def corpus_verify(
         )
     except CorpusError as exc:
         raise click.ClickException(str(exc)) from exc
+    finally:
+        _PROGRESS.close()
 
-    click.echo()
     if not problems:
         click.echo("All shards intact.")
         return
@@ -379,19 +503,95 @@ def corpus_ingest(release_id: str | None, datasets_opt: tuple[str, ...], activat
     click.echo(f"Ingesting release {release_id} ({', '.join(wanted)})…")
 
     def on_progress(dataset: str, filename: str, index: int, total: int) -> None:
-        click.echo(f"\r  {dataset:9} shard {index}/{total}: {filename[:40]:40}", nl=False)
+        # Fired as each shard starts, so the ones before it are the finished ones.
+        _PROGRESS.overall(f"{dataset} shards", index - 1, total, note=filename)
 
     try:
         ingest.ingest_release(release_id, datasets_wanted=tuple(wanted), on_progress=on_progress)
     except CorpusError as exc:
         raise click.ClickException(str(exc)) from exc
-    click.echo("\nIngest complete.")
+    finally:
+        _PROGRESS.close()
+    click.echo("Ingest complete.")
     if activate and set(DATASETS).issubset(wanted):
         write_current_release(corpus_root, release_id)
         click.echo(f"Activated {release_id} (CURRENT).")
     elif activate:
         click.echo("Not activated — activate only after both datasets are ingested "
                    "(`astronaut corpus activate`).")
+
+
+@corpus.command("refresh", help="Bring the corpus up to date from S2's weekly diffs.")
+@click.option("--release", "release_id", default=None, help="Release to build (default: latest).")
+@click.option("--from", "base_id", default=None,
+              help="Release to build it from (default: the active CURRENT release).")
+@click.option(
+    "--activate/--no-activate",
+    default=True,
+    help="On success, point CURRENT at the new release. Default: on.",
+)
+def corpus_refresh(release_id: str | None, base_id: str | None, activate: bool) -> None:
+    """Build a newer release from the active one plus the diffs between them.
+
+    Downloads only what changed (~5 GB a week, against ~439 GB for a full
+    release) and writes the new release beside the old one, so the app keeps
+    serving the old one until the new one is whole. Resumable: rerun after an
+    interruption and it picks up where it stopped.
+
+    Args:
+        release_id: The release to build; defaults to the latest release.
+        base_id: The release to build it from; defaults to the active one.
+        activate: Flip ``CURRENT`` to the new release when it succeeds.
+
+    Raises:
+        click.ClickException: When the corpus root is unset, there's no base
+            release, or the refresh fails.
+    """
+    corpus_root = _require_corpus_root()
+    from curious_astronaut.integrations.semantic_scholar.corpus import datasets, refresh
+    from curious_astronaut.integrations.semantic_scholar.corpus import paths as corpus_paths
+    from curious_astronaut.integrations.semantic_scholar.corpus.datasets import CorpusError
+
+    base_id = base_id or corpus_paths.read_current_release(corpus_root)
+    if not base_id:
+        raise click.ClickException(
+            "no release to refresh from — ingest a full release first, or pass --from"
+        )
+    try:
+        release_id = release_id or datasets.latest_release_id()
+    except CorpusError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if release_id == base_id:
+        click.echo(f"Already up to date ({base_id}).")
+        return
+    click.echo(f"Refreshing {base_id} → {release_id}…")
+
+    def on_stage(message: str) -> None:
+        # A new stage retires the last one's bars; its line stays above.
+        _PROGRESS.close()
+        _PROGRESS.message(f"  {message}")
+
+    try:
+        refresh.refresh_release(
+            base_id,
+            release_id,
+            on_stage=on_stage,
+            on_download=_PROGRESS.file,
+            on_overall=_PROGRESS.overall,
+        )
+    except CorpusError as exc:
+        raise click.ClickException(str(exc)) from exc
+    finally:
+        _PROGRESS.close()
+    click.echo("Refresh complete.")
+    if activate:
+        corpus_paths.write_current_release(corpus_root, release_id)
+        click.echo(f"Activated {release_id} (CURRENT).")
+    old = corpus_paths.release_paths(base_id)
+    click.echo(
+        f"To reclaim space: the old release ({old.parquet.parent}) and the new one's "
+        f"diff files ({corpus_paths.release_paths(release_id).diffs}) can be deleted."
+    )
 
 
 @corpus.command("compact", help="Cluster an ingested release's papers by corpusid.")

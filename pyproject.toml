@@ -1,6 +1,6 @@
 [project]
 name = "curious-astronaut"
-version = "8.35.0"
+version = "8.36.0"
 description = "Curious Astronaut — an interactive citation/similarity graph explorer with an AI teacher that narrates a field's history over the graph."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -52,6 +52,10 @@ dependencies = [
     # `services/sources/` imports it from several call sites that would each
     # need a not-installed guard for no practical saving.
     "sqlite-vec>=0.1.6",
+    # Direct since v8.36.0: the `astronaut corpus` commands draw their progress
+    # bars with it. Already present transitively (huggingface-hub), so this
+    # adds nothing to the install size.
+    "tqdm>=4.66",
 ]
 
 # Optional capabilities. Each one is heavy, each is imported lazily at a single

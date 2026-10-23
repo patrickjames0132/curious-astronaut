@@ -10,8 +10,11 @@ Charles Patrick James <charles.patrick.james@gmail.com>
 
 from __future__ import annotations
 
+import duckdb
+
 from curious_astronaut.config import config
 from curious_astronaut.integrations.semantic_scholar.corpus import source
+from curious_astronaut.integrations.semantic_scholar.corpus.paths import release_paths
 from curious_astronaut.services.graph.model import Node
 
 # The year bounds a real build passes in (``openalex.landmark_max_year(today)`` and
@@ -197,3 +200,26 @@ def test_influential_is_or_ed_across_duplicate_edges(synthetic_corpus):
     by_id = {entry["node"]["id"]: entry for entry in landmark}
     assert by_id["CorpusId:2"]["influential"] is True   # True in batch 1, False in batch 2
     assert by_id["CorpusId:4"]["influential"] is False  # False in both
+
+
+def test_citers_carry_the_survey_flag_from_publicationtypes(synthetic_corpus):
+    """The corpus answers the survey flag itself: GPT-3 is typed a review, BERT
+    is typed but not a review, and the recent paper's null type list is a known
+    no, as the live API reads it."""
+    landmark, latest = relations()
+    flags = {entry["node"]["id"]: entry["node"]["is_survey"] for entry in landmark + latest}
+    assert flags == {"CorpusId:2": False, "CorpusId:4": True, "CorpusId:3": False}
+
+
+def test_a_release_without_publicationtypes_answers_unknown(synthetic_corpus):
+    """A release ingested before the column was kept still serves; its citers'
+    survey flags are unknown, for the graph's S2 lookup to fill."""
+    papers_dir = release_paths(synthetic_corpus).parquet_dataset("papers")
+    for parquet_file in papers_dir.glob("*.parquet"):
+        duckdb.sql(
+            f"COPY (SELECT * EXCLUDE (publicationtypes) FROM read_parquet('{parquet_file.as_posix()}')) "
+            f"TO '{parquet_file.with_suffix('.tmp').as_posix()}' (FORMAT parquet)"
+        )
+        parquet_file.with_suffix(".tmp").replace(parquet_file)
+    landmark, _latest = relations()
+    assert {entry["node"]["is_survey"] for entry in landmark} == {None}

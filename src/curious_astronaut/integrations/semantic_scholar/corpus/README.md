@@ -23,12 +23,19 @@ path when it's absent.
 
 ## The data
 
-Two bulk **Datasets API** releases (refreshed monthly), current sizes:
+Two bulk **Datasets API** datasets, released **weekly** (this said monthly
+until 2026-10-22, when the refresh work listed the releases: 201 of them, a
+week apart). Sizes as first ingested:
 
 | Dataset | Records | Shards | Compressed | What it gives us |
 |---|--:|--:|--:|---|
 | `citations` | 2.4 B edges | ~390 | ~255 GB | `citingcorpusid → citedcorpusid` (+ `isinfluential`) |
 | `papers` | 200 M | ~60 | ~45 GB | `corpusid ↔ externalids` (arXiv/DOI), title, year, date, **citationcount** |
+
+As of 2026-10-13 a full release is ~439 GB to download (papers 52.6 GB,
+citations 386.2 GB; 237M papers, 5.11B edge rows) and one week's diff is
+~4.9 GB, which is why the corpus is kept current by `refresh.py` rather than
+re-pulled (see "Keeping it current").
 
 Papers are keyed by S2's integer **`corpusid`**, and citation edges reference
 those ids — so answering "who cites this seed, ranked" is necessarily a **join**:
@@ -39,11 +46,13 @@ external ids to render. Neither dataset alone is enough.
 
 ```
 paths.py     — on-disk layout: per-release subtrees + the CURRENT pointer
-datasets.py  — the Datasets API client (release id + signed shard URLs) + CorpusError
+datasets.py  — the Datasets API client (release id, signed shard URLs, diffs) + CorpusError
      ↓
 download.py  — resumable, checkpointed shard downloader (URL-expiry-aware)
      ↓
 ingest.py    — DuckDB: JSONL.gz → Parquet (papers + arXiv index; citations bucketed)
+     ↓
+refresh.py   — the next release from the current one + S2's weekly diffs
      ↓
 source.py    — the query side: CitationSource seam, DuckDBCitationSource, citation_relations
 ```
@@ -64,6 +73,8 @@ one drive held both in practice):
     parquet/papers/_done/<shard>.ok    <- per-shard markers (shard files fold away on compaction)
     parquet/arxiv_index/*.parquet      <- arxiv_id → corpusid (small, sorted)
     parquet/citations/bucket=<N>/…     <- edges, hash-partitioned on citedcorpusid
+    diffs/<dataset>/<NN>_<to>/…/*.gz   <- a refreshed release's weekly diff files (deletable)
+    refresh.json                       <- a refreshed release's base + progress
 ```
 
 **`CURRENT` names an *ingested* release** (a v5.7.0 decision that survives the
@@ -73,7 +84,7 @@ delete a release's `raw/` shards after its ingest and graph builds carry on.
 discarding a release's raw subtree discards its checkpoint too, and a later
 re-download starts clean rather than trusting a record of files that are gone.
 
-Each release is isolated so a fresh monthly pull downloads and ingests alongside
+Each release is isolated so a fresh pull (or a refresh) is built alongside
 the live one; only `CURRENT` (flipped by `astronaut corpus ingest`/`activate`) decides
 which release the app queries.
 
@@ -132,7 +143,7 @@ be appended to, so every reopen starts a *new* one. Left at the default, one
 citations shard produced **~21k files averaging 3.5 KB** (nearly all footer, no
 data), on course for ~8M files per release; file *creation*, not throughput, was the
 bottleneck — 2.8 min/shard, ~18h projected, and merely listing the output directory
-timed out. `_connect()` raises it past `NBUCKETS`, giving one ~61 KB file per bucket
+timed out. `connect()` raises it past `NBUCKETS`, giving one ~61 KB file per bucket
 per shard. **Any change to `NBUCKETS` has to move that limit with it.**
 
 The buckets exact a second, sneakier price: the partitioned write **slows down
@@ -158,6 +169,16 @@ shard's file folds away into the clustered dataset at compaction — so for both
 file existence alone can't tell). A papers shard is also skipped while its
 pre-compaction `.parquet` still sits there. A rerun after an interrupted ingest
 resumes, and an already-clustered rerun skips the sort too.
+
+**Two columns are kept for the refresh** (since the refresh exists):
+`publicationtypes` on papers, whose `Review` is the app's survey flag (so a
+corpus citer arrives knowing whether it's a survey, instead of the graph asking
+S2), and **`citationid`** on citations, because a weekly diff's citation
+deletes name *nothing but* the `citationid`. A release ingested before then has
+neither: it still serves (its citers' survey flags come back unknown, and the
+graph's S2 lookup fills them), but it can't be refreshed. The column choices
+live in `ingest.papers_projection` / `citations_projection`, which the refresh
+reuses, so a diff's rows land in exactly the stored shape.
 
 ### S2 ships every edge twice (their bug, our GROUP BY)
 
@@ -276,6 +297,50 @@ paper through the shared `arxiv_id` in `build.py`'s dedup. A corpus citer has no
 abstract/tldr/fields (those are separate datasets), hydrated lazily when the node
 is opened.
 
+## Keeping it current (`refresh.py`)
+
+S2 publishes a release **every week**, and the Datasets API publishes the
+diff between any two (`/diffs/{start}/to/{end}/{dataset}`): a chain of one
+step per release in between, each step a set of **update files** (whole rows,
+upserted by key) and **delete files** (just the key: `corpusid` for papers,
+`citationid` for citations). One week, measured 2026-10-13:
+
+| | Updated | Deleted | Download |
+|---|--:|--:|--:|
+| papers (237M) | ~11.0M (4.6%, mostly refreshed citation counts) | 21.7k | 3.2 GB |
+| citations (5.11B rows) | ~18.6M (0.36%) | 4.0M (0.08%) | 1.7 GB |
+
+So `astronaut corpus refresh` downloads ~5 GB a week where a full pull is ~439
+GB. **It builds the next release in its own subtree** (the current release
+plus every step), and `CURRENT` flips only when it's whole. It never edits the
+release being served, which keeps the per-release isolation above intact and
+avoids the half-built hole an in-place update would open. The cost is a second
+copy of the Parquet (~50 GB) until the old release is deleted.
+
+Per key, across the whole chain, **the latest event wins**: an update replaces
+the row, a delete drops it, a later update re-adds a deleted paper (and within
+one step a delete outranks an update). Then:
+
+1. **Papers:** the base rows minus every touched `corpusid`, plus the surviving
+   updates, written in one `ORDER BY corpusid` sort, so the refreshed release
+   is clustered like a fresh ingest (the same 10–15 minute sort as compaction).
+   The arXiv index is rebuilt from it.
+2. **Citations:** a delete doesn't say which bucket its row is in, so one scan
+   of the base finds every touched `citationid`'s bucket (the *tombstones*;
+   ~55s on the real corpus). Then each bucket is rewritten alone: base rows
+   minus its tombstones plus its updates, sorted by `citedcorpusid`, one file
+   per bucket where ingest left one per shard. Every week's diff touches every
+   bucket, so they're all rewritten; ~0.1s each on the real corpus, a few
+   minutes for all 1024.
+
+About 20 minutes plus the download, measured in pieces on the real corpus
+(the first end-to-end run waits on a base release that carries `citationid`).
+Every downloaded file and finished stage is checkpointed in `refresh.json`,
+per bucket for citations, so an interrupted refresh resumes where it stopped.
+Real diff files were parsed with these exact schemas before this shipped
+(2026-10-13: a papers update file, 365,689 rows; a citations update file,
+244,617 rows that reference two known papers, spanning all 1024 buckets).
+
 ## The workflow (the `astronaut corpus` CLI)
 
 Downloading ~300 GB is an **operator action you run yourself** (hours-to-days,
@@ -288,6 +353,7 @@ astronaut corpus download                     # the full ~300 GB (resumes if int
 astronaut corpus verify                       # audit shards against the sizes S2 advertises
 astronaut corpus verify --deep --repair       # …also decompress each, and re-pull anything bad
 astronaut corpus ingest                       # JSONL.gz → Parquet (incl. clustering), flip CURRENT
+astronaut corpus refresh                      # catch up to the latest release from weekly diffs
 astronaut corpus compact                      # cluster a release ingested before v5.12.0
 astronaut corpus activate                     # (re)point CURRENT at a finished release
 ```
@@ -305,6 +371,18 @@ re-fetching the whole gigabyte. Read-only unless you pass `--repair`.
 release's papers — ~10–15 minutes; watch DuckDB's progress bar — needing only
 the parquet root, so the raw shards can be long gone. Rerunning it on a
 clustered release is a fast no-op.
+
+**Progress is two tqdm bars.** The top one counts the **whole job**: shards
+for `download`, diff files and then citation buckets for `refresh`, and each
+dataset's shards for `verify` and `ingest`. Its rate and ETA are what answer
+"how long is left" on an hours-long pull. Below it, `download` and `refresh`
+show the file streaming now, in bytes. The count is files, not bytes, because
+S2's listings carry no sizes, and the shards are similar enough (~1 GB) for
+it to track time. Each library function reports through an `on_overall(unit,
+done, total)` callback (`download.OverallFn`), so the library itself never
+draws anything. The CLI's bars are also the corpus package's log handler:
+warnings go through `tqdm.write` and print on a line of their own instead of
+landing on the end of the bar.
 
 Point `config.storage.s2_corpus` at a drive **outside the repo** first (e.g.
 `"E:\\s2corpus"`); leave it `null` and the app just uses the live S2 path.
@@ -331,6 +409,20 @@ Every corpus command reads and writes under this one root.
   2026-08-05 citations shard surfaced only ~36 minutes into an ingest, 355
   shards deep — and its quiet variant (a cut landing on a line boundary)
   wouldn't have surfaced at all. See `docs/bugs.md`.
+- **A crawling transfer is resumed on a freshly signed link, not waited out.**
+  S3 serves most shards at ~25 MB/s, but during the 2026-10-06 pull every run
+  slowed to ~0.5–1.5 MB/s a few minutes in (after 3, 6 and 5 shards), and
+  killing and restarting the command made it fast again at once. The first
+  fix reconnected inside the process and didn't help, even though each new
+  connection reached a different S3 server (DNS rotates over many addresses
+  with a 3-second TTL). What a restart changes that a reconnect doesn't is the
+  link: a new run re-lists the dataset, and each link carries a temporary AWS
+  security token. The working explanation is that a link slows a few minutes
+  after it's issued. So a shard that stays under 3 MB/s for 30 seconds is
+  re-listed for a fresh link and resumed with a `Range` request, keeping every
+  byte it has, and the CLI prints a warning each time. After 20 such restarts
+  the floor is lifted for that shard (a link that's slow every time is just
+  slow, and slow beats failed).
 - **DuckDB does everything** — reads gzipped JSONL and writes/queries Parquet — so
   there's no pandas/pyarrow step. It's a runtime dependency because the query side
   runs at serve time.
@@ -343,7 +435,7 @@ Every corpus command reads and writes under this one root.
 ## The AWS endgame this prototypes
 
 The DuckDB-over-Parquet impl is the **local prototype** of the long-term shape:
-an **Airflow** DAG pulls the monthly release into **S3**, and the app queries it
+an **Airflow** DAG pulls the weekly release into **S3**, and the app queries it
 with **Athena** when the s2 provider is selected. DuckDB SQL over Parquet and
 Athena SQL over S3 Parquet are near-identical, and `CitationSource` is the seam,
 so that swap is a new implementation class behind the same two methods — no
@@ -362,6 +454,17 @@ generation files — no re-sort), the legacy-layout migration through
 `compact_release`, and an interrupted swap landing *before* the shard loop can
 re-ingest rows the staged generation already carries. No network, no real
 Datasets pull.
+
+`test_refresh.py` applies a two-step diff chain to the synthetic release,
+with the Datasets API and the downloader stubbed. It pins the latest-event
+rule (an update, a delete, a delete undone by a later update, an add undone by
+a later delete), that the refreshed papers stay globally sorted and the arXiv
+index picks up a new paper, that citation deletes land by `citationid` alone,
+that the refreshed release serves (and knows its surveys) while the base is
+untouched, that a crash mid-buckets resumes without re-downloading or
+redoing a bucket, and the three refusals: a base without `citationid`, a
+target that's already an ingested release, and a chain that doesn't reach the
+target. Plus the `astronaut corpus refresh` command itself.
 
 `test_download.py` covers the downloader against a fake `urlopen` that can hang
 up mid-body on demand — the one behaviour that matters, since a dropped socket
