@@ -43,7 +43,8 @@ panel collapse to an ellipsis, with **Show all authors â–¾** and **Show fewer â–
 controls. The year stays visible, and expanding preserves the complete author
 list.
 
-The graph-choice cards glow in their blue or gold accent, lift slightly, and
+The graph-choice cards keep equal heights when stacked vertically, sized to
+the longest description at the current width. The graph-choice cards glow in their blue or gold accent, lift slightly, and
 grow on hover or keyboard focus; their icons and rounded squares grow together
 a little further. Reduced-motion settings keep the highlight without movement.
 

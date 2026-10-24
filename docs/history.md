@@ -4672,6 +4672,13 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Equal heights for stacked tool cards** *(v8.36.3)* — the Citation
+      Graph, Knowledge Graph and Reader cards use equal fractional grid rows,
+      so a single-column layout gives each card the height needed by the
+      longest description at the current width. Text still wraps naturally,
+      with no clipping or fixed pixel height, and the existing horizontal
+      layout keeps its sizing. Approved in the browser by Patrick, 2026-10-23.
+
 - [x] **Responsive Citation Graph legend and local search** *(v8.36.2)* —
       the legend and find control now share the canvas’s bottom row, matching
       the Knowledge Graph’s responsive layout. Legend entries wrap between
