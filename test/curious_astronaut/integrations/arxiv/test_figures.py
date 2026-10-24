@@ -3,7 +3,8 @@
 Description:
 figures: extracting {image, caption} pairs from an ar5iv render, cached.
 
-client.fetch_html is faked directly — no network.
+client.fetch_render is faked directly — no network; page() wraps HTML as a
+render from an ar5iv page.
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
@@ -14,9 +15,21 @@ from __future__ import annotations
 from curious_astronaut.integrations.arxiv import client, figures
 
 
+def page(html):
+    """Wrap faked HTML as a render, as if from an ar5iv page at the site root.
+
+    Args:
+        html: The page's HTML, or None for no render.
+
+    Returns:
+        The render, or None.
+    """
+    return None if html is None else client.Render(html=html, url=f"{client.BASE_URL}/", source="ar5iv")
+
+
 def test_get_figures_extracts_image_and_caption(monkeypatch):
     html = '<figure><img src="fig1.png"><figcaption>A caption.</figcaption></figure>'
-    monkeypatch.setattr(client, "fetch_html", lambda arxiv_id: html)
+    monkeypatch.setattr(client, "fetch_render", lambda arxiv_id: page(html))
 
     result = figures.get_figures("2406.12345")
 
@@ -31,7 +44,7 @@ def test_get_figures_skips_figures_without_an_image(monkeypatch):
         "<figure><figcaption>No image here.</figcaption></figure>"
         '<figure><img src="fig1.png"><figcaption>Has one.</figcaption></figure>'
     )
-    monkeypatch.setattr(client, "fetch_html", lambda arxiv_id: html)
+    monkeypatch.setattr(client, "fetch_render", lambda arxiv_id: page(html))
 
     result = figures.get_figures("2406.12345")
 
@@ -51,7 +64,7 @@ def test_get_figures_math_becomes_delimited_latex_not_tripled_mathml(monkeypatch
         "</semantics></math>"
     )
     html = f'<figure><img src="fig1.png"><figcaption>The error {math} is small.</figcaption></figure>'
-    monkeypatch.setattr(client, "fetch_html", lambda arxiv_id: html)
+    monkeypatch.setattr(client, "fetch_render", lambda arxiv_id: page(html))
 
     caption = figures.get_figures("2406.12345")["figures"][0]["caption"]
 
@@ -68,7 +81,7 @@ def test_get_figures_math_without_alttext_is_dropped_not_garbled(monkeypatch):
         '<figure><img src="fig1.png"><figcaption>See <math><mi>x</mi></math> here.'
         "</figcaption></figure>"
     )
-    monkeypatch.setattr(client, "fetch_html", lambda arxiv_id: html)
+    monkeypatch.setattr(client, "fetch_render", lambda arxiv_id: page(html))
 
     caption = figures.get_figures("2406.12345")["figures"][0]["caption"]
 
@@ -81,7 +94,7 @@ def test_get_figures_a_nested_figure_does_not_corrupt_the_outer_image(monkeypatc
         '<figure><img src="inner.png"><figcaption>inner</figcaption></figure>'
         "</figure>"
     )
-    monkeypatch.setattr(client, "fetch_html", lambda arxiv_id: html)
+    monkeypatch.setattr(client, "fetch_render", lambda arxiv_id: page(html))
 
     result = figures.get_figures("2406.12345")
 
@@ -91,7 +104,7 @@ def test_get_figures_a_nested_figure_does_not_corrupt_the_outer_image(monkeypatc
 
 def test_get_figures_caps_figure_count(monkeypatch):
     html = "".join(f'<figure><img src="fig{index}.png"></figure>' for index in range(20))
-    monkeypatch.setattr(client, "fetch_html", lambda arxiv_id: html)
+    monkeypatch.setattr(client, "fetch_render", lambda arxiv_id: page(html))
 
     result = figures.get_figures("2406.12345")
 
@@ -101,7 +114,7 @@ def test_get_figures_caps_figure_count(monkeypatch):
 def test_get_figures_truncates_long_captions(monkeypatch):
     long_caption = "x" * 1000
     html = f'<figure><img src="fig1.png"><figcaption>{long_caption}</figcaption></figure>'
-    monkeypatch.setattr(client, "fetch_html", lambda arxiv_id: html)
+    monkeypatch.setattr(client, "fetch_render", lambda arxiv_id: page(html))
 
     result = figures.get_figures("2406.12345")
 
@@ -109,13 +122,13 @@ def test_get_figures_truncates_long_captions(monkeypatch):
 
 
 def test_get_figures_unavailable_when_ar5iv_has_no_render(monkeypatch):
-    monkeypatch.setattr(client, "fetch_html", lambda arxiv_id: None)
+    monkeypatch.setattr(client, "fetch_render", lambda arxiv_id: None)
     assert figures.get_figures("2406.12345") == {"available": False, "figures": []}
 
 
 def test_get_figures_blank_id_short_circuits(monkeypatch):
     monkeypatch.setattr(
-        client, "fetch_html", lambda arxiv_id: (_ for _ in ()).throw(AssertionError("no fetch"))
+        client, "fetch_render", lambda arxiv_id: (_ for _ in ()).throw(AssertionError("no fetch"))
     )
     assert figures.get_figures("") == {"available": False, "figures": []}
 
@@ -124,8 +137,8 @@ def test_get_figures_caches_across_calls(monkeypatch):
     calls = []
     monkeypatch.setattr(
         client,
-        "fetch_html",
-        lambda arxiv_id: calls.append(arxiv_id) or '<figure><img src="f.png"></figure>',
+        "fetch_render",
+        lambda arxiv_id: calls.append(arxiv_id) or page('<figure><img src="f.png"></figure>'),
     )
 
     figures.get_figures("2406.12345")
@@ -138,8 +151,8 @@ def test_get_figures_refresh_bypasses_cache(monkeypatch):
     calls = []
     monkeypatch.setattr(
         client,
-        "fetch_html",
-        lambda arxiv_id: calls.append(arxiv_id) or '<figure><img src="f.png"></figure>',
+        "fetch_render",
+        lambda arxiv_id: calls.append(arxiv_id) or page('<figure><img src="f.png"></figure>'),
     )
 
     figures.get_figures("2406.12345")
@@ -152,9 +165,28 @@ def test_abs_url_passes_through_absolute_urls():
     assert client.absolute_url("https://other.example.com/x.png") == "https://other.example.com/x.png"
 
 
-def test_abs_url_handles_host_relative_path():
-    assert client.absolute_url("/assets/x.png") == f"{client.BASE_URL}/assets/x.png"
+def test_abs_url_resolves_ar5iv_host_relative_paths():
+    page_url = f"{client.BASE_URL}/html/1706.03762"
+    assert client.absolute_url("/html/1706.03762/assets/x.png", page_url) == (
+        f"{client.BASE_URL}/html/1706.03762/assets/x.png"
+    )
 
 
-def test_abs_url_handles_document_relative_path():
-    assert client.absolute_url("./x.png") == f"{client.BASE_URL}/x.png"
+def test_abs_url_resolves_arxiv_document_relative_paths():
+    # arXiv's own render writes paths relative to /html/ (v8.39.0).
+    page_url = f"{client.ARXIV_HTML_URL}/1706.03762"
+    assert client.absolute_url("1706.03762v7/Figures/x.png", page_url) == (
+        "https://arxiv.org/html/1706.03762v7/Figures/x.png"
+    )
+
+
+def test_get_figures_resolves_images_against_the_render_page(monkeypatch):
+    html = '<figure><img src="1706.03762v7/a.png"><figcaption>c</figcaption></figure>'
+    monkeypatch.setattr(
+        client,
+        "fetch_render",
+        lambda arxiv_id: client.Render(html=html, url=f"{client.ARXIV_HTML_URL}/{arxiv_id}", source="arXiv"),
+    )
+    assert figures.get_figures("1706.03762")["figures"][0]["image"] == (
+        "https://arxiv.org/html/1706.03762v7/a.png"
+    )

@@ -2,7 +2,8 @@
 
 The **Reader card** (v8.37.0): the third card on a paper thread's home,
 beside the Citation Graph and the Knowledge Graph. It shows the paper itself,
-parsed from its ar5iv render, with a contents rail that follows the reading.
+parsed from its HTML render (arXiv's own, else ar5iv's), with a contents rail
+that follows the reading.
 
 ```
 reader/
@@ -129,10 +130,13 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
   are LaTeXML sections too, but listing them makes the rail a second copy of
   the text. The active entry is the last heading above the top third of the
   page, updated on scroll.
+- **The text comes from arXiv's own HTML render first, ar5iv as the
+  fallback** (v8.39.0, `integrations/arxiv/client.py`): about 0.05s against
+  ar5iv's 30s+ timeouts, old papers included. The credit at the end of the
+  text names whichever rendered it (`source` on the document).
 - **Three ways to have nothing to read**, each said plainly: the paper isn't
-  on arXiv (`not_arxiv`), ar5iv couldn't convert it (`no_render`, with a link
-  to the PDF), or ar5iv didn't answer (`error`, with Try again). It's often
-  slow.
+  on arXiv (`not_arxiv`), neither renderer could convert it (`no_render`,
+  with a link to the PDF), or neither answered (`error`, with Try again).
 - **The source is credited** at the end of the text, with a link to the
   ar5iv page. Showing it in a local app is like viewing it in a browser;
   exporting it would be redistribution, which the OnePager entry flags.

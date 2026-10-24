@@ -694,7 +694,7 @@ def figure_proxy() -> ResponseReturnValue:
         fetch fails.
     """
     src = request.args.get("src", "")
-    if not arxiv.is_ar5iv_url(src):
+    if not arxiv.is_render_url(src):
         return jsonify({"error": "src must be an ar5iv image URL"}), 400
     try:
         data, content_type = arxiv.fetch_image(src)

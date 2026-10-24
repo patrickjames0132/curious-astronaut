@@ -203,7 +203,7 @@ it('says why there is nothing to read, and retries an outage', async () => {
     .mockResolvedValueOnce({ available: false, reason: 'error' })
     .mockResolvedValueOnce(DOCUMENT)
   mount(<Reader thread={THREAD} />)
-  await screen.findByRole('heading', { name: 'Couldn’t reach ar5iv' })
+  await screen.findByRole('heading', { name: 'Couldn’t reach arXiv’s HTML' })
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
   await screen.findByRole('heading', { name: 'Attention Is All You Need' })
   expect(fetch).toHaveBeenCalledTimes(2)
@@ -372,4 +372,15 @@ it("reads a highlighted formula back as its LaTeX, not KaTeX's doubled glyphs", 
   const range = document.createRange()
   range.selectNodeContents(tag.closest('.reader-equation')!)
   expect(readerSelectionText(range)).toBe('$$QK^{T}$$ (1)')
+})
+
+it('credits whichever renderer the text came from', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue({
+    ...DOCUMENT,
+    available: true,
+    source: { name: 'ar5iv', url: 'https://ar5iv.labs.arxiv.org/html/1706.03762' },
+  } as ReaderDocument)
+  mount(<Reader thread={THREAD} />)
+  const credit = await screen.findByRole('link', { name: 'ar5iv' })
+  expect(credit.getAttribute('href')).toBe('https://ar5iv.labs.arxiv.org/html/1706.03762')
 })

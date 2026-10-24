@@ -3,6 +3,10 @@
 Description:
 Pull a paper's figures + captions from its ar5iv HTML render.
 
+**Source since v8.39.0:** "ar5iv" below means the paper's HTML render, which
+``client.fetch_render`` now takes from arXiv's own (``arxiv.org/html``) first and
+from ar5iv only as the fallback. Both are LaTeXML renders with the same markup.
+
 Semantic Scholar gives us abstracts and TL;DRs but not a paper's figures. ar5iv
 (https://ar5iv.org) renders arXiv LaTeX to HTML whose ``<figure>`` elements carry
 both the image and the paper's own ``<figcaption>`` — exactly the "figure + its
@@ -23,7 +27,7 @@ Not every paper is on ar5iv (LaTeX-conversion failures, PDF-only submissions);
 those return ``available: False`` and the UI simply shows no figures.
 
 Images are served to the browser via a same-origin proxy (``client.fetch_image``
-+ ``client.is_ar5iv_url``, wired up by the ``/api/figure_proxy`` route) so we
++ ``client.is_render_url``, wired up by the ``/api/figure_proxy`` route) so we
 don't depend on ar5iv allowing hotlinks and never expose an open proxy — only
 the ar5iv host is fetchable.
 
@@ -135,36 +139,39 @@ def get_figures(arxiv_id: str, *, refresh: bool = False) -> dict:
 
     Returns:
         ``{"available": bool, "figures": [{"image", "caption"}]}``. ``image``
-        is an absolute ar5iv URL — the route rewrites it to the same-origin
-        proxy before sending it to the browser. ``available`` is False when
-        ar5iv has no render; that miss is cached too.
+        is absolute on the render's host (arXiv's or ar5iv's) — the route
+        rewrites it to the same-origin proxy before sending it to the
+        browser. ``available`` is False when there's no render or it has no
+        figures; that miss is cached too.
 
     Raises:
-        urllib.error.HTTPError: On non-404 ar5iv HTTP failures.
+        urllib.error.HTTPError: On HTTP failures past both render sources.
         urllib.error.URLError: On network failures.
     """
     arxiv_id = (arxiv_id or "").strip().split("v")[0]
     if not arxiv_id:
         return {"available": False, "figures": []}
 
-    key = f"figures:{arxiv_id}"
+    # v2 (v8.39.0): the render may be arXiv's now, so misses cached from
+    # ar5iv alone don't stand for a month.
+    key = f"figures:v2:{arxiv_id}"
     if not refresh:
         cached = cache.get(key, client.CACHE_TTL)
         if cached is not None:
             return cached
 
-    html = client.fetch_html(arxiv_id)
-    if html is None:
+    render = client.fetch_render(arxiv_id)
+    if render is None:
         result = {"available": False, "figures": []}
         cache.set(key, result)
         return result
 
     parser = _FigureParser()
-    parser.feed(html)
+    parser.feed(render.html)
     figures = [
-        {"image": client.absolute_url(figure["image"]), "caption": figure["caption"]}
+        {"image": client.absolute_url(figure["image"], render.url), "caption": figure["caption"]}
         for figure in parser.figures[:_MAX_FIGS]
     ]
-    result = {"available": True, "figures": figures}
+    result = {"available": bool(figures), "figures": figures}
     cache.set(key, result)
     return result

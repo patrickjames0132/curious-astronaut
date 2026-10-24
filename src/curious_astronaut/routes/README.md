@@ -88,9 +88,10 @@ Design decisions worth knowing:
 - **`/api/graph` serializes the typed `Graph`** via `model_dump()` — the
   route is the model-to-JSON boundary (Phase 3 decision: the graph is a
   Pydantic model everywhere inside the app).
-- **The figure proxy is an SSRF chokepoint.** `is_ar5iv_url` allowlists the
-  ar5iv host before any fetch, so `/api/figure_proxy` can't be used as an
-  open relay; responses carry a day-long `Cache-Control`. Since v8.37.0 they
+- **The figure proxy is an SSRF chokepoint.** `is_render_url` allowlists the
+  render hosts before any fetch (ar5iv's, and `arxiv.org/html/…` since
+  v8.39.0, when arXiv's own HTML became the first source), so
+  `/api/figure_proxy` can't be used as an open relay; responses carry a day-long `Cache-Control`. Since v8.37.0 they
   also carry a sandboxing `Content-Security-Policy` and `nosniff`: the bytes
   are a paper author's (the Reader shows SVG figures), served from our origin,
   so one opened directly must not run script here. Inside an `<img>` the

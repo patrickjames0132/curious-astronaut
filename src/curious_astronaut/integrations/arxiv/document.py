@@ -1,7 +1,8 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-A paper's ar5iv render as a structured document, for the Reader card.
+A paper's HTML render (arXiv's own, else ar5iv's; see ``client.py``) as a
+structured document, for the Reader card.
 
 ``fulltext.py`` flattens the same render to plain text blocks for model
 context: sections, figures and citation markers are all dropped, which is right
@@ -14,7 +15,7 @@ renders itself:
   own ``blocks`` (a nested section's content belongs to that section). The
   table of contents is built from this list.
 * **blocks** — ``paragraph``, ``heading``, ``equation``, ``figure``, ``table``,
-  ``list`` and ``listing`` (an algorithm's numbered, indented lines). A figure carries its image URLs (absolute ar5iv URLs; the route
+  ``list`` and ``listing`` (an algorithm's numbered, indented lines). A figure carries its image URLs (absolute, on the render's host; the route
   rewrites them to the same-origin proxy), its caption and its ``tag``
   ("Figure 2"). A float that is neither images nor a table (an algorithm box)
   keeps its content as nested ``blocks``.
@@ -56,7 +57,7 @@ from . import client
 
 # Part of the cache key: bump it when the parse's output changes, so a
 # document cached by an older parse isn't served for the rest of its 30 days.
-_PARSE_VERSION = 3
+_PARSE_VERSION = 4
 
 Inline = dict[str, Any]
 Block = dict[str, Any]
@@ -642,7 +643,7 @@ def _figure(element: _Element) -> Block:
         )
     images = [
         {
-            "src": client.absolute_url(source),
+            "src": source,  # made absolute against the page, in parse_document
             "alt": image.attrs.get("alt", ""),
             "width": _number(image.attrs.get("width")),
             "height": _number(image.attrs.get("height")),
@@ -923,11 +924,13 @@ def _bibliography(root: _Element) -> list[dict[str, Any]]:
     return entries
 
 
-def parse_document(html: str) -> dict[str, Any]:
-    """Parse an ar5iv render into the Reader's structured document.
+def parse_document(html: str, page: str = client.BASE_URL + "/html/") -> dict[str, Any]:
+    """Parse a LaTeXML render (arXiv's or ar5iv's) into the Reader's document.
 
     Args:
-        html: The full ar5iv HTML page.
+        html: The full HTML page.
+        page: The page's URL, which its relative image paths resolve against
+            (``client.Render.url``); ar5iv's by default.
 
     Returns:
         ``{available, title, abstract, sections, bibliography}``; see the
@@ -953,6 +956,8 @@ def parse_document(html: str) -> dict[str, Any]:
         )
         abstract = _blocks(body)
     sections = _sections(root)
+    for section in sections:
+        _absolutize(section["blocks"], page)
     return {
         "available": bool(sections or abstract),
         "title": _inlines(title_element) if title_element is not None else [],
@@ -960,6 +965,21 @@ def parse_document(html: str) -> dict[str, Any]:
         "sections": sections,
         "bibliography": _bibliography(root),
     }
+
+
+def _absolutize(blocks: list[Block], page: str) -> None:
+    """Make every figure image's src absolute against the page, in place.
+
+    Args:
+        blocks: Blocks, walked down through floats and lists.
+        page: The render's page URL.
+    """
+    for block in blocks:
+        for image in block.get("images", []):
+            image["src"] = client.absolute_url(image["src"], page)
+        _absolutize(block.get("blocks", []), page)
+        for item in block.get("items", []):
+            _absolutize(item, page)
 
 
 def _empty() -> dict[str, Any]:
@@ -972,19 +992,20 @@ def _empty() -> dict[str, Any]:
 
 
 def get_document(arxiv_id: str, *, refresh: bool = False) -> dict[str, Any]:
-    """Fetch a paper's structured document from ar5iv, cached.
+    """Fetch a paper's structured document from its HTML render, cached.
 
     Args:
         arxiv_id: The paper's arXiv id (a version suffix is stripped).
-        refresh: When True, bypass the cache and re-fetch from ar5iv.
+        refresh: When True, bypass the cache and re-fetch the render.
 
     Returns:
-        The ``parse_document`` result. A paper ar5iv has no render for (a 404,
+        The ``parse_document`` result, with ``source`` (``{name, url}``, who
+        rendered it) when available. A paper with no render (a 404,
         or a 200 page with no body) comes back ``available: False``; misses
-        are cached too. Image URLs are absolute ar5iv URLs.
+        are cached too. Image URLs are absolute, on the render's host.
 
     Raises:
-        urllib.error.HTTPError: On non-404 ar5iv HTTP failures.
+        urllib.error.HTTPError: On HTTP failures past both sources.
         urllib.error.URLError: On network failures.
     """
     arxiv_id = (arxiv_id or "").strip().split("v")[0]
@@ -997,8 +1018,11 @@ def get_document(arxiv_id: str, *, refresh: bool = False) -> dict[str, Any]:
         if cached is not None:
             return dict(cached)
 
-    html = client.fetch_html(arxiv_id)
-    result = parse_document(html) if html is not None else _empty()
+    render = client.fetch_render(arxiv_id)
+    result = parse_document(render.html, render.url) if render is not None else _empty()
+    if render is not None and result["available"]:
+        # Who rendered it, for the Reader's credit line.
+        result["source"] = {"name": render.source, "url": render.url}
     cache.set(key, result)
     return result
 

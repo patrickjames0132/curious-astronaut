@@ -861,6 +861,26 @@
 
 ### Detail panel & paper enrichment
 
+- [x] **Papers read from arXiv's own HTML first, ar5iv as the fallback**
+      *(v8.39.0)* — the Reader's stage-3 groundwork. Every feature that reads
+      a paper's LaTeX (the Reader, the detail panel's figures, the full text
+      the researcher and lectures read) went through ar5iv alone, which on
+      2026-10-24 timed out at 30–150s on four fetches. A check of
+      `arxiv.org/html/<id>` (Patrick's go-ahead) found it serves old papers
+      as well as new (Attention 2017, SAC 2018, Llama 2, GRPO) in about
+      0.05s, with the same LaTeXML markup our parsers read unchanged. Now
+      `client.fetch_render` asks arXiv first and ar5iv only when arXiv has no
+      render, errors, times out or serves a failed conversion's stub; a
+      render carries its page URL so each source's image paths resolve
+      (`absolute_url(src, page)`); the figure proxy admits `arxiv.org/html/…`
+      beside ar5iv (`is_render_url`, was `is_ar5iv_url`); the Reader credits
+      whichever rendered the text; and cache keys were bumped so ar5iv-only
+      misses don't stand for a month. The full text also stopped treating a
+      failed conversion's stub as an empty paper (`client.has_body`), the gap
+      noted in v8.37.0's bugs entry. Live: the Reader's document 0.09s, the
+      detail panel's figures 0.07s, GRPO's full text 0.08s, Adam correctly
+      unavailable from both.
+
 - [x] **TL;DR before the abstract in the detail panel** *(v8.4.0)* — the
       summary section's tabs now read **TL;DR | Abstract**, and the section
       opens on the TL;DR **when one already exists**. The tab order was
