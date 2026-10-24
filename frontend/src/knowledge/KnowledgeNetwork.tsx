@@ -18,7 +18,7 @@
  * course's assistant (`assistant/`, docked by the shell) or expanded into a
  * concept the lesson's item needs.
  *
- * Since v8.41.0 a third view, the **pyramid**, stacks the course in rows
+ * Since v8.42.0 a third view, the **pyramid**, stacks the course in rows
  * (foundations at the bottom, the paper on top) and fades what the reader's
  * check-offs let them skip, so what is left to learn stands out.
  *
@@ -116,7 +116,7 @@ const FIND_COPY: FindCopy = {
 }
 
 /** localStorage key for the per-browser view: '1' is 3D, '0' 2D (the key's
- *  values before the pyramid), 'pyramid' the pyramid (v8.41.0). */
+ *  values before the pyramid), 'pyramid' the pyramid (v8.42.0). */
 const MODE_KEY = 'ca.knowledge3d'
 
 /**
@@ -451,7 +451,7 @@ export default function KnowledgeNetwork({
   )
   // The item an Expand is working on wears the breakdown's dashed ring
   // (v8.26.0, Patrick): it is a breakdown of one, after all. So does one
-  // whose lesson is being written (v8.41.0, Patrick), or its "How it fits
+  // whose lesson is being written (v8.42.0, Patrick), or its "How it fits
   // in" rewritten: a stream carries on with the panel closed, and the ring
   // shows it. Read from `writing` rather than the drafts, so a lesson still
   // streaming from before the tool was left keeps its ring; it is

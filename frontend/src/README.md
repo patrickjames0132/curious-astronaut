@@ -57,7 +57,7 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │  ├─ controls (folded)         knowledge/KnowledgeControls.tsx (2D / 3D /
    │  │                              Pyramid, release, fit, clear)
    │  ├─ the graph                 knowledge/KnowledgeGraph.tsx (2D, and the
-   │  │                              pyramid, v8.41.0), or KnowledgeGraph3D.tsx
+   │  │                              pyramid, v8.42.0), or KnowledgeGraph3D.tsx
    │  │                              (lazy-loaded)
    │  ├─ legend                    knowledge/KnowledgeLegend.tsx
    │  ├─ find control (🔍 → pill)  graph/controls/FindBar.tsx (shared)

@@ -3843,7 +3843,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 ### Saved sessions & workspaces
 
 - [x] **The Knowledge Graph pyramid, and a ring while a lesson is written**
-      *(v8.41.0)* — a third view beside 2D and 3D (course controls → View →
+      *(v8.42.0)* — a third view beside 2D and 3D (course controls → View →
       **Pyramid**) that stacks the course in rows: foundations at the bottom,
       the paper on top, syntheses between what they combine and what they
       build toward. Settled with Patrick at the start (2026-10-23): **a view

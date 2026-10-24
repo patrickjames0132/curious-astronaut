@@ -18,7 +18,7 @@ knowledge/
                           (the find bar, bottom-right, is ../graph/controls/FindBar)
   KnowledgePanel.tsx    — the side panel: why it's needed, what it needs, the lesson
   look.ts               — shared by the views: colours, sizes, labels, stable data, clicks
-  pyramid.ts            — the pyramid's rows, their order, and what the check-offs skip (v8.41.0)
+  pyramid.ts            — the pyramid's rows, their order, and what the check-offs skip (v8.42.0)
   useLessons.ts         — lesson streaming that outlives the tool's mount
   model.ts              — the graph and the pure rules over it (no React, no store)
   assistant/            — the course assistant, docked beside the course (v8.25.0)
@@ -180,7 +180,7 @@ has a "Bridge two topics" phase).
   sphere (`nodeThreeObjectExtend` is false for it alone), so it is the same
   diamond from any angle; a legend entry once the course has one.
 
-## The pyramid (v8.41.0)
+## The pyramid (v8.42.0)
 
 A third view beside 2D and 3D (the controls' **Pyramid**), and the ticket
 that Patrick's 2026-10-13 picture of a pyramid left open: the paper on top,
@@ -661,7 +661,7 @@ closes it when the selection collapses or leaves the lesson.
   later breakdown keeps, so deleting it can be undone like any other.
   While the tutor names it, the item wears the breakdown's dashed ring
   (v8.26.0, Patrick: `ringed`, the `expanding` set plus the item). Since
-  v8.41.0 an item whose lesson is being written (or its "How it fits in"
+  v8.42.0 an item whose lesson is being written (or its "How it fits in"
   rewritten) wears it too (Patrick): a lesson keeps streaming after the
   panel closes (`useLessons` never aborts one), and the ring is how the
   graph shows it. One ring for both, since the panel says which is
