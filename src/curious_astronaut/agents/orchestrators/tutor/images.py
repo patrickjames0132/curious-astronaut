@@ -327,7 +327,7 @@ def _ar5iv_candidates(arxiv_id: str, title: str) -> list[Candidate]:
     candidates: list[Candidate] = []
     for figure in rendered.get("figures") or []:
         source = figure.get("image") or ""
-        if not arxiv.is_ar5iv_url(source):
+        if not arxiv.is_render_url(source):
             continue
         candidates.append(
             Candidate(
@@ -705,7 +705,7 @@ def image_bytes(key: str) -> tuple[bytes, str]:
         Exception: Fetch and render failures propagate.
     """
     kind, _, rest = key.partition(":")
-    if kind == "ar5iv" and arxiv.is_ar5iv_url(rest):
+    if kind == "ar5iv" and arxiv.is_render_url(rest):
         return arxiv.fetch_image(rest)
     if kind == "pdf":
         token, _, position = rest.rpartition(":")

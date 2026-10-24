@@ -27,7 +27,7 @@ keeps its internal names (the `'graph'` tool id, `GraphExplorer`,
   on the paper's prerequisites (Phase 5b, v8.14.0). Until then it was shown
   disabled under a "Coming soon" badge; the `soon` flag on `ToolCard` is still
   there for the next tool.
-- **Reader** opens `reader/Reader`, the paper itself from its ar5iv render
+- **Reader** opens `reader/Reader`, the paper itself from its HTML render (arXiv's own, else ar5iv's)
   (v8.37.0). Its tool id is `'reader'`; it has no assistant yet (the
   margin teacher is a later Reader stage).
 

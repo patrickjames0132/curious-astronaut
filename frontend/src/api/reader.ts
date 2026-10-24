@@ -2,7 +2,8 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The Reader card's document: a paper's ar5iv render parsed into sections,
+ * The Reader card's document: a paper's HTML render (arXiv's own, else
+ * ar5iv's) parsed into sections,
  * blocks and inline runs by `integrations/arxiv/document.py`. The shapes here
  * mirror that module's docstring.
  *
@@ -94,6 +95,8 @@ export type ReaderDocument =
       abstract: ReaderBlock[]
       sections: ReaderSection[]
       bibliography: ReaderBibEntry[]
+      /** Who rendered it (v8.39.0): arXiv's own HTML, or ar5iv as the fallback. */
+      source?: { name: 'arXiv' | 'ar5iv'; url: string }
     }
   | { available: false; reason: ReaderUnavailable }
 

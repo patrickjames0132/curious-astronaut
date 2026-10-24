@@ -1,8 +1,30 @@
 # `integrations.arxiv`
 
 Everything the app derives directly from arXiv itself: arXiv-**id detection**,
-figures + full text via [ar5iv](https://ar5iv.org) (arXiv's LaTeX→HTML
-renderer), and a paper's own **category tags** via arXiv's export API.
+figures + full text + the Reader's document from a paper's **HTML render**
+(arXiv's own at `arxiv.org/html`, with [ar5iv](https://ar5iv.org) as the
+fallback since v8.39.0), and a paper's own **category tags** via arXiv's
+export API.
+
+## The render: arXiv's own first, ar5iv as the fallback (v8.39.0)
+
+Every part of this package that reads a paper's LaTeX (`figures.py`,
+`fulltext.py`, `document.py`) gets it through one fetch,
+`client.fetch_render`, which tries **arXiv's own HTML** first and ar5iv only
+when arXiv has no render (404), fails, or serves a failed conversion's empty
+stub. Both are LaTeXML renders with the same `ltx_*` markup, so every parser
+reads either unchanged. Why the switch: ar5iv was the only source for years and
+it is slow (on 2026-10-24 four fetches timed out at 30–150s), while arXiv's
+render answered the same papers in about 0.05s, old ones included (Attention
+from 2017, SAC from 2018, Llama 2, GRPO). A `Render` carries the URL it came
+from, because the two write image paths differently (arXiv's relative to
+`/html/`, ar5iv's from the host root); `absolute_url(src, page)` joins either
+correctly. The figure proxy's allowlist, `is_render_url`, admits ar5iv's host
+and `arxiv.org/html/…` only. A paper both failed to convert (1412.6980, Adam)
+comes back as a stub from each, which every caller reads as unavailable
+(`client.has_body`, `parse_document`'s `available`). Cache keys were bumped
+(`figures:v2`, `fulltext:v2`, `_PARSE_VERSION` 4) so misses cached from ar5iv
+alone don't stand for a month. "ar5iv" in older notes below means this render.
 
 ## Why it exists
 
@@ -42,7 +64,8 @@ reaching into the other's internals; a shared `client.py` fixes that at the root
 ```
 ID_RE           — the arXiv-id regex, at the package root (__init__.py)
 
-client.py       — fetch_html, fetch_image, is_ar5iv_url, the shared cache TTL
+client.py       — fetch_render (arXiv first, ar5iv fallback), fetch_html, fetch_image,
+                  is_render_url, absolute_url, has_body, the shared cache TTL
      ↓
 figures.py      — extracts {image, caption} pairs from the render
 fulltext.py     — strips the render to readable body text
@@ -57,12 +80,15 @@ vocab.py        — the bundled taxonomy: what categories exist + their labels
   `from ..integrations import arxiv` / `arxiv.ID_RE`. It's a plain compiled
   regex — group 1 is the bare id — used with `.fullmatch` (is the whole string
   an id?) or `.search` (is there an id inside this text?) depending on caller.
-- **`client.py`** — `fetch_html()` (the raw ar5iv fetch), `fetch_image()` +
-  `is_ar5iv_url()` (the same-origin image proxy's fetch + SSRF-safe host
-  allowlist), `absolute_url()` (an ar5iv-relative image src made absolute;
-  `figures.py`'s private `_abs_url()` until `document.py` needed it too), and `CACHE_TTL` (30 days — ar5iv renders are static). `AR5IV_HOST`
-  / `BASE_URL` keep the ar5iv name because they *are* ar5iv.org — the package
-  name is the arXiv umbrella; the transport still talks to the ar5iv service.
+- **`client.py`** — `fetch_render()` (a paper's render: arXiv's own first,
+  ar5iv as the fallback, with the page URL it came from; see above),
+  `fetch_html()` (its HTML alone, for `fulltext.py`), `fetch_image()` +
+  `is_render_url()` (the same-origin image proxy's fetch + SSRF-safe host
+  allowlist: ar5iv's host and `arxiv.org/html/…`; it was `is_ar5iv_url` until
+  v8.39.0), `absolute_url(src, page)` (an image src made absolute against its
+  render's page), `has_body()` (a paper, not a failed conversion's stub), and
+  `CACHE_TTL` (30 days — renders are static). `AR5IV_HOST` / `BASE_URL` are
+  ar5iv's, `ARXIV_HOST` / `ARXIV_HTML_URL` arXiv's.
 - **`figures.py`** — `get_figures()`, backed by the private `_FigureParser`
   (tracks `<figure>` nesting so a stray inner figure can't overwrite the
   outer one's image).
@@ -115,7 +141,7 @@ vocab.py        — the bundled taxonomy: what categories exist + their labels
 - **`vocab.py`** — see "Category taxonomy" below.
 
 `__init__.py` re-exports `ID_RE`, `get_categories`, `get_document`, `get_figures`,
-`get_fulltext`, `html_to_text`, `is_ar5iv_url`, and `fetch_image`.
+`get_fulltext`, `html_to_text`, `is_render_url`, and `fetch_image`.
 
 ## Design decisions worth knowing
 
@@ -146,7 +172,7 @@ vocab.py        — the bundled taxonomy: what categories exist + their labels
   `looks_arxiv` uses `fullmatch`), then `looks_arxiv()` for the same
   prefix-or-not lookup as the graph build; plus the detail panel's figures
   (`get_figures()`), the Reader card's document (`get_document()`), category tags (`get_categories()`), and the
-  `/api/figure_proxy` route (`is_ar5iv_url()` to allowlist, `fetch_image()`
+  `/api/figure_proxy` route (`is_render_url()` to allowlist, `fetch_image()`
   to relay) so the browser never talks to ar5iv directly and the proxy
   can't be abused as an open relay.
 - **`agents/researcher/tools.py`** — the `read_paper` tool calls `get_fulltext()`

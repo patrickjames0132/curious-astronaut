@@ -11,7 +11,7 @@ Four things live here, all arXiv-specific and all for arXiv papers only:
 * **ar5iv rendering** — a paper's figures + full body text, extracted from
   ar5iv (https://ar5iv.org, arXiv's LaTeX→HTML renderer):
   * ``client``   — the shared HTTP fetch (``fetch_html``), the image-proxy
-    fetch + host allowlist (``fetch_image`` / ``is_ar5iv_url``), and the cache
+    fetch + host allowlist (``fetch_image`` / ``is_render_url``), and the cache
     TTL.
   * ``figures``  — ``{image, caption}`` pairs from the render's ``<figure>``s.
   * ``fulltext`` — the render stripped to readable body text; also
@@ -45,7 +45,7 @@ import re
 
 from . import vocab
 from .categories import get_categories, get_title
-from .client import fetch_image, is_ar5iv_url
+from .client import fetch_image, is_render_url
 from .document import get_document
 from .figures import get_figures
 from .fulltext import get_fulltext, html_to_text
@@ -110,7 +110,7 @@ __all__ = [
     "get_fulltext",
     "get_title",
     "html_to_text",
-    "is_ar5iv_url",
+    "is_render_url",
     "looks_arxiv",
     "vocab",
 ]

@@ -2,7 +2,8 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The Reader card: the paper itself, from its ar5iv render, with a table of
+ * The Reader card: the paper itself, from its HTML render (arXiv's own, else
+ * ar5iv's), with a table of
  * contents that follows the reading. Opened from the thread's card home like
  * the two graphs. v1's first slice is the reading view; citation hover cards,
  * Knowledge Graph margin notes and highlight-and-explain build on it (see the
@@ -73,12 +74,12 @@ const UNAVAILABLE: Record<ReaderUnavailable, { title: string; body: string }> = 
   no_render: {
     title: 'No HTML render for this paper',
     body:
-      'arXiv’s HTML renderer (ar5iv) couldn’t convert this paper’s LaTeX, so there’s no ' +
-      'text to show yet. The PDF is still on arXiv.',
+      'Neither arXiv’s HTML render nor ar5iv could convert this paper’s LaTeX, so there’s ' +
+      'no text to show yet. The PDF is still on arXiv.',
   },
   error: {
-    title: 'Couldn’t reach ar5iv',
-    body: 'arXiv’s HTML renderer didn’t answer. It’s often slow; try again in a moment.',
+    title: 'Couldn’t reach arXiv’s HTML',
+    body: 'Neither arXiv’s HTML render nor ar5iv answered. Try again in a moment.',
   },
 }
 
@@ -370,13 +371,13 @@ export default function Reader({
           <footer className="reader-credit">
             Text from{' '}
             <a
-              href={`https://ar5iv.labs.arxiv.org/html/${arxivId ?? ref ?? ''}`}
+              href={doc.source?.url ?? `https://arxiv.org/html/${arxivId ?? ref ?? ''}`}
               target="_blank"
               rel="noreferrer noopener"
             >
-              ar5iv
+              {doc.source?.name === 'ar5iv' ? 'ar5iv' : 'arXiv’s HTML'}
             </a>
-            , arXiv’s HTML render of the paper’s LaTeX.
+            , a render of the paper’s LaTeX.
           </footer>
         </article>
       </ReaderLinksContext.Provider>

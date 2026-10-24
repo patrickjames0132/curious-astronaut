@@ -1825,11 +1825,11 @@ than deleted so the plan doesn't get re-proposed.
          to the structured view once it arrives. Its text layer keeps
          selection working, so step 2's menu works on PDFs too. It also
          unblocks "Click a library citation to open the source at that
-         page". Before building it, check **arXiv's own HTML**
-         (`arxiv.org/html/<id>`): it's LaTeXML too (the GRPO algorithm,
-         2402.03300, parsed unchanged) and answered within a minute while
-         ar5iv was timing out, so it may be the faster first source for
-         recent papers.
+         page". **arXiv's own HTML is now the first source** (v8.39.0): it
+         covers old papers as well as new, answers in about 0.05s, and
+         parses unchanged, so the PDF view is needed only for papers neither
+         renderer could convert (Adam) and open-access papers not on arXiv,
+         no longer for a slow ar5iv.
       4. Citation hover card, plus a jump into the Paper Graph.
       5. Knowledge Graph notes in the margin (when one exists for the paper).
 

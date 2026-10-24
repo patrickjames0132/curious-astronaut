@@ -6,7 +6,7 @@ get_document() reader.
 
 The HTML below is cut down from real ar5iv markup (1706.03762, "Attention Is
 All You Need") so the LaTeXML classes are the ones the parser actually meets.
-client.fetch_html is faked directly — no network.
+client.fetch_render is faked directly — no network.
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
@@ -246,13 +246,17 @@ def test_get_document_parses_and_caches(monkeypatch):
 
     def fake_fetch(arxiv_id):
         calls.append(arxiv_id)
-        return _PAGE
+        return client.Render(html=_PAGE, url=f"{client.ARXIV_HTML_URL}/{arxiv_id}", source="arXiv")
 
-    monkeypatch.setattr(client, "fetch_html", fake_fetch)
+    monkeypatch.setattr(client, "fetch_render", fake_fetch)
     first = document.get_document("1706.03762v7")
     second = document.get_document("1706.03762")
     assert first["available"] is True
     assert second == first
+    # Credited to whoever rendered it, and its images resolved against that page.
+    assert first["source"] == {"name": "arXiv", "url": "https://arxiv.org/html/1706.03762"}
+    figure = first["sections"][1]["blocks"][0]
+    assert figure["images"][0]["src"] == "https://arxiv.org/html/1706.03762/assets/Figures/ModalNet-21.png"
     assert calls == ["1706.03762"]  # version stripped, second read from cache
 
 
@@ -262,7 +266,7 @@ def test_get_document_caches_misses(monkeypatch):
     def fake_fetch(arxiv_id):
         calls.append(arxiv_id)
 
-    monkeypatch.setattr(client, "fetch_html", fake_fetch)
+    monkeypatch.setattr(client, "fetch_render", fake_fetch)
     assert document.get_document("2401.00001")["available"] is False
     assert document.get_document("2401.00001")["available"] is False
     assert calls == ["2401.00001"]
