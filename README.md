@@ -453,7 +453,9 @@ The Vite dev server proxies `/api/*` to Flask.
    ask a question and it appears in the rail, named after what you asked, kept
    up to date as you work. Leave an answer running and start another
    exploration — it keeps going in the background and is waiting when you come
-   back.
+   back. With the sidebar collapsed, the **Explorations** bubble opens the
+   expandable list of explorations, chats and papers in a compact modal. Select
+   a thread to resume it; Escape or a click outside closes the list.
 7. **Lost?** Hit the header's **?** for a guided coach-mark tour — it auto-runs
    once on first launch (the search surface) and once more on your first graph
    (the graph tools), spotlighting one control at a time; the bubble's title

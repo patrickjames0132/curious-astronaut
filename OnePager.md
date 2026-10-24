@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.38.2 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.41.0 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -1202,13 +1202,6 @@ than deleted so the plan doesn't get re-proposed.
       textarea: underlines only, no correction) and a real auto-correct, and
       keep it away from what must not change: `@` mentions, arXiv ids, paper
       titles and math. *(From the `todos.md` inbox, 2026-10-22.)*
-
-- [ ] **Recent chats in the collapsed sidebar** — with the sidebar collapsed,
-      there's no way back to a recent chat without opening it again. Add
-      buttons for the most recent chats to the collapsed rail, so switching
-      between them stays one click. Decide how many, and what each button
-      shows when there's only an icon's width. *(From the `todos.md` inbox,
-      2026-10-22.)*
 
 - [ ] **Make library source references clickable in every chat** — in a chat
       answer a `[Sn, p.N]` citation renders as plain text, "(title, p.N)"

@@ -136,7 +136,8 @@ export const HOME_TOUR: TourStep[] = [
       'talk has moved on from its name. Click a thread to resume it where you left it. ✎ starts a new ' +
       'exploration; the one you leave is already saved. Hover a row for ⋮ to rename or ' +
       'delete it, and collapse the whole rail when the map wants the room — click the ' +
-      'helmet at the top, or drag its right edge; the drag folds it away and pulls it back open.',
+      'helmet at the top, or drag its right edge; the drag folds it away and pulls it back open. ' +
+      'When the rail is collapsed, the Explorations bubble opens the same expandable list in a small modal.',
   },
   {
     target: '[data-tour="settings-btn"]',

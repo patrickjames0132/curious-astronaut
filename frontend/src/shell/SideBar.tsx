@@ -25,7 +25,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { Fragment, useEffect, useId, useState } from 'react'
+import { Fragment, useEffect, useId, useRef, useState } from 'react'
 import ThreadList from './ThreadList'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import { usePresence } from '../ui/usePresence'
@@ -250,6 +250,9 @@ export default function SideBar({
   onProviderChange,
   loadingGraph,
 }: SideBarProps) {
+  const explorationsDialog = useRef<HTMLDialogElement>(null)
+  const [explorationsDialogOpen, setQuickChatsOpen] = useState(false)
+  const explorationsDialogId = useId()
   const [expandedId, setExpandedId] = useState(openSessionId)
   useEffect(() => setExpandedId(openSessionId), [openSessionId])
   const collapsed = !open
@@ -267,6 +270,46 @@ export default function SideBar({
     side: 'left',
     fold: { collapsed, collapsedWidth: RAIL_COLLAPSED_WIDTH, closeAt: 130, openAt: 96, onToggle },
   })
+
+  const explorationList = (
+    <>
+      {sessions.length > 0 && !explorationsDialogOpen && (
+        <p className="rail-heading">Explorations</p>
+      )}
+      {sessions.map((session) => (
+        <Fragment key={session.id}>
+          <SessionRow
+            session={session}
+            expanded={session.id === openSessionId && expandedId === session.id}
+            onToggle={() => {
+              if (session.id !== openSessionId) {
+                onOpenSession(session.id)
+                setExpandedId(session.id)
+              } else setExpandedId(expandedId === session.id ? null : session.id)
+            }}
+            active={session.id === openSessionId}
+            working={workingSessionIds.includes(session.id)}
+            onOpen={() => onOpenSession(session.id)}
+            onRename={(name) => onRenameSession(session.id, name)}
+            onResummarize={() => onResummarizeSession(session.id)}
+            onDelete={() => onDeleteSession(session.id)}
+          />
+          {session.id === openSessionId && expandedId === session.id && (
+            <ThreadList
+              explorationId={session.id}
+              onNavigate={() => explorationsDialog.current?.close()}
+            />
+          )}
+        </Fragment>
+      ))}
+      {sessions.length === 0 && (
+        <p className="rail-empty">
+          Your explorations appear here and save themselves — ask a question or open a paper, and
+          you can come back to it.
+        </p>
+      )}
+    </>
+  )
 
   return (
     <nav
@@ -311,45 +354,65 @@ export default function SideBar({
           </span>
           {open && <span className="rail-label">New Exploration</span>}
         </button>
-      </div>
-
-      {/* The saved list is EXPANDED-ONLY, which is what ChatGPT's collapsed
-          rail does too: a column of identical 🗂 glyphs distinguishes nothing,
-          and titles are the whole point of the list. Collapsed, the rail is
-          actions. */}
-      <div className="rail-scroll">
-        {open && sessions.length > 0 && <p className="rail-heading">Explorations</p>}
-        {open &&
-          sessions.map((session) => (
-            <Fragment key={session.id}>
-              <SessionRow
-                session={session}
-                expanded={session.id === openSessionId && expandedId === session.id}
-                onToggle={() => {
-                  if (session.id !== openSessionId) {
-                    onOpenSession(session.id)
-                    setExpandedId(session.id)
-                  } else setExpandedId(expandedId === session.id ? null : session.id)
-                }}
-                active={session.id === openSessionId}
-                working={workingSessionIds.includes(session.id)}
-                onOpen={() => onOpenSession(session.id)}
-                onRename={(name) => onRenameSession(session.id, name)}
-                onResummarize={() => onResummarizeSession(session.id)}
-                onDelete={() => onDeleteSession(session.id)}
-              />
-              {session.id === openSessionId && expandedId === session.id && (
-                <ThreadList explorationId={session.id} />
-              )}
-            </Fragment>
-          ))}
-        {open && sessions.length === 0 && (
-          <p className="rail-empty">
-            Your explorations appear here and save themselves — ask a question or open a paper, and
-            you can come back to it.
-          </p>
+        {collapsed && (
+          <button
+            type="button"
+            className={`rail-item${explorationsDialogOpen ? ' active' : ''}`}
+            aria-label="Explorations"
+            aria-haspopup="dialog"
+            aria-expanded={explorationsDialogOpen}
+            aria-controls={explorationsDialogId}
+            title="Explorations"
+            onClick={() => {
+              setQuickChatsOpen(true)
+              explorationsDialog.current?.showModal()
+            }}
+          >
+            <span className="rail-glyph" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 11.5a9 9 0 0 1-9 9 10 10 0 0 1-4-.9L3 21l1.4-4.6a9 9 0 1 1 16.6-4.9Z" />
+              </svg>
+            </span>
+          </button>
         )}
       </div>
+
+      <div className="rail-scroll">{open && !explorationsDialogOpen && explorationList}</div>
+      <dialog
+        ref={explorationsDialog}
+        id={explorationsDialogId}
+        className="explorations-dialog"
+        style={{ left: `max(8px, min(${collapsed ? 62 : width + 6}px, calc(100vw - 374px)))` }}
+        aria-label="Explorations"
+        onClose={() => setQuickChatsOpen(false)}
+        onKeyDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) explorationsDialog.current?.close()
+        }}
+      >
+        <div className="explorations-dialog-content">
+          <div className="explorations-dialog-header">
+            <p className="rail-heading">Explorations</p>
+            <button
+              type="button"
+              aria-label="Close explorations"
+              onClick={() => explorationsDialog.current?.close()}
+            >
+              ×
+            </button>
+          </div>
+          <div className="explorations-dialog-list">
+            {explorationsDialogOpen && explorationList}
+          </div>
+        </div>
+      </dialog>
 
       <div className="rail-bottom">
         {/* The data source. It lived over the canvas for one build and sat on

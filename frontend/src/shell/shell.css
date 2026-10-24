@@ -530,3 +530,50 @@
   stroke: currentColor;
   stroke-width: 1.5;
 }
+
+/* A compact native modal beside the rail; the top layer supplies focus
+   containment and Escape dismissal without competing with the graph. */
+.explorations-dialog {
+  position: fixed;
+  inset: 108px auto auto 62px;
+  margin: 0;
+  padding: 0;
+  width: min(360px, calc(100vw - 74px));
+  max-height: calc(100dvh - 124px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 12px 40px #0004;
+  overflow: auto;
+}
+.explorations-dialog::backdrop {
+  background: transparent;
+}
+.explorations-dialog-content {
+  padding: 12px;
+}
+.explorations-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.explorations-dialog-header .rail-heading {
+  margin: 0;
+  padding: 0;
+}
+.explorations-dialog-header button {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 22px;
+}
+.explorations-dialog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
