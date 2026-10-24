@@ -261,8 +261,9 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
 ]
 
 /**
- * The Reader: the contents, and the live parts of the text (citations,
- * refs, footnotes). Short, like the cards' tour: reading needs no lesson.
+ * The Reader: the contents, the live parts of the text (citations, refs,
+ * footnotes), the highlight menu and the Reader Assistant (v8.38.0). Short,
+ * like the cards' tour: reading needs no lesson.
  */
 export const READER_TOUR: TourStep[] = [
   {
@@ -281,6 +282,25 @@ export const READER_TOUR: TourStep[] = [
       'The sections, following along as you read. Click one to go straight there. Drag ' +
       'the panel’s right edge to resize it. The bump on that edge folds it away to a thin ' +
       'line at the left (so does dragging it narrow enough); the line’s bump brings it back.',
+  },
+  {
+    target: '[data-tour="reader-page"]',
+    title: 'Highlight a passage',
+    body:
+      'Select a word, a sentence or an equation and a small menu appears over it. ' +
+      '“Explain” asks the Reader Assistant what it means, “Simplify” asks for it in plain ' +
+      'words, and “Chat” opens the assistant with the passage attached to its bar, so you ' +
+      'can ask anything about it.',
+  },
+  {
+    target: '[data-tour="reader-assistant-btn"]',
+    presentIf: '[data-tour="reader-assistant-btn"]',
+    title: 'The Reader Assistant',
+    body:
+      'The 🎓 opens an assistant beside the paper. It reads the paper, starting with the ' +
+      'section you’re in, and searches your library and the web only when a question reaches ' +
+      'past it. It keeps its own chat, apart from this paper’s graphs’; type @ to bring one of ' +
+      'those into a question. The 📚 in its bar picks which of your sources it may search.',
   },
   {
     target: '[data-tour="tool-back"]',

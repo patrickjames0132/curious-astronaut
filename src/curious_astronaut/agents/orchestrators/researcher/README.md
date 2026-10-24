@@ -209,7 +209,8 @@ by default.
 `answer(paper_search=False)` takes `find_papers` away (a `prepare` gate, like
 the web's and the library's, so the tool is absent rather than refusing) and
 zeroes `searches_left`. Both docked assistants pass it: `/api/ask`, the
-Citation Graph's, and `/api/ask_course`, the Knowledge Graph's. Over a graph
+Citation Graph's, `/api/ask_course`, the Knowledge Graph's, and since v8.38.0
+`/api/ask_reader`, the Reader's. Over a graph
 the graph *is* the reader's map of the literature: the assistant reads its
 papers and grows it along citations (`expand_node` stays), and a paper the
 graph doesn't reach is the reader's to find, from the General chat or by
@@ -305,7 +306,11 @@ reading them too.
   since v8.25.0 `POST /api/ask_course` for the Knowledge Graph's course
   assistant: graph-free, with `course` (the course laid out by the route)
   standing where a graph would in the prompt, and an instruction to answer a
-  question about the course from it, searching when it reaches beyond. Each
+  question about the course from it, searching when it reaches beyond; and
+  since v8.38.0 `POST /api/ask_reader` for the Reader's assistant: graph-free
+  likewise, with `reading` (the paper laid out by the route from its cached
+  document) in the same place, framed as a reading companion that points to
+  the paper's sections, equations and figures by number. Each
   wraps the stream in `streams.terminated` for the `Done`/`Error` contract
   and serializes it as SSE. There is no router in between — the `orchestrator`
   that used to own that dispatch was deleted in v7.0.0 (see

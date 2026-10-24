@@ -644,7 +644,52 @@ export async function streamAskCourse(
   },
   handlers: AskSourcesHandlers,
 ): Promise<void> {
-  const res = await fetch('/api/ask_course', {
+  await streamGraphFreeAsk('/api/ask_course', body, handlers)
+}
+
+/**
+ * Stream an answer from the Reader's assistant (v8.38.0): the researcher,
+ * graph-free, over the paper open in the Reader. The server lays the paper
+ * out from its cached document, so only its id and the section in view are
+ * sent. The same events as {@link streamAskSources}.
+ *
+ * @param body The question, the paper and section, the client's history, the
+ *             sibling index, and the provider and library scope its searches use.
+ * @param handlers Event handlers; see {@link AskSourcesHandlers}.
+ */
+export async function streamAskReader(
+  body: {
+    question: string
+    /** The paper's arXiv id, as the Reader fetched its document. */
+    paper: string
+    /** The id of the section in view, if known. */
+    section?: string | null
+    provider: Provider
+    source_ids?: string[]
+    history?: HistoryTurn[]
+    thread_context?: ThreadContext[]
+    quick?: boolean
+    model?: string
+  },
+  handlers: AskSourcesHandlers,
+): Promise<void> {
+  await streamGraphFreeAsk('/api/ask_reader', body, handlers)
+}
+
+/**
+ * Post to one of the graph-free assistants' routes and relay its events.
+ * The Knowledge Graph's and the Reader's differ only in what they send.
+ *
+ * @param path The route.
+ * @param body The request body.
+ * @param handlers Event handlers; see {@link AskSourcesHandlers}.
+ */
+async function streamGraphFreeAsk(
+  path: string,
+  body: object,
+  handlers: AskSourcesHandlers,
+): Promise<void> {
+  const res = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

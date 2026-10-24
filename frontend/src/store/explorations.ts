@@ -24,7 +24,7 @@ import {
   withForgotten,
   type KnowledgeMap,
 } from '../knowledge/model'
-import { chatOf, type ChatTool } from './chats'
+import { SIDE_CHAT_FIELDS, chatOf, type ChatTool } from './chats'
 import type { WorkspaceState } from './workspace'
 
 /**
@@ -60,6 +60,8 @@ export interface ThreadRecord {
    * `summary` and `summarizedThrough` (`store/chats`).
    */
   courseChat?: SideChat
+  /** The Reader assistant's chat (v8.38.0), saved the same way. */
+  readerChat?: SideChat
 }
 
 /** A tool's chat beside the thread's own (v8.25.0). */
@@ -561,7 +563,8 @@ const slice = createSlice({
         thread.summary = summary
         thread.summarizedThrough = through
       } else {
-        thread.courseChat = { chat: [], ...thread.courseChat, summary, summarizedThrough: through }
+        const field = SIDE_CHAT_FIELDS[tool]
+        thread[field] = { chat: [], ...thread[field], summary, summarizedThrough: through }
       }
       record.revision++
     },
@@ -594,9 +597,12 @@ const slice = createSlice({
             if (tool === 'graph') {
               delete thread.summary
               delete thread.summarizedThrough
-            } else if (thread.courseChat) {
-              delete thread.courseChat.summary
-              delete thread.courseChat.summarizedThrough
+            } else {
+              const saved = thread[SIDE_CHAT_FIELDS[tool]]
+              if (saved) {
+                delete saved.summary
+                delete saved.summarizedThrough
+              }
             }
             record.revision++
           }

@@ -2,17 +2,24 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The text selection inside a finished lesson (v8.25.0), the frontend's
- * first reader of one, for `SelectionMenu`. The pill sits above the
- * selection, or below it near the top of the window, in fixed coordinates,
- * so it holds its place wherever the lesson scrolls; it follows a scroll and
- * closes when the selection collapses or leaves the lesson.
+ * The text selection inside a container, for `SelectionMenu`: a finished
+ * Knowledge Graph lesson (v8.25.0, the frontend's first reader of one), and
+ * the Reader's page (v8.38.0). The pill sits above the selection, or below
+ * it near the top of the window, in fixed coordinates, so it holds its place
+ * wherever the text scrolls; it follows a scroll and closes when the
+ * selection collapses or leaves the container.
+ *
+ * What a selection *says* is `formulas.selectionText` by default (typeset
+ * formulas read as LaTeX, a part of one with the whole for context); a
+ * container can pass its own `readText` (the Reader adds its own breaks and
+ * leaves out footnote marks).
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { selectionText } from './formulas'
 
 /** The fewest characters worth a menu: a stray click-drag selects one or two. */
 const MIN_CHARS = 2
@@ -27,8 +34,8 @@ const PILL_HEIGHT = 36
  *  selection runs to its edge (it squeezed into a column there, v8.26.0). */
 const PILL_HALF_WIDTH = 90
 
-/** A passage highlighted in the lesson, and where the pill goes. */
-export interface LessonSelection {
+/** A passage highlighted in the container, and where the pill goes. */
+export interface TextSelection {
   text: string
   /** The pill's anchor: its horizontal centre, and its top edge. */
   left: number
@@ -58,16 +65,20 @@ function anchorOf(range: Range): { left: number; top: number } {
 /**
  * Track the text selection inside a container.
  *
- * @param containerRef The element whose text counts (the lesson's body).
- * @param enabled Read selections at all; off while the lesson is still
- *   being written.
+ * @param containerRef The element whose text counts (a lesson's body, the
+ *   Reader's article).
+ * @param enabled Read selections at all; off while a lesson is still being
+ *   written.
+ * @param readText What a selected range says; `selectionText` (formulas
+ *   as LaTeX) when absent.
  * @returns The selection, or null, and a way to drop it.
  */
-export function useLessonSelection(
+export function useTextSelection(
   containerRef: RefObject<HTMLElement | null>,
   enabled: boolean,
-): { selection: LessonSelection | null; clear: () => void } {
-  const [selection, setSelection] = useState<LessonSelection | null>(null)
+  readText?: (range: Range) => string,
+): { selection: TextSelection | null; clear: () => void } {
+  const [selection, setSelection] = useState<TextSelection | null>(null)
   // Whether the pill is up, for the scroll listener: a scroll moves it, and
   // re-reading with nothing selected would be wasted work on every frame.
   const shown = useRef(false)
@@ -81,7 +92,7 @@ export function useLessonSelection(
       return
     }
     const range = current.getRangeAt(0)
-    const text = current.toString().trim()
+    const text = (readText ?? selectionText)(range).trim()
     if (
       text.length < MIN_CHARS ||
       !container.contains(range.startContainer) ||
@@ -91,7 +102,7 @@ export function useLessonSelection(
       return
     }
     setSelection({ text, ...anchorOf(range) })
-  }, [containerRef, enabled])
+  }, [containerRef, enabled, readText])
 
   useEffect(() => {
     // `selectionchange` alone fires mid-drag, which would open the pill under

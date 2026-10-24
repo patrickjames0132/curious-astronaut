@@ -81,7 +81,9 @@ test/
   reader/
     Reader.test.tsx           — the Reader over a stubbed document: the text,
                                 the contents, citation and footnote clicks,
-                                and each reason there's nothing to read
+                                each reason there's nothing to read, and the
+                                highlight menu's Explain, Simplify and Chat
+                                into the Reader Assistant (v8.38.0)
   tools/
     ToolCards.test.tsx        — the card home's paper header, its three
                                 cards, and the one-time paper fetch

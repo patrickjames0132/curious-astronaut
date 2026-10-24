@@ -1786,10 +1786,12 @@ than deleted so the plan doesn't get re-proposed.
       1. ✓ **Shipped in v8.37.0**: structured ar5iv parse, the Reader card,
          reading view and table of contents, figures in the lightbox. The
          full story is in [docs/history.md](docs/history.md).
-      2. **The selection menu in the Reader**: highlight a passage for
-         Explain · Simplify · Expand, the Knowledge Graph's `SelectionMenu`
-         (v8.25.0) reused, plus SpatialRead's Simplify. "Explain this
-         equation" belongs here.
+      2. ✓ **Shipped in v8.38.0**: the highlight menu in the Reader
+         (Explain · Simplify · Chat) and the Reader Assistant beside it. No
+         Expand (Patrick, 2026-10-24): in the Knowledge Graph it adds a
+         concept, and the Reader has nothing to add one to until a
+         SpatialRead-style canvas of ideas spun off the paper exists. The
+         full story is in [docs/history.md](docs/history.md).
       3. **The PDF fallback: a viewer plus the AI tools** (Patrick's choice
          over saved highlights and notes, 2026-10-23). pdf.js renders the
          PDF `services/pdf` already caches, served from our origin. It covers

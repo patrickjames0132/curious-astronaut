@@ -46,7 +46,7 @@ import type {
   TraceEvent,
   TurnScope,
 } from '../api'
-import { chatKey } from './chats'
+import { SIDE_CHAT_TOOLS, chatKey, savedSideChat } from './chats'
 import { explorationOpened, threadActivated, type ThreadRecord } from './explorations'
 import { restoreSession, workspaceCleared } from './workspace'
 
@@ -168,8 +168,9 @@ const lastMsg = (conversation: Conversation) => conversation.chat[conversation.c
 
 /**
  * Hold a thread's conversations, as saved, unless this sitting already does:
- * its own (the Citation Graph's, or General's) and, since v8.25.0, its
- * Knowledge Graph assistant's (`store/chats`).
+ * its own (the Citation Graph's, or General's) and its side chats: the
+ * Knowledge Graph assistant's (v8.25.0) and the Reader's (v8.38.0)
+ * (`store/chats`).
  *
  * @param state The slice state (mutated via immer).
  * @param thread The thread.
@@ -177,10 +178,11 @@ const lastMsg = (conversation: Conversation) => conversation.chat[conversation.c
 function seedThread(state: TranscriptState, thread: ThreadRecord): void {
   state.byKey[thread.id] ??= { ...emptyConversation(), chat: thread.data.chat }
   if (thread.identity)
-    state.byKey[chatKey(thread.id, 'knowledge')] ??= {
-      ...emptyConversation(),
-      chat: thread.courseChat?.chat ?? [],
-    }
+    for (const tool of SIDE_CHAT_TOOLS)
+      state.byKey[chatKey(thread.id, tool)] ??= {
+        ...emptyConversation(),
+        chat: savedSideChat(thread, tool)?.chat ?? [],
+      }
 }
 
 const transcriptSlice = createSlice({

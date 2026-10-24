@@ -46,8 +46,8 @@ import {
   nextLesson,
   type KnowledgeMap,
 } from './model'
-import SelectionMenu from './SelectionMenu'
-import { useLessonSelection } from './useLessonSelection'
+import SelectionMenu from '../selection/SelectionMenu'
+import { useTextSelection } from '../selection/useTextSelection'
 import type { LessonDraft } from './useLessons'
 
 /**
@@ -492,7 +492,7 @@ export default function KnowledgePanel({
   // A passage highlighted in the finished lesson (v8.25.0).
   const bodyRef = useRef<HTMLDivElement>(null)
   const lessonDone = !!map.nodes[nodeId]?.lesson && !draft
-  const { selection, clear: clearSelection } = useLessonSelection(bodyRef, lessonDone)
+  const { selection, clear: clearSelection } = useTextSelection(bodyRef, lessonDone)
   const streamed = draft?.text.length ?? 0
   useEffect(() => {
     // A new lesson starts at its top, ready to follow.
@@ -877,18 +877,35 @@ export default function KnowledgePanel({
         {selection && (
           <SelectionMenu
             selection={selection}
-            onExplain={(passage) => {
-              clearSelection()
-              onExplain(passage)
-            }}
-            onExpand={(passage) => {
-              clearSelection()
-              onExpandPhrase(passage)
-            }}
-            onChat={(passage) => {
-              clearSelection()
-              onChat(passage)
-            }}
+            actions={[
+              {
+                label: 'Explain',
+                title:
+                  'Ask the Knowledge Graph Assistant to explain this, without adding anything to the graph',
+                onPick: (passage) => {
+                  clearSelection()
+                  onExplain(passage)
+                },
+              },
+              {
+                label: 'Expand',
+                title:
+                  'Add the idea this names to the graph, as something this lesson’s item needs',
+                onPick: (passage) => {
+                  clearSelection()
+                  onExpandPhrase(passage)
+                },
+              },
+              {
+                label: 'Chat',
+                title:
+                  'Open the Knowledge Graph Assistant with this passage attached, and ask anything about it',
+                onPick: (passage) => {
+                  clearSelection()
+                  onChat(passage)
+                },
+              },
+            ]}
           />
         )}
 

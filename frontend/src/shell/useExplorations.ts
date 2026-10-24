@@ -20,7 +20,14 @@ import { explorationBody, migrateExploration } from '../store/threadPersistence'
 import { loadGraph, errorSet, discoveryMerged } from '../store/workspace'
 import { conversationHistory } from '../teacher/history'
 import { conversationDropped, pendingDiscoveriesDrained } from '../store/transcript'
-import { chatKey, chatSummary, chatTurns, type ChatTool } from '../store/chats'
+import {
+  SIDE_CHAT_TOOLS,
+  chatKey,
+  chatSummary,
+  chatTurns,
+  savedSideChat,
+  type ChatTool,
+} from '../store/chats'
 import { splitAttached } from '../mentions/attachments'
 import { ExplorationWrites } from './saveQueue'
 import { useSessions } from './useSessions'
@@ -71,6 +78,7 @@ export function useExplorations() {
             thread.id,
             thread.data.chat,
             thread.courseChat?.chat,
+            thread.readerChat?.chat,
             thread.data.discovered_nodes,
             thread.data.discovered_edges,
             thread.data.selectedNodeIds,
@@ -177,10 +185,9 @@ export function useExplorations() {
   }, [flush])
 
   // Each chat keeps a rolling summary for the sibling index, refreshed once
-  // it settles: a thread's own, and since v8.25.0 its Knowledge Graph
-  // assistant's (`store/chats`).
+  // it settles: a thread's own, and its side chats (`store/chats`).
   useEffect(() => {
-    const tools: ChatTool[] = ['graph', 'knowledge']
+    const tools: ChatTool[] = ['graph', ...SIDE_CHAT_TOOLS]
     for (const record of Object.values(records.byId))
       for (const thread of record.threads)
         for (const tool of tools) {
@@ -264,6 +271,7 @@ export function useExplorations() {
                 thread.id,
                 thread.data.chat,
                 thread.courseChat?.chat,
+                thread.readerChat?.chat,
                 thread.data.discovered_nodes,
                 thread.data.discovered_edges,
                 thread.data.selectedNodeIds,
@@ -272,11 +280,11 @@ export function useExplorations() {
           )
           for (const thread of record.threads) {
             summaryAttempts.current.set(thread.id, JSON.stringify(thread.data.chat))
-            if (thread.courseChat)
-              summaryAttempts.current.set(
-                chatKey(thread.id, 'knowledge'),
-                JSON.stringify(thread.courseChat.chat),
-              )
+            for (const tool of SIDE_CHAT_TOOLS) {
+              const saved = savedSideChat(thread, tool)
+              if (saved)
+                summaryAttempts.current.set(chatKey(thread.id, tool), JSON.stringify(saved.chat))
+            }
           }
         }
         const thread = record.threads.find((item) => item.id === record.activeThreadId)!
@@ -321,7 +329,7 @@ export function useExplorations() {
       dispatch(explorationRemoved(id))
       for (const thread of record?.threads ?? []) {
         dispatch(conversationDropped(thread.id))
-        dispatch(conversationDropped(chatKey(thread.id, 'knowledge')))
+        for (const tool of SIDE_CHAT_TOOLS) dispatch(conversationDropped(chatKey(thread.id, tool)))
       }
       if (state.explorations.activeId === id) dispatch(explorationOpened(newExploration()))
       await writes.current!.remove(id)
@@ -372,7 +380,9 @@ export function useExplorations() {
       record.threads.some(
         (thread) =>
           transcript.byKey[thread.id]?.running.length ||
-          transcript.byKey[chatKey(thread.id, 'knowledge')]?.running.length,
+          SIDE_CHAT_TOOLS.some(
+            (tool) => transcript.byKey[chatKey(thread.id, tool)]?.running.length,
+          ),
       ),
     )
     .map((record) => record.id)

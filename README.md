@@ -44,7 +44,15 @@ algorithms and footnotes in place. A citation shows its reference on hover
 and jumps to it on click, and a figure or equation number jumps to it. The
 contents follow along as you read; drag their edge to resize them, or fold
 them away to a thin line with the bump on that edge. Papers not on arXiv, or
-that ar5iv couldn't convert, say so (with a link to the PDF).
+that ar5iv couldn't convert, say so (with a link to the PDF). Highlight any
+passage, an equation or part of one included, and choose **Explain**,
+**Simplify** or **Chat**: the **Reader Assistant** (🎓, docked on the right)
+answers from the paper itself, starting with the section you're in, and
+searches your library and the web only when a question reaches past it. It
+keeps its own chat, listed in `@` as "Paper › Reader".
+
+An enlarged figure covers the middle of the app, never the sidebar or a
+docked assistant, so an assistant explaining a figure stays readable beside it.
 
 Long author lists on the paper’s card home, detail panel and Knowledge Graph
 panel collapse to an ellipsis, with **Show all authors ▾** and **Show fewer ▴**

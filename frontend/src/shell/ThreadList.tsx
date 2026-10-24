@@ -10,7 +10,7 @@ import { splitAttached } from '../mentions/attachments'
 import { useAppDispatch, useAppSelector, useAppStore } from '../store'
 import { deleteThread, newGeneralChat, openThread } from '../store/workspace'
 import { threadRenamed, type ThreadRecord } from '../store/explorations'
-import { chatKey, chatTurns } from '../store/chats'
+import { SIDE_CHAT_TOOLS, chatKey, chatTurns } from '../store/chats'
 import SessionRow from './SessionRow'
 
 /**
@@ -124,7 +124,7 @@ export default function ThreadList({ explorationId }: { explorationId: string })
       active={thread.id === record.activeThreadId}
       working={
         !!conversations[thread.id]?.running.length ||
-        !!conversations[chatKey(thread.id, 'knowledge')]?.running.length
+        SIDE_CHAT_TOOLS.some((tool) => !!conversations[chatKey(thread.id, tool)]?.running.length)
       }
       onOpen={() => void dispatch(openThread(thread.id))}
       onRename={(title) => dispatch(threadRenamed({ id: thread.id, title }))}

@@ -10,6 +10,8 @@ POST /api/ask          -> the research agent, streamed over the visible graph
 POST /api/ask_sources  -> streamed chat with no graph open (library + search)
 POST /api/ask_course   -> the Knowledge Graph's assistant: the researcher,
                           graph-free, over a thread's course (v8.25.0)
+POST /api/ask_reader   -> the Reader's assistant: the researcher, graph-free,
+                          over the paper being read (v8.38.0)
 
 Each endpoint validates the request, builds typed inputs, and hands off to
 the agent that serves it; the typed event stream comes back as SSE
@@ -37,6 +39,8 @@ from pydantic import ValidationError
 from ..agents import events, streams
 from ..agents.orchestrators import lecturer, researcher, router
 from ..config import config
+from ..integrations import arxiv
+from ..integrations.arxiv import document as arxiv_document
 from ..services import search as search_service
 from ..services.graph import Node, Provider, resolve_provider
 from .sse import sse, sse_response
@@ -316,6 +320,70 @@ OPEN_LESSON_CHARS = 12000
 LESSON_EXCERPT_CHARS = 1200
 #: The whole course block's ceiling, lessons included.
 COURSE_CHARS = 40000
+#: The section being read is shown whole up to this many characters…
+OPEN_SECTION_CHARS = 20000
+#: …and the reading block, the whole paper in order after it, stops here. Most
+#: papers fit whole: "Attention Is All You Need" is about 30,000.
+READING_CHARS = 60000
+
+
+def _reading_context(paper: object, section: object) -> str:
+    """Lay the paper open in the Reader out for the researcher's prompt (v8.38.0).
+
+    Built here from the cached structured document rather than sent by the
+    client, which only names the paper and the section: the server already
+    holds the text (the Reader fetched it to show it), and a page of paper
+    is too much to post with every question.
+
+    Args:
+        paper: The paper's arXiv id, as the Reader asked for its document.
+        section: The id of the section being read, or None.
+
+    Returns:
+        The reading block — title, abstract, outline, the section being read
+        whole, then the rest of the paper in order under ``READING_CHARS`` —
+        or '' when the paper has no readable document.
+    """
+    if not isinstance(paper, str) or not arxiv.looks_arxiv(arxiv.extract_id(paper) or paper):
+        return ""
+    try:
+        doc = arxiv.get_document(arxiv.extract_id(paper) or paper)
+    except Exception:  # ar5iv down: nothing to read from, as with no render
+        log.warning("reading context fetch failed for %s", paper, exc_info=True)
+        return ""
+    if not doc.get("available"):
+        return ""
+    sections = doc.get("sections", [])
+    title = arxiv_document.inline_text(doc.get("title", []))
+    block = f"THE PAPER BEING READ: {title!r}\n"
+    abstract = "\n\n".join(arxiv_document.block_text(item) for item in doc.get("abstract", []))
+    if abstract:
+        block += f"\nAbstract: {abstract}\n"
+    outline = [
+        "  " * (item["level"] - 1) + arxiv_document.section_heading(item)
+        for item in sections
+        if item.get("level", 4) <= 3 and item.get("title")
+    ]
+    if outline:
+        block += "\nOutline:\n" + "\n".join(outline) + "\n"
+    opened = next((item for item in sections if item.get("id") == section), None)
+    if opened is not None:
+        block += (
+            f"\nTHE SECTION THEY ARE READING: {arxiv_document.section_heading(opened)}\n\n"
+            + arxiv_document.section_text(opened)[:OPEN_SECTION_CHARS]
+            + "\n"
+        )
+    block += "\nTHE PAPER'S TEXT, in order:\n"
+    for item in sections:
+        if opened is not None and item is opened:
+            block += f"\n## {arxiv_document.section_heading(item)}\n(shown above)\n"
+            continue
+        text = "\n" + arxiv_document.section_text(item) + "\n"
+        if len(block) + len(text) > READING_CHARS:
+            block += "\n(The rest of the paper is cut for length.)"
+            break
+        block += text
+    return block[:READING_CHARS]
 
 
 def _clip(value: object, limit: int) -> str:
@@ -578,6 +646,54 @@ def api_ask_sources() -> ResponseReturnValue:
                     quick=_opt_quick(payload),
                     model=_opt_model(payload),
                     **_opt_filters(payload, provider),
+                )
+            ),
+        )
+    )
+
+
+@bp.post("/api/ask_reader")
+def api_ask_reader() -> ResponseReturnValue:
+    """Answer a question about the paper open in the Reader (v8.38.0).
+
+    The Reader's own assistant: the same researcher as ``/api/ask_course``,
+    graph-free, with the paper laid out where a course would be
+    (``_reading_context``). Its tools reach the library and the web, not the
+    literature (``paper_search=False``): finding papers is the General
+    chat's job, and the paper's Citation Graph is one card away.
+
+    Body:
+        ``{question, paper, section?, history?, thread_context?, provider?,
+        source_ids?, quick?, model?}`` — ``paper`` the arXiv id the Reader
+        read, ``section`` the id of the section in view; the rest as for
+        ``/api/ask_sources``.
+
+    Returns:
+        An SSE stream as for ``/api/ask_sources``. HTTP 400 when the question
+        is missing or the paper has no readable text.
+    """
+    payload = request.get_json(silent=True) or {}
+    question = (payload.get("question") or "").strip()
+    if not question:
+        return jsonify({"error": "question is required"}), 400
+    reading = _reading_context(payload.get("paper"), payload.get("section"))
+    if not reading:
+        return jsonify({"error": "This paper has no text the assistant can read."}), 400
+    provider = resolve_provider(payload.get("provider"))
+
+    return sse_response(
+        _relay(
+            streams.terminated(
+                researcher.answer(
+                    question=question,
+                    history=_resumed_history(payload),
+                    sibling_context=_sibling_context(payload),
+                    source_ids=_opt_source_ids(payload),
+                    provider=provider,
+                    reading=reading,
+                    paper_search=False,
+                    quick=_opt_quick(payload),
+                    model=_opt_model(payload),
                 )
             ),
         )

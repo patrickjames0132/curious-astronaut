@@ -75,6 +75,15 @@ there are two entry points sharing one parser:
   "max" rather than a half-converted "mₐₓ" — but symbol conversion runs *first*,
   so `\sigma_{max}` still yields "σmax", not a mangled control word.
 
+- **A typeset formula is memoized, so a re-render never rewrites it**
+  (v8.38.0). React 19 re-applies `dangerouslySetInnerHTML` when the element
+  re-renders, replacing every node inside even when the HTML is unchanged,
+  and a text selection in the removed nodes collapses: a highlighted
+  equation in the Reader lost its highlight the moment the highlight menu
+  appeared (reproduced live, 168 formula subtrees swapped per render).
+  `MathSpan` is `memo`'d on its LaTeX, so it renders once per formula.
+  `test/notation/MathText.test.tsx` pins it.
+
 ## Who uses it, and how/why
 
 `<MathText>` (HTML): `detail/DetailPanel.tsx` (title, abstract, TL;DR, and its

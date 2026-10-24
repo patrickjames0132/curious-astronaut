@@ -25,15 +25,22 @@ import {
   fetchDocument,
   type AnswerFigure,
   type ReaderDocument,
+  type ReaderSection,
   type ReaderUnavailable,
 } from '../api'
+import type { PassageQuote } from '../assistant/askAssistant'
 import Lightbox from '../figures/Lightbox'
+import SelectionMenu from '../selection/SelectionMenu'
+import { useTextSelection } from '../selection/useTextSelection'
+import { useAppDispatch } from '../store'
 import type { ThreadRecord } from '../store/explorations'
 import AuthorList from '../ui/AuthorList'
 import { usePresence } from '../ui/usePresence'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import { Blocks, Inlines } from './ReaderBody'
+import { askReader, documentRef, readerMessage, setReadingSection } from './askReader'
 import { ReaderLinksContext, plainText, readerDomId } from './links'
+import { readerSelectionText, selectionSource } from './selectionText'
 import './reader.css'
 
 /** Sections deeper than this (paragraph headings) stay out of the contents. */
@@ -76,37 +83,62 @@ const UNAVAILABLE: Record<ReaderUnavailable, { title: string; body: string }> = 
 }
 
 /**
- * The ref to ask the document route for: the paper's arXiv id when known.
+ * Where a passage in a section is from, as the assistant's messages say it.
  *
- * @param thread The paper thread.
- * @returns Its arXiv id, else its seed ref, else null.
+ * @param section The section.
+ * @returns E.g. "section 3.2, Attention", or "the part on Encoder" for an
+ *          unnumbered paragraph heading.
  */
-function documentRef(thread: ThreadRecord): string | null {
-  return (
-    thread.paper?.arxiv_id ??
-    thread.data.graph_ref?.seed.arxiv_id ??
-    thread.data.graph_ref?.seed_ref ??
-    null
-  )
+function passageFrom(section: ReaderSection): string {
+  const title = plainText(section.title)
+    .replace(/[:.]\s*$/, '')
+    .trim()
+  if (section.number) return `section ${section.number}, ${title}`
+  return title ? `the part on ${title}` : 'the paper'
 }
+
+/** The Reader's highlight menu: what each button does, and says. */
+const MENU = [
+  {
+    action: 'explain',
+    label: 'Explain',
+    title: 'Ask the Reader Assistant to explain this passage',
+  },
+  {
+    action: 'simplify',
+    label: 'Simplify',
+    title: 'Ask the Reader Assistant to say this in plain words',
+  },
+  {
+    action: 'chat',
+    label: 'Chat',
+    title: 'Open the Reader Assistant with this passage attached, and ask anything about it',
+  },
+] as const
 
 /**
  * Render the Reader for a paper thread.
  *
  * @param props Component props.
  * @param props.thread The active paper thread.
+ * @param props.onAssistant Open the Reader's assistant (a highlight's
+ *        Explain or Simplify), with a passage attached to its bar (Chat).
  * @param props.children The shell's floating overlays (the ↑ back to the
  *        cards, loading, errors), placed over the reading pane.
  * @returns The Reader.
  */
 export default function Reader({
   thread,
+  onAssistant,
   children,
 }: {
   thread: ThreadRecord
+  onAssistant?: (quote?: PassageQuote) => void
   children?: ReactNode
 }) {
+  const dispatch = useAppDispatch()
   const ref = documentRef(thread)
+  const articleRef = useRef<HTMLElement>(null)
   const [doc, setDoc] = useState<ReaderDocument | null>(null)
   const [attempt, setAttempt] = useState(0)
   const pageRef = useRef<HTMLDivElement>(null)
@@ -129,7 +161,8 @@ export default function Reader({
     } catch {
       // storage blocked: the choice lasts for this visit only
     }
-  } // Resized by dragging its right edge, like the app's other side panels; a
+  }
+  // Resized by dragging its right edge, like the app's other side panels; a
   // drag well past the floor folds it away. Unlike the explorer rail, a drag
   // never opens it again: folded, it has no handle, only the bump — so the
   // two left-hand panels never compete for one pointer (Patrick, 2026-10-23).
@@ -206,6 +239,39 @@ export default function Reader({
     return () => page.removeEventListener('scroll', update)
   }, [contents])
 
+  // The assistant opens on the section in view (askReader's own note of it).
+  useEffect(() => {
+    setReadingSection(thread.id, activeId)
+  }, [thread.id, activeId])
+
+  // The highlight menu (v8.38.0): Explain and Simplify ask the Reader's
+  // assistant about the passage, opening it; Chat attaches the passage to its
+  // bar. Formulas are read as their LaTeX (`selectionText`).
+  const { selection, clear: clearSelection } = useTextSelection(
+    articleRef,
+    !!doc?.available,
+    readerSelectionText,
+  )
+  const provider = thread.data.provider ?? 's2'
+  const pick = (action: (typeof MENU)[number]['action'], passage: string) => {
+    // Where it's from must be read while the text is still selected.
+    const source = selectionSource()
+    clearSelection()
+    if (source.sectionId) setReadingSection(thread.id, source.sectionId)
+    if (action === 'chat') {
+      onAssistant?.({ text: passage, from: source.from })
+      return
+    }
+    onAssistant?.()
+    void dispatch(
+      askReader({
+        threadId: thread.id,
+        question: readerMessage(action, passage, source.from),
+        provider,
+      }),
+    )
+  }
+
   const paper = thread.paper
   const title = doc?.available && doc.title.length > 0 ? doc.title : null
   const fallbackTitle = paper?.title ?? thread.data.graph_ref?.seed.title ?? thread.title
@@ -248,7 +314,7 @@ export default function Reader({
   } else {
     body = (
       <ReaderLinksContext.Provider value={links}>
-        <article className="reader-article">
+        <article className="reader-article" ref={articleRef}>
           <header className="reader-header">
             <h1>{title ? <Inlines inlines={title} /> : fallbackTitle}</h1>
             {paper?.authors && (
@@ -259,7 +325,7 @@ export default function Reader({
             )}
           </header>
           {doc.abstract.length > 0 && (
-            <section className="reader-abstract">
+            <section className="reader-abstract" data-passage-from="the abstract">
               <h2>Abstract</h2>
               <Blocks blocks={doc.abstract} />
             </section>
@@ -268,7 +334,12 @@ export default function Reader({
             const level = Math.min(section.level, 4)
             const Heading = (['h2', 'h3', 'h4', 'h5'] as const)[level - 1]
             return (
-              <section key={section.id} className={`reader-section reader-level-${level}`}>
+              <section
+                key={section.id}
+                className={`reader-section reader-level-${level}`}
+                data-section-id={section.id}
+                data-passage-from={passageFrom(section)}
+              >
                 {section.title.length > 0 && (
                   <Heading id={readerDomId(section.id)} className="reader-section-title">
                     {section.number && (
@@ -282,7 +353,7 @@ export default function Reader({
             )
           })}
           {doc.bibliography.length > 0 && (
-            <section className="reader-references">
+            <section className="reader-references" data-passage-from="the references">
               <h2 id={readerDomId('bib')}>References</h2>
               <ol>
                 {doc.bibliography.map((entry) => (
@@ -418,6 +489,16 @@ export default function Reader({
           {body}
         </div>
       </div>
+      {selection && (
+        <SelectionMenu
+          selection={selection}
+          actions={MENU.map((item) => ({
+            label: item.label,
+            title: item.title,
+            onPick: (passage) => pick(item.action, passage),
+          }))}
+        />
+      )}
       <Lightbox figure={enlarged} onClose={() => setEnlarged(null)} />
     </div>
   )

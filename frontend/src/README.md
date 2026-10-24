@@ -45,6 +45,8 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    ├─ Reader                       reader/Reader.tsx — the paper itself from
    │  │                              its ar5iv render (v8.37.0)
    │  ├─ contents rail             (in Reader.tsx; follows the reading)
+   │  ├─ highlight menu            selection/SelectionMenu.tsx (shared:
+   │  │                              Explain · Simplify · Chat, v8.38.0)
    │  └─ the text                  reader/ReaderBody.tsx — blocks and runs:
    │                                 equations (notation/ TeX), figures,
    │                                 tables, citations, refs, footnotes
@@ -58,12 +60,16 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │  ├─ find control (🔍 → pill)  graph/controls/FindBar.tsx (shared)
    │  ├─ lesson panel (on click)   knowledge/KnowledgePanel.tsx
    │  │  ├─ lesson images          figures/FigCard.tsx (shared, v8.24.0)
-   │  │  └─ highlight menu         knowledge/SelectionMenu.tsx (Explain ·
-   │  │                              Expand over a selected passage, v8.25.0)
+   │  │  └─ highlight menu         selection/SelectionMenu.tsx (shared:
+   │  │                              Explain · Expand · Chat here, v8.25.0)
    │  └─ image lightbox            figures/Lightbox.tsx
    ├─ Knowledge Graph Assistant    knowledge/assistant/CourseAssistant.tsx —
    │                                 docked beside the Knowledge Graph; its
-   │                                 own chat (store/chats.ts)
+   │                                 own chat (store/chats.ts). The panel is
+   │                                 assistant/DockedAssistant.tsx (shared)
+   ├─ Reader Assistant             reader/ReaderAssistant.tsx — docked
+   │                                 beside the Reader (v8.38.0), the same
+   │                                 shared panel, its own chat
    ├─ graph area                   graph/GraphExplorer.tsx
    │  ├─ overlays (from the shell): loading / error, and the ↑ back up to
    │  │                              the paper's cards  (App.tsx)
@@ -113,6 +119,10 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
       └─ figure lightbox           figures/Lightbox.tsx (same instance type as above,
                                     but GraphExplorer and Teacher each own their own)
 ```
+
+`assistant/` (the docked assistants' shared panel and stream engine) and
+`selection/` (the highlight menu) joined it in v8.38.0, when the Reader
+became the second user of what the Knowledge Graph had built.
 
 `figures/` is the frontend's first true multi-consumer, root-level folder:
 `Lightbox.tsx` was promoted from `teacher/figures/` once the detail panel became

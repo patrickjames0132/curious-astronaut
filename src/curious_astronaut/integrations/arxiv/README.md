@@ -90,6 +90,10 @@ vocab.py        — the bundled taxonomy: what categories exist + their labels
     lead with em/en/thin spaces (2402.03300), while the ASCII whitespace
     around them is the HTML source's own formatting. `_listing()` sums the
     former into an `indent` in em.
+  Since v8.38.0 it also renders the parse back to plain text for a model
+  (`inline_text`, `block_text`, `section_heading`, `section_text`: math as
+  `$…$`, citations as their markers, tables as `|` rows), which the Reader
+  assistant's `_reading_context` (`routes/agents.py`) lays out.
   The cache key carries `_PARSE_VERSION`: bump it whenever the parse's
   output changes, or a document cached by the old parse is served for the
   rest of its 30 days.

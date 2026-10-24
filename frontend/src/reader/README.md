@@ -12,19 +12,55 @@ reader/
                     list) and the inline runs inside them
   links.ts        — what runs share with the page: the jump context, the
                     DOM-id prefix, plain text for tooltips
+  selectionText.ts — what a highlight says (formulas as LaTeX) and where it's from
+  askReader.ts    — the Reader Assistant's asking: what it sends, the
+                    section in view, how a highlight's action is worded
+  ReaderAssistant.tsx — the docked assistant: the shared panel with the Reader's words
   reader.css      — the layout, the reading column, `--reader-ink` accents
 ```
 
 ## Where it's going
 
-This is the first slice of the OnePager's **Reader card** item, whose
-v1 leads with what only this app can do: (1) the structured parse, the
-reading view and the contents (this slice); (2) a citation hover card that
-resolves `[23]` to the real cited paper via S2, with a jump into the
-Citation Graph; (3) Knowledge Graph notes in the margin; (4)
-highlight-and-explain. The PDF fallback viewer and the guided read are v2.
-Read the OnePager entry before extending it; the decisions behind that
-order are settled there.
+The OnePager's **Reader card** item holds the plan, in the order Patrick set
+after the first browser round (2026-10-23): (1) the structured parse, the
+reading view and the contents (v8.37.0); (2) the highlight menu and the
+Reader Assistant (v8.38.0, below); (3) the PDF fallback viewer with the same
+AI tools; (4) a citation hover card that resolves `[23]` to the real cited
+paper via S2; (5) Knowledge Graph notes in the margin. Read the OnePager
+entry before extending it.
+
+## The highlight menu and the Reader Assistant (v8.38.0)
+
+Select text and the shared highlight menu (`../selection/`) offers
+**Explain · Simplify · Chat**. Explain and Simplify ask the **Reader
+Assistant** about the passage, opening it ("Explain this passage from
+section 3.2, Attention: “…”"); Chat opens it with the passage attached to
+its bar, for a question of the reader's own. There's no Expand: in the
+Knowledge Graph it adds a concept, and the Reader has no graph to add to
+(Patrick, 2026-10-24).
+
+- **The assistant is the Knowledge Graph's, generalized.** The panel and
+  stream engine are `../assistant/`, shared; `ReaderAssistant.tsx` and
+  `askReader.ts` give it the Reader's words and what to send. It keeps its
+  own chat (`<thread>:reader`, saved as `ThreadRecord.readerChat`) and docks
+  in the top-right corner kept free for it, behind a 🎓 when closed.
+- **It reads the paper, not a summary.** `askReader` sends only the arXiv id
+  and the section in view; the server lays the paper out from the document
+  it cached for the Reader (`routes/agents.py`, `_reading_context`): the
+  section in view whole, then the rest of the paper as it fits. It searches
+  the library and the web only when a question reaches past the paper, and
+  never the literature (Patrick's choice: paper + library + web).
+- **The section in view** is the contents' active entry, or the section a
+  highlighted passage is in. The Reader writes it to `askReader`'s own map
+  (`setReadingSection`) rather than the store, since it changes on every
+  scroll and is needed only when asking.
+- **A highlight is read as the paper writes it.** The shared
+  `../selection/formulas` reads a selected formula back as LaTeX, and part
+  of one as its glyphs with the whole formula for context (the browser's
+  own reading doubles every formula); `selectionText.ts` adds the Reader's
+  breaks and drops footnote marks, and finds where the passage is from through the
+  `data-passage-from` each section carries ("section 3.2, Attention", "the
+  abstract", "the part on Encoder" for an unnumbered paragraph heading).
 
 ## Design decisions worth knowing
 

@@ -1001,3 +1001,92 @@ def get_document(arxiv_id: str, *, refresh: bool = False) -> dict[str, Any]:
     result = parse_document(html) if html is not None else _empty()
     cache.set(key, result)
     return result
+
+
+# --- as text, for a model's prompt ------------------------------------------
+
+
+def inline_text(runs: list[Inline]) -> str:
+    """A run list as plain text: math kept as ``$…$``, a citation as its marker.
+
+    Args:
+        runs: The runs.
+
+    Returns:
+        Their text. A footnote follows its mark in brackets, so nothing the
+        paper says is lost.
+    """
+    parts: list[str] = []
+    for run in runs:
+        kind = run.get("kind")
+        if kind == "math":
+            parts.append(f"$${run['latex']}$$" if run.get("display") else f"${run['latex']}$")
+        elif kind == "note":
+            parts.append(f" [footnote: {inline_text(run.get('inlines', []))}]")
+        else:
+            parts.append(str(run.get("text", "")))
+    return "".join(parts)
+
+
+def block_text(block: Block) -> str:
+    """One block as plain text.
+
+    Args:
+        block: The block.
+
+    Returns:
+        Its text: an equation as ``$$…$$`` with its number, a figure or table
+        as its tag and caption (and a table's rows, cells split by ``|``), a
+        list as bullets, an algorithm as its numbered lines.
+    """
+    kind = block.get("kind")
+    if kind in {"paragraph", "heading"}:
+        return inline_text(block.get("inlines", []))
+    if kind == "equation":
+        tag = block.get("tag") or ""
+        return f"$${block.get('latex', '')}$$ {tag}".rstrip()
+    if kind in {"table", "figure"}:
+        lines = []
+        if kind == "figure":
+            lines.append(f"[{block.get('tag') or 'Figure'}] {inline_text(block.get('caption', []))}".rstrip())
+        for row in block.get("rows") or []:
+            lines.append(" | ".join(inline_text(cell.get("inlines", [])) for cell in row))
+        lines.extend(block_text(inner) for inner in block.get("blocks") or [])
+        return "\n".join(line for line in lines if line)
+    if kind == "list":
+        return "\n".join(
+            "- " + " ".join(block_text(inner) for inner in item) for item in block.get("items", [])
+        )
+    if kind == "listing":
+        return "\n".join(
+            f"{line.get('number', '')} {'  ' * round(line.get('indent', 0))}{inline_text(line.get('inlines', []))}"
+            for line in block.get("lines", [])
+        )
+    return ""
+
+
+def section_heading(section: dict[str, Any]) -> str:
+    """A section's number and title, as the paper heads it.
+
+    Args:
+        section: The section.
+
+    Returns:
+        E.g. ``3.2 Attention``, or the title alone when unnumbered.
+    """
+    title = inline_text(section.get("title", []))
+    number = section.get("number") or ""
+    return f"{number} {title}".strip()
+
+
+def section_text(section: dict[str, Any]) -> str:
+    """A section as plain text: its heading, then its blocks.
+
+    Args:
+        section: The section.
+
+    Returns:
+        The text, blocks separated by blank lines.
+    """
+    body = "\n\n".join(text for text in (block_text(block) for block in section.get("blocks", [])) if text)
+    return f"## {section_heading(section)}\n\n{body}".rstrip()

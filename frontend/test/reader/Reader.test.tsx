@@ -5,10 +5,20 @@
  * refs and footnotes, and what it says when there's nothing to read.
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
+import { configureStore } from '@reduxjs/toolkit'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { ReactElement } from 'react'
+import { Provider } from 'react-redux'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import Reader from '../../src/reader/Reader'
-import type { ThreadRecord } from '../../src/store/explorations'
+import { readerSelectionText } from '../../src/reader/selectionText'
+import explorations, {
+  explorationOpened,
+  newExploration,
+  type ThreadRecord,
+} from '../../src/store/explorations'
+import transcript from '../../src/store/transcript'
+import workspace from '../../src/store/workspace'
 import * as api from '../../src/api'
 import type { ReaderDocument } from '../../src/api'
 
@@ -107,9 +117,42 @@ const DOCUMENT: ReaderDocument = {
   ],
 }
 
+/** Render inside a store holding the thread, as App does.
+ * @param ui The element.
+ * @returns The store and the render result.
+ */
+function mount(ui: ReactElement) {
+  const store = configureStore({ reducer: { workspace, transcript, explorations } })
+  const record = newExploration('saved')
+  record.threads.push(structuredClone(THREAD))
+  record.activeThreadId = THREAD.id
+  store.dispatch(explorationOpened(record))
+  return { store, ...render(<Provider store={store}>{ui}</Provider>) }
+}
+
+/** Select a phrase in a paragraph, as a reader's drag would, and let go.
+ * @param paragraph The paragraph's text, to find it by.
+ * @param phrase Text at the start of its first text node.
+ */
+async function highlight(paragraph: RegExp, phrase: string) {
+  // jsdom lays nothing out; the pill only needs a box to sit by.
+  Range.prototype.getBoundingClientRect ??= () => new DOMRect(100, 200, 80, 16)
+  const element = await screen.findByText(paragraph)
+  const textNode = element.firstChild!
+  const start = textNode.textContent!.indexOf(phrase)
+  const range = document.createRange()
+  range.setStart(textNode, start)
+  range.setEnd(textNode, start + phrase.length)
+  const selection = window.getSelection()!
+  selection.removeAllRanges()
+  selection.addRange(range)
+  fireEvent.mouseUp(element)
+  await screen.findByRole('toolbar', { name: 'Highlighted text' })
+}
+
 it('reads the paper by its arXiv id and renders it', async () => {
   const fetch = vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
-  render(<Reader thread={THREAD} />)
+  mount(<Reader thread={THREAD} />)
   expect(screen.getByText(/Reading the paper/)).toBeTruthy()
   await screen.findByRole('heading', { name: 'Attention Is All You Need' })
   expect(fetch.mock.calls[0][0]).toBe('1706.03762')
@@ -123,7 +166,7 @@ it('reads the paper by its arXiv id and renders it', async () => {
 
 it('lists sections down to subsubsections in the contents, and jumps', async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
-  render(<Reader thread={THREAD} />)
+  mount(<Reader thread={THREAD} />)
   const contents = await screen.findByRole('navigation', { name: 'Contents' })
   const entries = Array.from(contents.querySelectorAll('ol button')).map(
     (button) => button.textContent,
@@ -135,7 +178,7 @@ it('lists sections down to subsubsections in the contents, and jumps', async () 
 
 it('ties a citation to its entry and jumps there', async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
-  render(<Reader thread={THREAD} />)
+  mount(<Reader thread={THREAD} />)
   const cite = await screen.findByText('2', { selector: 'a.reader-cite' })
   expect(cite.getAttribute('title')).toBe('Bahdanau et al. Neural MT. 2014.')
   fireEvent.click(cite)
@@ -146,7 +189,7 @@ it('ties a citation to its entry and jumps there', async () => {
 
 it('opens a footnote in place', async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
-  render(<Reader thread={THREAD} />)
+  mount(<Reader thread={THREAD} />)
   const mark = await screen.findByRole('button', { name: '4' })
   expect(screen.queryByText('Dot products get large.')).toBeNull()
   fireEvent.click(mark)
@@ -159,7 +202,7 @@ it('says why there is nothing to read, and retries an outage', async () => {
     .spyOn(api, 'fetchDocument')
     .mockResolvedValueOnce({ available: false, reason: 'error' })
     .mockResolvedValueOnce(DOCUMENT)
-  render(<Reader thread={THREAD} />)
+  mount(<Reader thread={THREAD} />)
   await screen.findByRole('heading', { name: 'Couldn’t reach ar5iv' })
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
   await screen.findByRole('heading', { name: 'Attention Is All You Need' })
@@ -168,20 +211,20 @@ it('says why there is nothing to read, and retries an outage', async () => {
 
 it('offers the PDF when ar5iv has no render', async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'no_render' })
-  render(<Reader thread={THREAD} />)
+  mount(<Reader thread={THREAD} />)
   const link = await screen.findByRole('link', { name: 'Open the PDF on arXiv' })
   expect(link.getAttribute('href')).toBe('https://arxiv.org/pdf/1706.03762')
 })
 
 it('names a paper that is not on arXiv', async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'not_arxiv' })
-  render(<Reader thread={{ ...THREAD, paper: { ...THREAD.paper!, arxiv_id: null } }} />)
+  mount(<Reader thread={{ ...THREAD, paper: { ...THREAD.paper!, arxiv_id: null } }} />)
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Not on arXiv' })).toBeTruthy())
 })
 
 it('enlarges a figure panel with its caption', async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
-  render(<Reader thread={THREAD} />)
+  mount(<Reader thread={THREAD} />)
   fireEvent.click(await screen.findByRole('button', { name: 'Figure 1' }))
   const dialog = screen.getByRole('dialog', { name: 'Enlarged figure' })
   expect(dialog.textContent).toContain('Figure 1')
@@ -212,7 +255,7 @@ it("keeps an algorithm's line numbers and nesting", async () => {
     ],
   }
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(listing)
-  render(<Reader thread={THREAD} />)
+  mount(<Reader thread={THREAD} />)
   const inner = await screen.findByText('sample a batch')
   expect(inner.style.paddingLeft).toBe('1.5em')
   expect(screen.getByText('2', { selector: '.reader-listing-number' })).toBeTruthy()
@@ -222,7 +265,7 @@ it('folds the contents away by a drag, and back only by the bump', async () => {
   localStorage.removeItem('ca.readerContentsOpen')
   localStorage.removeItem('ca.readerContentsWidth')
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
-  const { container } = render(<Reader thread={THREAD} />)
+  const { container } = mount(<Reader thread={THREAD} />)
   const contents = await screen.findByRole('navigation', { name: 'Contents' })
   expect(contents.style.width).toBe('248px')
   const handle = container.querySelector('.reader-contents-handle')!
@@ -254,7 +297,7 @@ it('folds the contents away by a drag, and back only by the bump', async () => {
 
 it("puts the shell's overlays over the reading pane, beside the contents", async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
-  render(
+  mount(
     <Reader thread={THREAD}>
       <button type="button">back</button>
     </Reader>,
@@ -267,9 +310,66 @@ it("puts the shell's overlays over the reading pane, beside the contents", async
 it('folds the contents away by the bump on their edge', async () => {
   localStorage.removeItem('ca.readerContentsOpen')
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
-  render(<Reader thread={THREAD} />)
+  mount(<Reader thread={THREAD} />)
   fireEvent.click(await screen.findByRole('button', { name: 'Hide contents' }))
   expect(screen.queryByRole('navigation', { name: 'Contents' })).toBeNull()
   expect(localStorage.getItem('ca.readerContentsOpen')).toBe('0')
   expect(screen.getByRole('button', { name: 'Show contents' })).toBeTruthy()
+})
+
+it('explains a highlighted passage in the Reader Assistant, from its section', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const ask = vi.spyOn(api, 'streamAskReader').mockImplementation(async (_body, handlers) => {
+    handlers.onToken('They process tokens one at a time.')
+  })
+  const opened = vi.fn()
+  const { store } = mount(<Reader thread={THREAD} onAssistant={opened} />)
+  await highlight(/^Recurrent networks/, 'Recurrent networks')
+  fireEvent.mouseDown(screen.getByRole('button', { name: 'Explain' }))
+  expect(opened).toHaveBeenCalledWith()
+  await waitFor(() =>
+    expect(
+      store.getState().transcript.byKey['attention:reader'].chat.map((turn) => turn.text),
+    ).toEqual([
+      'Explain this passage from section 1, Introduction:\n\n“Recurrent networks”',
+      'They process tokens one at a time.',
+    ]),
+  )
+  expect(ask.mock.calls[0][0]).toMatchObject({ paper: '1706.03762', section: 'S1' })
+  expect(screen.queryByRole('toolbar', { name: 'Highlighted text' })).toBeNull()
+})
+
+it('asks for a passage in plain words with Simplify', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const ask = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
+  mount(<Reader thread={THREAD} onAssistant={() => {}} />)
+  await highlight(/^Recurrent networks/, 'Recurrent networks')
+  fireEvent.mouseDown(screen.getByRole('button', { name: 'Simplify' }))
+  await waitFor(() => expect(ask).toHaveBeenCalled())
+  expect(ask.mock.calls[0][0].question).toBe(
+    'Simplify, in plain words, this passage from section 1, Introduction:\n\n“Recurrent networks”',
+  )
+})
+
+it('attaches a highlighted passage to the assistant with Chat', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const ask = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
+  const opened = vi.fn()
+  mount(<Reader thread={THREAD} onAssistant={opened} />)
+  await highlight(/^Recurrent networks/, 'Recurrent networks')
+  fireEvent.mouseDown(screen.getByRole('button', { name: 'Chat' }))
+  expect(opened).toHaveBeenCalledWith({
+    text: 'Recurrent networks',
+    from: 'section 1, Introduction',
+  })
+  expect(ask).not.toHaveBeenCalled()
+})
+
+it("reads a highlighted formula back as its LaTeX, not KaTeX's doubled glyphs", async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  mount(<Reader thread={THREAD} />)
+  const tag = await screen.findByText('(1)')
+  const range = document.createRange()
+  range.selectNodeContents(tag.closest('.reader-equation')!)
+  expect(readerSelectionText(range)).toBe('$$QK^{T}$$ (1)')
 })

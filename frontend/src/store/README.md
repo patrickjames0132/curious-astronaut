@@ -146,6 +146,8 @@ addresses: a **chat**, a thread plus a tool (`ChatTool`: `graph` or
   (`conversationEnsured` makes sure it exists before a stream writes).
 - **Storage.** The Citation Graph's chat stays where it was (`data.chat`,
   `summary`, `summarizedThrough`); the course's is `ThreadRecord.courseChat`
+  and, since v8.38.0, the Reader's is `ThreadRecord.readerChat`, both listed
+  once in `chats.ts`'s `SIDE_CHAT_FIELDS` and looped over everywhere below
   (`{chat, summary?, summarizedThrough?}`), seeded into the transcript with
   the thread (`seedThread`) and written back by `explorationBody`.
   `threadSummarized` takes a `tool`, and clearing either chat drops its own

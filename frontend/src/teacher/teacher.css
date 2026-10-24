@@ -657,6 +657,12 @@
   background: var(--question-bg);
   color: var(--text-strong);
   margin-left: 28px;
+  /* A question can quote math (a highlight's Explain, v8.38.0), and an
+     equation can't wrap: it scrolls inside the bubble rather than spilling
+     past it, as display math does in answers (`.teacher-scroll
+     .katex-display`). */
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 .chat.assistant {
   background: var(--answer-bg);
