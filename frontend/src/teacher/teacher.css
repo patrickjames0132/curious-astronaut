@@ -1480,6 +1480,23 @@
   white-space: nowrap;
 }
 
+/* Lecture metadata and clock share a real row; only the metadata wraps. */
+.chat-lecture-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.chat-lecture-meta {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.chat-lecture-header > .response-timer {
+  position: static;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 .response-timer.running {
   color: var(--text);
 }

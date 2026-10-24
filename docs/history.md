@@ -4672,6 +4672,15 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Align lecture labels and their clock** *(v8.36.1)* — lecture replies
+      now put scope/routing metadata and the response timer in one flex header,
+      aligned on the first baseline. The metadata can wrap while the clock
+      keeps its own width and the beats keep the full bubble width. This removes
+      the empty top strip that the generic answer timer reserved above lecture
+      labels, without changing ordinary answer layouts or beat controls.
+      Verified by a shared-header regression test and approved in the browser
+      by Patrick, 2026-10-23.
+
 - [x] **Concise chat clocks that survive Quick response** *(v8.34.1)* —
       general chats and the Citation and Knowledge Graph assistants share
       a monochrome clock icon matching the timer’s text, with whole elapsed
