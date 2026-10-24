@@ -39,6 +39,22 @@ const turn = (overrides: Partial<ChatMsg> = {}): ChatMsg => ({
 afterEach(cleanup)
 
 describe('a turn whose answer is a lecture', () => {
+  it('keeps lecture metadata beside its timer in a shared header above the beats', () => {
+    const { container } = render(
+      <ChatMessage
+        message={turn({ beats: [BEAT], routedTo: 'lecture', respondedIn: 61_000 })}
+        active={false}
+        streaming={false}
+        onEnlarge={() => {}}
+      />,
+    )
+    const header = container.querySelector('.chat-lecture-header')!
+    expect(header.contains(screen.getByText('Answered as a lecture'))).toBe(true)
+    expect(header.contains(screen.getByTitle('How long this answer took'))).toBe(true)
+    expect(header.contains(screen.getByText('The first idea.'))).toBe(false)
+    expect(container.querySelector('.chat > .response-timer')).toBeNull()
+  })
+
   it('renders its beats where the prose would be', () => {
     render(
       <ChatMessage

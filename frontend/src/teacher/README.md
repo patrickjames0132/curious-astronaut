@@ -274,3 +274,7 @@ and return to the first graph without losing its conversation or selection.
 Quick response preserves the working answer’s original start time when replacing
 the exchange, so its running and completed timers include the full wait. New
 messages and ordinary retries start a fresh clock.
+
+Lecture timers sit in a shared header row beside scope and routing metadata,
+with baseline alignment and wrapping text, rather than the standalone answer
+timer’s reserved top strip.
