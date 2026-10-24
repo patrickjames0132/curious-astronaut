@@ -4672,6 +4672,16 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Responsive Citation Graph legend and local search** *(v8.36.2)* —
+      the legend and find control now share the canvas’s bottom row, matching
+      the Knowledge Graph’s responsive layout. Legend entries wrap between
+      items and ellipsize labels that cannot fit; swatches and the collapsed
+      find button retain their size. The expanded search pill uses at most
+      65% of the row and lets its input shrink, so narrowing the browser or
+      opening docked panels no longer makes it cover the legend. Empty row
+      space passes pointer events through to the canvas. Approved by Patrick,
+      2026-10-23.
+
 - [x] **Align lecture labels and their clock** *(v8.36.1)* — lecture replies
       now put scope/routing metadata and the response timer in one flex header,
       aligned on the first baseline. The metadata can wrap while the clock
