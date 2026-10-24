@@ -33,6 +33,9 @@ import type { WorkspaceState } from './workspace'
  */
 export type ThreadTool = 'cards' | 'graph' | 'knowledge' | 'reader'
 
+/** How the Reader shows a paper: its HTML render's text, or its PDF. */
+export type ReaderView = 'text' | 'pdf'
+
 export interface ThreadRecord {
   id: string
   title: string
@@ -51,6 +54,10 @@ export interface ThreadRecord {
   tool?: ThreadTool
   /** The seed's hydrated details, for the card home's header. Fetched once. */
   paper?: PaperDetails
+  /** How the Reader shows the paper (v8.40.0): its text, or its PDF. Absent
+   *  means the text, when there is one; a paper with no HTML render shows
+   *  its PDF regardless. */
+  readerView?: ReaderView
   /** The knowledge network's course (v8.14.0), once its card has been opened. */
   knowledge?: KnowledgeMap
   /**
@@ -310,6 +317,16 @@ const slice = createSlice({
      * @param state Exploration state.
      * @param action Thread and its paper.
      */
+    /** The Reader's Text/PDF switch, remembered on the thread (v8.40.0). */
+    threadReaderViewSet(state, action: PayloadAction<{ id: string; view: ReaderView }>) {
+      for (const record of Object.values(state.byId)) {
+        const thread = record.threads.find((item) => item.id === action.payload.id)
+        if (thread) {
+          thread.readerView = action.payload.view
+          record.revision++
+        }
+      }
+    },
     threadPaperSet(state, action: PayloadAction<{ id: string; paper: PaperDetails }>) {
       for (const record of Object.values(state.byId)) {
         const thread = record.threads.find((item) => item.id === action.payload.id)
@@ -620,6 +637,7 @@ export const {
   threadToolSet,
   threadCardsShown,
   threadPaperSet,
+  threadReaderViewSet,
   threadRebased,
   knowledgeStarted,
   knowledgeExpanded,

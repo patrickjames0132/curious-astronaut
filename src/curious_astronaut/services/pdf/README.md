@@ -173,3 +173,36 @@ were tuned against three real PDFs (JMLR's LDA paper — vector-only figures;
 Attention Is All You Need — raster figures + booktabs tables; PPO — algorithm
 floats and rules-and-ticks appendix tables): 33 of 35 real floats mined with
 correct captions, the two misses both text-only floats.
+
+## The Reader's PDF view (v8.40.0)
+
+The Reader shows a paper as its PDF when it has no HTML render, or when the
+reader chooses to. Two additions serve it, both on the same cache:
+
+- **`paper_pdf_url(ref, provider)`** (`resolve.py`): arXiv's PDF for an arXiv
+  id (always open, no provider lookup), else `resolve_oa_pdf`. The route
+  `/api/paper/<ref>/pdf` (`routes/graph.py`) resolves with it and serves the
+  file from `fetch_pdf`'s cache, so pdf.js reads same-origin bytes and the
+  paper is downloaded once. Serving needs no optional extra.
+- **`get_pdf_contents(url)`** (`mine.py`, cached as `pdfcontents:v2:<token>`; the
+  logic in `headings.py`): a table of contents for the PDF view, its outline
+  when it has one, else the section headings found in its text. Many arXiv
+  PDFs carry no outline (Adam's and SAC's don't), so the heuristic matters: a
+  heading is a short line set larger or bolder than the body that is numbered
+  ("3.2", "B.1") or a standard unnumbered one (Abstract, References). It
+  joins a number set apart from its title on one baseline (Attention, Adam),
+  spaces small caps from the gaps between spans (Adam), takes a wrapped
+  heading's second line (SAC), and shows ALL CAPS in sentence case. On
+  those three papers it found every section: Attention's headings match its
+  own 22-entry outline. Every entry carries `top`, how far down its page
+  the heading sits (points from the top edge), so the Reader can jump to the
+  right one of two sections starting on one page: a found heading's own
+  line, an outline entry's destination, which PyMuPDF reads back bottom-up
+  for a named destination (hyperref's) and top-down for a direct one.
+  Synthetic PDFs pin each case
+  (`test/curious_astronaut/services/pdf/test_headings.py`).
+- **`get_pdf_pages(url)`** (`mine.py`, cached as `pdfpages:<token>`): the text
+  page by page (`text.extract_pages`), for the Reader assistant's "page in
+  view". `extract_text` is now the pages joined. Needs the `pdf` extra; a
+  missing extra raises `MissingExtra` and isn't cached, so installing it takes
+  effect at once.

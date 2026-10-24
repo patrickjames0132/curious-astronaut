@@ -66,3 +66,17 @@ def test_prime_preempts_the_provider_lookup(monkeypatch):
 
 def test_arxiv_pdf_url():
     assert resolve.arxiv_pdf_url("1706.03762") == "https://arxiv.org/pdf/1706.03762"
+
+
+def test_paper_pdf_url_is_arxivs_for_an_arxiv_id_else_the_providers(monkeypatch):
+    asked = []
+
+    def fake_resolve(node_id, provider):
+        asked.append((node_id, provider))
+        return "https://journal.example/paper.pdf"
+
+    monkeypatch.setattr(resolve, "resolve_oa_pdf", fake_resolve)
+    assert resolve.paper_pdf_url("1412.6980", "s2") == "https://arxiv.org/pdf/1412.6980"
+    assert asked == []  # arXiv's PDF is always open; no provider lookup
+    assert resolve.paper_pdf_url("abc123", "openalex") == "https://journal.example/paper.pdf"
+    assert asked == [("abc123", "openalex")]

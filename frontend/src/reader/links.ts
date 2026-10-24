@@ -42,6 +42,16 @@ export function readerDomId(id: string): string {
 }
 
 /**
+ * The DOM id of a page in the PDF view (v8.40.0), for jumps.
+ *
+ * @param page The 1-based page.
+ * @returns Its id.
+ */
+export function pdfPageId(page: number): string {
+  return readerDomId(`page:${page}`)
+}
+
+/**
  * A run list as plain text, for tooltips and accessible labels.
  *
  * @param inlines The runs.

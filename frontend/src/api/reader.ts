@@ -113,3 +113,40 @@ export async function fetchDocument(ref: string, signal?: AbortSignal): Promise<
   if (!res.ok) return { available: false, reason: 'error' }
   return res.json()
 }
+
+/**
+ * Where the Reader's PDF view reads a paper's PDF (v8.40.0): from our own
+ * origin, out of the server's PDF cache.
+ *
+ * @param ref The paper's arXiv id, or its provider id.
+ * @param provider Who to ask for a non-arXiv paper's open-access PDF.
+ * @returns The URL.
+ */
+export function pdfUrl(ref: string, provider: string): string {
+  return `/api/paper/${encodeURIComponent(ref)}/pdf?provider=${encodeURIComponent(provider)}`
+}
+
+/**
+ * A paper's PDF table of contents (v8.40.0): its outline, else the headings
+ * found in its text.
+ *
+ * @param ref The paper's arXiv id, or its provider id.
+ * @param provider Who to ask for a non-arXiv paper's open-access PDF.
+ * @param signal Aborts the request when the view changes.
+ * @returns The entries (empty when there are none, or on any failure).
+ */
+export async function fetchPdfContents(
+  ref: string,
+  provider: string,
+  signal?: AbortSignal,
+): Promise<{ title: string; level: number; page: number; top?: number }[]> {
+  const res = await fetch(
+    `/api/paper/${encodeURIComponent(ref)}/pdf-contents?provider=${encodeURIComponent(provider)}`,
+    { signal },
+  )
+  if (!res.ok) return []
+  const data = (await res.json()) as {
+    entries?: { title: string; level: number; page: number; top?: number }[]
+  }
+  return data.entries ?? []
+}

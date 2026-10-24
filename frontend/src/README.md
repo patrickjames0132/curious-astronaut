@@ -47,6 +47,8 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │  ├─ contents rail             (in Reader.tsx; follows the reading)
    │  ├─ highlight menu            selection/SelectionMenu.tsx (shared:
    │  │                              Explain · Simplify · Chat, v8.38.0)
+   │  ├─ the PDF view              reader/PdfView.tsx (pdf.js, lazy-loaded;
+   │  │                              v8.40.0), with the Text/PDF switch
    │  └─ the text                  reader/ReaderBody.tsx — blocks and runs:
    │                                 equations (notation/ TeX), figures,
    │                                 tables, citations, refs, footnotes

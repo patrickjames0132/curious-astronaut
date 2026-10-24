@@ -3842,6 +3842,42 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **The Reader card, stage 3: the PDF view** *(v8.40.0)* — the paper's
+      PDF in the Reader, drawn by pdf.js from the copy `services/pdf` already
+      caches, served from our origin (`GET /api/paper/<ref>/pdf`). A **Text /
+      PDF switch** sits under the paper, remembered per thread
+      (`ThreadRecord.readerView`). A paper with no HTML render (Adam,
+      1412.6980, which neither arXiv nor ar5iv could convert; open-access
+      papers not on arXiv) opens in the PDF, with Text greyed out and a
+      tooltip saying why (Patrick). Switching slides the arriving view in
+      from its button's side, and the switch's thumb slides with it. Pages
+      are sized up front, drawn near the view and never torn down, so a
+      selection can't vanish under a redraw.
+
+      **The AI tools work on it.** pdf.js's text layer keeps text
+      selectable, so the highlight menu (Explain · Simplify · Chat) works
+      as in the text view, quoting "page 3". The Reader Assistant reads the
+      PDF's text page by page, the page in view first (`_pdf_context`; it
+      needs the `pdf` extra and says so without it).
+
+      **A table of contents for every PDF.** The PDF's own bookmarks when it
+      has them (Attention has 22), else the section headings found in its
+      text (`services/pdf/headings.py`), since many arXiv PDFs have none
+      (Adam, SAC). A heading is a short, larger-or-bolder line that is
+      numbered or a standard name (Abstract, References); the heuristic
+      joins a number set apart from its title, spaces small caps, takes a
+      wrapped heading's second line, and shows ALL CAPS in sentence case.
+      It matched Attention's bookmarks exactly. Each entry knows how far down
+      its page the heading sits, because papers often start two sections on
+      one page: knowing only the page, a click on the SHARSA paper's "The
+      curse of horizon in policy learning" landed on, and lit, "Horizon
+      reduction makes RL scale better" below it (Patrick). A clicked entry
+      now stays lit until you scroll by hand, in both views.
+
+      **The contents' fold got smooth** (Patrick, both views): it slides by
+      transform now, and the PDF pages resize once the width settles,
+      keeping your place (`docs/bugs.md`).
+
 - [x] **The Reader card, stage 2: the highlight menu and the Reader
       Assistant** *(v8.38.0)* — select text in the Reader for **Explain ·
       Simplify · Chat**. Explain and Simplify ask a new **Reader Assistant**

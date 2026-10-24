@@ -19,7 +19,9 @@ down.
 | `POST /api/graph/links` | the citations among the papers on a graph, for the "Links between papers" switch (v8.18.0) |
 | `GET /api/paper/<ref>` | hydrate one paper's details for the panel |
 | `GET /api/paper/<ref>/figures` | the paper's figures — ar5iv, else floats mined from its OA PDF |
-| `GET /api/paper/<ref>/document` | the paper as a structured document for the Reader card (ar5iv only, v8.37.0) |
+| `GET /api/paper/<ref>/document` | the paper as a structured document for the Reader card (v8.37.0; arXiv's HTML first, ar5iv as the fallback since v8.39.0) |
+| `GET /api/paper/<ref>/pdf` | the paper's PDF from the local cache, for the Reader's PDF view (v8.40.0): arXiv's for an arXiv id, else the provider's open-access PDF; 404 with none, 502 when the download fails |
+| `GET /api/paper/<ref>/pdf-contents` | the PDF's table of contents (v8.40.0): its outline, else headings found in its text, each entry `{title, level, page, top?}`; a nicety, `{source: "none", entries: []}` on any failure. A distinct suffix, not `…/pdf/contents`, so the `<path:>` rule for `…/pdf` can't swallow it |
 | `GET /api/paper/<ref>/code` | Hugging Face code & artifact links |
 | `GET /api/paper/<ref>/categories` | the paper's own arXiv category tags |
 | `GET /api/pdf_figure/<token>/<n>` | one mined PDF float, rendered to PNG |
@@ -386,7 +388,7 @@ Thin wrappers over `services/sources`. Points worth knowing:
 | `POST /api/ask` | agentic Q&A over the graph (no paper search since v8.28.0: it reads and expands the graph) |
 | `POST /api/ask_sources` | chat with no graph open (library + search) |
 | `POST /api/ask_course` | the Knowledge Graph's course assistant (v8.25.0; no paper search since v8.28.0): the same graph-free researcher, with the thread's course laid out and bounded by `_course_context` (the open lesson whole, the others' openings) |
-| `POST /api/ask_reader` | the Reader's assistant (v8.38.0; no paper search): the same graph-free researcher over the paper being read. The client sends only the arXiv id and the section in view; `_reading_context` lays the paper out from the cached document (`integrations/arxiv/document.py`): title, abstract, outline, the section in view whole, then the rest in order under `READING_CHARS` (most papers fit whole). 400 when the paper has no readable text |
+| `POST /api/ask_reader` | the Reader's assistant (v8.38.0; no paper search): the same graph-free researcher over the paper being read. The client sends only the arXiv id and the section in view; `_reading_context` lays the paper out from the cached document (`integrations/arxiv/document.py`): title, abstract, outline, the section in view whole, then the rest in order under `READING_CHARS` (most papers fit whole). Since v8.40.0 `_pdf_context` lays it out from the PDF's text page by page instead, the page in view first, when the Reader shows the PDF (`section` is `page:<n>`) or the paper has no HTML render (needs the `pdf` extra, and says so without it). 400 when there's nothing to read |
 
 All three `ask` routes take `quick: true` since v8.30.0: ⚡ Quick response, the researcher with no tools (`_opt_quick`; see the researcher's README).
 

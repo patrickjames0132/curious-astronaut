@@ -12,6 +12,8 @@ GET /api/paper/<arxiv_id>          -> full details for one paper (panel hydrate)
 POST /api/paper/tldr               -> generate (or recall) a paper's TL;DR
 GET /api/paper/<ref>/figures       -> figures + captions (ar5iv, else mined OA PDF)
 GET /api/paper/<arxiv_id>/document -> the paper as a structured document (Reader card)
+GET /api/paper/<ref>/pdf           -> the paper's PDF, from the local cache (Reader's PDF view)
+GET /api/paper/<ref>/pdf-contents  -> its table of contents: outline, else found headings
 GET /api/paper/<arxiv_id>/code     -> code & artifact links (Hugging Face Papers)
 GET /api/paper/<arxiv_id>/categories -> the paper's own arXiv category tags
 GET /api/pdf_figure/<token>/<n>    -> one mined PDF float, rendered to PNG
@@ -35,7 +37,7 @@ import threading
 import urllib.parse
 from typing import Iterator
 
-from flask import Blueprint, Response, current_app, jsonify, request
+from flask import Blueprint, Response, current_app, jsonify, request, send_file
 from flask.typing import ResponseReturnValue
 
 from ..agents.orchestrators import summarizer
@@ -601,6 +603,70 @@ def _proxy_images(sections: list[dict]) -> None:
 
     for section in sections:
         walk(section["blocks"])
+
+
+@bp.get("/api/paper/<path:paper_ref>/pdf")
+def api_paper_pdf(paper_ref: str) -> ResponseReturnValue:
+    """Serve a paper's PDF for the Reader's PDF view (v8.40.0).
+
+    The file comes from ``services/pdf``'s on-disk cache, downloaded once, so
+    the browser reads it from our origin (pdf.js needs same-origin bytes, and
+    the paper isn't re-downloaded on every open). The URL is resolved here,
+    never taken from the client: arXiv's PDF for an arXiv id, else the
+    provider's open-access PDF.
+
+    Args:
+        paper_ref: The paper's arXiv id, or its provider node id.
+
+    Query args:
+        provider: Who to ask for a non-arXiv paper's open-access PDF.
+
+    Returns:
+        The PDF with ``nosniff``; ``{error}`` with 404 when the paper has no
+        open-access PDF, or 502 when the download fails.
+    """
+    ref = normalize_arxiv_id(paper_ref)
+    url = pdf_service.paper_pdf_url(ref, _requested_provider())
+    if not url:
+        return jsonify({"error": "This paper has no open-access PDF."}), 404
+    try:
+        path = pdf_service.fetch_pdf(url)
+    except pdf_service.PdfError as exc:
+        current_app.logger.warning("PDF download failed for %s: %s", ref, exc)
+        return jsonify({"error": "Couldn't download this paper's PDF."}), 502
+    response = send_file(path, mimetype="application/pdf", max_age=86400)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@bp.get("/api/paper/<path:paper_ref>/pdf-contents")
+def api_paper_pdf_contents(paper_ref: str) -> Response:
+    """A paper's PDF table of contents, for the Reader's PDF view (v8.40.0).
+
+    The PDF's own outline when it has one, else the section headings found in
+    its text (``services/pdf/headings.py``): many arXiv PDFs carry no outline.
+
+    Args:
+        paper_ref: The paper's arXiv id, or its provider node id.
+
+    Query args:
+        provider: Who to ask for a non-arXiv paper's open-access PDF.
+
+    Returns:
+        JSON ``{source, entries: [{title, level, page, top?}]}``. A panel nicety: no
+        PDF, no ``pdf`` extra, or a failed download all come back as
+        ``{source: "none", entries: []}``, never an error.
+    """
+    none = {"source": "none", "entries": []}
+    ref = normalize_arxiv_id(paper_ref)
+    url = pdf_service.paper_pdf_url(ref, _requested_provider())
+    if not url:
+        return jsonify(none)
+    try:
+        return jsonify(pdf_service.get_pdf_contents(url))
+    except Exception:  # no pdf extra, or an unreadable file: no contents
+        current_app.logger.warning("PDF contents failed for %s", ref, exc_info=True)
+        return jsonify(none)
 
 
 @bp.get("/api/paper/<path:paper_ref>/code")

@@ -43,8 +43,12 @@ equations typeset, figures that enlarge with their captions, tables,
 algorithms and footnotes in place. A citation shows its reference on hover
 and jumps to it on click, and a figure or equation number jumps to it. The
 contents follow along as you read; drag their edge to resize them, or fold
-them away to a thin line with the bump on that edge. Papers not on arXiv, or
-that ar5iv couldn't convert, say so (with a link to the PDF). Highlight any
+them away to a thin line with the bump on that edge. A **Text / PDF** switch
+shows the paper's PDF instead, remembered per paper, and papers with no HTML
+render (arXiv couldn't convert them, or they aren't on arXiv but have an
+open-access PDF) open straight in it. The PDF's contents are its own
+bookmarks, else the section headings found in its text, and the highlight
+menu and assistant work on it too, reading the PDF page by page. Highlight any
 passage, an equation or part of one included, and choose **Explain**,
 **Simplify** or **Chat**: the **Reader Assistant** (🎓, docked on the right)
 answers from the paper itself, starting with the section you're in, and
@@ -131,7 +135,7 @@ Without mise, `uv` and `Node.js` installed any other way work fine too.
 > | Extra | Gives you | Cost |
 > | --- | --- | --- |
 > | *(core)* | the graph explorer and the AI teacher | 93 MB |
-> | `pdf` | figures, tables and algorithm boxes mined from PDFs | +54 MB |
+> | `pdf` | figures, tables and algorithm boxes mined from PDFs; the Reader's PDF contents and assistant | +54 MB |
 > | `corpus` | the offline Semantic Scholar citations corpus | +44 MB |
 > | `sources` | search over your own uploaded books and PDFs | +778 MB |
 >

@@ -11,7 +11,9 @@ PDF that yields nothing shouldn't be re-mined on every panel open.
 
 Two cache keys per PDF, plus a reverse index:
 
-* ``pdftext:<token>`` / ``pdffloats:<token>`` — the mined results.
+* ``pdftext:<token>`` / ``pdffloats:<token>`` — the mined results, and
+  ``pdfpages:<token>`` (v8.40.0) — the text page by page, for the Reader, and
+  ``pdfcontents:v2:<token>`` — its table of contents (``headings.py``).
 * ``pdfurl:<token>`` — token → URL, written whenever mining succeeds. The
   figure route works from tokens alone (the browser never supplies a URL),
   so this reverse lookup is what lets it re-fetch a pruned PDF — and its
@@ -26,7 +28,7 @@ from __future__ import annotations
 
 from ...config import config
 from ...storage import cache
-from . import fetch, floats, text
+from . import fetch, floats, headings, text
 from .errors import PdfError
 
 # Published PDFs are immutable; cache their mined text/floats for a month
@@ -61,6 +63,71 @@ def get_pdf_text(url: str, *, refresh: bool = False) -> dict:
     result = {"available": bool(extracted), "text": extracted}
     cache.set(key, result)
     cache.set(f"pdfurl:{fetch.url_token(url)}", url)
+    return result
+
+
+def get_pdf_pages(url: str, *, refresh: bool = False) -> dict:
+    """Fetch a PDF (cached) and extract its text page by page (cached).
+
+    Args:
+        url: The PDF's absolute URL.
+        refresh: When True, bypass the mined-pages cache and re-extract.
+
+    Returns:
+        ``{"available": bool, "pages": [str]}`` — ``available`` is False when
+        the download fails or no page has text; that miss is cached.
+
+    Raises:
+        optional.MissingExtra: When the ``pdf`` extra isn't installed (not
+            cached: installing it should take effect at once).
+    """
+    key = f"pdfpages:{fetch.url_token(url)}"
+    if not refresh:
+        cached = cache.get(key, CACHE_TTL)
+        if cached is not None:
+            return cached
+    try:
+        path = fetch.fetch_pdf(url)
+    except PdfError:
+        result: dict = {"available": False, "pages": []}
+        cache.set(key, result)
+        return result
+    pages = text.extract_pages(path)
+    result = {"available": any(pages), "pages": pages}
+    cache.set(key, result)
+    cache.set(f"pdfurl:{fetch.url_token(url)}", url)
+    return result
+
+
+def get_pdf_contents(url: str, *, refresh: bool = False) -> dict:
+    """Fetch a PDF (cached) and find its table of contents (cached).
+
+    Args:
+        url: The PDF's absolute URL.
+        refresh: When True, bypass the cache and look again.
+
+    Returns:
+        ``{"source": "outline" | "headings" | "none", "entries": [{title,
+        level, page, top?}]}`` (see ``headings.find_contents``); ``none`` with no
+        entries when the download fails, and that miss is cached.
+
+    Raises:
+        optional.MissingExtra: When the ``pdf`` extra isn't installed (not
+            cached).
+    """
+    key = f"pdfcontents:v2:{fetch.url_token(url)}"
+    if not refresh:
+        cached = cache.get(key, CACHE_TTL)
+        if cached is not None:
+            return cached
+    try:
+        path = fetch.fetch_pdf(url)
+    except PdfError:
+        result: dict = {"source": "none", "entries": []}
+        cache.set(key, result)
+        return result
+    result = headings.find_contents(path)
+    cache.set(key, result)
     return result
 
 

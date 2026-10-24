@@ -69,7 +69,8 @@ export function askReader(request: AssistantQuestion) {
     const paper = documentRef(thread)
     if (!paper) return null
     const section = readingSections.get(thread.id) ?? null
-    return (body, handlers) => streamAskReader({ ...body, paper, section }, handlers)
+    const title = thread.paper?.title ?? thread.title
+    return (body, handlers) => streamAskReader({ ...body, paper, section, title }, handlers)
   })
 }
 

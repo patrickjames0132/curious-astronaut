@@ -36,11 +36,13 @@ from flask import Blueprint, jsonify, request
 from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
 
+from .. import optional
 from ..agents import events, streams
 from ..agents.orchestrators import lecturer, researcher, router
 from ..config import config
 from ..integrations import arxiv
 from ..integrations.arxiv import document as arxiv_document
+from ..services import pdf as pdf_service
 from ..services import search as search_service
 from ..services.graph import Node, Provider, resolve_provider
 from .sse import sse, sse_response
@@ -327,13 +329,91 @@ OPEN_SECTION_CHARS = 20000
 READING_CHARS = 60000
 
 
-def _reading_context(paper: object, section: object) -> str:
-    """Lay the paper open in the Reader out for the researcher's prompt (v8.38.0).
+#: Where the Reader is in a PDF: ``page:<n>`` (1-based), in place of a section id.
+PAGE_PREFIX = "page:"
 
-    Built here from the cached structured document rather than sent by the
-    client, which only names the paper and the section: the server already
-    holds the text (the Reader fetched it to show it), and a page of paper
-    is too much to post with every question.
+
+def _reading_context(
+    paper: object, section: object, provider: Provider, title: object = None
+) -> tuple[str, str]:
+    """Lay the paper open in the Reader out for the researcher's prompt.
+
+    Built here rather than sent by the client, which only names the paper and
+    where it is: the server already holds the text (the Reader fetched it to
+    show it), and a page of paper is too much to post with every question.
+    Two sources (v8.40.0): the structured document (v8.38.0) when the Reader
+    shows the text, and the PDF's text page by page when it shows the PDF,
+    or when the paper has no HTML render at all.
+
+    Args:
+        paper: The paper's arXiv id, or its provider node id for a paper not
+            on arXiv.
+        section: Where the reader is: a section id, ``page:<n>`` in the PDF
+            view, or None.
+        provider: Who to ask for a non-arXiv paper's open-access PDF.
+        title: The paper's title, for a PDF (which carries no reliable one).
+
+    Returns:
+        ``(block, error)``: the reading block, or '' with what to tell the
+        reader when there is nothing to read from.
+    """
+    if not isinstance(paper, str) or not paper.strip():
+        return "", "This paper has no text the assistant can read."
+    in_pdf = isinstance(section, str) and section.startswith(PAGE_PREFIX)
+    if not in_pdf:
+        block = _document_context(paper, section)
+        if block:
+            return block, ""
+    return _pdf_context(paper, section if in_pdf else None, provider, title)
+
+
+def _pdf_context(paper: str, section: object, provider: Provider, title: object) -> tuple[str, str]:
+    """The paper laid out from its PDF's text, page by page (v8.40.0).
+
+    Args:
+        paper: The paper's arXiv id or provider node id.
+        section: ``page:<n>`` for the page in view, or None.
+        provider: Who to ask for a non-arXiv paper's open-access PDF.
+        title: The paper's title, as the client knows it.
+
+    Returns:
+        ``(block, error)`` as for ``_reading_context``.
+    """
+    ref = arxiv.extract_id(paper) or paper.strip()
+    url = pdf_service.paper_pdf_url(ref, provider)
+    if not url:
+        return "", "This paper has no text the assistant can read."
+    if not optional.available("pdf"):
+        return "", (
+            "Reading a PDF needs the pdf extra, which this install doesn't have: "
+            "uv sync --extra pdf"
+        )
+    pages = pdf_service.get_pdf_pages(url).get("pages") or []
+    if not any(pages):
+        return "", "This paper's PDF has no text the assistant can read (it may be scanned)."
+    opened = 0
+    if isinstance(section, str):
+        digits = section[len(PAGE_PREFIX):]
+        opened = int(digits) if digits.isdigit() and 1 <= int(digits) <= len(pages) else 0
+    name = _clip(title, 300) or "the paper"
+    block = f"THE PAPER BEING READ: {name!r}, as its PDF ({len(pages)} pages).\n"
+    if opened:
+        block += f"\nTHE PAGE THEY ARE READING: page {opened}\n\n{pages[opened - 1][:OPEN_SECTION_CHARS]}\n"
+    block += "\nTHE PAPER'S TEXT, page by page:\n"
+    for number, page in enumerate(pages, start=1):
+        if number == opened:
+            block += f"\n--- page {number} ---\n(shown above)\n"
+            continue
+        text = f"\n--- page {number} ---\n{page}\n"
+        if len(block) + len(text) > READING_CHARS:
+            block += "\n(The rest of the paper is cut for length.)"
+            break
+        block += text
+    return block[:READING_CHARS], ""
+
+
+def _document_context(paper: str, section: object) -> str:
+    """The paper laid out from its structured document (v8.38.0).
 
     Args:
         paper: The paper's arXiv id, as the Reader asked for its document.
@@ -344,7 +424,7 @@ def _reading_context(paper: object, section: object) -> str:
         whole, then the rest of the paper in order under ``READING_CHARS`` —
         or '' when the paper has no readable document.
     """
-    if not isinstance(paper, str) or not arxiv.looks_arxiv(arxiv.extract_id(paper) or paper):
+    if not arxiv.looks_arxiv(arxiv.extract_id(paper) or paper):
         return ""
     try:
         doc = arxiv.get_document(arxiv.extract_id(paper) or paper)
@@ -663,10 +743,11 @@ def api_ask_reader() -> ResponseReturnValue:
     chat's job, and the paper's Citation Graph is one card away.
 
     Body:
-        ``{question, paper, section?, history?, thread_context?, provider?,
-        source_ids?, quick?, model?}`` — ``paper`` the arXiv id the Reader
-        read, ``section`` the id of the section in view; the rest as for
-        ``/api/ask_sources``.
+        ``{question, paper, section?, title?, history?, thread_context?,
+        provider?, source_ids?, quick?, model?}`` — ``paper`` the arXiv id
+        (or provider id) the Reader read, ``section`` the section in view or
+        ``page:<n>`` in the PDF view (v8.40.0), ``title`` the paper's title
+        for a PDF; the rest as for ``/api/ask_sources``.
 
     Returns:
         An SSE stream as for ``/api/ask_sources``. HTTP 400 when the question
@@ -676,10 +757,12 @@ def api_ask_reader() -> ResponseReturnValue:
     question = (payload.get("question") or "").strip()
     if not question:
         return jsonify({"error": "question is required"}), 400
-    reading = _reading_context(payload.get("paper"), payload.get("section"))
-    if not reading:
-        return jsonify({"error": "This paper has no text the assistant can read."}), 400
     provider = resolve_provider(payload.get("provider"))
+    reading, error = _reading_context(
+        payload.get("paper"), payload.get("section"), provider, payload.get("title")
+    )
+    if not reading:
+        return jsonify({"error": error}), 400
 
     return sse_response(
         _relay(
