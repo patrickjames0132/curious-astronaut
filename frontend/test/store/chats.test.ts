@@ -31,6 +31,8 @@ describe('chat keys', () => {
     expect(chatKey('abc', 'knowledge')).toBe('abc:knowledge')
     expect(chatOf('abc')).toEqual({ threadId: 'abc', tool: 'graph' })
     expect(chatOf('abc:knowledge')).toEqual({ threadId: 'abc', tool: 'knowledge' })
+    expect(chatKey('abc', 'reader')).toBe('abc:reader')
+    expect(chatOf('abc:reader')).toEqual({ threadId: 'abc', tool: 'reader' })
   })
   it("label a paper thread's chats by tool, and General as itself", () => {
     expect(chatLabel(paperThread('ppo', 'PPO'), 'knowledge')).toBe('PPO › Knowledge Graph')
@@ -55,6 +57,20 @@ describe('explorationChats', () => {
       'DQN › Citation Graph',
       'SAC › Citation Graph',
       'SAC › Knowledge Graph',
+    ])
+  })
+  it('offers a Reader chat once it has turns (v8.38.0)', () => {
+    const record = newExploration('x')
+    record.threads.push(
+      paperThread('att', 'Attention', { readerChat: { chat: [{ role: 'user', text: 'hi' }] } }),
+      paperThread('dqn', 'DQN'),
+    )
+    const labels = explorationChats(record, { byKey: {} }).map((chat) => chat.label)
+    expect(labels).toEqual([
+      'New chat',
+      'Attention › Citation Graph',
+      'Attention › Reader',
+      'DQN › Citation Graph',
     ])
   })
   it("reads a chat's live turns before its saved ones", () => {

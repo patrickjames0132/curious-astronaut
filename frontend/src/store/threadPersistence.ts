@@ -5,7 +5,7 @@
  */
 import { nanoid } from '@reduxjs/toolkit'
 import type { SavedSession, SaveSessionBody, SessionData, ChatMsg } from '../api'
-import { chatKey } from './chats'
+import { SIDE_CHAT_FIELDS, SIDE_CHAT_TOOLS, chatKey } from './chats'
 import type { ExplorationRecord, ExplorationsState, ThreadRecord } from './explorations'
 import type { TranscriptState } from './transcript'
 import { buildSaveBody, restoredLectureTurn, withGraphRefs } from './workspace'
@@ -108,15 +108,16 @@ export function explorationBody(
         discovered_edges: [...(data.discovered_edges ?? []), ...pending.edges],
       }
     const { workspace: _workspace, ...metadata } = thread
-    // The Knowledge Graph assistant's chat (v8.25.0), as this sitting has it.
-    const courseChat = state.transcript.byKey[chatKey(thread.id, 'knowledge')]?.chat
-    if (courseChat?.length || thread.courseChat)
-      return {
-        ...metadata,
-        data,
-        courseChat: { ...thread.courseChat, chat: courseChat ?? thread.courseChat?.chat ?? [] },
-      }
-    return { ...metadata, data }
+    // The side chats (the Knowledge Graph assistant's, v8.25.0; the
+    // Reader's, v8.38.0), as this sitting has them.
+    const saved: Partial<Pick<ThreadRecord, 'courseChat' | 'readerChat'>> = {}
+    for (const tool of SIDE_CHAT_TOOLS) {
+      const field = SIDE_CHAT_FIELDS[tool]
+      const live = state.transcript.byKey[chatKey(thread.id, tool)]?.chat
+      if (live?.length || thread[field])
+        saved[field] = { ...thread[field], chat: live ?? thread[field]?.chat ?? [] }
+    }
+    return { ...metadata, data, ...saved }
   })
   return {
     id: record.id,

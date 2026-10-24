@@ -17,8 +17,6 @@ knowledge/
   KnowledgeLegend.tsx   — node kinds, the edge, and node states (bottom-left)
                           (the find bar, bottom-right, is ../graph/controls/FindBar)
   KnowledgePanel.tsx    — the side panel: why it's needed, what it needs, the lesson
-  SelectionMenu.tsx     — Explain · Expand over a passage highlighted in a lesson (v8.25.0)
-  useLessonSelection.ts — reads that selection and places the menu
   look.ts               — shared by both views: colours, sizes, labels, stable data, clicks
   useLessons.ts         — lesson streaming that outlives the tool's mount
   model.ts              — the graph and the pure rules over it (no React, no store)
@@ -586,7 +584,9 @@ branch, the way the assistant shows figures in its answers.
 Select a word or passage in a **finished** lesson and a small pill appears
 over it (`SelectionMenu`, after SpatialRead's, which Patrick pointed at):
 **Explain | Expand | Chat**, words rather than icons so the pill reads at
-a glance, and Chat last so the first two kept their places. `useLessonSelection` is the
+a glance, and Chat last so the first two kept their places. The pill and its
+hook live in `../selection/` since v8.38.0, when the Reader took them up with
+its own actions. `useTextSelection` (`useLessonSelection` until then) is the
 frontend's first reader of a text selection: it opens the pill when the
 reader lets go (not mid-drag), places it above the passage in fixed
 coordinates (below it near the top of the window), kept inside the

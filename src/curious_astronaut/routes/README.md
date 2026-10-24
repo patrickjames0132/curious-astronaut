@@ -385,6 +385,7 @@ Thin wrappers over `services/sources`. Points worth knowing:
 | `POST /api/ask` | agentic Q&A over the graph (no paper search since v8.28.0: it reads and expands the graph) |
 | `POST /api/ask_sources` | chat with no graph open (library + search) |
 | `POST /api/ask_course` | the Knowledge Graph's course assistant (v8.25.0; no paper search since v8.28.0): the same graph-free researcher, with the thread's course laid out and bounded by `_course_context` (the open lesson whole, the others' openings) |
+| `POST /api/ask_reader` | the Reader's assistant (v8.38.0; no paper search): the same graph-free researcher over the paper being read. The client sends only the arXiv id and the section in view; `_reading_context` lays the paper out from the cached document (`integrations/arxiv/document.py`): title, abstract, outline, the section in view whole, then the rest in order under `READING_CHARS` (most papers fit whole). 400 when the paper has no readable text |
 
 All three `ask` routes take `quick: true` since v8.30.0: ⚡ Quick response, the researcher with no tools (`_opt_quick`; see the researcher's README).
 

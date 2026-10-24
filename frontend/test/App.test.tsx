@@ -42,6 +42,16 @@ vi.mock('../src/knowledge/assistant/CourseAssistant', () => ({
     </aside>
   ),
 }))
+vi.mock('../src/reader/Reader', () => ({
+  default: ({ children }: { children: ReactNode }) => <main data-testid="reader">{children}</main>,
+}))
+vi.mock('../src/reader/ReaderAssistant', () => ({
+  default: ({ collapsed, onClose }: { collapsed: boolean; onClose: () => void }) => (
+    <aside data-testid="reader-assistant" data-collapsed={String(collapsed)}>
+      <button onClick={onClose}>Close reader assistant</button>
+    </aside>
+  ),
+}))
 vi.mock('../src/shell/SideBar', () => ({ default: () => null }))
 vi.mock('../src/library/Sources', () => ({ default: () => null }))
 vi.mock('../src/settings/SettingsModal', () => ({ default: () => null }))
@@ -164,4 +174,47 @@ it('docks the course assistant beside the Knowledge Graph alone (v8.25.0)', asyn
   expect(course().dataset.collapsed).toBe('false')
   fireEvent.click(screen.getByRole('button', { name: 'Close course assistant' }))
   expect(course().dataset.collapsed).toBe('true')
+})
+
+it('docks the Reader Assistant beside the Reader alone (v8.38.0)', async () => {
+  localStorage.removeItem('ca.readerAssistantOpen')
+  const store = configureStore({ reducer: { workspace, transcript, explorations } })
+  render(
+    <Provider store={store}>
+      <App />
+    </Provider>,
+  )
+  expect(screen.queryByTestId('reader-assistant')).toBeNull()
+  await act(async () => {
+    await store.dispatch(loadGraph({ seed: 'paper' }))
+  })
+  const reader = () => screen.getByTestId('reader-assistant')
+  const opener = () => screen.queryByRole('button', { name: 'Open the Reader Assistant' })
+  // Beside the Citation Graph or the course it stays tucked away, no 🎓.
+  expect(reader().dataset.collapsed).toBe('true')
+  expect(opener()).toBeNull()
+  await act(async () => {
+    await store.dispatch(openTool('knowledge'))
+  })
+  expect(opener()).toBeNull()
+  await act(async () => {
+    await store.dispatch(openTool('reader'))
+  })
+  expect(reader().dataset.collapsed).toBe('true')
+  fireEvent.click(opener()!)
+  expect(reader().dataset.collapsed).toBe('false')
+  // The other assistants stay put while it is open.
+  expect(screen.getByTestId('teacher').dataset.collapsed).toBe('true')
+  expect(screen.getByTestId('course-assistant').dataset.collapsed).toBe('true')
+  // Remembered across tools: away on the cards, open again in the Reader.
+  await act(async () => {
+    await store.dispatch(openTool('cards'))
+  })
+  expect(reader().dataset.collapsed).toBe('true')
+  await act(async () => {
+    await store.dispatch(openTool('reader'))
+  })
+  expect(reader().dataset.collapsed).toBe('false')
+  fireEvent.click(screen.getByRole('button', { name: 'Close reader assistant' }))
+  expect(reader().dataset.collapsed).toBe('true')
 })

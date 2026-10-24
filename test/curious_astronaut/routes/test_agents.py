@@ -573,3 +573,85 @@ def test_a_mentioned_knowledge_graph_chat_brings_its_course_outline():
     assert "Q-learning learns values." not in first
     # An unmentioned chat is its summary only.
     assert "THE COURSE" not in second
+
+
+READER_DOC = {
+    "available": True,
+    "title": [{"kind": "text", "text": "Attention Is All You Need"}],
+    "abstract": [{"kind": "paragraph", "inlines": [{"kind": "text", "text": "Transformers."}]}],
+    "sections": [
+        {
+            "id": "S1",
+            "level": 1,
+            "number": "1",
+            "title": [{"kind": "text", "text": "Introduction"}],
+            "blocks": [{"kind": "paragraph", "inlines": [{"kind": "text", "text": "RNNs are slow."}]}],
+        },
+        {
+            "id": "S3.SS2",
+            "level": 2,
+            "number": "3.2",
+            "title": [{"kind": "text", "text": "Attention"}],
+            "blocks": [
+                {"kind": "paragraph", "inlines": [
+                    {"kind": "text", "text": "We scale by "},
+                    {"kind": "math", "latex": "\\sqrt{d_k}", "display": False},
+                ]},
+                {"kind": "equation", "id": "S3.E1", "latex": "QK^T", "tag": "(1)"},
+            ],
+        },
+    ],
+    "bibliography": [],
+}
+
+
+def test_ask_reader_lays_out_the_paper_being_read(client, monkeypatch):
+    """The Reader's assistant (v8.38.0): the graph-free researcher, handed the
+    paper from the cached document, the section in view shown whole first."""
+    seen: dict = {}
+    asked: list = []
+
+    def fake_document(ref):
+        asked.append(ref)
+        return READER_DOC
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        yield events.Token(text="ok")
+
+    monkeypatch.setattr(agents_routes.arxiv, "get_document", fake_document)
+    patch_agents(monkeypatch, fake_run)
+    response = client.post(
+        "/api/ask_reader",
+        json={"question": "explain", "paper": "1706.03762", "section": "S3.SS2", "quick": True,
+              "model": "anthropic:claude-x"},
+    )
+    assert frames(response) == [("token", {"text": "ok"}), ("done", {})]
+    assert asked == ["1706.03762"]
+    assert seen["paper_search"] is False
+    assert seen["quick"] is True
+    assert seen["model"] == "anthropic:claude-x"
+    reading = seen["reading"]
+    assert "THE PAPER BEING READ: 'Attention Is All You Need'" in reading
+    assert "Abstract: Transformers." in reading
+    assert "Outline:\n1 Introduction\n  3.2 Attention" in reading
+    assert "THE SECTION THEY ARE READING: 3.2 Attention" in reading
+    assert "We scale by $\\sqrt{d_k}$" in reading
+    assert "$$QK^T$$ (1)" in reading
+    # The section in view comes first and isn't repeated in the running text.
+    assert reading.index("THE SECTION THEY ARE READING") < reading.index("## 1 Introduction")
+    assert "## 3.2 Attention\n(shown above)" in reading
+
+
+def test_ask_reader_needs_a_question_and_a_readable_paper(client, monkeypatch):
+    patch_agents(monkeypatch, lambda **_kwargs: iter(()))
+    monkeypatch.setattr(agents_routes.arxiv, "get_document", lambda ref: {"available": False})
+    assert client.post("/api/ask_reader", json={"paper": "1706.03762"}).status_code == 400
+    assert client.post("/api/ask_reader", json={"question": "q", "paper": "1706.03762"}).status_code == 400
+    assert client.post("/api/ask_reader", json={"question": "q", "paper": "not-an-id"}).status_code == 400
+
+    def boom(ref):
+        raise TimeoutError("ar5iv slow")
+
+    monkeypatch.setattr(agents_routes.arxiv, "get_document", boom)
+    assert client.post("/api/ask_reader", json={"question": "q", "paper": "1706.03762"}).status_code == 400

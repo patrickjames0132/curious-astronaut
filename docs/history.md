@@ -3822,6 +3822,47 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **The Reader card, stage 2: the highlight menu and the Reader
+      Assistant** *(v8.38.0)* — select text in the Reader for **Explain ·
+      Simplify · Chat**. Explain and Simplify ask a new **Reader Assistant**
+      about the passage ("Explain this passage from section 3.2, Attention:
+      …"); Chat attaches it to the assistant's bar for a question of your
+      own. No Expand: in the Knowledge Graph it adds a concept, and the
+      Reader has no graph to add to (Patrick). The assistant docks on the
+      right (the corner kept free for it), keeps its own chat
+      (`<thread>:reader`, saved as `ThreadRecord.readerChat`), and answers
+      through the graph-free researcher over the paper itself: the client
+      sends only the arXiv id and the section in view, and
+      `POST /api/ask_reader` lays the paper out from the cached document
+      (the section in view whole, then the rest under 60,000 characters;
+      most papers fit whole). It searches the library and the web, never
+      the literature (Patrick's choice: paper + library + web).
+
+      **Generalized rather than copied.** The Knowledge Graph's assistant
+      became a shared panel and stream engine (`frontend/src/assistant/`),
+      and both assistants are that one component with their own words and
+      context; the course's messages are byte-for-byte unchanged. The
+      highlight menu and its hook moved to `frontend/src/selection/`, the
+      menu now taking each tool's actions. The side-chat tools are listed
+      once in `store/chats` (`SIDE_CHAT_FIELDS`) and looped over by saving,
+      seeding, summaries, the `@` list, the rail's working dot and deletion.
+
+      **Math in a highlight**, shaped by four browser rounds (2026-10-24): a
+      formula selected whole reads as its LaTeX, part of one as the glyphs
+      plus the whole formula (`∇ϕ log πϕ (part of $…$)`); display mode is
+      read from KaTeX's own MathML; a question bubble scrolls wide math
+      inside itself. A highlighted equation used to lose its highlight the
+      moment the menu appeared, which turned out to be React rewriting every
+      KaTeX span on re-render; `notation/MathText`'s span is memoized now
+      (`docs/bugs.md`). An enlarged figure also covers only the middle of the
+      app now, never a docked assistant or the rail, in every tool
+      (`figures/figureLayer`, `docs/bugs.md`).
+
+      Filed alongside, to do another day: **one assistant across the tools,
+      floating over the app** (Patrick's idea, with suggestions, in the
+      OnePager's Larger phases). **Next in the Reader:** the PDF fallback
+      viewer with the same AI tools.
+
 - [x] **The Reader card, stage 1: the paper itself** *(v8.37.0)* — the third
       card on a paper's home, beside the Citation Graph and the Knowledge
       Graph. Workshopped 2026-10-21 in `docs/brainstorm.md`, filed and built

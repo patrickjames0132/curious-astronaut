@@ -53,7 +53,7 @@ import {
 } from './explorations'
 import { resolveScope } from '../scope/resolve'
 import type { ResolvedScope } from '../scope/resolve'
-import { chatKey, chatOf } from './chats'
+import { SIDE_CHAT_TOOLS, chatKey, chatOf } from './chats'
 import type { ExplorationsState, ThreadRecord } from './explorations'
 import type { Conversation, TranscriptState } from './transcript'
 
@@ -460,7 +460,8 @@ export const deleteThread = createAsyncThunk<
   }
   dispatch({ type: 'explorations/threadRemoved', payload: threadId })
   dispatch({ type: 'transcript/conversationDropped', payload: threadId })
-  dispatch({ type: 'transcript/conversationDropped', payload: chatKey(threadId, 'knowledge') })
+  for (const tool of SIDE_CHAT_TOOLS)
+    dispatch({ type: 'transcript/conversationDropped', payload: chatKey(threadId, tool) })
 })
 
 /** Start another chat and open it (v8.31.0): the rail's Chats ＋, or its
@@ -519,7 +520,7 @@ export const openChat = createAsyncThunk<void, string, { state: NavigationState 
   async (key, { dispatch }) => {
     const { threadId, tool } = chatOf(key)
     await dispatch(openThread(threadId))
-    if (tool === 'knowledge') await dispatch(openTool('knowledge'))
+    if (tool !== 'graph') await dispatch(openTool(tool))
   },
 )
 

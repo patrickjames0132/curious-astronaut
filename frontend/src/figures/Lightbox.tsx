@@ -14,14 +14,18 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useEffect, useRef } from 'react'
+import { useContext, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import type { AnswerFigure } from '../api'
 import MathText from '../notation/MathText'
 import { usePresence } from '../ui/usePresence'
+import { FigureLayerContext } from './figureLayer'
 import './figures.css'
 
 /**
- * Render a figure enlarged full-screen (click/Escape to dismiss).
+ * Render a figure enlarged over the shell's middle (click/Escape to dismiss):
+ * the tool, or the landing chat, never the side panels beside it (v8.38.0;
+ * see `figureLayer`). Without a layer, over the whole window.
  *
  * @returns The overlay, or null when no figure is open.
  */
@@ -37,6 +41,7 @@ export default function Lightbox({
   // Fades out rather than vanishing (ui/usePresence). The parent has already
   // dropped the figure by then, so the exit shows the last one it had.
   const presence = usePresence(figure !== null)
+  const layer = useContext(FigureLayerContext)
   const lastFigure = useRef(figure)
   if (figure) lastFigure.current = figure
   const shown = figure ?? lastFigure.current
@@ -52,9 +57,9 @@ export default function Lightbox({
   }, [figure, onClose])
 
   if (!presence.present || !shown) return null
-  return (
+  const overlay = (
     <div
-      className={`fig-lightbox${presence.closing ? ' closing' : ''}`}
+      className={`fig-lightbox${layer ? ' in-layer' : ''}${presence.closing ? ' closing' : ''}`}
       onClick={onClose}
       role="dialog"
       aria-label="Enlarged figure"
@@ -98,4 +103,7 @@ export default function Lightbox({
       )}
     </div>
   )
+  // Portalled so no tool's stacking or transform can trap it under a docked
+  // panel (the Reader's figure under its assistant, Patrick 2026-10-24).
+  return layer ? createPortal(overlay, layer) : overlay
 }

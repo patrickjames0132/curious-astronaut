@@ -860,63 +860,6 @@
   }
 }
 
-/* The menu over a passage highlighted in a lesson (v8.25.0, `SelectionMenu`):
- * a grey glass pill above the selection, after SpatialRead's, with text
- * buttons. Fixed, so it holds its place in any scroller; the hook moves it. */
-.selection-menu {
-  position: fixed;
-  z-index: 60;
-  display: flex;
-  gap: 5px;
-  padding: 4px;
-  transform: translateX(-50%);
-  border: 1px solid var(--selection-menu-edge);
-  border-radius: 12px;
-  background: var(--selection-menu);
-  box-shadow: 0 6px 20px var(--shadow);
-  backdrop-filter: blur(6px);
-  animation: selection-menu-in var(--motion-pop) var(--ease-rise);
-}
-.selection-menu button {
-  position: relative;
-  /* Never a column of letters, however little room is left (v8.26.0). */
-  white-space: nowrap;
-  padding: 5px 12px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  color: var(--selection-menu-ink);
-  font: inherit;
-  font-size: 14px;
-  cursor: pointer;
-}
-.selection-menu button:hover,
-.selection-menu button:focus-visible {
-  background: var(--selection-menu-hover);
-}
-/* A thin pipe between neighbours, inset from the pill's edges, as
-   SpatialRead's menu has (Patrick). Drawn in the gap, so a hovered button's
-   highlight never covers it. */
-.selection-menu button + button::before {
-  content: '';
-  position: absolute;
-  left: -3px;
-  top: 6px;
-  bottom: 6px;
-  width: 1px;
-  background: var(--selection-menu-divider);
-}
-@keyframes selection-menu-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 4px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .selection-menu {
-    animation: none;
-  }
-}
 /* The concept an Expand added, as a link in the note above the lesson. */
 .lesson-phrase-open {
   padding: 0;

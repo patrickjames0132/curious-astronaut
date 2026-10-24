@@ -11,10 +11,16 @@ is `.course-quote` in `teacher/teacher.css`).
 
 ```
 assistant/
-  CourseAssistant.tsx — the docked panel: transcript, composer, ✕, the @ list
-  askCourse.ts        — the stream engine (a thunk), Stop and Clear, Explain's and Chat's messages
+  CourseAssistant.tsx — the panel: the shared DockedAssistant with the course's words
+  askCourse.ts        — what the course sends (askCourse), Stop and Clear, a lesson's messages
   context.ts          — the course as the assistant reads it, and its outline
 ```
+
+**Since v8.38.0 the panel and the stream engine are shared**
+(`../../assistant/`): the Reader's assistant is the same panel over the
+paper. This folder keeps what is the course's own: its words, its context,
+and how a lesson's passage is quoted. The decisions below still hold; they
+now describe the shared panel as the course uses it.
 
 ## Why it is shaped like this
 

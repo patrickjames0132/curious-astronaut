@@ -1181,6 +1181,27 @@ def test_a_course_without_paper_search_says_so(monkeypatch):
     assert "find_papers" not in seen["tools"]
 
 
+def test_the_paper_being_read_stands_where_the_graph_would(monkeypatch):
+    """The Reader's assistant (v8.38.0): graph-free, the paper laid out in the
+    prompt, framed as a reading companion, and no paper search."""
+    seen: dict = {}
+    monkeypatch.setattr(researcher.main.store, "list_sources", lambda: [])
+    model = scripted([final("ok", [], kind="conversational")], seen=seen)
+    with researcher.agent.override(model=model):
+        list(
+            researcher.answer(
+                "explain this",
+                reading="THE PAPER BEING READ: 'Attention Is All You Need'",
+                paper_search=False,
+            )
+        )
+    prompt = seen["turns"][0][-1].parts[-1].content
+    assert "reading a research paper in the Reader" in prompt
+    assert "THE PAPER BEING READ: 'Attention Is All You Need'" in prompt
+    assert "No citation graph is open" not in prompt
+    assert "find_papers" not in seen["tools"]
+
+
 def test_a_course_stands_where_the_graph_would(monkeypatch):
     """The Knowledge Graph's assistant (v8.25.0): graph-free, with the course
     laid out in the prompt and the student told whose assistant this is."""

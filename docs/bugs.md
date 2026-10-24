@@ -22,6 +22,44 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### A highlighted equation lost its highlight the moment the menu appeared (v8.38.0)
+
+- **Symptom.** Select an equation in the Reader and the Explain · Simplify ·
+  Chat pill opened, and the assistant got the right text, but the equation
+  showed no highlight at all. Plain text kept its highlight.
+- **Root cause.** Showing the pill re-renders the Reader, and React 19
+  re-applies `dangerouslySetInnerHTML` when an element re-renders, replacing
+  every node inside even when the HTML string is identical. Every KaTeX
+  formula is one such span (`notation/MathText`'s `MathSpan`): reproduced
+  live, 168 formula subtrees swapped per render. A selection whose nodes are
+  removed collapses, after the pill had already read it. React keeps text
+  nodes, which is why plain text was fine.
+- **Fix.** `MathSpan` is `memo`'d on its LaTeX, so a formula renders once and
+  keeps its DOM. Two earlier fixes guessed wrong (a range "anchored in the
+  hidden MathML", then snapping a selection to the whole formula); the
+  second also made part of an equation unselectable, and both were removed.
+- **Lesson / guard.** Reproduce a selection or rendering bug in the real
+  browser before theorizing: jsdom has no layout and no selection painting.
+  `test/notation/MathText.test.tsx` fails without the memo (a re-render must
+  leave a formula's `.katex` node in place).
+
+### An enlarged figure slid under the docked assistant (v8.38.0)
+
+- **Symptom.** Enlarging a figure in the Reader covered the explorer rail
+  but was cut off by the Reader Assistant beside it. The graphs had the same
+  shape beside their assistants.
+- **Root cause.** The lightbox was `position: fixed` but rendered inside the
+  tool, whose surface is its own stacking layer: it painted over what came
+  before the tool in the DOM (the rail) and under what came after (a docked
+  assistant).
+- **Fix.** The shell renders an empty `.figure-layer` over its middle (the
+  tool surface, or the whole body in General) and provides it through
+  `FigureLayerContext`; `Lightbox` portals into it, whoever opened it. An
+  enlarged figure covers the middle only (Patrick's rule), so an assistant
+  explaining it stays readable beside it.
+- **Lesson / guard.** An overlay that must escape its opener belongs in a
+  portal, not a `position: fixed` it can't trust. `test/figures/Lightbox.test.tsx`.
+
 ### The figure proxy served whatever ar5iv sent, as ar5iv sent it (v8.37.0)
 
 - **Symptom.** None seen. Found while adding SVG figures for the Reader:
