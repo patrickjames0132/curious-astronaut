@@ -1171,9 +1171,6 @@ than deleted so the plan doesn't get re-proposed.
       are navigation labels — they have to read well out of context, in a
       list, not just above their own card.
 
-- [ ] **Show the paper inline on the card home** — needs clarifying with
-      Patrick before building: the card header already shows the title,
-      authors, year and TL;DR. *(From the `todos.md` inbox, 2026-10-09.)*
 - [ ] **A new loading screen for the Paper Graph** — today a build is a
       spinner card with a progress bar over an empty canvas. Shape not yet
       decided. *(From the `todos.md` inbox, 2026-10-09.)*
@@ -1602,22 +1599,6 @@ than deleted so the plan doesn't get re-proposed.
         design, not a new UI. The researcher runs graph-free here, so the
         tool needs the course's ids, which `_course_context` only shows as
         text today.
-      - **A paper-reader card: open the PDF in the browser, with reading
-        tools.** A third card on the thread's card home (beside Paper Graph
-        and Knowledge Graph) that opens the paper's PDF in the app and gives
-        the reader tools over it, after
-        [SpatialRead](https://www.producthunt.com/p/spatialread/spatialread)
-        (see the landscape sweep below). Patrick's word is "editing tools",
-        which needs pinning down before design: highlights and notes over the
-        PDF, or SpatialRead's expand/simplify explanations of a selected
-        passage (which would share its plumbing with the lessons' Explain and
-        Expand pill, v8.25.0's `useLessonSelection`, and could feed the
-        Knowledge Graph). Constraints to read
-        first: [docs/pdf-mining.md](docs/pdf-mining.md) settles that whole
-        PDFs sit on disk under `services/pdf` (so serving the stored file is
-        cheap), PyMuPDF is the optional `pdf` extra (so the card must degrade
-        without it), and only open-access papers have a PDF at all. *(From
-        the `todos.md` inbox, 2026-10-16.)*
 
       **Later stages, deliberately out of v1:**
       - **A challenger agent** that asks probe questions to learn what the
@@ -1730,6 +1711,99 @@ than deleted so the plan doesn't get re-proposed.
       the literature. *(As shipped in v8.14.0 the nodes are concepts and the
       paper grounding sits in the lessons' citations, but the combination
       still holds.)*
+- [ ] **Reader card — how do I read it?** — a third card on the thread's
+      card home, beside Paper Graph and Knowledge Graph, for reading the
+      paper itself. Workshopped 2026-10-21 (filed from `docs/brainstorm.md`
+      2026-10-23, decisions settled with Patrick the same day). It replaces
+      two older items: the 2026-10-16 "paper-reader card" (a SpatialRead-style
+      PDF viewer with "editing tools") and the vague "Show the paper inline on
+      the card home" (2026-10-09).
+
+      **The prior art is SpatialRead, and it changes what v1 leads with.**
+      [SpatialRead](https://www.producthunt.com/products/spatialread) is a
+      desktop paper reader: a PDF viewer where you highlight text and run
+      Explain, Simplify or Expand on it, with your own API key or local
+      Ollama, and screenshot analysis of figures. Its graph is built from
+      *your own reading*. It's closed source and reportedly paid ($49–$99
+      depending on the listing), and reportedly ships a "critical peer
+      reviewer" agent, i.e. *generated* critique. So highlight-and-explain
+      alone would be a free SpatialRead with less polish: still worth
+      something by the reach rule, but v1 should **lead with what only
+      Curious Astronaut can do**, connecting the text to structure the app
+      already has:
+      - `[23]` resolves to the **actual cited paper**, a real node in the
+        Paper Graph, via S2.
+      - Terms and per-section notes come from the paper's **Knowledge
+        Graph** prerequisites, including what the reader has ticked off.
+      - A guided read reuses the **lecturer**, the current paragraph
+        highlighted the way Paper Graph nodes light up today.
+
+      **The main technical fact: the full text we have today is flat.**
+      `integrations/arxiv/fulltext.py` reduces ar5iv's HTML to plain text
+      blocks: math survives as LaTeX, but `<cite>` and `<figure>` are dropped
+      and section structure isn't kept. That's right for its job (model
+      context), but a Reader needs sections, figures in place, and citation
+      markers still tied to their bibliography entries. So the Reader's core
+      is a **new structured parse beside the flat one**, not a reuse of it.
+      `services/pdf/text.py` is flatter still.
+
+      ```
+      ┌ Reader: Attention Is All You Need ─────────────────────────┐
+      │ Contents     │ 3.2 Scaled Dot-Product Attention            │ Teacher        │
+      │ 1 Intro      │ We call our particular attention "Scaled    │ ▸ Before this  │
+      │ 2 Background │ Dot-Product Attention" [Figure 2]…          │   section: you │
+      │ 3 Model    ◂ │                                             │   need softmax │
+      │   3.1        │   Attention(Q,K,V) = softmax(QKᵀ/√dₖ)V  [?] │   ✓ known      │
+      │   3.2 ◂      │                                             │                │
+      │ 4 Why self-  │ …additive attention [2] ← hover: Bahdanau   │ Ask about the  │
+      │   attention  │   2014 · open in Paper Graph                │ selection…     │
+      └──────────────┴─────────────────────────────────────────────┴────────────────┘
+      ```
+
+      **Settled decisions (Patrick, 2026-10-23):**
+      1. **Text source: ar5iv first, PDF viewer as v2 fallback.** Structured
+         ar5iv HTML gives real math, figures and citation links, but only
+         for arXiv papers. A pdf.js viewer covers every open-access paper but
+         can't practically link citations or terms. The fallback viewer is
+         also what blocks "Click a library citation to open the source at
+         that page", so building it unblocks that item too. Constraints from
+         [docs/pdf-mining.md](docs/pdf-mining.md): whole PDFs already sit on
+         disk under `services/pdf`, PyMuPDF is the optional `pdf` extra (the
+         card must degrade without it), and only open-access papers have a
+         PDF at all.
+      2. **Citation resolution:** ar5iv ties each marker to a bibliography
+         entry; match that entry to S2's reference list by arXiv id or DOI
+         first, title as fallback. Markers stay unlinked in the PDF fallback;
+         proper PDF reference parsing needs something like GROBID (a heavy
+         Java service), wrong for an easy install.
+      3. **Reading at your own pace before a guided read.** A margin teacher
+         that responds when you act ships first; the guided read (reusing
+         the lecturer's beat format) comes later.
+
+      **v1, the differentiating parts first:**
+      1. Structured ar5iv parse, the Reader card, reading view and table of
+         contents. *(In progress on `feature/reader`, 2026-10-23.)*
+      2. Citation hover card, plus a jump into the Paper Graph.
+      3. Knowledge Graph notes in the margin (when one exists for the paper).
+      4. Highlight-and-explain and "explain this equation": table stakes, not
+         the headline. Shares plumbing with the lessons' Explain and Expand
+         pill (`useLessonSelection`, v8.25.0).
+
+      **v2:** the PDF fallback viewer (shipping the library page viewer with
+      it), then the guided read.
+
+      **Links run both ways.** v1 links the text out to the graphs; the
+      reverse is "show me where the paper uses this": from a Knowledge Graph
+      concept, jump to the passages that rely on it; from a Paper Graph node,
+      jump to the sentences that cite it. The same structured parse serves
+      both directions, so it belongs to this card.
+
+      **Open:**
+      - What share of the papers Patrick actually reads are on arXiv? That
+        decides how much the v2 PDF fallback matters.
+      - For the brainstorm's **shareable snapshot** idea: showing arXiv text
+        in a local app is like viewing it in a browser, but putting it in an
+        exported snapshot is redistribution, and arXiv licenses vary by paper.
 - [ ] **Phase 6 — Slides from the lecture** — a deck built by the existing
       agent crew from lecture beats + already-mined paper figures.
       *(Renumbered from the retired audio phase, 2026-08-16. Patrick,
