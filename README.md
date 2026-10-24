@@ -474,3 +474,7 @@ For the project's direction and past, two living docs sit beside the code:
 **[OnePager.md](OnePager.md)** (the vision, the full feature stack, and the
 open backlog) and **[docs/history.md](docs/history.md)** (the complete shipped
 record, version by version).
+
+Lecture replies align their scope and routing labels with the response timer
+in one header row; long labels wrap without crowding the clock or narrowing
+the lecture beats.
