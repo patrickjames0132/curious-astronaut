@@ -1820,6 +1820,51 @@ than deleted so the plan doesn't get re-proposed.
       - For the brainstorm's **shareable snapshot** idea: showing arXiv text
         in a local app is like viewing it in a browser, but putting it in an
         exported snapshot is redistribution, and arXiv licenses vary by paper.
+- [ ] **One assistant across the tools, floating over the app** —
+      Patrick's idea (2026-10-24), filed while the Reader's selection menu was
+      being built, to workshop another day. Today each tool docks its own
+      assistant (the Citation Graph's, the Knowledge Graph's, and the
+      Reader's from v8.38.0), and with the contents and detail panels that
+      is a lot of side columns — "almost too many". Referencing other chats
+      with `@thread[…]` everywhere is also messy. The idea: **one AI assistant
+      for every tool, still separate from the General chats**, launched from
+      a small floating icon in the bottom-right corner that overlays the whole
+      app and can be dragged and clicked at any time (after ChatGPT's
+      desktop companion).
+
+      **Suggestions and adjustments (Claude, 2026-10-24), not yet settled:**
+      - **It knows what's on screen.** Each question carries the current
+        view as context: the graph on the Citation Graph, the course on the
+        Knowledge Graph, the paper and the section being read in the Reader.
+        That removes most `@` references; `@` stays for *other* threads.
+      - **The icon floats; the chat doesn't stay small.** Researched answers
+        carry citations, figures and long explanations, and a pet-sized
+        window would be cramped. Clicking the icon opens a full-height panel
+        over the right edge, closed again with ✕ or Esc, so no tool keeps a
+        column. Dragging the icon is fine; a freely draggable chat window
+        tends to sit on exactly what you're reading.
+      - **One conversation per thread, aware of the tool**, rather than one
+        per tool. This reverses "assistants encapsulated per tool" (Patrick,
+        2026-10-09), so it's Patrick's call; a chat per tool that the
+        floating assistant switches between is the alternative. One global
+        conversation across threads would mix papers.
+      - **Every highlight menu answers there.** A lesson's Explain / Expand
+        / Chat and the Reader's Explain / Simplify / Chat all go to the same
+        assistant, opening it if closed.
+      - **It's a large change, its own phase.** The Citation Graph's
+        assistant also runs lectures, paper filters and the landing chat, and
+        those need a home in the unified one. The groundwork is already
+        there: since v8.38.0 the Knowledge Graph's and the Reader's
+        assistants are one component on one stream engine
+        (`frontend/src/assistant/`), differing only in their context and
+        endpoint, so the work is mostly the shell and the Citation Graph's
+        extras.
+
+      **Open:** per-thread or per-tool conversations; where lectures live;
+      whether the panel overlays the tool or pushes it aside on wide
+      screens; how it behaves on narrow windows; whether the icon's position
+      is remembered.
+
 - [ ] **Phase 6 — Slides from the lecture** — a deck built by the existing
       agent crew from lecture beats + already-mined paper figures.
       *(Renumbered from the retired audio phase, 2026-08-16. Patrick,
