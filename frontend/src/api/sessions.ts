@@ -27,6 +27,8 @@ import type {
  * trace steps.
  */
 export interface ChatMsg {
+  /** Answer requested via Quick response; available before its first token. */
+  quickResponse?: boolean
   /** Explicitly attached sibling discussions, with stable navigation ids. */
   borrowedThreads?: { id: string; title: string }[]
   role: 'user' | 'assistant'

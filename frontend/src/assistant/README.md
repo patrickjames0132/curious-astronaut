@@ -57,3 +57,8 @@ The tools' own tests drive it end to end: `test/knowledge/KnowledgeNetwork.test.
 (Explain and Chat into the course's chat) and `test/reader/Reader.test.tsx`
 (Explain, Simplify and Chat into the Reader's), with `test/store/chats.test.ts`
 and `test/store/threads.test.ts` for the chats' keys, listing and saving.
+
+Quick response stamps `ChatMsg.quickResponse` when the replacement turn starts,
+before streaming begins. All chat transcripts show a muted “Quick response”
+label with a colored bolt beside the clock immediately, retaining it on the
+finished/saved turn. Its tooltip says “Answered from the model’s own knowledge.”
