@@ -34,22 +34,30 @@ def extract_text(path: str | Path) -> str:
         extractable text (a scanned/image-only PDF) — never raises, since
         the caller treats empty as "unavailable" like a missing ar5iv render.
     """
-    fitz = optional.require("fitz", "pdf")
+    return "\n\n".join(page for page in extract_pages(path) if page)
 
+
+def extract_pages(path: str | Path) -> list[str]:
+    """Extract a PDF's text page by page, for readers that need to know where
+    a page starts (the Reader assistant's "page in view", v8.40.0).
+
+    Args:
+        path: Filesystem path to the PDF.
+
+    Returns:
+        One string per page, in order ("" for a page with no text); empty
+        when the file is unparseable — never raises for a bad PDF.
+    """
+    fitz = optional.require("fitz", "pdf")
     try:
         doc = fitz.open(path)
     except Exception:
         log.warning("pymupdf couldn't open %s", path, exc_info=True)
-        return ""
+        return []
     try:
-        pages = []
-        for page_index in range(doc.page_count):
-            page_text = doc.load_page(page_index).get_text("text").strip()
-            if page_text:
-                pages.append(page_text)
-        return "\n\n".join(pages)
+        return [doc.load_page(index).get_text("text").strip() for index in range(doc.page_count)]
     except Exception:
         log.warning("text extraction failed for %s", path, exc_info=True)
-        return ""
+        return []
     finally:
         doc.close()

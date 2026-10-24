@@ -22,6 +22,24 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The Reader's contents fold lagged, worst in the PDF view (v8.40.0)
+
+- **Symptom.** Folding or unfolding the Reader's contents panel stuttered,
+  in the text view a little and in the PDF view badly.
+- **Root cause.** The slide animated the panel's `margin-left`, so the
+  reading pane changed width on every frame. In the text view that re-laid
+  out and repainted the whole paper, KaTeX included, each frame. In the PDF
+  view it was worse: a `ResizeObserver` turned every new width into a new
+  page scale, and every drawn page redrew its canvas and rebuilt its text
+  layer, sixty times a second.
+- **Fix.** The fold moves by transform: the layout changes once at the
+  start and the pane's contents glide by `translate` (`reader.css`,
+  `.glide-*`). The PDF pages follow the width only once it has held for
+  200ms, and keep the reader's place when they rescale (`PdfView.tsx`).
+- **Lesson / guard.** Don't animate a layout property around a heavy
+  document. Animate a transform and change the layout once, and debounce
+  anything that redraws on resize.
+
 ### Releases kept publishing while CI on `main` was red (v8.38.1)
 
 - **Symptom.** CI on `main` failed for v8.36.1, v8.36.2 and v8.37.0 (v8.36.3's

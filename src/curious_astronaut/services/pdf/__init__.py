@@ -19,14 +19,19 @@ Charles Patrick James <charles.patrick.james@gmail.com>
 """
 
 from .errors import PdfError
-from .mine import get_pdf_floats, get_pdf_text, render_figure
-from .resolve import arxiv_pdf_url, prime, resolve_oa_pdf
+from .fetch import fetch_pdf
+from .mine import get_pdf_contents, get_pdf_floats, get_pdf_pages, get_pdf_text, render_figure
+from .resolve import arxiv_pdf_url, paper_pdf_url, prime, resolve_oa_pdf
 
 __all__ = [
     "PdfError",
     "arxiv_pdf_url",
+    "fetch_pdf",
+    "get_pdf_contents",
     "get_pdf_floats",
+    "get_pdf_pages",
     "get_pdf_text",
+    "paper_pdf_url",
     "prime",
     "render_figure",
     "resolve_oa_pdf",

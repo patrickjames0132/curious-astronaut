@@ -93,11 +93,19 @@
 }
 /* Folding slides the panel off the left edge and the text glides after it:
    the docked panels' motion (panel-in / panel-out, --motion-panel),
-   mirrored. Only after a toggle — arriving at the Reader doesn't replay it. */
+   mirrored. Only after a toggle — arriving at the Reader doesn't replay it.
+   All of it moves by transform: the layout changes once, at the start (a
+   closing panel leaves the flow, an opening one takes its width), and the
+   reading pane's contents glide from where they were (`.glide-*` below).
+   Animating the panel's margin instead resized the pane every frame, and
+   re-laying out a whole paper each frame lagged (Patrick, 2026-10-24). */
 .reader-contents.sliding {
   animation: contents-in var(--motion-panel) var(--ease-rise) both;
 }
 .reader-contents.closing {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 1;
   animation: contents-out var(--motion-panel) var(--ease-fade) both;
   pointer-events: none;
 }
@@ -107,14 +115,40 @@
 }
 @keyframes contents-in {
   from {
-    margin-left: calc(-1 * var(--contents-width));
+    translate: calc(-1 * var(--contents-width)) 0;
     opacity: 0;
   }
 }
 @keyframes contents-out {
   to {
-    margin-left: calc(-1 * var(--contents-width));
+    translate: calc(-1 * var(--contents-width)) 0;
     opacity: 0;
+  }
+}
+/* The reading pane's contents (the text or the pages, the ↑ back, the
+   switch) start where the old layout had them, half the panel's width over
+   since they're centred, and glide home. `translate`, not `transform`, so
+   an overlay's own centring transform is left alone; the pane clips sideways
+   meanwhile so the glide can't flash a scrollbar. */
+.reader-main.glide-open > :not(.reader-page),
+.reader-main.glide-open > .reader-page > * {
+  animation: reader-glide-open var(--motion-panel) var(--ease-rise) both;
+}
+.reader-main.glide-close > :not(.reader-page),
+.reader-main.glide-close > .reader-page > * {
+  animation: reader-glide-close var(--motion-panel) var(--ease-fade) both;
+}
+.reader-main:is(.glide-open, .glide-close) > .reader-page {
+  overflow-x: hidden;
+}
+@keyframes reader-glide-open {
+  from {
+    translate: calc(-0.5 * var(--contents-width)) 0;
+  }
+}
+@keyframes reader-glide-close {
+  from {
+    translate: calc(0.5 * var(--contents-width)) 0;
   }
 }
 .reader-contents-folded:focus-visible .reader-contents-bump {
@@ -531,6 +565,151 @@
   color: var(--accent);
 }
 
+/* --- the PDF view (v8.40.0) ----------------------------------------------- */
+
+/* Pages are white sheets down the pane, each sized up front (PdfView). */
+.reader-pdf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 64px 0 96px;
+}
+.reader-pdf-page {
+  position: relative;
+  flex: none;
+  background: #fff;
+  box-shadow: 0 2px 12px var(--shadow);
+}
+.reader-pdf-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.reader-pdf-page.landed {
+  outline: 3px solid color-mix(in srgb, var(--reader-ink) 60%, transparent);
+  outline-offset: 2px;
+}
+/* pdf.js's text layer: transparent text laid exactly over the canvas so it
+   can be selected. Only what selection needs, from pdf.js's own viewer CSS
+   (pdfjs-dist/web/pdf_viewer.css, `.textLayer`), not its whole stylesheet;
+   `--total-scale-factor` is set per page by PdfView. */
+.reader-pdf .textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  text-align: initial;
+  transform-origin: 0 0;
+  forced-color-adjust: none;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+.reader-pdf .textLayer :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+.reader-pdf .textLayer > :not(.markedContent),
+.reader-pdf .textLayer .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.reader-pdf .textLayer .markedContent {
+  display: contents;
+}
+.reader-pdf .textLayer ::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Text or PDF: a small switch at the foot of the reading pane, only when
+   the paper has both. */
+.reader-view-switch {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  translate: -50% 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-float);
+  box-shadow: 0 4px 14px var(--shadow);
+}
+/* The pill behind the chosen button, sliding between the two (v8.40.0). */
+.reader-view-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  transition: translate var(--motion-switch) var(--ease-rise);
+}
+.reader-view-switch.on-pdf .reader-view-thumb {
+  translate: 100% 0;
+}
+.reader-view-switch button {
+  position: relative;
+  min-width: 56px;
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.reader-view-switch button:hover {
+  color: var(--text-strong);
+}
+.reader-view-switch button[aria-pressed='true'] {
+  color: var(--text-strong);
+}
+.reader-view-switch button[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.reader-view-switch button[aria-disabled='true']:hover {
+  color: var(--muted);
+}
+
+/* Switching views slides the arriving one in, like the cards' scroll
+   (tools.css, `.tool-surface`); the leaving one is already gone. */
+.reader-main {
+  overflow: clip;
+}
+.reader-page.from-right {
+  animation: reader-from-right var(--motion-scroll) var(--ease-rise) both;
+}
+.reader-page.from-left {
+  animation: reader-from-left var(--motion-scroll) var(--ease-rise) both;
+}
+@keyframes reader-from-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes reader-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+.reader-view-switch button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* --- loading and unavailable --------------------------------------------- */
 
 .reader-status {
@@ -595,7 +774,12 @@
   }
   .reader-contents.sliding,
   .reader-contents.closing,
-  .reader-contents-folded.arriving {
+  .reader-contents-folded.arriving,
+  .reader-page.from-right,
+  .reader-page.from-left {
     animation: none;
+  }
+  .reader-view-thumb {
+    transition: none;
   }
 }

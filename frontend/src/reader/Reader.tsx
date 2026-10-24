@@ -24,6 +24,8 @@ import {
 } from 'react'
 import {
   fetchDocument,
+  fetchPdfContents,
+  pdfUrl,
   type AnswerFigure,
   type ReaderDocument,
   type ReaderSection,
@@ -34,18 +36,38 @@ import Lightbox from '../figures/Lightbox'
 import SelectionMenu from '../selection/SelectionMenu'
 import { useTextSelection } from '../selection/useTextSelection'
 import { useAppDispatch } from '../store'
-import type { ThreadRecord } from '../store/explorations'
+import { threadReaderViewSet, type ReaderView, type ThreadRecord } from '../store/explorations'
 import AuthorList from '../ui/AuthorList'
 import { usePresence } from '../ui/usePresence'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import { Blocks, Inlines } from './ReaderBody'
+import PdfView from './PdfView'
+import type { PdfOutlineEntry } from './pdf'
 import { askReader, documentRef, readerMessage, setReadingSection } from './askReader'
-import { ReaderLinksContext, plainText, readerDomId } from './links'
+import { ReaderLinksContext, pdfPageId, plainText, readerDomId } from './links'
 import { readerSelectionText, selectionSource } from './selectionText'
 import './reader.css'
 
 /** Sections deeper than this (paragraph headings) stay out of the contents. */
 const CONTENTS_DEPTH = 3
+
+/** Longer than the contents' slide (--motion-panel), in ms: when the
+ *  reading pane's glide is over even if its animationend never came. */
+const GLIDE_FALLBACK = 600
+
+/** Room left above a PDF heading a jump lands on, as the text view's
+ *  `scroll-padding-top` leaves above its headings. */
+const HEADING_ROOM = 24
+
+/**
+ * The scale a PDF page is drawn at (PdfView's `data-scale`).
+ *
+ * @param page The page's element.
+ * @returns CSS pixels per PDF point.
+ */
+function pdfScale(page: HTMLElement): number {
+  return Number(page.dataset.scale) || 1
+}
 
 /** Whether the contents rail is open, remembered like the app's other panels. */
 const CONTENTS_KEY = 'ca.readerContentsOpen'
@@ -63,23 +85,32 @@ function storedContentsOpen(): boolean {
   }
 }
 
+/** Why the Text button is off, by reason: a paper with only its PDF. */
+const NO_TEXT: Record<ReaderUnavailable, string> = {
+  not_arxiv: 'No text: this paper isn’t on arXiv, so it has no HTML version',
+  no_render: 'No text: arXiv couldn’t convert this paper’s LaTeX to HTML',
+  error: 'No text right now: arXiv’s HTML didn’t answer',
+}
+
 /** What to say when a paper has nothing to read, by reason. */
 const UNAVAILABLE: Record<ReaderUnavailable, { title: string; body: string }> = {
   not_arxiv: {
     title: 'Not on arXiv',
     body:
-      'The Reader works from arXiv’s HTML render of a paper, and this one isn’t on arXiv. ' +
-      'Reading open-access PDFs is planned.',
+      'This paper isn’t on arXiv, and no open-access PDF could be opened for it, so ' +
+      'there’s nothing to read here yet.',
   },
   no_render: {
     title: 'No HTML render for this paper',
     body:
-      'Neither arXiv’s HTML render nor ar5iv could convert this paper’s LaTeX, so there’s ' +
-      'no text to show yet. The PDF is still on arXiv.',
+      'Neither arXiv’s HTML render nor ar5iv could convert this paper’s LaTeX, and its PDF ' +
+      'couldn’t be opened here. It may still open on arXiv.',
   },
   error: {
     title: 'Couldn’t reach arXiv’s HTML',
-    body: 'Neither arXiv’s HTML render nor ar5iv answered. Try again in a moment.',
+    body:
+      'Neither arXiv’s HTML render nor ar5iv answered, and the PDF couldn’t be opened. ' +
+      'Try again in a moment.',
   },
 }
 
@@ -139,8 +170,14 @@ export default function Reader({
 }) {
   const dispatch = useAppDispatch()
   const ref = documentRef(thread)
+  const provider = thread.data.provider ?? 's2'
   const articleRef = useRef<HTMLElement>(null)
+  const pdfRef = useRef<HTMLDivElement>(null)
   const [doc, setDoc] = useState<ReaderDocument | null>(null)
+  // The PDF view (v8.40.0): what it found once open, or why it couldn't open.
+  const [pdfInfo, setPdfInfo] = useState<{ pages: number; outline: PdfOutlineEntry[] } | null>(null)
+  const [pdfFailure, setPdfFailure] = useState<string | null>(null)
+  const [pdfPage, setPdfPage] = useState(1)
   const [attempt, setAttempt] = useState(0)
   const pageRef = useRef<HTMLDivElement>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -153,9 +190,23 @@ export default function Reader({
   // Folded by a drag, the panel is already as narrow as it goes: it snaps
   // away instead of sliding, or it would first jump back to its width.
   const [contentsSnapped, setContentsSnapped] = useState(false)
+  // The reading pane takes its new width at once and its contents glide
+  // there (a transform), rather than the pane resizing every frame of the
+  // slide: re-laying out a whole paper sixty times a second lagged.
+  const [glide, setGlide] = useState<'open' | 'close' | null>(null)
+  // Ended by its animationend; this catches one that never comes, which
+  // would leave the pane unable to scroll sideways.
+  useEffect(() => {
+    if (!glide) return
+    const timer = window.setTimeout(() => setGlide(null), GLIDE_FALLBACK)
+    return () => window.clearTimeout(timer)
+  }, [glide])
   const toggleContents = (open: boolean, snap = false) => {
     setContentsToggled(true)
     setContentsSnapped(snap)
+    // No glide when motion is reduced: no animation, so nothing would end it.
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    setGlide(snap || still ? null : open ? 'open' : 'close')
     setContentsOpen(open)
     try {
       localStorage.setItem(CONTENTS_KEY, open ? '1' : '0')
@@ -199,20 +250,86 @@ export default function Reader({
     return () => controller.abort()
   }, [ref, attempt])
 
+  // Text or PDF: the thread's choice when there's a text to choose; the PDF
+  // when the paper has no HTML render. A remembered PDF choice opens at once,
+  // without waiting for the text to answer.
+  const view: ReaderView | null = !doc
+    ? thread.readerView === 'pdf'
+      ? 'pdf'
+      : null
+    : doc.available
+      ? (thread.readerView ?? 'text')
+      : 'pdf'
+  const chooseView = (next: ReaderView) => {
+    setPdfFailure(null)
+    dispatch(threadReaderViewSet({ id: thread.id, view: next }))
+  }
+
+  // Slide between the views (v8.40.0): the arriving view comes in from the
+  // side its button is on (PDF from the right, Text from the left), as the
+  // cards' scroll does; only on a switch, never on arrival.
+  const [shownView, setShownView] = useState(view)
+  const [slide, setSlide] = useState<'from-right' | 'from-left' | null>(null)
+  if (view !== shownView) {
+    setShownView(view)
+    setSlide(shownView && view ? (view === 'pdf' ? 'from-right' : 'from-left') : null)
+  }
+
+  // The PDF's table of contents (v8.40.0): its outline, else the headings the
+  // server finds in its text, since many PDFs carry no outline. pdf.js's own
+  // outline stands in when the server can't read PDFs (no `pdf` extra).
+  const [pdfContents, setPdfContents] = useState<PdfOutlineEntry[]>([])
+  useEffect(() => {
+    if (view !== 'pdf' || !ref) return
+    const controller = new AbortController()
+    fetchPdfContents(ref, provider, controller.signal)
+      .then(setPdfContents)
+      .catch(() => {}) // a nicety: no contents, the PDF still reads
+    return () => controller.abort()
+  }, [view, ref, provider])
+
   const sections = useMemo(() => (doc?.available ? doc.sections : []), [doc])
-  const contents = useMemo(
-    () => sections.filter((section) => section.level <= CONTENTS_DEPTH && section.title.length > 0),
-    [sections],
+  const outline = useMemo(
+    () => (pdfContents.length ? pdfContents : (pdfInfo?.outline ?? [])),
+    [pdfContents, pdfInfo],
   )
+  const outlinePlaces = useRef(new Map<string, PdfOutlineEntry>())
+  const contents = useMemo(() => {
+    if (view === 'pdf') {
+      outlinePlaces.current = new Map(outline.map((entry, index) => [`outline-${index}`, entry]))
+      return outline.map((entry, index): ReaderSection => {
+        // "3.2 Attention" → the number in the rail's number column.
+        const numbered = /^((?:\d{1,2}|[A-H])(?:\.\d{1,2}){0,2})\s+(.+)$/.exec(entry.title)
+        return {
+          id: `outline-${index}`,
+          level: entry.level,
+          number: numbered?.[1] ?? '',
+          title: [{ kind: 'text', text: numbered?.[2] ?? entry.title }],
+          blocks: [],
+        }
+      })
+    }
+    return sections.filter((section) => section.level <= CONTENTS_DEPTH && section.title.length > 0)
+  }, [view, outline, sections])
   const bibliography = useMemo(
     () => new Map((doc?.available ? doc.bibliography : []).map((entry) => [entry.id, entry])),
     [doc],
   )
 
   const jump = useCallback((target: string) => {
-    const element = document.getElementById(readerDomId(target))
+    const place = outlinePlaces.current.get(target)
+    const element = document.getElementById(place ? pdfPageId(place.page) : readerDomId(target))
     if (!element) return
     const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const pane = pageRef.current
+    // A PDF heading whose place on its page is known: straight to it, with
+    // the same room above as the text view's headings get.
+    if (place?.top !== undefined && pane) {
+      const offset = element.getBoundingClientRect().top - pane.getBoundingClientRect().top
+      const top = pane.scrollTop + offset + place.top * pdfScale(element) - HEADING_ROOM
+      pane.scrollTo({ top, behavior: still ? 'auto' : 'smooth' })
+      return
+    }
     element.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' })
     // Mark where a jump landed, so a reference in a long list is easy to find.
     element.classList.add('landed')
@@ -220,11 +337,27 @@ export default function Reader({
   }, [])
   const links = useMemo(() => ({ bibliography, jump, enlarge: setEnlarged }), [bibliography, jump])
 
+  // A contents entry clicked stays the active one until the reader scrolls
+  // by hand: two headings close together on a page would otherwise light the
+  // later one, both having passed the top third once the jump lands.
+  const [pinnedId, setPinnedId] = useState<string | null>(null)
+  useEffect(() => {
+    const pane = pageRef.current
+    if (!pane || !pinnedId) return
+    const release = () => setPinnedId(null)
+    const events = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const
+    for (const name of events) pane.addEventListener(name, release, { passive: true })
+    return () => {
+      for (const name of events) pane.removeEventListener(name, release)
+    }
+  }, [pinnedId])
+  useEffect(() => setPinnedId(null), [view])
+
   // The contents follow the reading: the active entry is the last heading
   // that has scrolled past the top third of the page.
   useEffect(() => {
     const page = pageRef.current
-    if (!page || contents.length === 0) return
+    if (!page || contents.length === 0 || view === 'pdf') return
     const update = () => {
       const line = page.getBoundingClientRect().top + page.clientHeight / 3
       let current: string | null = contents[0].id
@@ -238,22 +371,55 @@ export default function Reader({
     update()
     page.addEventListener('scroll', update, { passive: true })
     return () => page.removeEventListener('scroll', update)
-  }, [contents])
+  }, [contents, view])
 
-  // The assistant opens on the section in view (askReader's own note of it).
+  // In the PDF view: the page in view is the last whose top has passed the
+  // top third of the pane, and the outline's active entry is the last one
+  // whose heading has — its place on its page when known, else its page's
+  // top (several sections can start on one page).
+  const [outlineActive, setOutlineActive] = useState<string | null>(null)
   useEffect(() => {
-    setReadingSection(thread.id, activeId)
-  }, [thread.id, activeId])
+    const pane = pageRef.current
+    if (!pane || view !== 'pdf' || !pdfInfo) return
+    const update = () => {
+      const line = pane.getBoundingClientRect().top + pane.clientHeight / 3
+      const pages = Array.from(pane.querySelectorAll<HTMLElement>('.reader-pdf-page'))
+      let current = 1
+      for (const element of pages) {
+        if (element.getBoundingClientRect().top <= line)
+          current = Number(element.dataset.sectionId?.slice('page:'.length)) || current
+        else break
+      }
+      setPdfPage(current)
+      let active: string | null = null
+      outline.forEach((entry, index) => {
+        const element = pages[entry.page - 1]
+        if (!element) return
+        const top = element.getBoundingClientRect().top + (entry.top ?? 0) * pdfScale(element)
+        if (top <= line) active = `outline-${index}`
+      })
+      setOutlineActive(active)
+    }
+    update()
+    pane.addEventListener('scroll', update, { passive: true })
+    return () => pane.removeEventListener('scroll', update)
+  }, [view, pdfInfo, outline])
+  const shownActiveId = pinnedId ?? (view === 'pdf' ? outlineActive : activeId)
+
+  // The assistant opens on the section in view, or the page in the PDF view
+  // (askReader's own note of it).
+  useEffect(() => {
+    setReadingSection(thread.id, view === 'pdf' ? `page:${pdfPage}` : activeId)
+  }, [thread.id, view, pdfPage, activeId])
 
   // The highlight menu (v8.38.0): Explain and Simplify ask the Reader's
   // assistant about the passage, opening it; Chat attaches the passage to its
   // bar. Formulas are read as their LaTeX (`selectionText`).
   const { selection, clear: clearSelection } = useTextSelection(
-    articleRef,
-    !!doc?.available,
+    view === 'pdf' ? pdfRef : articleRef,
+    view === 'pdf' ? !!pdfInfo : !!doc?.available,
     readerSelectionText,
   )
-  const provider = thread.data.provider ?? 's2'
   const pick = (action: (typeof MENU)[number]['action'], passage: string) => {
     // Where it's from must be read while the text is still selected.
     const source = selectionSource()
@@ -279,7 +445,29 @@ export default function Reader({
   const arxivId = paper?.arxiv_id ?? thread.data.graph_ref?.seed.arxiv_id
 
   let body: ReactNode
-  if (!doc) {
+  if (view === 'pdf' && ref && !pdfFailure) {
+    body = (
+      <PdfView
+        key={ref}
+        url={pdfUrl(ref, provider)}
+        root={pageRef}
+        textRef={pdfRef}
+        onLoaded={setPdfInfo}
+        onFailed={setPdfFailure}
+      />
+    )
+  } else if (view === 'pdf' && doc?.available) {
+    // The reader chose the PDF and it wouldn't open: say so, and offer the text.
+    body = (
+      <div className="reader-status reader-unavailable">
+        <h2>Couldn’t open the PDF</h2>
+        <p>This paper’s PDF couldn’t be downloaded or opened here. Its text is still readable.</p>
+        <button type="button" className="reader-retry" onClick={() => chooseView('text')}>
+          Show the text
+        </button>
+      </div>
+    )
+  } else if (!doc) {
     body = (
       <div className="reader-status">
         <span className="spin" /> Reading the paper…
@@ -295,7 +483,10 @@ export default function Reader({
           <button
             type="button"
             className="reader-retry"
-            onClick={() => setAttempt((count) => count + 1)}
+            onClick={() => {
+              setPdfFailure(null)
+              setAttempt((count) => count + 1)
+            }}
           >
             Try again
           </button>
@@ -385,7 +576,10 @@ export default function Reader({
   }
 
   return (
-    <div className="reader">
+    <div
+      className="reader"
+      style={{ '--contents-width': `${contentsPanel.width}px` } as CSSProperties}
+    >
       {contents.length > 0 && !contentsPresence.present && (
         <button
           type="button"
@@ -416,12 +610,7 @@ export default function Reader({
           className={`reader-contents${contentsToggled ? ' sliding' : ''}${
             contentsPresence.closing ? (contentsSnapped ? ' closing snap' : ' closing') : ''
           }${contentsPanel.dragging ? ' dragging' : ''}`}
-          style={
-            {
-              width: contentsPanel.width,
-              '--contents-width': `${contentsPanel.width}px`,
-            } as CSSProperties
-          }
+          style={{ width: contentsPanel.width }}
           onAnimationEnd={contentsPresence.onAnimationEnd}
           id="reader-contents"
           aria-label="Contents"
@@ -436,9 +625,12 @@ export default function Reader({
                 <li key={section.id} className={`reader-contents-level-${section.level}`}>
                   <button
                     type="button"
-                    className={section.id === activeId ? 'active' : undefined}
-                    aria-current={section.id === activeId ? 'location' : undefined}
-                    onClick={() => jump(section.id)}
+                    className={section.id === shownActiveId ? 'active' : undefined}
+                    aria-current={section.id === shownActiveId ? 'location' : undefined}
+                    onClick={() => {
+                      setPinnedId(section.id)
+                      jump(section.id)
+                    }}
                     title={plainText(section.title)}
                   >
                     {section.number && (
@@ -484,11 +676,59 @@ export default function Reader({
       )}
       {/* The shell's overlays go over the reading pane, not the whole
           Reader, so the ↑ back centres over the text, not the contents. */}
-      <div className="reader-main">
+      <div
+        className={`reader-main${glide ? ` glide-${glide}` : ''}`}
+        onAnimationEnd={(event) => {
+          if (event.animationName.startsWith('reader-glide')) setGlide(null)
+        }}
+      >
         {children}
-        <div className="reader-page" ref={pageRef} data-tour="reader-page">
+        <div
+          key={view ?? 'loading'}
+          className={`reader-page${view === 'pdf' ? ' reader-page-pdf' : ''}${slide ? ` ${slide}` : ''}`}
+          ref={pageRef}
+          data-tour="reader-page"
+          onAnimationEnd={(event) => {
+            if (event.target === event.currentTarget) setSlide(null)
+          }}
+        >
           {body}
         </div>
+        {/* Text or PDF (v8.40.0), remembered on the thread. Shown even when
+            there's no text (Patrick), its Text button saying why; hidden only
+            when neither the text nor the PDF could be had. */}
+        {doc && !(pdfFailure && !doc.available) && (
+          <div
+            className={`reader-view-switch${view === 'pdf' ? ' on-pdf' : ''}`}
+            role="group"
+            aria-label="Show the paper as"
+            data-tour="reader-view-switch"
+          >
+            <span className="reader-view-thumb" aria-hidden="true" />
+            <button
+              type="button"
+              aria-pressed={view === 'text'}
+              // Not `disabled`: some browsers show no tooltip on a disabled button.
+              aria-disabled={!doc.available}
+              onClick={() => doc.available && chooseView('text')}
+              title={
+                doc.available
+                  ? 'Read the paper’s text: typeset equations, live citations'
+                  : NO_TEXT[doc.reason]
+              }
+            >
+              Text
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === 'pdf'}
+              onClick={() => chooseView('pdf')}
+              title="Read the paper as its PDF: the original layout"
+            >
+              PDF
+            </button>
+          </div>
+        )}
       </div>
       {selection && (
         <SelectionMenu

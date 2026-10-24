@@ -83,7 +83,8 @@ test/
                                 the contents, citation and footnote clicks,
                                 each reason there's nothing to read, and the
                                 highlight menu's Explain, Simplify and Chat
-                                into the Reader Assistant (v8.38.0)
+                                into the Reader Assistant (v8.38.0), and the
+                                PDF view with pdf.js stubbed (v8.40.0)
   tools/
     ToolCards.test.tsx        — the card home's paper header, its three
                                 cards, and the one-time paper fetch

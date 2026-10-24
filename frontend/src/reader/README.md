@@ -3,7 +3,7 @@
 The **Reader card** (v8.37.0): the third card on a paper thread's home,
 beside the Citation Graph and the Knowledge Graph. It shows the paper itself,
 parsed from its HTML render (arXiv's own, else ar5iv's), with a contents rail
-that follows the reading.
+that follows the reading, or as its PDF (v8.40.0).
 
 ```
 reader/
@@ -17,7 +17,9 @@ reader/
   askReader.ts    — the Reader Assistant's asking: what it sends, the
                     section in view, how a highlight's action is worded
   ReaderAssistant.tsx — the docked assistant: the shared panel with the Reader's words
-  reader.css      — the layout, the reading column, `--reader-ink` accents
+  PdfView.tsx     — the PDF view: pages sized up front, drawn near the view
+  pdf.ts          — pdf.js, loaded on first use, and a PDF's outline as pages
+  reader.css      — the layout, the reading column, the PDF's pages, `--reader-ink` accents
 ```
 
 ## Where it's going
@@ -25,10 +27,72 @@ reader/
 The OnePager's **Reader card** item holds the plan, in the order Patrick set
 after the first browser round (2026-10-23): (1) the structured parse, the
 reading view and the contents (v8.37.0); (2) the highlight menu and the
-Reader Assistant (v8.38.0, below); (3) the PDF fallback viewer with the same
-AI tools; (4) a citation hover card that resolves `[23]` to the real cited
+Reader Assistant (v8.38.0, below); (3) the PDF view with the same
+AI tools (v8.40.0, below); (4) a citation hover card that resolves `[23]` to the real cited
 paper via S2; (5) Knowledge Graph notes in the margin. Read the OnePager
 entry before extending it.
+
+## The PDF view (v8.40.0)
+
+The paper as its PDF, drawn by pdf.js (`pdfjs-dist`, pinned). **When:** on
+its own for a paper with no HTML render (a failed conversion like Adam, or an
+open-access paper not on arXiv), and by the reader's choice on a small
+**Text / PDF** switch at the foot of the pane, remembered on the thread
+(`ThreadRecord.readerView`, saved with the session). A remembered PDF choice
+opens at once, without waiting for the text. The switch is there even for a
+paper with only its PDF (Patrick): its Text button is off (`aria-disabled`,
+not `disabled`, so the tooltip still shows) and its tooltip says why in a
+line (`NO_TEXT`). Switching slides the arriving view in from its button's
+side (PDF from the right, Text from the left), as the cards' scroll does,
+the leaving one already gone; the switch's thumb slides between its buttons.
+
+- **The file comes from our origin.** `/api/paper/<ref>/pdf` serves it out of
+  `services/pdf`'s on-disk cache (downloaded once; `docs/pdf-mining.md`), the
+  URL resolved server-side (`paper_pdf_url`: arXiv's PDF for an arXiv id,
+  else the provider's open-access PDF), never taken from the client. Serving
+  needs no optional extra.
+- **pdf.js costs nothing until it's used.** `pdf.ts` imports the library and
+  its worker on first use, so they're separate chunks (about 130 KB gzipped
+  plus the worker) and the app's start-up is unchanged.
+- **Pages are sized up front, drawn near the view, and kept.** Every page's
+  box is set from its own dimensions when the PDF opens, so the scroll and
+  the jumps are right before anything is drawn; a page draws (a canvas at the
+  screen's pixel ratio, and pdf.js's transparent text layer over it) within
+  a screen or so of view and is never torn down, so a selection in it can't
+  vanish under a redraw (the lesson of the vanishing equation highlight,
+  `docs/bugs.md`). Pages fit the pane's width, up to 900px, **once the
+  width settles** (200ms): following every frame of the contents panel's
+  slide redrew every drawn page each frame, and the fold lagged. When the
+  scale does change, the page at the top of the pane stays there, the same
+  fraction of the way down.
+- **Only the text layer's essential CSS** is ours (`reader.css`, from
+  pdf.js's own `.textLayer` rules); pdf.js's whole viewer stylesheet carries
+  global rules this app doesn't want. `--total-scale-factor` is set per page.
+- **The contents are the PDF's table of contents**, jumping to each
+  heading's place on its page, the active entry the last heading above the
+  top third of the pane: its own outline (bookmarks) when
+  it has one, else the section headings the server finds in its text
+  (`/api/paper/<ref>/pdf-contents`, `services/pdf/headings.py`), since many
+  arXiv PDFs have no outline (Adam's and SAC's don't; Attention's does). A
+  numbered entry's number goes in the rail's number column. Without the
+  server's `pdf` extra, pdf.js's own reading of the outline stands in.
+  Entries carry `top`, how far down the page the heading sits, because
+  papers often start two sections on one page: knowing only the page, a
+  click on the first landed on, and lit, the second. An entry without it
+  jumps to its page's top. Each page's `data-scale` turns points into pixels.
+- **A clicked entry stays active until the reader scrolls by hand** (a
+  wheel, touch, pointer or key in the pane), in both views: two headings
+  close together would otherwise both pass the top third once a jump lands,
+  and the later one would light.
+- **The highlight menu and the assistant work the same.** Each page carries
+  `data-passage-from` ("page 3") and `data-section-id` (`page:3`), as a
+  section does in the text view; a PDF line ends in a `<br>`, read as a
+  break. The assistant is told the page in view and reads the PDF's text,
+  that page first (`routes/agents.py`, `_pdf_context`), which needs the
+  optional `pdf` extra (PyMuPDF); without it the assistant says so, and the
+  PDF still shows.
+- **Nothing to read** now means the PDF wouldn't open either: the messages
+  name both, and a chosen PDF that won't open offers the text back.
 
 ## The highlight menu and the Reader Assistant (v8.38.0)
 
@@ -117,7 +181,13 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
   which is what the drag replaced. Folded by a drag, the panel snaps away
   (`.snap`) since it's already at its floor; reopening slides it in like the
   docked panels (`--motion-panel`, their keyframes mirrored, `ui/usePresence`
-  holding it through an exit). The look is deliberately unlike the
+  holding it through an exit). **It all moves by transform**: the layout
+  changes once at the start (a closing panel leaves the flow, an opening
+  one takes its width) and the reading pane's contents glide from where
+  they were (`.glide-open`/`.glide-close`, half the panel's width, since
+  they're centred). The first version animated the panel's margin, which
+  resized the pane every frame and re-laid out the whole paper each time;
+  the fold lagged in both views. The look is deliberately unlike the
   sidebar's 56px icon rail. Open or folded is remembered
   (`ca.readerContentsOpen`), and the panel stays at every window width.
 - **The shell's overlays sit over the reading pane** (`.reader-main`), not
@@ -148,5 +218,7 @@ the text with its math and figure, the contents (paragraph headings left
 out) and its jumps, a citation's tooltip and landing, a footnote opening,
 a figure enlarging, an algorithm's numbers and indents, the contents
 resizing and folding by a drag and coming back only by the bump, and each
-unavailable state, including the retry. The parse itself is
+unavailable state, including the retry, and the PDF view with pdf.js
+stubbed: the fallback with its outline as the contents, the switch and its
+remembered choice, a chosen PDF that won't open, and a highlight's page. The parse itself is
 covered by `test/curious_astronaut/integrations/arxiv/test_document.py`.

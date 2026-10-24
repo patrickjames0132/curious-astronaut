@@ -1816,20 +1816,12 @@ than deleted so the plan doesn't get re-proposed.
          concept, and the Reader has nothing to add one to until a
          SpatialRead-style canvas of ideas spun off the paper exists. The
          full story is in [docs/history.md](docs/history.md).
-      3. **The PDF fallback: a viewer plus the AI tools** (Patrick's choice
-         over saved highlights and notes, 2026-10-23). pdf.js renders the
-         PDF `services/pdf` already caches, served from our origin. It covers
-         papers ar5iv can't render (Adam, 1412.6980), non-arXiv open-access
-         papers, and a slow ar5iv (four fetches timed out on
-         2026-10-23, at 30s, 30s, 90s and 150s): show the PDF first and switch
-         to the structured view once it arrives. Its text layer keeps
-         selection working, so step 2's menu works on PDFs too. It also
-         unblocks "Click a library citation to open the source at that
-         page". **arXiv's own HTML is now the first source** (v8.39.0): it
-         covers old papers as well as new, answers in about 0.05s, and
-         parses unchanged, so the PDF view is needed only for papers neither
-         renderer could convert (Adam) and open-access papers not on arXiv,
-         no longer for a slow ar5iv.
+      3. ✓ **Shipped in v8.40.0**: the PDF view, with a Text / PDF switch,
+         a table of contents (the PDF's bookmarks, else headings found in
+         its text), and the highlight menu and Reader Assistant working on
+         it. The full story is in [docs/history.md](docs/history.md). Still
+         open from it: "Click a library citation to open the source at that
+         page" can now be built on the PDF view.
       4. Citation hover card, plus a jump into the Paper Graph.
       5. Knowledge Graph notes in the margin (when one exists for the paper).
 

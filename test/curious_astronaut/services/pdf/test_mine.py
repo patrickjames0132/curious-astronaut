@@ -87,3 +87,31 @@ def test_render_figure_resolves_token_and_refuses_unknown(tmp_path, monkeypatch)
         mine.render_figure(mined["token"], 5)  # out of range
     with pytest.raises(PdfError):
         mine.render_figure("deadbeefdeadbeefdeadbeef", 0)  # never minted
+
+
+def test_pages_keep_their_boundaries_and_are_cached(tmp_path, monkeypatch):
+    """v8.40.0: the Reader assistant reads a PDF page by page."""
+    doc = fitz.open()
+    for words in ("First page words.", "", "Third page words."):
+        page = doc.new_page(width=612, height=792)
+        if words:
+            page.insert_text((100, 60), words)
+    path = tmp_path / "three.pdf"
+    doc.save(path)
+    doc.close()
+    fetches = []
+    monkeypatch.setattr(mine.fetch, "fetch_pdf", lambda url: fetches.append(url) or path)
+
+    result = mine.get_pdf_pages("https://host/three.pdf")
+    assert result["available"] is True
+    assert result["pages"] == ["First page words.", "", "Third page words."]
+    assert mine.get_pdf_pages("https://host/three.pdf") == result
+    assert len(fetches) == 1  # cached
+
+
+def test_pages_of_an_undownloadable_pdf_are_an_unavailable_miss(monkeypatch):
+    def refuse(url):
+        raise PdfError("nope")
+
+    monkeypatch.setattr(mine.fetch, "fetch_pdf", refuse)
+    assert mine.get_pdf_pages("https://host/gone.pdf") == {"available": False, "pages": []}

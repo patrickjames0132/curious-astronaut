@@ -293,6 +293,15 @@ export const READER_TOUR: TourStep[] = [
       'can ask anything about it.',
   },
   {
+    target: '[data-tour="reader-view-switch"]',
+    presentIf: '[data-tour="reader-view-switch"]',
+    title: 'Text or PDF',
+    body:
+      'Switch between the paper’s text (typeset equations, live citations) and its PDF, ' +
+      'the original layout. The choice is remembered for this paper. A paper with no ' +
+      'text opens as its PDF, and the highlight menu and the assistant work on either.',
+  },
+  {
     target: '[data-tour="reader-assistant-btn"]',
     presentIf: '[data-tour="reader-assistant-btn"]',
     title: 'The Reader Assistant',

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 
-from ...integrations import openalex
+from ...integrations import arxiv, openalex
 from ...integrations import semantic_scholar as s2
 from ...storage import cache
 from ..graph import Provider
@@ -103,3 +103,20 @@ def resolve_oa_pdf(node_id: str, provider: Provider) -> str | None:
     oa_pdf = oa_pdf if isinstance(oa_pdf, str) and oa_pdf else None
     prime(node_id, oa_pdf)
     return oa_pdf
+
+
+def paper_pdf_url(ref: str, provider: Provider) -> str | None:
+    """A paper's PDF URL, for the Reader's PDF view (v8.40.0).
+
+    Args:
+        ref: The paper's arXiv id, or its provider node id for a paper not on
+            arXiv (the Reader sends ``arxiv_id ?? id``).
+        provider: Who to ask for a non-arXiv paper's open-access PDF.
+
+    Returns:
+        arXiv's PDF for an arXiv id (always open), else the provider's
+        open-access PDF, else None.
+    """
+    if arxiv.looks_arxiv(ref):
+        return arxiv_pdf_url(ref)
+    return resolve_oa_pdf(ref, provider)

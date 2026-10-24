@@ -23,7 +23,8 @@ import { selectionText } from '../selection/formulas'
  */
 export function readerSelectionText(range: Range): string {
   return selectionText(range, {
-    breaks: '.reader-equation, .reader-equation-body, .reader-listing-line',
+    // `br`: pdf.js's text layer ends each PDF line with one (v8.40.0).
+    breaks: '.reader-equation, .reader-equation-body, .reader-listing-line, br',
     drop: '.reader-note-mark',
   })
 }

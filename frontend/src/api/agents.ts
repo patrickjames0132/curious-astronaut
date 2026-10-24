@@ -662,8 +662,10 @@ export async function streamAskReader(
     question: string
     /** The paper's arXiv id, as the Reader fetched its document. */
     paper: string
-    /** The id of the section in view, if known. */
+    /** The id of the section in view, or `page:<n>` in the PDF view. */
     section?: string | null
+    /** The paper's title, for a PDF, which carries no reliable one. */
+    title?: string
     provider: Provider
     source_ids?: string[]
     history?: HistoryTurn[]
