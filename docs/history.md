@@ -4870,6 +4870,25 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Recent chats in the collapsed sidebar** — with the sidebar collapsed,
+      there's no way back to a recent chat without opening it again. Add
+      buttons for the most recent chats to the collapsed rail, so switching
+      between them stays one click. Decide how many, and what each button
+      shows when there's only an icon's width. *(From the `todos.md` inbox,
+      2026-10-22.)*
+
+      **Shipped as the Explorations shortcut (v8.41.0).** The collapsed rail
+      has one chat-bubble icon, with the tooltip “Explorations”, opening the
+      saved exploration tree in a compact modal beside it. Expand a parent to
+      reach its Chats and Papers, with the same navigation, running indicators
+      and row menus as the full sidebar. Selecting a thread closes the modal;
+      Escape, the close button and clicking outside also dismiss it. Keyboard
+      focus stays inside and returns to the launcher on close. The expanded
+      sidebar shows the tree directly and has no duplicate shortcut. One small
+      uppercase heading sits beside the close button. The tour teaches the
+      shortcut; regression tests cover collapsed-rail navigation and dismissal.
+      Approved by Patrick, 2026-10-24.
+
 - [x] **Immediate Quick response context and a compact model picker**
       *(v8.38.2)* — clicking Quick response stamps the replacement turn before
       streaming and immediately fills its timer header with a muted “Quick

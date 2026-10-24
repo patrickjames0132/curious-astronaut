@@ -18,12 +18,14 @@ import * as api from '../../src/api'
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+  Reflect.deleteProperty(HTMLDialogElement.prototype, 'close')
 })
 
 /** Mount the actual sidebar with an exploration containing one graph.
  * @returns Store and parent record for navigation assertions.
  */
-async function setup() {
+async function setup(open = true) {
   vi.spyOn(api, 'fetchGraphStream').mockResolvedValue({
     seed: { id: 'paper', title: 'Graph paper' },
     nodes: [],
@@ -41,7 +43,7 @@ async function setup() {
     )
     return (
       <SideBar
-        open
+        open={open}
         onToggle={() => {}}
         onOpenLibrary={() => {}}
         onNewGraph={() => store.dispatch(explorationOpened(newExploration()))}
@@ -71,6 +73,7 @@ async function setup() {
 
 it('collapses children under their own parent and hides them when starting a new exploration', async () => {
   await setup()
+  expect(screen.queryByRole('button', { name: 'Explorations' })).toBeNull()
   expect(screen.getByText('New chat')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Collapse Saved exploration' }))
   expect(screen.queryByText('New chat')).toBeNull()
@@ -170,4 +173,32 @@ it('re-summarizes a chat from every question it holds; a paper has no Re-summari
   await waitFor(() => expect(screen.getByText('Off-policy learning')).toBeTruthy())
   fireEvent.click(screen.getByRole('button', { name: 'Options for Graph paper' }))
   expect(screen.queryByRole('menuitem', { name: /Re-summarize/ })).toBeNull()
+})
+
+it('opens the exploration tree from the folded rail and closes after selecting a thread', async () => {
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = true
+    },
+  })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = false
+      this.dispatchEvent(new Event('close'))
+    },
+  })
+  await setup(false)
+  expect(screen.queryByText('Saved exploration')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Explorations' }))
+  expect(screen.getByRole('dialog', { name: 'Explorations' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Collapse Saved exploration' }))
+  expect(screen.queryByText('Graph paper')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Expand Saved exploration' }))
+  await act(async () => fireEvent.click(screen.getByText('Graph paper')))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Explorations' }).getAttribute('aria-expanded')).toBe(
+    'false',
+  )
 })

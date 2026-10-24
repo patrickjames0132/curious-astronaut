@@ -78,9 +78,16 @@ function GroupHead({
  * once there is one. Each group folds on its caret.
  *
  * @param explorationId Parent owning these threads.
+ * @param onNavigate Close a containing quick-navigation panel after selection.
  * @returns Thread navigation, or nothing for an inactive parent.
  */
-export default function ThreadList({ explorationId }: { explorationId: string }) {
+export default function ThreadList({
+  explorationId,
+  onNavigate,
+}: {
+  explorationId: string
+  onNavigate?: () => void
+}) {
   const dispatch = useAppDispatch()
   const store = useAppStore()
   const activeId = useAppSelector((state) => state.explorations.activeId)
@@ -126,7 +133,10 @@ export default function ThreadList({ explorationId }: { explorationId: string })
         !!conversations[thread.id]?.running.length ||
         SIDE_CHAT_TOOLS.some((tool) => !!conversations[chatKey(thread.id, tool)]?.running.length)
       }
-      onOpen={() => void dispatch(openThread(thread.id))}
+      onOpen={() => {
+        void dispatch(openThread(thread.id))
+        onNavigate?.()
+      }}
       onRename={(title) => dispatch(threadRenamed({ id: thread.id, title }))}
       onDelete={deletable ? () => void dispatch(deleteThread(thread.id)) : undefined}
       onResummarize={thread.identity ? undefined : () => void resummarize(thread)}

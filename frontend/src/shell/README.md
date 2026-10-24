@@ -91,3 +91,9 @@ The rail helmet has a glass-blue shell outline only in the app’s light theme.
 The browser favicon similarly drops its outline when the browser reports a dark
 color scheme (`prefers-color-scheme`), independently of the app setting.
 The theme action glyph fades and turns as the new palette fades in.
+
+The collapsed rail’s Explorations icon opens the same exploration tree in a
+compact modal beside the rail. The expanded sidebar shows the tree directly.
+The modal shares expansion state and row controls with the full sidebar. The native dialog contains keyboard focus, closes with
+Escape, its close button or a click outside, and restores focus to the launcher.
+Opening another exploration loads its children just as the sidebar does.
