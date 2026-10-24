@@ -14,11 +14,14 @@ Split by concern:
 
 * ``paths``     — on-disk layout of the corpus root (per-release subtrees + the
   ``CURRENT`` pointer). Pure path algebra; safe to import corpus-less.
-* ``datasets``  — the S2 **Datasets** API client (release id + shard URLs), with
-  its own patient throttle and the ``CorpusError`` this package raises.
+* ``datasets``  — the S2 **Datasets** API client (release id, shard URLs, and
+  the weekly diffs between releases), with its own patient throttle and the
+  ``CorpusError`` this package raises.
 * ``download``  — the resumable shard downloader (checkpointed, URL-expiry-aware).
 * ``ingest``    — DuckDB JSONL.gz → Parquet (papers projected + arXiv-indexed,
   citations hash-partitioned on ``citedcorpusid``).
+* ``refresh``   — the incremental update: the next release built from the
+  current one plus S2's weekly diffs (~5 GB a week instead of ~439 GB).
 * ``source``    — the query side: the :class:`~.source.CitationSource` seam, the
   :class:`~.source.DuckDBCitationSource` impl, and ``citation_relations`` — the
   drop-in ``build.py`` calls, returning None to fall back to the live path.

@@ -2801,6 +2801,78 @@ now lives in the parent exploration; switching graphs resumes its own transcript
 
 ### Citation graph — landmark/latest & mega-papers
 
+- [x] **Refresh the corpus incrementally instead of re-downloading it**
+      *(v8.36.0)* — a
+      monthly S2 release is re-pulled and re-ingested whole: ~400 GB of
+      shards, then the full ingest (citations bucketed into 1024 partitions,
+      papers compacted with a global `ORDER BY corpusid` sort) — hours of
+      disk on NVMe and, per the corpus README's own measurements, ~10.6h of
+      ingest alone on a spinning disk. Almost none of that is new: month over
+      month the citation graph *appends*. **The investigation first:** the
+      Datasets API is believed to expose a diff between two releases
+      (update/delete file lists per dataset) — confirm that against the live
+      API before anything else, since `datasets.py` today only calls
+      `/release/latest` and `/release/{id}/dataset/{name}`, and the whole
+      ticket rests on it. *(From the `todos.md` inbox, 2026-08-16 — Patrick's
+      "is that possible? worth investigating".)*
+
+      **If diffs exist, the ingest layout decides how hard this is, and the
+      two halves differ sharply.** *Citations* are hash-partitioned on
+      `citedcorpusid`, so an update file's edges scatter across all 1024
+      buckets — appending is cheap in principle (write new files into each
+      `bucket=<N>/`) but must preserve the within-bucket sort that makes row
+      groups prune, so it's an append-then-merge per touched bucket, not a
+      plain copy. *Papers* are the harder half: they are **globally sorted**
+      by `corpusid` for exactly the pruning reason the README measures, and
+      updated rows land anywhere in the 0–290M id range, so a naive append
+      destroys the clustering that made hydration ~30x faster. That points at
+      a re-compaction of the affected clustered files (which the existing
+      `_compacting/` + `MANIFEST.json` staging already knows how to commit
+      safely), plus a rebuild of the arXiv index.
+      **Two constraints not to lose:** deletes are real (S2 merges and
+      retracts records), so "append-only" is the wrong mental model; and
+      releases are currently *isolated* subtrees with `CURRENT` naming an
+      ingested one — an in-place incremental update mutates the release the
+      app is serving, which is precisely the half-built-state hole the README
+      warns about. Decide whether an incremental release copies-then-updates
+      (cheap on a filesystem with reflinks, expensive otherwise) or whether
+      `CURRENT` has to move aside for the duration.
+
+      **Shipped (v8.36.0): `astronaut corpus refresh`** (`corpus/refresh.py`)
+      builds the latest release from the active one plus S2's weekly diffs,
+      ~5 GB a week against ~439 GB for a full release. **The investigation
+      held:** `/diffs/{start}/to/{end}/{dataset}` returns a chain of weekly
+      steps, each with `update_files` (whole upserted rows) and `delete_files`
+      (keys only: `corpusid` for papers, `citationid` for citations). Measured
+      on 2026-10-13: releases are weekly, not monthly (201 exist), and a week
+      is ~11.0M paper updates + 21,749 deletes and ~18.6M citation updates +
+      ~4.0M deletes. **The one blocker was ours:** the old ingest dropped
+      `citationid`, so citation deletes had no key to match, and the
+      2026-08-05 corpus can't be refreshed. Patrick chose one full re-pull
+      (2026-10-06) under the new schema, then exact refreshes from there.
+      **The two constraints, resolved:** deletes are applied exactly (within a
+      step a delete outranks an update; across steps the latest wins), and the
+      half-built-state hole is avoided by **copy-then-update into a new
+      release directory**: the base is never edited, the app keeps serving it,
+      and `CURRENT` moves only when the new release is whole. Papers are
+      rebuilt with an anti-join plus the surviving updates in one global
+      `ORDER BY corpusid` (clustering kept), then the arXiv index is rebuilt;
+      citations stage their events once, find replaced and deleted rows with
+      one semi-join scan of the base, and rewrite each of the 1024 buckets
+      sorted by `citedcorpusid` (~0.1 s a bucket). Every stage and every
+      bucket is checkpointed in `refresh.json`, so an interrupted refresh
+      resumes. No re-ingest is needed and raw shards are never read, so a
+      release's `raw/` can be deleted after its ingest and the chain refreshes
+      forever. **Along the way:** the ingest now keeps `citationid` and
+      `publicationtypes`, so a corpus-built citer knows whether it's a survey
+      (`is_survey` from the `Review` type, None on a release without the
+      column); the corpus commands gained tqdm progress bars (the whole job,
+      plus the file streaming now) whose log handler keeps warnings on lines
+      of their own; and the downloader resumes a shard that stays under
+      3 MB/s for 30 s on a freshly signed link (up to 20 times per shard).
+      That last one rests on a theory a later run didn't support (the speed
+      came back after a wait, not after a restart), so treat it as
+      provisional.
 - [x] **Collapse Field Landmarks and Latest Publications into one `citation`
       relation — and, with it, four lecture modes into one lecture over what the
       reader has scoped** *(v7.17.0)* — the graph shipped two kinds of citer as two

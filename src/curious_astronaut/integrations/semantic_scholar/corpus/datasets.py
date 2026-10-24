@@ -8,7 +8,7 @@ different host, needs the api key for the per-dataset file listing, and throttle
 *far* harder (a bare listing 429s within a couple of calls). So it gets its own
 tiny requester with a patient backoff rather than reusing the graph throttle.
 
-Two endpoints matter:
+Three endpoints matter:
 
 * ``GET /release/latest`` — the newest release id plus a one-line description of
   each dataset. Cheap and unauthenticated.
@@ -16,6 +16,13 @@ Two endpoints matter:
   download URLs. The URLs are **pre-signed S3 links that expire** (hours), so
   they're fetched fresh at download time, never cached to disk — a multi-day
   pull re-requests them as it goes.
+* ``GET /diffs/{start}/to/{end}/{name}`` — what changed in one dataset between
+  two releases, as a chain of steps (one per release in between; releases are
+  **weekly**), each with ``update_files`` (whole upserted rows) and
+  ``delete_files`` (just the row's key: ``corpusid`` for papers,
+  ``citationid`` for citations). The same expiring links. This is what the
+  incremental refresh (``refresh.py``) is built on: one week is ~1% of a
+  release (2026-10-13: 4.9 GB against ~439 GB).
 
 Nothing here downloads shard *bytes* (that's ``download.py``); this module only
 talks to the JSON index.
@@ -31,6 +38,7 @@ import logging
 import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from urllib.parse import urlparse
 
 from ....config import config
@@ -128,6 +136,52 @@ def dataset_file_urls(release_id: str, dataset: str) -> list[str]:
     if not isinstance(files, list) or not files:
         raise CorpusError(f"datasets {dataset} listing for {release_id} had no files")
     return [str(url) for url in files]
+
+
+@dataclass(frozen=True)
+class DiffStep:
+    """One release-to-release step of a dataset's diff.
+
+    Attributes:
+        from_release: The release this step starts from.
+        to_release: The release it ends at.
+        update_files: Signed URLs of the step's upserted rows (whole records).
+        delete_files: Signed URLs of the step's deleted keys.
+    """
+
+    from_release: str
+    to_release: str
+    update_files: list[str]
+    delete_files: list[str]
+
+
+def release_diffs(start_release: str, end_release: str, dataset: str) -> list[DiffStep]:
+    """The chain of diff steps taking one dataset from one release to another.
+
+    Args:
+        start_release: The release the local corpus holds.
+        end_release: The release to reach.
+        dataset: ``"papers"`` or ``"citations"``.
+
+    Returns:
+        The steps in order, oldest first; empty when the two are the same.
+
+    Raises:
+        CorpusError: When the request fails or the response isn't a diff chain.
+    """
+    data = _request(f"{DATASETS_BASE}/diffs/{start_release}/to/{end_release}/{dataset}")
+    raw_steps = data.get("diffs") if isinstance(data, dict) else None
+    if not isinstance(raw_steps, list):
+        raise CorpusError(f"datasets {dataset} diff {start_release}..{end_release} had no diffs")
+    return [
+        DiffStep(
+            from_release=str(step["from_release"]),
+            to_release=str(step["to_release"]),
+            update_files=[str(url) for url in step.get("update_files") or []],
+            delete_files=[str(url) for url in step.get("delete_files") or []],
+        )
+        for step in raw_steps
+    ]
 
 
 def shard_filename(url: str) -> str:

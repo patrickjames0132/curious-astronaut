@@ -40,20 +40,26 @@ RECENT_DATE = (datetime.date.today() - datetime.timedelta(days=5)).isoformat()
 PAPERS = [
     {"corpusid": 1, "externalids": {"ArXiv": "1706.03762", "DOI": "10.x/attn"},
      "title": "Attention Is All You Need", "year": 2017, "publicationdate": "2017-06-12",
-     "citationcount": 100000, "authors": [{"authorId": "a", "name": "Vaswani"}]},
+     "citationcount": 100000, "authors": [{"authorId": "a", "name": "Vaswani"}],
+     "publicationtypes": ["JournalArticle", "Conference"]},
     {"corpusid": 2, "externalids": {"ArXiv": "1810.04805"}, "title": "BERT",
      "year": 2018, "publicationdate": "2018-10-11", "citationcount": 80000,
-     "authors": [{"name": "Devlin"}, {"name": "Chang"}]},
+     "authors": [{"name": "Devlin"}, {"name": "Chang"}], "publicationtypes": ["JournalArticle"]},
+    # No publicationtypes at all: S2 sends null for a paper it hasn't typed.
     {"corpusid": 3, "externalids": {}, "title": "A recent applied paper", "year": 2026,
-     "publicationdate": RECENT_DATE, "citationcount": 5, "authors": [{"name": "Someone"}]},
+     "publicationdate": RECENT_DATE, "citationcount": 5, "authors": [{"name": "Someone"}],
+     "publicationtypes": None},
+    # Typed a review, so the corpus itself flags this citer a survey.
     {"corpusid": 4, "externalids": {"ArXiv": "2005.14165"}, "title": "GPT-3", "year": 2020,
-     "publicationdate": "2020-05-28", "citationcount": 50000, "authors": [{"name": "Brown"}]},
+     "publicationdate": "2020-05-28", "citationcount": 50000, "authors": [{"name": "Brown"}],
+     "publicationtypes": ["JournalArticle", "Review"]},
 ]
 #: Edges: BERT, GPT-3, and the recent paper all cite the seed (corpus id 1).
+#: Each carries the ``citationid`` a weekly diff's deletes name it by.
 CITATIONS = [
-    {"citingcorpusid": 2, "citedcorpusid": 1, "isinfluential": True},
-    {"citingcorpusid": 4, "citedcorpusid": 1, "isinfluential": False},
-    {"citingcorpusid": 3, "citedcorpusid": 1, "isinfluential": False},
+    {"citationid": 101, "citingcorpusid": 2, "citedcorpusid": 1, "isinfluential": True},
+    {"citationid": 102, "citingcorpusid": 4, "citedcorpusid": 1, "isinfluential": False},
+    {"citationid": 103, "citingcorpusid": 3, "citedcorpusid": 1, "isinfluential": False},
 ]
 #: A SECOND citations shard that re-ships edges already in the first — because
 #: that's what S2 actually does. A release's `citations` dataset comes as more
@@ -64,8 +70,8 @@ CITATIONS = [
 #: per-shard dedupe at ingest could never catch it. Keeping this in the fixture
 #: means the ordinary landmark assertions fail if the query stops deduping.
 CITATIONS_SECOND_BATCH = [
-    {"citingcorpusid": 2, "citedcorpusid": 1, "isinfluential": False},
-    {"citingcorpusid": 4, "citedcorpusid": 1, "isinfluential": False},
+    {"citationid": 201, "citingcorpusid": 2, "citedcorpusid": 1, "isinfluential": False},
+    {"citationid": 202, "citingcorpusid": 4, "citedcorpusid": 1, "isinfluential": False},
 ]
 
 
