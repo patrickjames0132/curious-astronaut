@@ -11,8 +11,10 @@ reader/
                     "nothing to read" states, the contents rail, the page
   ReaderBody.tsx  — the text: blocks (paragraph, equation, figure, table,
                     list) and the inline runs inside them
-  links.ts        — what runs share with the page: the jump context, the
-                    DOM-id prefix, plain text for tooltips
+  links.ts        — what runs share with the page: the jump and citation-card
+                    context, the DOM-id prefix, plain text
+  CitationCard.tsx — the card a citation opens: the paper it cites, and ways on
+  useCitationCard.ts — when the card shows, stays and goes, and where it sits
   selectionText.ts — what a highlight says (formulas as LaTeX) and where it's from
   askReader.ts    — the Reader Assistant's asking: what it sends, the
                     section in view, how a highlight's action is worded
@@ -28,9 +30,36 @@ The OnePager's **Reader card** item holds the plan, in the order Patrick set
 after the first browser round (2026-10-23): (1) the structured parse, the
 reading view and the contents (v8.37.0); (2) the highlight menu and the
 Reader Assistant (v8.38.0, below); (3) the PDF view with the same
-AI tools (v8.40.0, below); (4) a citation hover card that resolves `[23]` to the real cited
-paper via S2; (5) Knowledge Graph notes in the margin. Read the OnePager
-entry before extending it.
+AI tools (v8.40.0, below); (4) the citation cards, resolving `[23]` to the
+real cited paper (v8.43.0, below); (5) Knowledge Graph notes in the margin;
+(6) an answer lighting up the passage it's about. Read the OnePager entry
+before extending it.
+
+## The citation cards (v8.43.0)
+
+- **Hover previews, a click pins** (Patrick, 2026-10-24). The card shows
+  after the pointer rests 250ms on a citation, so passing over the text
+  doesn't flash cards, and stays while the pointer is on the citation or the
+  card. A click pins it (the citation's second click unpins); a pinned card
+  stays through hovering other citations, until its ×, Esc or a click
+  elsewhere (`useCitationCard`). It sits in the pane's scrolled content,
+  under the citation or above it when there's no room, so it scrolls with
+  the text.
+- **The paper it cites**, from `GET /api/paper/<id>/cited`
+  (`services/reader/citations.py`): each bibliography entry matched to the
+  thread provider's reference list, by arXiv id, then title. Matched: title,
+  authors · year · venue, citations, TL;DR (hydrated in the same request
+  on S2). Unmatched, or while matching: the entry's own text, and once
+  matching is done, a line saying the provider's list hasn't got it.
+- **Four ways on** (Patrick): **Open** it as its own thread on its card home
+  (`openPaper`, by the thread's provider, as papers open elsewhere);
+  **Read** it, the same and then its Reader; **Show in Citation Graph**,
+  switching this thread to its graph, which selects and centres the paper
+  (`workspace.focusRequest`, acted on by `GraphExplorer`; greyed out when
+  the graph is built and hasn't got it, and building it when it isn't);
+  **Reference ↓**, the old click, to the entry in the reference list.
+- **Not in the PDF view.** A PDF's citations are drawn text; see
+  `services/reader/README.md`.
 
 ## The PDF view (v8.40.0)
 
@@ -146,8 +175,8 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
 - **Jumps are in-page.** A citation goes to its reference entry, a ref to its
   figure, equation or section, and the landing spot is marked for 1.6s
   (`.landed`). The browser's hash is left alone, so a jump never fights the
-  app's own navigation. A citation's `title` already shows the entry; the
-  hover card replaces that in the next slice.
+  app's own navigation. A citation's own jump is its card's **Reference ↓**
+  since v8.43.0.
 - **Figures enlarge in the shared lightbox** (`figures/Lightbox`, the same
   one the assistants use): each panel is a button, and the caption goes in
   as a `MathText` string (`mathTextOf`, math fenced in `$…$`).
@@ -215,7 +244,8 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
 
 `test/reader/Reader.test.tsx` renders the Reader over a stubbed document:
 the text with its math and figure, the contents (paragraph headings left
-out) and its jumps, a citation's tooltip and landing, a footnote opening,
+out) and its jumps, a citation's card (pinned, previewed on hover, matched
+or not, its actions and its jump to the reference), a footnote opening,
 a figure enlarging, an algorithm's numbers and indents, the contents
 resizing and folding by a drag and coming back only by the bump, and each
 unavailable state, including the retry, and the PDF view with pdf.js

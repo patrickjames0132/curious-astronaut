@@ -137,6 +137,12 @@ export interface WorkspaceState {
    * meantime drops it, which is how a late lookup knows it was superseded.
    */
   openRequestId?: string
+  /**
+   * A paper the Citation Graph should select and centre once it's showing
+   * (v8.43.0): the Reader's citation card asks for it with "Show in
+   * Citation Graph". The graph clears it when it has acted, found or not.
+   */
+  focusRequest?: string
   loading: boolean
   /**
    * The current graph-build stage while `loading`, streamed from the SSE build
@@ -1143,6 +1149,15 @@ const workspaceSlice = createSlice({
       state.selectedNodeIds = [...new Set(action.payload)]
     },
     /**
+     * Ask the Citation Graph to select and centre a paper (or drop the ask).
+     *
+     * @param state  The slice state (mutated via immer).
+     * @param action The paper's node id, or null once the graph has acted.
+     */
+    graphFocusRequested(state, action: PayloadAction<string | null>) {
+      state.focusRequest = action.payload ?? undefined
+    },
+    /**
      * Union more ids into the selection (a shift-held marquee drag adds a
      * cluster to what's already picked), deduped against the current set.
      *
@@ -1303,6 +1318,7 @@ export const {
   buildProgressSet,
   visibleNodesSet,
   nodeSelectionSet,
+  graphFocusRequested,
   nodeSelectionAdded,
   nodeSelectionToggled,
   nodeSelectionCleared,

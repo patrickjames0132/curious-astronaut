@@ -8,6 +8,8 @@ Each is its own package:
 
 * ``graph``   — neighborhood-graph assembly (``build``) and its typed ``Graph``
   model (``model``).
+* ``reader``  — the Reader card's citation cards: its bibliography matched
+  to the papers it names.
 * ``search``  — seed discovery: live S2 search + instant local-cache search.
 * ``sources`` — the bring-your-own-sources subsystem (local ingestion,
   embedding, and hybrid retrieval of the user's material).

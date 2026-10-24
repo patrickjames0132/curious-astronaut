@@ -42,8 +42,11 @@ questions after a reload. Existing saved sessions migrate lazily when opened.
 
 The **Reader** is the paper itself, from arXiv's HTML render (ar5iv): its
 equations typeset, figures that enlarge with their captions, tables,
-algorithms and footnotes in place. A citation shows its reference on hover
-and jumps to it on click, and a figure or equation number jumps to it. The
+algorithms and footnotes in place. Hover a citation to see the paper it
+cites (title, authors, citations, TL;DR), and click it to keep the card
+open: from there you can open that paper, read it, find it in the Citation
+Graph, or go to its entry in the references. A figure or equation number
+jumps to it. The
 contents follow along as you read; drag their edge to resize them, or fold
 them away to a thin line with the bump on that edge. A **Text / PDF** switch
 shows the paper's PDF instead, remembered per paper, and papers with no HTML

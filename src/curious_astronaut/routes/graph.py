@@ -12,6 +12,7 @@ GET /api/paper/<arxiv_id>          -> full details for one paper (panel hydrate)
 POST /api/paper/tldr               -> generate (or recall) a paper's TL;DR
 GET /api/paper/<ref>/figures       -> figures + captions (ar5iv, else mined OA PDF)
 GET /api/paper/<arxiv_id>/document -> the paper as a structured document (Reader card)
+GET /api/paper/<arxiv_id>/cited    -> its bibliography matched to papers (Reader's citation cards)
 GET /api/paper/<ref>/pdf           -> the paper's PDF, from the local cache (Reader's PDF view)
 GET /api/paper/<ref>/pdf-contents  -> its table of contents: outline, else found headings
 GET /api/paper/<arxiv_id>/code     -> code & artifact links (Hugging Face Papers)
@@ -44,6 +45,7 @@ from ..agents.orchestrators import summarizer
 from ..integrations import arxiv, caps, huggingface, openalex, semantic_scholar
 from ..services import graph as graph_service
 from ..services import pdf as pdf_service
+from ..services import reader as reader_service
 from ..services.graph import Provider, growth, surveys
 from ..services.graph.shape import BuildShape
 from ..storage import cache
@@ -298,7 +300,7 @@ def api_graph_stream() -> ResponseReturnValue:
 
 @bp.post("/api/graph/expand")
 def api_graph_expand() -> ResponseReturnValue:
-    """Expand any paper on the Paper Graph: one hop of references or citations.
+    """Expand any paper on the Citation Graph: one hop of references or citations.
 
     The detail panel's two Expand buttons (v8.18.0). The reader's twin of the
     researcher's ``expand_node``, without an agent run, and sized like the
@@ -578,6 +580,34 @@ def api_document(paper_ref: str) -> Response:
         return jsonify({"available": False, "reason": "no_render"})
     _proxy_images(document["sections"])
     return jsonify(document)
+
+
+@bp.get("/api/paper/<path:paper_ref>/cited")
+def api_paper_cited(paper_ref: str) -> Response:
+    """The papers a Reader document's bibliography names, for its citation
+    cards (v8.43.0; ``services/reader/citations.py``).
+
+    Args:
+        paper_ref: The paper's arXiv id.
+
+    Query args:
+        provider: Whose papers to match to, ``s2`` or ``openalex``.
+
+    Returns:
+        JSON ``{papers: {<bibliography entry id>: node}}``. A nicety: a paper
+        not on arXiv, a provider that's down, or a render that can't be had
+        all come back as ``{papers: {}}``, and the cards show the
+        bibliography's own text.
+    """
+    ref = normalize_arxiv_id(paper_ref)
+    if not arxiv.looks_arxiv(ref):
+        return jsonify({"papers": {}})
+    try:
+        papers = reader_service.get_citations(ref, _requested_provider())
+    except Exception:  # the provider or the render unreachable
+        current_app.logger.warning("citation matching failed for %s", ref, exc_info=True)
+        return jsonify({"papers": {}})
+    return jsonify({"papers": papers})
 
 
 def _proxy_images(sections: list[dict]) -> None:

@@ -23,7 +23,12 @@
  */
 
 import { threadEdited } from '../store/explorations'
-import { discoveryMerged, expansionUndone, viewFiltersSet } from '../store/workspace'
+import {
+  discoveryMerged,
+  expansionUndone,
+  graphFocusRequested,
+  viewFiltersSet,
+} from '../store/workspace'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { expandPaper, generateTldr } from '../api'
@@ -353,6 +358,28 @@ export default function GraphExplorer({
   useEffect(() => {
     if (tourStage === 'details' && !selectedId && graph) setSelectedId(graph.seed.id)
   }, [tourStage, selectedId, graph, setSelectedId])
+
+  // "Show in Citation Graph" from the Reader's citation card (v8.43.0):
+  // select the paper and centre it once the layout has placed it (a graph
+  // just built hasn't yet). Cleared either way, so it acts once.
+  const focusRequest = useAppSelector((state) => state.workspace.focusRequest)
+  useEffect(() => {
+    if (!focusRequest || !base) return
+    dispatch(graphFocusRequested(null))
+    const node = base.nodes.find((candidate) => candidate.id === focusRequest)
+    if (!node) return
+    if (node.id !== selectedId) onNodeClick(node)
+    // Not cancelled when the request clears (that's this effect's own
+    // dispatch); it gives up after two seconds, and a gone canvas is a no-op.
+    const started = performance.now()
+    const centre = () => {
+      if (node.x !== undefined && node.y !== undefined) fgRef.current?.centerAt(node.x, node.y, 600)
+      else if (performance.now() - started < 2000) requestAnimationFrame(centre)
+    }
+    centre()
+    // Acts on the request alone, not on every selection change after it.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest, base])
 
   // A graph opened from a chat citation used to land with its seed's detail
   // panel already open, on the theory that the click asked to see that paper.

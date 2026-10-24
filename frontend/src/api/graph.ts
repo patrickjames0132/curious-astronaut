@@ -272,7 +272,7 @@ export async function generateTldr(
   return data.tldr
 }
 
-/** The two ways a paper on the Paper Graph can be expanded. */
+/** The two ways a paper on the Citation Graph can be expanded. */
 export type ExpandHop = 'references' | 'citations'
 
 /** What one expansion adds: new papers (flagged `discovered`) and edges. */

@@ -53,6 +53,10 @@ ids. The shell passes its overlays (hit list, loading/error/hint) as
 them. Note the discovery data flow is one-way: teacher → store → explorer
 → `base` — the discovery *lists* live in the workspace slice (grounding,
 Save, and the legend read them there); this folder owns only the sim merge.
+It also acts on **`workspace.focusRequest`** (v8.43.0), the Reader citation
+card's "Show in Citation Graph": it selects that paper (opening its detail
+panel) and centres it once the layout has placed it, then clears the request,
+found or not.
 
 **Focus** dims everything but one set of papers (`model.focusOf`). In
 priority order: an active find, then a **held focus**, then hover, then the

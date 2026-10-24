@@ -613,3 +613,26 @@ def test_pdf_contents_are_a_nicety_that_never_errors(client, monkeypatch):
     response = client.get("/api/paper/1412.6980/pdf-contents")
     assert response.status_code == 200
     assert response.json == {"source": "none", "entries": []}
+
+
+def test_cited_papers_are_a_nicety_that_never_errors(client, monkeypatch):
+    papers = {"bib.bib2": {"id": "nmt", "title": "Neural Machine Translation by Jointly Learning to Align and Translate"}}
+    seen = []
+
+    def get_citations(ref, provider):
+        seen.append((ref, provider))
+        return papers
+
+    monkeypatch.setattr(graph_routes.reader_service, "get_citations", get_citations)
+    assert client.get("/api/paper/1706.03762v7/cited?provider=openalex").json == {"papers": papers}
+    assert seen == [("1706.03762", "openalex")]
+    # Not on arXiv: nothing to match, and nothing asked.
+    assert client.get("/api/paper/abc123def/cited").json == {"papers": {}}
+
+    def boom(ref, provider):
+        raise TimeoutError("S2 down")
+
+    monkeypatch.setattr(graph_routes.reader_service, "get_citations", boom)
+    response = client.get("/api/paper/1706.03762/cited")
+    assert response.status_code == 200
+    assert response.json == {"papers": {}}

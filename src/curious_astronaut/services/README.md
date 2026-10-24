@@ -25,6 +25,9 @@ Each feature is its own package; see each package's README:
 - **`sources/`** — the bring-your-own-sources subsystem: local ingestion,
   embedding, and hybrid (semantic + lexical) retrieval of the user's own
   uploaded PDFs and web pages.
+- **`reader/`** — the Reader card's joins to the rest of the app: its
+  bibliography matched to the papers it names (`citations`), for the
+  citation cards.
 - **`pdf/`** — open-access PDF mining for papers ar5iv can't serve: resolve
   a paper's OA-PDF URL (either provider), download/cache the file, and
   extract full text plus caption-anchored figures/tables/algorithms for the

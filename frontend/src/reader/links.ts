@@ -14,10 +14,24 @@
 import { createContext } from 'react'
 import type { AnswerFigure, ReaderBibEntry, ReaderInline } from '../api'
 
+/** What a citation does with its card (v8.43.0). */
+interface CiteCard {
+  /** The pointer is on a citation: preview its card after a moment. */
+  hover: (bib: string, anchor: HTMLElement) => void
+  /** The pointer left it: let a preview go after a moment. */
+  leave: () => void
+  /** A click: open the card and keep it open. */
+  pin: (bib: string, anchor: HTMLElement) => void
+  /** The entry whose card is open, for `aria-expanded`. */
+  open: string | null
+}
+
 /** What a run needs from the page around it. */
 interface ReaderLinks {
-  /** Bibliography entries by element id, for a citation's tooltip. */
+  /** Bibliography entries by element id, for a citation's card. */
   bibliography: Map<string, ReaderBibEntry>
+  /** The citation card's controls. */
+  cite: CiteCard
   /** Scroll the page to one of the paper's own element ids. */
   jump: (target: string) => void
   /** Open a figure panel in the shared lightbox. */
@@ -26,6 +40,7 @@ interface ReaderLinks {
 
 export const ReaderLinksContext = createContext<ReaderLinks>({
   bibliography: new Map(),
+  cite: { hover: () => {}, leave: () => {}, pin: () => {}, open: null },
   jump: () => {},
   enlarge: () => {},
 })

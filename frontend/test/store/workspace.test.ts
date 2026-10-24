@@ -22,6 +22,7 @@ import reducer, {
   nodeSelectionAdded,
   nodeSelectionCleared,
   nodeSelectionSet,
+  graphFocusRequested,
   nodeSelectionToggled,
   providerSet,
   selectScope,
@@ -85,6 +86,16 @@ describe('node-selection reducers', () => {
     let state = reducer(initial(), nodeSelectionSet(['a', 'b']))
     state = reducer(state, nodeSelectionCleared())
     expect(state.selectedNodeIds).toEqual([])
+  })
+})
+
+describe('graphFocusRequested', () => {
+  it('holds the paper the Citation Graph should show until it has acted', () => {
+    // The Reader's citation card asks; GraphExplorer selects, centres, clears.
+    let state = reducer(initial(), graphFocusRequested('nmt'))
+    expect(state.focusRequest).toBe('nmt')
+    state = reducer(state, graphFocusRequested(null))
+    expect(state.focusRequest).toBeUndefined()
   })
 })
 

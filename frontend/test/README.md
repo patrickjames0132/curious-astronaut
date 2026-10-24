@@ -80,7 +80,8 @@ test/
                                 images land inline, described and credited
   reader/
     Reader.test.tsx           — the Reader over a stubbed document: the text,
-                                the contents, citation and footnote clicks,
+                                the contents, citation cards (v8.43.0) and
+                                footnote clicks,
                                 each reason there's nothing to read, and the
                                 highlight menu's Explain, Simplify and Chat
                                 into the Reader Assistant (v8.38.0), and the

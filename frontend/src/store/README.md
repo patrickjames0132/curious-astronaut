@@ -58,7 +58,10 @@ and the build's id can disagree. For that case, `loadGraph` falls back to the
 thread the seed reference already belongs to rather than creating a second
 thread for it. `workspace.openRequestId` marks a lookup in flight; anything
 that replaces the workspace meanwhile drops it, and that is how a late lookup
-knows it was superseded.
+knows it was superseded. `workspace.focusRequest` (v8.43.0) is a paper the
+Citation Graph should select and centre once it shows, asked for by the
+Reader's citation card (`graphFocusRequested`); `GraphExplorer` clears it
+once it has acted.
 
 `seedPaper` is the router for "open this paper": into `loadGraph` when the
 reader is on the graph tool (wandering the map stays on the map), otherwise

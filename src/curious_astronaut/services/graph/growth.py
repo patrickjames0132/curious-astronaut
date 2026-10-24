@@ -1,7 +1,7 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-Growing a built graph from the Paper Graph's own controls (v8.18.0), with no
+Growing a built graph from the Citation Graph's own controls (v8.18.0), with no
 agent involved: expanding any paper on it, and finding the citations among
 the papers already on it.
 

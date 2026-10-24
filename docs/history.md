@@ -3903,6 +3903,34 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
         has and what still sits between them and the paper. The layout above
         is how that assessment gets drawn, not the goal in itself.
 
+- [x] **The Reader card, stage 4: the citation cards** *(v8.43.0)* — a
+      `[2]` in the Reader's text now opens a card on the paper it cites:
+      title, authors · year · venue, citations and TL;DR. Hover previews it
+      (after 250ms, so moving across the text doesn't flash cards), a click
+      pins it (Patrick), and a pinned card stays through other hovers until
+      its ×, Esc or a click elsewhere. Four ways on, all Patrick's picks:
+      **Open** the paper as its own thread, **Read** it in its own Reader,
+      **Show in Citation Graph** (this thread's graph selects and centres
+      it, via `workspace.focusRequest`; greyed out when the built graph
+      hasn't got it), and **Reference ↓**, the old click.
+
+      **Matching** (`services/reader/citations.py`, `GET
+      /api/paper/<id>/cited`): each bibliography entry against the thread
+      provider's own reference list, by an arXiv id written in the entry,
+      then the reference's whole title found in it, then (between what's
+      left) a run of five or more shared words, for titles S2 files behind
+      their proceedings ("Proceedings of the Twenty-Third AAAI Conference …
+      Maximum Entropy Inverse Reinforcement Learning"). 39 of Attention's 40
+      entries match (the miss isn't in S2's list at all) and all 36 of
+      SAC's. On S2 the matches are hydrated in one batch, so a card opens
+      complete; cached a day. Text view only: a PDF's citations are drawn
+      text.
+
+      Alongside: the last "Paper Graph"s in the docs and code comments
+      became "Citation Graph" (its name since v8.16.0), and the Reader's
+      stage 6 was filed: an assistant answer lighting up the passage it's
+      about (Patrick).
+
 - [x] **The Reader card, stage 3: the PDF view** *(v8.40.0)* — the paper's
       PDF in the Reader, drawn by pdf.js from the copy `services/pdf` already
       caches, served from our origin (`GET /api/paper/<ref>/pdf`). A **Text /
