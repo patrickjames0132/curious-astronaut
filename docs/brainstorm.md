@@ -17,18 +17,13 @@ polished media) are left out, except where they fit the new card idea below.
 
 ## New homepage cards
 
-Four new cards would each answer a different question about the paper, as
+Three new cards would each answer a different question about the paper, as
 independent tools beside the two that exist. Today the **Paper Graph** answers
 *where does this paper sit in the literature?* and the **Knowledge Graph**
-answers *what do I need to know before I read it?* Still unanswered: reading
-the paper, trying its idea, judging it, and what comes after it.
+answers *what do I need to know before I read it?* The **Reader** (filed to
+the OnePager's Larger phases, 2026-10-23) will answer *how do I read it?*
+Still unanswered: trying its idea, judging it, and what comes after it.
 
-- **Reader — how do I read it?** A section-by-section guided read. Citations
-  like `[23]` link to Paper Graph nodes, terms link to Knowledge Graph
-  concepts, equations get an "explain this line" button, and the teacher
-  answers questions about the current paragraph. *Builds on:* the figure
-  miner's PDF/ar5iv fetching; the KaTeX `notation/` package. It would also
-  absorb the Backlog's "Show the paper inline on the card home".
 - **Lab — can I try it?** The agent writes a small runnable toy of the paper's
   key mechanism (attention on a sentence, a Q-learning gridworld, a diffusion
   step). It runs in the browser via Pyodide, with sliders and plots, so
@@ -51,107 +46,6 @@ the paper, trying its idea, judging it, and what comes after it.
   lecture beats and mined figures.
 - **Bridge two topics** takes *two* seeds, so it may belong on the homepage
   rather than inside one paper's thread. Decide that before building it.
-
-### Reader — workshop notes (2026-10-21)
-
-**The prior art is SpatialRead, and it changes what v1 leads with.**
-[SpatialRead](https://www.producthunt.com/products/spatialread) is a desktop
-paper reader: a PDF viewer where you highlight text and run Explain, Simplify
-or Expand on it, with your own API key or local Ollama, documents kept on your
-machine, and screenshot analysis of figures. Its graph is built from *your own
-reading* (each AI explanation becomes a node on a canvas). It's closed source
-and, depending on the listing, paid ($49 on
-[AlternativeTo](https://alternativeto.net/software/spatialread/?p=3), $99 on
-[Capterra](https://www.capterra.in/software/1082446/SpatialRead); not
-confirmed on its own site). It also reportedly ships a "critical peer
-reviewer" agent ([AISO](https://aisotools.com/tool/spatialread)), which means
-*generated* critique.
-
-So **highlight-and-explain alone would be a free SpatialRead with less
-polish.** By the OnePager's rule that's still worth something (reach, not
-uniqueness, is the test, and a free, open-source version serves people a paid
-app doesn't). But it means v1 should **lead with what only Curious Astronaut
-can do**, which is connecting the text to structure the app already has:
-
-- `[23]` resolves to the **actual cited paper**, a real node in the Paper
-  Graph, via S2. SpatialRead links to nothing outside the PDF.
-- Terms and per-section notes come from the paper's **Knowledge Graph**
-  prerequisites, including what the reader has already ticked off.
-- A guided read reuses the **lecturer**: the teacher walks you through, the
-  current paragraph highlighted the way Paper Graph nodes light up today.
-
-The same split applies to the **Reviews** card: real OpenReview reviews and
-rebuttals, not a generated reviewer. Grounded rather than invented is the
-project's line.
-
-**The main technical fact: the full text we have today is flat.**
-`integrations/arxiv/fulltext.py` reduces ar5iv's HTML to plain text blocks.
-Math survives as LaTeX, but `<cite>` and `<figure>` are dropped and section
-structure isn't kept. That's right for its job (model context), but a Reader
-needs sections, figures in place, and citation markers still tied to their
-bibliography entries. So the Reader's core is a **new structured parse beside
-the flat one**, not a reuse of it. `services/pdf/text.py` is flatter still.
-
-**Sketch:**
-
-```
-┌ Reader: Attention Is All You Need ─────────────────────────┐
-│ Contents     │ 3.2 Scaled Dot-Product Attention            │ Teacher        │
-│ 1 Intro      │ We call our particular attention "Scaled    │ ▸ Before this  │
-│ 2 Background │ Dot-Product Attention" [Figure 2]…          │   section: you │
-│ 3 Model    ◂ │                                             │   need softmax │
-│   3.1        │   Attention(Q,K,V) = softmax(QKᵀ/√dₖ)V  [?] │   ✓ known      │
-│   3.2 ◂      │                                             │                │
-│ 4 Why self-  │ …additive attention [2] ← hover: Bahdanau   │ Ask about the  │
-│   attention  │   2014 · open in Paper Graph                │ selection…     │
-└──────────────┴─────────────────────────────────────────────┴────────────────┘
-```
-
-**Decisions (proposed, not settled):**
-
-1. **Text source: ar5iv first, PDF viewer as fallback.** Structured ar5iv
-   HTML gives real math, figures and citation links, but only for arXiv
-   papers. A pdf.js viewer covers every open-access paper but can't
-   practically link citations or terms. The fallback viewer is also exactly
-   what blocks the Backlog's "click a library citation to open the source at
-   that page", so building it here unblocks that item too.
-2. **Citation resolution:** ar5iv ties each marker to a bibliography entry;
-   match that entry to S2's reference list by arXiv id or DOI first and by
-   title as a fallback. Leave markers unlinked in the PDF fallback for v1.
-   Proper PDF reference parsing needs something like GROBID (a heavy Java
-   service), which is wrong for an app meant to be easy to install.
-3. **Reading at your own pace before a guided read.** A margin teacher that
-   responds when you act ships first; the guided read (reusing the lecturer's
-   beat format) comes later.
-
-**Reordered v1** — the differentiating parts first:
-
-1. Structured ar5iv parse, reading view and table of contents.
-2. Citation hover card, plus a jump into the Paper Graph.
-3. Knowledge Graph notes in the margin (when a Knowledge Graph exists for the
-   paper).
-4. Highlight-and-explain and "explain this equation" — table stakes, not the
-   headline.
-
-**v2:** the PDF fallback viewer (shipping the library page viewer with it),
-then the guided read.
-
-**Links run both ways.** v1 links the text out to the graphs; the reverse is
-"show me where the paper uses this" — from a Knowledge Graph concept, jump to
-the passages that rely on it; from a Paper Graph node, jump to the sentences
-that cite it. The same structured parse serves both directions, so it belongs
-to this card. *(Absorbed the earlier standalone "Read alongside the graph"
-idea, which v1 made redundant — 2026-10-21.)*
-
-**Open questions:**
-
-- [ ] What share of the papers you actually read are on arXiv? That decides
-      how much the PDF fallback matters.
-- [ ] Should the Reader replace the vague "Show the paper inline on the card
-      home" Backlog item?
-- [ ] Note for the **shareable snapshot** idea: showing arXiv text inside a
-      local app is like viewing it in a browser, but putting it in an
-      exported snapshot is redistribution, and arXiv licenses vary by paper.
 
 ### Reviews — workshop notes (2026-10-22)
 
@@ -306,8 +200,7 @@ A suggested order, not a commitment:
 
 1. **Quiz before check-off + the "what I know" record.** They finish the
    Knowledge Graph story rather than starting a new one.
-2. **Reader card.** The other cards point back at passages of the paper, so
-   it's their foundation.
+2. **Reader card.** Filed to the OnePager 2026-10-23, in progress.
 3. **Shareable snapshot.** The biggest reach win.
 4. **Lectures in the reader's language.** Cheap and wide.
 5. **Reviews card.** The most distinctive; OpenReview's API keeps the cost

@@ -54,9 +54,20 @@ def test_html_to_text_empty_document():
 
 
 def test_get_fulltext_extracts_text(monkeypatch):
-    monkeypatch.setattr(client, "fetch_html", lambda arxiv_id: "<p>Full paper text.</p>")
+    monkeypatch.setattr(
+        client,
+        "fetch_html",
+        lambda arxiv_id: '<section class="ltx_section"><p>Full paper text.</p></section>',
+    )
     result = fulltext.get_fulltext("2406.12345")
     assert result == {"available": True, "text": "Full paper text."}
+
+
+def test_get_fulltext_a_failed_conversions_stub_is_unavailable(monkeypatch):
+    # 1412.6980 (Adam): both renderers answer with a 200 page and no body.
+    stub = "<html><title>Untitled Document</title><p>See pages 1-last of main.pdf</p></html>"
+    monkeypatch.setattr(client, "fetch_html", lambda arxiv_id: stub)
+    assert fulltext.get_fulltext("1412.6980") == {"available": False, "text": ""}
 
 
 def test_get_fulltext_preserves_equations(monkeypatch):
@@ -65,7 +76,8 @@ def test_get_fulltext_preserves_equations(monkeypatch):
     monkeypatch.setattr(
         client,
         "fetch_html",
-        lambda arxiv_id: '<p>Minimize <math alttext="\\mathcal{L}"><mi>L</mi></math>.</p>',
+        lambda arxiv_id: '<section class="ltx_section"><p>Minimize '
+        '<math alttext="\\mathcal{L}"><mi>L</mi></math>.</p></section>',
     )
     result = fulltext.get_fulltext("2406.54321")
     assert result["available"] is True

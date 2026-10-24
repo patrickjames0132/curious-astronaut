@@ -44,15 +44,28 @@ const RAIL_KEY = 'ca.railOpen'
 const ASSISTANT_KEY = 'ca.assistantOpen'
 /** Whether the Knowledge Graph's assistant docks open (v8.25.0), remembered apart. */
 const COURSE_ASSISTANT_KEY = 'ca.courseAssistantOpen'
+/** The Reader's assistant's open/closed state (v8.38.0). */
+const READER_ASSISTANT_KEY = 'ca.readerAssistantOpen'
 import GraphExplorer from './graph/GraphExplorer'
 import Teacher from './teacher/Teacher'
 import Sources from './library/Sources'
 import SettingsModal from './settings/SettingsModal'
 import Tour from './tour/Tour'
-import { CARDS_TOUR, GRAPH_TOUR, HOME_TOUR, KNOWLEDGE_TOUR, TOUR_KEYS } from './tour/steps'
+import {
+  CARDS_TOUR,
+  GRAPH_TOUR,
+  HOME_TOUR,
+  KNOWLEDGE_TOUR,
+  READER_TOUR,
+  TOUR_KEYS,
+} from './tour/steps'
 import ToolCards from './tools/ToolCards'
+import Reader from './reader/Reader'
 import KnowledgeNetwork from './knowledge/KnowledgeNetwork'
 import CourseAssistant from './knowledge/assistant/CourseAssistant'
+import { FigureLayerContext } from './figures/figureLayer'
+import ReaderAssistant from './reader/ReaderAssistant'
+import type { PassageQuote } from './assistant/askAssistant'
 import type { LessonQuote } from './knowledge/assistant/askCourse'
 import './app.css'
 
@@ -77,12 +90,14 @@ export default function App() {
   const paperThread = tool !== null
   const showGraph = !!graph && tool === 'graph'
   // Assistants are encapsulated per tool (Patrick, 2026-10-09): Teacher docks
-  // beside the Citation Graph, and since v8.25.0 the course's own assistant
-  // beside the Knowledge Graph, each with its own chat (`store/chats`).
+  // beside the Citation Graph, since v8.25.0 the course's own assistant
+  // beside the Knowledge Graph, and since v8.38.0 the Reader's beside the
+  // Reader, each with its own chat (`store/chats`).
   // Elsewhere in a paper thread both stay mounted but hidden, so a half-typed
   // question survives and the remembered open/closed state comes back.
   const assistantDocks = tool === 'graph'
   const courseAssistantDocks = tool === 'knowledge'
+  const readerAssistantDocks = tool === 'reader'
 
   // Moving between a paper's cards and one of its tools reads as a scroll:
   // the cards come down from above, a tool comes up from below. Only within
@@ -126,6 +141,18 @@ export default function App() {
   // from nothing new, so the bar takes focus again.
   const [courseQuote, setCourseQuote] = useState<
     (LessonQuote & { threadId: string; seq: number }) | null
+  >(null)
+  // The Reader's assistant (v8.38.0), the same way: closed by default and
+  // remembered; a highlight's Explain or Simplify opens it, and its Chat
+  // attaches a passage to the bar.
+  const [readerAssistantOpen, setReaderAssistantOpen] = useState(
+    () => localStorage.getItem(READER_ASSISTANT_KEY) === '1',
+  )
+  // Where enlarged figures go: the middle of the shell, never the side panels
+  // (v8.38.0, figures/figureLayer). The element is set by the layer's ref.
+  const [figureLayer, setFigureLayer] = useState<HTMLElement | null>(null)
+  const [readerQuote, setReaderQuote] = useState<
+    (PassageQuote & { threadId: string; seq: number }) | null
   >(null)
   // Latest graph, readable from the mount-only effect below without making it
   // a dependency (that would re-fire the settings fetch on every graph load).
@@ -204,10 +231,11 @@ export default function App() {
   // collapsed panel, so clicking a thread in the rail kept popping it back
   // open (Patrick, 2026-10-09). It opens only on its own button or a tour stop.
 
-  // The guided tour, in four phases keyed by what's on screen: the HOME
+  // The guided tour, in five phases keyed by what's on screen: the HOME
   // tour (the search surface) auto-runs once on first launch, the CARDS tour
   // on the first card home, the GRAPH tour (the graph tools) on the first
-  // graph, the KNOWLEDGE tour on the first course. Each phase auto-runs once ever (its own localStorage flag); the
+  // graph, the KNOWLEDGE tour on the first course, the READER tour on the
+  // first paper read. Each phase auto-runs once ever (its own localStorage flag); the
   // header's "?" re-runs the current phase any time.
   const hasGraph = showGraph && graph.nodes.length > 0
   const tourPhase = hasGraph
@@ -216,11 +244,14 @@ export default function App() {
       ? 'cards'
       : tool === 'knowledge'
         ? 'knowledge'
-        : 'home'
+        : tool === 'reader'
+          ? 'reader'
+          : 'home'
   const tourSteps = {
     graph: GRAPH_TOUR,
     cards: CARDS_TOUR,
     knowledge: KNOWLEDGE_TOUR,
+    reader: READER_TOUR,
     home: HOME_TOUR,
   }[tourPhase]
   const [tourOpen, setTourOpen] = useState(false)
@@ -262,6 +293,9 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(COURSE_ASSISTANT_KEY, courseAssistantOpen ? '1' : '0')
   }, [courseAssistantOpen])
+  useEffect(() => {
+    localStorage.setItem(READER_ASSISTANT_KEY, readerAssistantOpen ? '1' : '0')
+  }, [readerAssistantOpen])
 
   // The saved-graph list in the rail, and which of them is on screen. The id
   // is tracked here rather than in the store because it is a fact about this
@@ -309,6 +343,18 @@ export default function App() {
           onClick={() => setCourseAssistantOpen(true)}
           title="The Knowledge Graph Assistant — ask about the concepts and lessons in this course"
           aria-label="Open the Knowledge Graph Assistant"
+        >
+          🎓
+        </button>
+      )}
+      {readerAssistantDocks && !readerAssistantOpen && (
+        <button
+          type="button"
+          className="pane-assistant"
+          data-tour="reader-assistant-btn"
+          onClick={() => setReaderAssistantOpen(true)}
+          title="The Reader Assistant — ask about this paper, or about a passage you highlight"
+          aria-label="Open the Reader Assistant"
         >
           🎓
         </button>
@@ -427,72 +473,104 @@ export default function App() {
 
         <Sources open={showLibrary} onClose={() => setShowLibrary(false)} />
 
-        <div className="shell-body">
-          {/* The overlays belong to whichever surface is up: over the canvas in
+        <FigureLayerContext.Provider value={figureLayer}>
+          <div className="shell-body">
+            {/* The overlays belong to whichever surface is up: over the canvas in
               graph mode, over the card home, over the landing chat in General.
               A graph tool still building has nothing to draw yet, so the
               overlays get an empty pane of their own. */}
-          {paperThread ? (
-            <div
-              key={`surface:${activeThread?.id}:${tool}`}
-              className={`tool-surface${scroll ? ` scroll-${scroll}` : ''}`}
-              // Played once: a surface that later swaps its own content (a
-              // graph arriving after its build) mustn't scroll in again.
-              onAnimationEnd={(event) => {
-                if (event.target === event.currentTarget) setScroll(null)
-              }}
-            >
-              {showGraph ? (
-                <GraphExplorer key={`graph:${epoch}`} tourStage={tourOpen ? tourStage : undefined}>
-                  {overlays}
-                </GraphExplorer>
-              ) : tool === 'cards' && activeThread ? (
-                <ToolCards
-                  key={`cards:${epoch}`}
-                  thread={activeThread}
-                  onOpen={(next) => void dispatch(openTool(next))}
-                >
-                  {overlays}
-                </ToolCards>
-              ) : tool === 'knowledge' && activeThread ? (
-                <KnowledgeNetwork
-                  key={`knowledge:${epoch}`}
-                  thread={activeThread}
-                  onAssistant={(quote) => {
-                    setCourseAssistantOpen(true)
-                    if (quote)
-                      setCourseQuote({ ...quote, threadId: activeThread.id, seq: Date.now() })
-                  }}
-                >
-                  {overlays}
-                </KnowledgeNetwork>
-              ) : (
-                <div className="tool-pending">{overlays}</div>
-              )}
-            </div>
-          ) : (
-            <div className="landing-overlays">{overlays}</div>
-          )}
+            {paperThread ? (
+              <div
+                key={`surface:${activeThread?.id}:${tool}`}
+                className={`tool-surface${scroll ? ` scroll-${scroll}` : ''}`}
+                // Played once: a surface that later swaps its own content (a
+                // graph arriving after its build) mustn't scroll in again.
+                onAnimationEnd={(event) => {
+                  if (event.target === event.currentTarget) setScroll(null)
+                }}
+              >
+                {showGraph ? (
+                  <GraphExplorer
+                    key={`graph:${epoch}`}
+                    tourStage={tourOpen ? tourStage : undefined}
+                  >
+                    {overlays}
+                  </GraphExplorer>
+                ) : tool === 'cards' && activeThread ? (
+                  <ToolCards
+                    key={`cards:${epoch}`}
+                    thread={activeThread}
+                    onOpen={(next) => void dispatch(openTool(next))}
+                  >
+                    {overlays}
+                  </ToolCards>
+                ) : tool === 'knowledge' && activeThread ? (
+                  <KnowledgeNetwork
+                    key={`knowledge:${epoch}`}
+                    thread={activeThread}
+                    onAssistant={(quote) => {
+                      setCourseAssistantOpen(true)
+                      if (quote)
+                        setCourseQuote({ ...quote, threadId: activeThread.id, seq: Date.now() })
+                    }}
+                  >
+                    {overlays}
+                  </KnowledgeNetwork>
+                ) : tool === 'reader' && activeThread ? (
+                  <Reader
+                    key={`reader:${epoch}`}
+                    thread={activeThread}
+                    onAssistant={(quote) => {
+                      setReaderAssistantOpen(true)
+                      if (quote)
+                        setReaderQuote({ ...quote, threadId: activeThread.id, seq: Date.now() })
+                    }}
+                  >
+                    {overlays}
+                  </Reader>
+                ) : (
+                  <div className="tool-pending">{overlays}</div>
+                )}
+                {/* Enlarged figures, over the tool alone. */}
+                <div className="figure-layer" ref={setFigureLayer} />
+              </div>
+            ) : (
+              <div className="landing-overlays">{overlays}</div>
+            )}
 
-          {/* Graph and chat have distinct sibling keys. Both remount on thread
+            {/* Graph and chat have distinct sibling keys. Both remount on thread
               navigation while their durable state stays with the thread. */}
-          <Teacher
-            key={`teacher:${epoch}`}
-            landing={!paperThread}
-            collapsed={paperThread && !(assistantDocks && assistantOpen)}
-            onClose={assistantDocks ? () => setAssistantOpen(false) : undefined}
-          />
-          {paperThread && activeThread && (
-            <CourseAssistant
-              key={`course:${activeThread.id}`}
-              thread={activeThread}
-              collapsed={!(courseAssistantDocks && courseAssistantOpen)}
-              onClose={() => setCourseAssistantOpen(false)}
-              quote={courseQuote?.threadId === activeThread.id ? courseQuote : null}
-              onQuoteClear={() => setCourseQuote(null)}
+            <Teacher
+              key={`teacher:${epoch}`}
+              landing={!paperThread}
+              collapsed={paperThread && !(assistantDocks && assistantOpen)}
+              onClose={assistantDocks ? () => setAssistantOpen(false) : undefined}
             />
-          )}
-        </div>
+            {paperThread && activeThread && (
+              <CourseAssistant
+                key={`course:${activeThread.id}`}
+                thread={activeThread}
+                collapsed={!(courseAssistantDocks && courseAssistantOpen)}
+                onClose={() => setCourseAssistantOpen(false)}
+                quote={courseQuote?.threadId === activeThread.id ? courseQuote : null}
+                onQuoteClear={() => setCourseQuote(null)}
+              />
+            )}
+            {paperThread && activeThread && (
+              <ReaderAssistant
+                key={`reader-assistant:${activeThread.id}`}
+                thread={activeThread}
+                collapsed={!(readerAssistantDocks && readerAssistantOpen)}
+                onClose={() => setReaderAssistantOpen(false)}
+                quote={readerQuote?.threadId === activeThread.id ? readerQuote : null}
+                onQuoteClear={() => setReaderQuote(null)}
+              />
+            )}
+            {/* In General the chat is the middle: enlarged figures cover it,
+              not the rail. */}
+            {!paperThread && <div className="figure-layer" ref={setFigureLayer} />}
+          </div>
+        </FigureLayerContext.Provider>
       </div>
     </div>
   )

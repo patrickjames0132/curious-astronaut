@@ -7,7 +7,8 @@ here.
 
 ```
 notation/
-  MathText.tsx        the DOM surface: KaTeX-typeset <MathText> component
+  MathText.tsx        the DOM surface: KaTeX-typeset <MathText> component, and
+                      <TeX> for a formula already held as bare LaTeX
   splitMath.ts        tokenise text into plain / math runs (the shared parser)
   prepareMath.ts      the Markdown surface: make splitMath's verdict binding
                       on remark-math (money escaped, math re-delimited)
@@ -74,6 +75,15 @@ there are two entry points sharing one parser:
   "max" rather than a half-converted "mₐₓ" — but symbol conversion runs *first*,
   so `\sigma_{max}` still yields "σmax", not a mangled control word.
 
+- **A typeset formula is memoized, so a re-render never rewrites it**
+  (v8.38.0). React 19 re-applies `dangerouslySetInnerHTML` when the element
+  re-renders, replacing every node inside even when the HTML is unchanged,
+  and a text selection in the removed nodes collapses: a highlighted
+  equation in the Reader lost its highlight the moment the highlight menu
+  appeared (reproduced live, 168 formula subtrees swapped per render).
+  `MathSpan` is `memo`'d on its LaTeX, so it renders once per formula.
+  `test/notation/MathText.test.tsx` pins it.
+
 ## Who uses it, and how/why
 
 `<MathText>` (HTML): `detail/DetailPanel.tsx` (title, abstract, TL;DR, and its
@@ -85,6 +95,10 @@ caption, and a lesson image's description). Every figure-caption render path is
 covered — the detail panel's inline captions, the shared inline `FigCard` (the
 assistant's answers and the knowledge panel's lessons), and the shared enlarged
 `Lightbox`.
+
+`<TeX>` (HTML, bare LaTeX): `reader/ReaderBody.tsx`, the Reader card's
+equations and inline math. ar5iv hands over each formula's `alttext` as a
+value, so there's no delimiter to find and no currency to rule out.
 
 `prepareMath` (Markdown): `teacher/transcript/AnswerMarkdown.tsx`, the one
 surface that renders math through remark-math rather than `<MathText>` — so it

@@ -51,6 +51,8 @@
 .tool-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  /* Match the tallest content-sized row when the cards stack, too. */
+  grid-auto-rows: 1fr;
   gap: 24px;
   margin-top: 36px;
 }
@@ -79,8 +81,14 @@
 .tool-card:nth-child(2) {
   animation-delay: 60ms;
 }
+.tool-card:nth-child(3) {
+  animation-delay: 120ms;
+}
 .tool-card-knowledge {
   --card-accent: var(--seed-ref);
+}
+.tool-card-reader {
+  --card-accent: var(--reader-ink);
 }
 /* Individual transforms compose with the entrance animation's transform;
    its forwards fill must not pin the hover lift back at translateY(0). */

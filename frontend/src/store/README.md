@@ -42,7 +42,8 @@ changes the provider for the next search.
 
 A thread with a seed is a **paper thread**, and it shows one surface at a time:
 its card home or a tool a card opened. `ThreadRecord.tool` remembers which
-(`'cards' | 'graph' | 'knowledge'`), so a revisit reopens it; `threadTool()`
+(`'cards' | 'graph' | 'knowledge' | 'reader'`), so a revisit reopens it
+(and since v8.40.0 `ThreadRecord.readerView`, the Reader's Text/PDF choice); `threadTool()`
 reads it, returning null for General and `'graph'` for a thread saved before
 the field existed, since those always showed their graph. `ThreadRecord.paper`
 holds the seed's hydrated details for the card home's header. Both are thread
@@ -146,6 +147,8 @@ addresses: a **chat**, a thread plus a tool (`ChatTool`: `graph` or
   (`conversationEnsured` makes sure it exists before a stream writes).
 - **Storage.** The Citation Graph's chat stays where it was (`data.chat`,
   `summary`, `summarizedThrough`); the course's is `ThreadRecord.courseChat`
+  and, since v8.38.0, the Reader's is `ThreadRecord.readerChat`, both listed
+  once in `chats.ts`'s `SIDE_CHAT_FIELDS` and looped over everywhere below
   (`{chat, summary?, summarizedThrough?}`), seeded into the transcript with
   the thread (`seedThread`) and written back by `explorationBody`.
   `threadSummarized` takes a `tool`, and clearing either chat drops its own
@@ -207,3 +210,8 @@ and run the offline suite with `npm test`.
 Quick response preserves the working answer’s original start time when replacing
 the exchange, so its running and completed timers include the full wait. New
 messages and ordinary retries start a fresh clock.
+
+Quick response stamps `ChatMsg.quickResponse` when the replacement turn starts,
+before streaming begins. All chat transcripts show a muted “Quick response”
+label with a colored bolt beside the clock immediately, retaining it on the
+finished/saved turn. Its tooltip says “Answered from the model’s own knowledge.”

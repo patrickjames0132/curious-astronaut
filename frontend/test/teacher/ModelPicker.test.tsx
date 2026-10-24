@@ -119,12 +119,12 @@ async function openList() {
   }
 }
 
-it('drops down with its list cut to keep clear of the window edge', async () => {
+it('caps the scrolling list even when the window has more room', async () => {
   // Room below: 768 - 8 gap - (400 + 28) - 140 = 192.
   const undo = stubLayout({ top: 400, bottom: 420 })
   mount()
   const { list } = await openList()
-  expect(list?.style.maxHeight).toBe('192px')
+  expect(list?.style.maxHeight).toBe('180px')
   undo()
 })
 

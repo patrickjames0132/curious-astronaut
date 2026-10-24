@@ -197,6 +197,56 @@ def test_figures_rewrites_images_to_the_proxy_and_degrades(client, monkeypatch):
     assert response.json == {"available": False, "figures": []}
 
 
+def test_document_rewrites_nested_images_to_the_proxy(client, monkeypatch):
+    image = {"src": "https://ar5iv.labs.arxiv.org/x.png", "alt": "", "width": None, "height": None}
+    doc = {
+        "available": True,
+        "title": [],
+        "abstract": [],
+        "bibliography": [],
+        "sections": [
+            {
+                "id": "S1",
+                "level": 1,
+                "number": "1",
+                "title": [],
+                "blocks": [
+                    {"kind": "figure", "images": [dict(image)], "caption": []},
+                    {"kind": "list", "items": [[{"kind": "figure", "images": [dict(image)], "caption": []}]]},
+                ],
+            }
+        ],
+    }
+    seen = {}
+
+    def fake_document(ref):
+        seen["ref"] = ref
+        return doc
+
+    monkeypatch.setattr(graph_routes.arxiv, "get_document", fake_document)
+    response = client.get("/api/paper/arXiv:1706.03762/document")
+    assert seen["ref"] == "1706.03762"
+    blocks = response.json["sections"][0]["blocks"]
+    proxied = "/api/figure_proxy?src=https%3A%2F%2Far5iv.labs.arxiv.org%2Fx.png"
+    assert blocks[0]["images"][0]["src"] == proxied
+    assert blocks[1]["items"][0][0]["images"][0]["src"] == proxied
+
+
+def test_document_degrades_with_a_reason(client, monkeypatch):
+    assert client.get("/api/paper/abc123def/document").json == {"available": False, "reason": "not_arxiv"}
+
+    monkeypatch.setattr(graph_routes.arxiv, "get_document", lambda ref: {"available": False})
+    assert client.get("/api/paper/1412.6980/document").json == {"available": False, "reason": "no_render"}
+
+    def boom(ref):
+        raise TimeoutError("ar5iv slow")
+
+    monkeypatch.setattr(graph_routes.arxiv, "get_document", boom)
+    response = client.get("/api/paper/1412.6980/document")
+    assert response.status_code == 200  # degrade, never 500
+    assert response.json == {"available": False, "reason": "error"}
+
+
 def test_figures_fall_back_to_mined_pdf_floats(client, monkeypatch):
     """No ar5iv render → the paper's OA PDF is mined; mined floats come back
     as /api/pdf_figure image URLs. For an arXiv ref the PDF URL needs no
@@ -363,6 +413,9 @@ def test_figure_proxy_is_locked_to_ar5iv(client, monkeypatch):
     assert response.status_code == 200
     assert response.data == b"\x89PNG"
     assert response.headers["Cache-Control"] == "public, max-age=86400"
+    # Author-supplied bytes on our origin: sandboxed if opened directly.
+    assert "sandbox" in response.headers["Content-Security-Policy"]
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
 def _shape_for(client, monkeypatch, query: str):
@@ -504,3 +557,59 @@ def test_links_returns_citing_to_cited_pairs(client, monkeypatch):
     assert response.json == {"links": [{"source": "a", "target": "b"}]}
     assert seen == {"ids": ["a", "b"], "provider": "s2"}
     assert client.post("/api/graph/links", json={"ids": "a"}).status_code == 400
+
+
+def test_paper_pdf_serves_the_cached_file(client, monkeypatch, tmp_path):
+    """v8.40.0: the Reader's PDF view reads the paper from our origin."""
+    pdf = tmp_path / "paper.pdf"
+    pdf.write_bytes(b"%PDF-1.7 fake")
+    seen = {}
+
+    def fake_url(ref, provider):
+        seen["ref"] = ref
+        return "https://arxiv.org/pdf/1412.6980"
+
+    monkeypatch.setattr(graph_routes.pdf_service, "paper_pdf_url", fake_url)
+    monkeypatch.setattr(graph_routes.pdf_service, "fetch_pdf", lambda url: pdf)
+    response = client.get("/api/paper/arXiv:1412.6980/pdf")
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+    assert response.data == b"%PDF-1.7 fake"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert seen["ref"] == "1412.6980"
+    response.close()
+
+
+def test_paper_pdf_says_why_there_is_none(client, monkeypatch):
+    monkeypatch.setattr(graph_routes.pdf_service, "paper_pdf_url", lambda ref, provider: None)
+    response = client.get("/api/paper/abc123/pdf")
+    assert response.status_code == 404
+    assert "no open-access PDF" in response.json["error"]
+
+    monkeypatch.setattr(
+        graph_routes.pdf_service, "paper_pdf_url", lambda ref, provider: "https://journal.example/p.pdf"
+    )
+
+    def refuse(url):
+        raise graph_routes.pdf_service.PdfError("blocked")
+
+    monkeypatch.setattr(graph_routes.pdf_service, "fetch_pdf", refuse)
+    response = client.get("/api/paper/abc123/pdf")
+    assert response.status_code == 502
+
+
+def test_pdf_contents_are_a_nicety_that_never_errors(client, monkeypatch):
+    monkeypatch.setattr(graph_routes.pdf_service, "paper_pdf_url", lambda ref, provider: "https://x/p.pdf")
+    entries = [{"title": "1 Introduction", "level": 1, "page": 1}]
+    monkeypatch.setattr(
+        graph_routes.pdf_service, "get_pdf_contents", lambda url: {"source": "headings", "entries": entries}
+    )
+    assert client.get("/api/paper/1412.6980/pdf-contents").json == {"source": "headings", "entries": entries}
+
+    def boom(url):
+        raise RuntimeError("no pdf extra")
+
+    monkeypatch.setattr(graph_routes.pdf_service, "get_pdf_contents", boom)
+    response = client.get("/api/paper/1412.6980/pdf-contents")
+    assert response.status_code == 200
+    assert response.json == {"source": "none", "entries": []}

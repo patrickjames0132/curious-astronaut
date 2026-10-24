@@ -3,6 +3,10 @@
 Description:
 Full paper text from ar5iv, for the agentic teacher to read into context.
 
+**Source since v8.39.0:** "ar5iv" below means the paper's HTML render, which
+``client.fetch_render`` now takes from arXiv's own (``arxiv.org/html``) first and
+from ar5iv only as the fallback. Both are LaTeXML renders with the same markup.
+
 Semantic Scholar gives abstracts + TL;DRs; when the Q&A agent needs specifics
 (methods, results, numbers) it reads the full text. We reuse the ar5iv fetch that
 ``figures.py`` already relies on (arXiv's LaTeX→HTML render), strip the body to
@@ -152,7 +156,8 @@ def get_fulltext(arxiv_id: str, *, refresh: bool = False) -> dict:
     if not arxiv_id:
         return {"available": False, "text": ""}
 
-    key = f"fulltext:{arxiv_id}"
+    # v2 (v8.39.0): the render may be arXiv's now (see figures.py).
+    key = f"fulltext:v2:{arxiv_id}"
     if not refresh:
         cached = cache.get(key, client.CACHE_TTL)
         if cached is not None:
@@ -164,6 +169,12 @@ def get_fulltext(arxiv_id: str, *, refresh: bool = False) -> dict:
         cache.set(key, result)
         return result
 
+    # A failed conversion's stub is a 200 with no body (1412.6980): no text,
+    # rather than an empty one the researcher would take for the paper.
+    if not client.has_body(html):
+        result = {"available": False, "text": ""}
+        cache.set(key, result)
+        return result
     result = {"available": True, "text": html_to_text(html, keep_math=True)}
     cache.set(key, result)
     return result

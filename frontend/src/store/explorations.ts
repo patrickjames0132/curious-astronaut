@@ -24,14 +24,17 @@ import {
   withForgotten,
   type KnowledgeMap,
 } from '../knowledge/model'
-import { chatOf, type ChatTool } from './chats'
+import { SIDE_CHAT_FIELDS, chatOf, type ChatTool } from './chats'
 import type { WorkspaceState } from './workspace'
 
 /**
  * Which surface a paper thread shows: its card home, or one of the tools the
  * cards open. General has no seed, so it has no cards and no tool.
  */
-export type ThreadTool = 'cards' | 'graph' | 'knowledge'
+export type ThreadTool = 'cards' | 'graph' | 'knowledge' | 'reader'
+
+/** How the Reader shows a paper: its HTML render's text, or its PDF. */
+export type ReaderView = 'text' | 'pdf'
 
 export interface ThreadRecord {
   id: string
@@ -51,6 +54,10 @@ export interface ThreadRecord {
   tool?: ThreadTool
   /** The seed's hydrated details, for the card home's header. Fetched once. */
   paper?: PaperDetails
+  /** How the Reader shows the paper (v8.40.0): its text, or its PDF. Absent
+   *  means the text, when there is one; a paper with no HTML render shows
+   *  its PDF regardless. */
+  readerView?: ReaderView
   /** The knowledge network's course (v8.14.0), once its card has been opened. */
   knowledge?: KnowledgeMap
   /**
@@ -60,6 +67,8 @@ export interface ThreadRecord {
    * `summary` and `summarizedThrough` (`store/chats`).
    */
   courseChat?: SideChat
+  /** The Reader assistant's chat (v8.38.0), saved the same way. */
+  readerChat?: SideChat
 }
 
 /** A tool's chat beside the thread's own (v8.25.0). */
@@ -308,6 +317,16 @@ const slice = createSlice({
      * @param state Exploration state.
      * @param action Thread and its paper.
      */
+    /** The Reader's Text/PDF switch, remembered on the thread (v8.40.0). */
+    threadReaderViewSet(state, action: PayloadAction<{ id: string; view: ReaderView }>) {
+      for (const record of Object.values(state.byId)) {
+        const thread = record.threads.find((item) => item.id === action.payload.id)
+        if (thread) {
+          thread.readerView = action.payload.view
+          record.revision++
+        }
+      }
+    },
     threadPaperSet(state, action: PayloadAction<{ id: string; paper: PaperDetails }>) {
       for (const record of Object.values(state.byId)) {
         const thread = record.threads.find((item) => item.id === action.payload.id)
@@ -561,7 +580,8 @@ const slice = createSlice({
         thread.summary = summary
         thread.summarizedThrough = through
       } else {
-        thread.courseChat = { chat: [], ...thread.courseChat, summary, summarizedThrough: through }
+        const field = SIDE_CHAT_FIELDS[tool]
+        thread[field] = { chat: [], ...thread[field], summary, summarizedThrough: through }
       }
       record.revision++
     },
@@ -594,9 +614,12 @@ const slice = createSlice({
             if (tool === 'graph') {
               delete thread.summary
               delete thread.summarizedThrough
-            } else if (thread.courseChat) {
-              delete thread.courseChat.summary
-              delete thread.courseChat.summarizedThrough
+            } else {
+              const saved = thread[SIDE_CHAT_FIELDS[tool]]
+              if (saved) {
+                delete saved.summary
+                delete saved.summarizedThrough
+              }
             }
             record.revision++
           }
@@ -614,6 +637,7 @@ export const {
   threadToolSet,
   threadCardsShown,
   threadPaperSet,
+  threadReaderViewSet,
   threadRebased,
   knowledgeStarted,
   knowledgeExpanded,

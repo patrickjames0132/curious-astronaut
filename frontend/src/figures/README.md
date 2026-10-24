@@ -2,17 +2,34 @@
 
 Figures, wherever the app shows them: the inline figure card, the
 `<<FIG n>>` interleaver that places cards in streamed prose, and the
-full-screen lightbox — click anywhere (or the ✕, or Escape) to close.
+lightbox — click anywhere (or the ✕, or Escape) to close.
 
 ```
 figures/
   FigCard.tsx  — one figure card: image, label, credit, caption (and a lesson
                  image's description and linked credit); click to enlarge
   split.ts     — the interleaver: pairs <<FIG n>> markers with attached figures
-  Lightbox.tsx — the full-screen view
+  Lightbox.tsx — the enlarged view, over the shell's middle (see below)
+  figureLayer.ts — where it goes: the layer the shell provides over its middle
   figures.css  — the card's and the lightbox's styles (the lightbox's fade
                  lives in index.css with the other motion rules)
 ```
+
+## An enlarged figure covers the middle, never the side panels (v8.38.0)
+
+The lightbox was `position: fixed` over the whole window, but it renders
+inside whatever opened it, and a tool's surface is its own stacking layer.
+So it covered the explorer rail (painted before the tool) and slid *under* a
+docked assistant (painted after it): the Reader's Figure 2 cut off by the
+Reader Assistant explaining it (Patrick, 2026-10-24). The graphs had the
+same shape. Now the shell renders an empty `.figure-layer` over its middle
+(the tool surface in a paper thread, the whole body in General, where the
+chat *is* the middle) and provides it through `FigureLayerContext`; every
+lightbox portals into it, whoever opened it, an assistant's answer
+included. The rail and the docked assistants stay readable beside the
+figure, which is the point when an assistant is explaining it. With no layer
+(a test, a component outside the shell) it falls back to the whole window.
+`test/figures/Lightbox.test.tsx` covers both.
 
 ## Why it's here, not nested in a feature folder
 
@@ -81,7 +98,8 @@ paper, or the reader's own book at the figure's page.
   detail panel. The teacher's answer figures need it (they can be for *any*
   cited paper, not just the one you're looking at).
 - **Each caller owns its own lightbox state.** `Teacher.tsx`,
-  `graph/GraphExplorer.tsx` and `knowledge/KnowledgeNetwork.tsx` each hold
+  `graph/GraphExplorer.tsx`, `knowledge/KnowledgeNetwork.tsx` and
+  `reader/Reader.tsx` (v8.37.0) each hold
   their own `useState<AnswerFigure | null>` and render their own
   `<Lightbox>` instance. Simpler than threading one shared instance through
   unrelated component trees for a view that's never open from two places at

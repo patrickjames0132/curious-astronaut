@@ -17,10 +17,8 @@ knowledge/
   KnowledgeLegend.tsx   — node kinds, the edge, and node states (bottom-left)
                           (the find bar, bottom-right, is ../graph/controls/FindBar)
   KnowledgePanel.tsx    — the side panel: why it's needed, what it needs, the lesson
-  SelectionMenu.tsx     — Explain · Expand over a passage highlighted in a lesson (v8.25.0)
-  useLessonSelection.ts — reads that selection and places the menu
   look.ts               — shared by the views: colours, sizes, labels, stable data, clicks
-  pyramid.ts            — the pyramid's rows, their order, and what the check-offs skip (v8.37.0)
+  pyramid.ts            — the pyramid's rows, their order, and what the check-offs skip (v8.41.0)
   useLessons.ts         — lesson streaming that outlives the tool's mount
   model.ts              — the graph and the pure rules over it (no React, no store)
   assistant/            — the course assistant, docked beside the course (v8.25.0)
@@ -182,7 +180,7 @@ has a "Bridge two topics" phase).
   sphere (`nodeThreeObjectExtend` is false for it alone), so it is the same
   diamond from any angle; a legend entry once the course has one.
 
-## The pyramid (v8.37.0)
+## The pyramid (v8.41.0)
 
 A third view beside 2D and 3D (the controls' **Pyramid**), and the ticket
 that Patrick's 2026-10-13 picture of a pyramid left open: the paper on top,
@@ -638,7 +636,9 @@ branch, the way the assistant shows figures in its answers.
 Select a word or passage in a **finished** lesson and a small pill appears
 over it (`SelectionMenu`, after SpatialRead's, which Patrick pointed at):
 **Explain | Expand | Chat**, words rather than icons so the pill reads at
-a glance, and Chat last so the first two kept their places. `useLessonSelection` is the
+a glance, and Chat last so the first two kept their places. The pill and its
+hook live in `../selection/` since v8.38.0, when the Reader took them up with
+its own actions. `useTextSelection` (`useLessonSelection` until then) is the
 frontend's first reader of a text selection: it opens the pill when the
 reader lets go (not mid-drag), places it above the passage in fixed
 coordinates (below it near the top of the window), kept inside the
@@ -661,7 +661,7 @@ closes it when the selection collapses or leaves the lesson.
   later breakdown keeps, so deleting it can be undone like any other.
   While the tutor names it, the item wears the breakdown's dashed ring
   (v8.26.0, Patrick: `ringed`, the `expanding` set plus the item). Since
-  v8.37.0 an item whose lesson is being written (or its "How it fits in"
+  v8.41.0 an item whose lesson is being written (or its "How it fits in"
   rewritten) wears it too (Patrick): a lesson keeps streaming after the
   panel closes (`useLessons` never aborts one), and the ring is how the
   graph shows it. One ring for both, since the panel says which is

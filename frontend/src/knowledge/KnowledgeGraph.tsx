@@ -14,7 +14,7 @@
  * An item with part of its breakdown hidden wears a red count on its
  * top-right (v8.26.0); a double-click brings them back.
  *
- * The same canvas draws the **pyramid** (v8.37.0, `pyramid`): every item held
+ * The same canvas draws the **pyramid** (v8.41.0, `pyramid`): every item held
  * to its row (`pyramid.ts`), the paper on top, and what the course skips
  * because the reader knows what needs it faded, so the gap between the green
  * and the paper stands out. A line spanning several rows curves round what
@@ -98,7 +98,7 @@ export interface KnowledgeGraphProps {
   engineRef?: { current: KnowledgeEngine | null }
   /** How many nodes are pinned, whenever a drag or a Release changes it. */
   onPinned: (count: number) => void
-  /** Draw the pyramid instead of the force layout (2D only, v8.37.0). */
+  /** Draw the pyramid instead of the force layout (2D only, v8.41.0). */
   pyramid?: boolean
 }
 
@@ -306,7 +306,7 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
         // black on every node, the canvas's hard ink (white on dark, near
         // black on light) on the open one, the selection blue on picked ones.
         // While its breakdown is in flight, or its lesson is being written
-        // (v8.37.0), the edge turns into moving blue dashes.
+        // (v8.41.0), the edge turns into moving blue dashes.
         const busy = expanding.has(item.id)
         const open = map.openId === item.id
         ctx.lineWidth = (open || picked || busy ? 2 : 1) / scale

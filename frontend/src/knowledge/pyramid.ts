@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The pyramid view's layout and its reading of what the reader knows (v8.37.0),
+ * The pyramid view's layout and its reading of what the reader knows (v8.41.0),
  * pure functions over the course like `model.ts`. Each item sits on a row by
  * its **height above the foundations**: an item that needs nothing is on the
  * bottom row, and every other item sits one row above the highest thing it

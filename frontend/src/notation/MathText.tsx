@@ -14,7 +14,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 
@@ -23,9 +23,17 @@ import { splitMath } from './splitMath'
 /**
  * One math run, typeset by KaTeX into trusted (self-sanitised) markup.
  *
+ * **Memoized so a re-render never rewrites it** (v8.38.0). React re-applies
+ * `dangerouslySetInnerHTML` when the element re-renders, replacing every node
+ * inside even when the HTML is the same, and a text selection in the removed
+ * nodes collapses. A highlighted equation in the Reader lost its highlight
+ * the moment the highlight menu's re-render landed (Patrick, 2026-10-24;
+ * reproduced live: 168 formula subtrees swapped per render). With `memo`,
+ * a formula re-renders only when its LaTeX does.
+ *
  * @returns The rendered KaTeX span.
  */
-function MathSpan({ value, display }: { value: string; display: boolean }) {
+const MathSpan = memo(function MathSpan({ value, display }: { value: string; display: boolean }) {
   // `throwOnError: false` degrades invalid LaTeX to a red-rendered source string
   // rather than throwing — a malformed formula never takes down the surface.
   const html = useMemo(
@@ -33,6 +41,20 @@ function MathSpan({ value, display }: { value: string; display: boolean }) {
     [value, display],
   )
   return <span dangerouslySetInnerHTML={{ __html: html }} />
+})
+
+/**
+ * Typeset one formula that is already known to be LaTeX — no delimiters, no
+ * `splitMath` pass. For callers that hold a formula as a value (the Reader's
+ * parsed ar5iv math), where the dollar heuristics have nothing to decide.
+ *
+ * @param props Component props.
+ * @param props.latex The formula's LaTeX source.
+ * @param props.display Typeset as a displayed equation rather than inline.
+ * @returns The rendered KaTeX span.
+ */
+export function TeX({ latex, display = false }: { latex: string; display?: boolean }) {
+  return <MathSpan value={latex} display={display} />
 }
 
 /**

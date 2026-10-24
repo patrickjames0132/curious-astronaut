@@ -4,7 +4,10 @@
  * Description:
  * The Knowledge Graph assistant's stream engine (v8.25.0): one question to
  * the researcher over a thread's course, its events dispatched into that
- * thread's Knowledge Graph chat (`store/chats`).
+ * thread's Knowledge Graph chat (`store/chats`). Since v8.38.0 a thin layer
+ * over the docked assistants' shared engine (`assistant/askAssistant`), which
+ * the Reader's uses too: this file says what the course sends, and words a
+ * lesson's passages.
  *
  * A thunk rather than a hook, because two places ask: the panel's composer,
  * and a lesson's **Explain** on a highlighted passage, which lives in the
@@ -20,33 +23,17 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { nanoid } from '@reduxjs/toolkit'
-import { streamAskCourse, type HistoryTurn, type Provider } from '../../api'
-import type { AppDispatch, RootState } from '../../store'
-import { chatKey } from '../../store/chats'
+import { streamAskCourse } from '../../api'
 import {
-  answerFailed,
-  chatCleared,
-  conversationEnsured,
-  figureAdded,
-  paperRefsSet,
-  provenanceSet,
-  sourceRefsSet,
-  streamEnded,
-  streamStarted,
-  tokenAppended,
-  traceAdded,
-  tracesSettled,
-  turnCompleted,
-  turnContextSet,
-  turnStarted,
-} from '../../store/transcript'
-import { borrowedChats, conversationHistory, siblingContext } from '../../teacher/history'
+  askAssistant,
+  clearAssistantChat,
+  passageMessage,
+  quotedMessage as quotedPassage,
+  stopAssistant,
+  type AssistantQuestion,
+} from '../../assistant/askAssistant'
 import { isCurrentMap } from '../model'
 import { courseContext } from './context'
-
-/** The question in flight in each Knowledge Graph chat, by its key. */
-const controllers = new Map<string, AbortController>()
 
 /**
  * Stop the answer streaming in a thread's Knowledge Graph chat, keeping what
@@ -55,9 +42,7 @@ const controllers = new Map<string, AbortController>()
  * @param threadId The thread.
  */
 export function stopCourseAsk(threadId: string): void {
-  const key = chatKey(threadId, 'knowledge')
-  controllers.get(key)?.abort()
-  controllers.delete(key)
+  stopAssistant(threadId, 'knowledge')
 }
 
 /**
@@ -67,28 +52,11 @@ export function stopCourseAsk(threadId: string): void {
  * @returns The thunk.
  */
 export function clearCourseChat(threadId: string) {
-  return (dispatch: AppDispatch): void => {
-    stopCourseAsk(threadId)
-    dispatch(chatCleared(chatKey(threadId, 'knowledge')))
-  }
+  return clearAssistantChat(threadId, 'knowledge')
 }
 
 /** What one question to the course's assistant needs. */
-export interface CourseQuestion {
-  threadId: string
-  /** The message, as the user turn shows it. */
-  question: string
-  /** The thread's provider, for the papers its searches find. */
-  provider: Provider
-  /** Library scope; the whole library when undefined. */
-  sourceIds?: string[]
-  /** History to send, for a retry; the chat's own completed turns by default. */
-  history?: HistoryTurn[]
-  /** A quick response (v8.30.0): answer with no tools, now. */
-  quick?: boolean
-  /** Original start time when Quick response continues the same wait. */
-  startedAt?: number
-}
+export type CourseQuestion = AssistantQuestion
 
 /**
  * Ask the course's assistant, streaming the answer into the thread's
@@ -98,71 +66,11 @@ export interface CourseQuestion {
  * @returns The thunk; it settles when the answer has ended, however it ended.
  */
 export function askCourse(request: CourseQuestion) {
-  return async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
-    const { threadId, question, provider, sourceIds } = request
-    const thread = Object.values(getState().explorations.byId)
-      .flatMap((record) => record.threads)
-      .find((item) => item.id === threadId)
-    const map = thread?.knowledge
-    if (!isCurrentMap(map)) return
-    const key = chatKey(threadId, 'knowledge')
-    // Supersede whatever this chat was answering: a new message means the
-    // reader has moved on from the last one.
-    controllers.get(key)?.abort()
-    const ctrl = new AbortController()
-    controllers.set(key, ctrl)
-    dispatch(conversationEnsured(key))
-    const streamId = `course:${nanoid()}`
-    dispatch(streamStarted(streamId, key))
-    const history =
-      request.history ?? conversationHistory(getState().transcript.byKey[key]?.chat ?? [])
-    dispatch(turnStarted(question, key, request.quick ? request.startedAt : undefined))
-    dispatch(turnContextSet(borrowedChats(getState(), question, key), key))
-    let failed = false
-    let failure = 'This answer stopped before it finished.'
-    let produced = false
-    try {
-      await streamAskCourse(
-        {
-          question,
-          course: courseContext(map),
-          provider,
-          source_ids: sourceIds,
-          history,
-          thread_context: siblingContext(getState(), question, key),
-          ...(request.quick && { quick: true }),
-          model: getState().transcript.byKey[key]?.model,
-        },
-        {
-          signal: ctrl.signal,
-          onToken: (token) => {
-            produced = true
-            dispatch(tokenAppended(token, key))
-          },
-          onTrace: (trace) => dispatch(traceAdded(trace, key)),
-          onFigure: (figure) => dispatch(figureAdded(figure, key)),
-          onSourceRefs: (refs) => dispatch(sourceRefsSet(refs, key)),
-          onProvenance: (provenance) => dispatch(provenanceSet(provenance, key)),
-          onPaperRefs: (refs) => dispatch(paperRefsSet(refs, key)),
-          onError: (message) => {
-            failed = true
-            failure = message
-          },
-        },
-      )
-      if (!failed && !ctrl.signal.aborted) dispatch(turnCompleted(key))
-    } catch (error) {
-      if (!ctrl.signal.aborted) failure = error instanceof Error ? error.message : String(error)
-    } finally {
-      const superseded = controllers.get(key) !== ctrl
-      if (!superseded) controllers.delete(key)
-      dispatch(streamEnded(streamId, key))
-      if (!superseded) dispatch(tracesSettled(key))
-      // A turn that produced nothing says so itself, so the note survives a
-      // reload; a superseded one was replaced on purpose.
-      if (!produced && !superseded) dispatch(answerFailed(failure, key))
-    }
-  }
+  return askAssistant('knowledge', request, (thread) => {
+    const map = thread.knowledge
+    if (!isCurrentMap(map)) return null
+    return (body, handlers) => streamAskCourse({ ...body, course: courseContext(map) }, handlers)
+  })
 }
 
 /**
@@ -177,6 +85,16 @@ export interface LessonQuote {
 }
 
 /**
+ * Where a lesson's passage is from, as the messages and the quote card say it.
+ *
+ * @param lesson The lesson's title.
+ * @returns The phrase.
+ */
+export function lessonSource(lesson: string): string {
+  return `the lesson on ${lesson}`
+}
+
+/**
  * The message a question sends with a passage attached (v8.26.0): the
  * passage and its lesson first, as Explain's message has them, then the
  * reader's question, so the transcript reads on its own later.
@@ -186,7 +104,7 @@ export interface LessonQuote {
  * @returns The message (plain text: a user turn renders no Markdown).
  */
 export function quotedMessage(question: string, quote: LessonQuote): string {
-  return `About this passage from the lesson on ${quote.lesson}:\n\n“${quote.text.trim()}”\n\n${question.trim()}`
+  return quotedPassage(question, { text: quote.text, from: lessonSource(quote.lesson) })
 }
 
 /**
@@ -198,5 +116,5 @@ export function quotedMessage(question: string, quote: LessonQuote): string {
  * @returns The message (plain text: a user turn renders no Markdown).
  */
 export function explainMessage(passage: string, lesson: string): string {
-  return `Explain this passage from the lesson on ${lesson}:\n\n“${passage.trim()}”`
+  return passageMessage('Explain', passage, lessonSource(lesson))
 }

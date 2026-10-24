@@ -25,16 +25,42 @@
  */
 
 import type { ChatMsg } from '../api'
-import type { ExplorationRecord, ThreadRecord } from './explorations'
+import type { ExplorationRecord, SideChat, ThreadRecord } from './explorations'
 import type { TranscriptState } from './transcript'
 
 /** The tools that have an assistant. The card home has none. */
-export type ChatTool = 'graph' | 'knowledge'
+export type ChatTool = 'graph' | 'knowledge' | 'reader'
 
 /** Each tool's name, as its card on the thread's home says it. */
 export const CHAT_TOOL_NAMES: Record<ChatTool, string> = {
   graph: 'Citation Graph',
   knowledge: 'Knowledge Graph',
+  reader: 'Reader',
+}
+
+/** The tools whose chat sits beside the thread's own, and the thread field
+ *  each is saved under (`ThreadRecord.courseChat`, v8.25.0; `.readerChat`,
+ *  v8.38.0). The Citation Graph's chat is the thread's own (`data.chat`). */
+export const SIDE_CHAT_FIELDS = {
+  knowledge: 'courseChat',
+  reader: 'readerChat',
+} as const satisfies Record<Exclude<ChatTool, 'graph'>, keyof ThreadRecord>
+
+/** The tools with a side chat, in the order the `@` list shows them. */
+export const SIDE_CHAT_TOOLS = Object.keys(SIDE_CHAT_FIELDS) as (keyof typeof SIDE_CHAT_FIELDS)[]
+
+/**
+ * A side chat as last saved on its thread.
+ *
+ * @param thread The thread.
+ * @param tool A tool with a side chat.
+ * @returns Its saved chat, if any.
+ */
+export function savedSideChat(
+  thread: ThreadRecord,
+  tool: keyof typeof SIDE_CHAT_FIELDS,
+): SideChat | undefined {
+  return thread[SIDE_CHAT_FIELDS[tool]]
 }
 
 /** Between a thread's id and its tool in a Knowledge Graph chat's key.
@@ -65,7 +91,7 @@ export function chatKey(threadId: string, tool: ChatTool): string {
 export function chatOf(key: string): { threadId: string; tool: ChatTool } {
   const at = key.lastIndexOf(KEY_SEPARATOR)
   const tool = at === -1 ? '' : key.slice(at + 1)
-  return tool === 'knowledge'
+  return tool === 'knowledge' || tool === 'reader'
     ? { threadId: key.slice(0, at), tool }
     : { threadId: key, tool: 'graph' }
 }
@@ -102,7 +128,7 @@ export function chatTurns(
 ): ChatMsg[] {
   const live = transcript.byKey[chatKey(thread.id, tool)]?.chat
   if (live) return live
-  return tool === 'graph' ? thread.data.chat : (thread.courseChat?.chat ?? [])
+  return tool === 'graph' ? thread.data.chat : (savedSideChat(thread, tool)?.chat ?? [])
 }
 
 /**
@@ -116,12 +142,10 @@ export function chatSummary(
   thread: ThreadRecord,
   tool: ChatTool,
 ): { summary?: string; summarizedThrough?: number } {
-  return tool === 'graph'
-    ? { summary: thread.summary, summarizedThrough: thread.summarizedThrough }
-    : {
-        summary: thread.courseChat?.summary,
-        summarizedThrough: thread.courseChat?.summarizedThrough,
-      }
+  if (tool === 'graph')
+    return { summary: thread.summary, summarizedThrough: thread.summarizedThrough }
+  const saved = savedSideChat(thread, tool)
+  return { summary: saved?.summary, summarizedThrough: saved?.summarizedThrough }
 }
 
 /** A chat another chat can reference. */
@@ -134,8 +158,9 @@ export interface ChatEntry {
 
 /**
  * Every chat in an exploration, in thread order: each thread's Citation
- * Graph chat (General's chat for General), and a paper thread's Knowledge
- * Graph chat once it has a course or any turns.
+ * Graph chat (General's chat for General), a paper thread's Knowledge
+ * Graph chat once it has a course or any turns, and its Reader chat once it
+ * has any turns (v8.38.0).
  *
  * @param record The exploration.
  * @param transcript The transcript slice, for turns not saved yet.
@@ -149,6 +174,7 @@ export function explorationChats(
     const tools: ChatTool[] = ['graph']
     if (thread.identity && (thread.knowledge || chatTurns(transcript, thread, 'knowledge').length))
       tools.push('knowledge')
+    if (thread.identity && chatTurns(transcript, thread, 'reader').length) tools.push('reader')
     return tools.map((tool) => ({
       key: chatKey(thread.id, tool),
       thread,

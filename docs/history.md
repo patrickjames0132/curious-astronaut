@@ -861,6 +861,26 @@
 
 ### Detail panel & paper enrichment
 
+- [x] **Papers read from arXiv's own HTML first, ar5iv as the fallback**
+      *(v8.39.0)* — the Reader's stage-3 groundwork. Every feature that reads
+      a paper's LaTeX (the Reader, the detail panel's figures, the full text
+      the researcher and lectures read) went through ar5iv alone, which on
+      2026-10-24 timed out at 30–150s on four fetches. A check of
+      `arxiv.org/html/<id>` (Patrick's go-ahead) found it serves old papers
+      as well as new (Attention 2017, SAC 2018, Llama 2, GRPO) in about
+      0.05s, with the same LaTeXML markup our parsers read unchanged. Now
+      `client.fetch_render` asks arXiv first and ar5iv only when arXiv has no
+      render, errors, times out or serves a failed conversion's stub; a
+      render carries its page URL so each source's image paths resolve
+      (`absolute_url(src, page)`); the figure proxy admits `arxiv.org/html/…`
+      beside ar5iv (`is_render_url`, was `is_ar5iv_url`); the Reader credits
+      whichever rendered the text; and cache keys were bumped so ar5iv-only
+      misses don't stand for a month. The full text also stopped treating a
+      failed conversion's stub as an empty paper (`client.has_body`), the gap
+      noted in v8.37.0's bugs entry. Live: the Reader's document 0.09s, the
+      detail panel's figures 0.07s, GRPO's full text 0.08s, Adam correctly
+      unavailable from both.
+
 - [x] **TL;DR before the abstract in the detail panel** *(v8.4.0)* — the
       summary section's tabs now read **TL;DR | Abstract**, and the section
       opens on the TL;DR **when one already exists**. The tab order was
@@ -3822,6 +3842,184 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **The Knowledge Graph pyramid, and a ring while a lesson is written**
+      *(v8.41.0)* — a third view beside 2D and 3D (course controls → View →
+      **Pyramid**) that stacks the course in rows: foundations at the bottom,
+      the paper on top, syntheses between what they combine and what they
+      build toward. Settled with Patrick at the start (2026-10-23): **a view
+      of its own**, not a mode of the force view (rows stay put instead of
+      drifting); **the whole course drawn, with the gap standing out**; and
+      **rows by height above the foundations**, not by distance from the
+      paper as the force view's rings count. The full design is in
+      `frontend/src/knowledge/README.md` ("The pyramid"); the layout is pure
+      functions in `knowledge/pyramid.ts`.
+
+      - **What the reader knows changes how it's drawn, never where.** Known
+        items are green as everywhere; what the course skips because
+        something known needs it (`skippedItems`: out of `courseOrder`, not
+        known) fades with the lines into it, so what still sits between the
+        green and the paper stands out. The legend adds **Skipped**.
+        Checking an item off never moves a node (a test pins it).
+      - **Rows ordered so lines don't cross**: a few barycentre sweeps, the
+        standard layered-graph step. The view is the 2D canvas keyed apart
+        (`pyramid` prop), so clicks, focus, find, selection and the alt-drag
+        box all carry over; `usePyramidForce` pulls each node to its spot.
+      - **Browser round, Patrick's changes:** (1) a leaf needed only high up
+        sat on the bottom row, its line running straight through the item
+        between: a second pass now **raises every item to just under the
+        lowest item that needs it**, and a line that must still span several
+        rows **curves** (`pyramidCurve`). (2) **Dragging stays on**, as in the
+        other views, in case a row is wrong; Release sends a node back. (3) A
+        top-centre summary pill ("You know 4 · 7 to learn before the paper ·
+        12 skipped") first collided with the shell's ↑, was moved under it,
+        and then **came out**: the green and the fading already say it.
+      - **A node whose lesson is being written wears the breakdown's
+        spinning blue ring** (Patrick, same round, in every view). A lesson
+        always kept streaming after the panel closed (`useLessons` never
+        aborts one), but nothing on the graph showed it. One ring for both,
+        since the panel says which is happening; a "How it fits in" rewrite
+        rings too. It reads `writing`, not the drafts, so a lesson still
+        streaming from before the tool was left keeps its ring.
+      - **Left open:** whether the Connections card grows a tree to explore
+        in place (Patrick's 2026-10-15 sketch) — not built here.
+
+      **The ticket as it was filed** (a Phase 5 follow-up from 5b): a layered view with
+        foundations at the bottom and the paper on top, each node placed by
+        the depth of its prerequisite chain, shared nodes at their natural
+        level. Patrick's picture from the synthesis workshop (2026-10-13):
+        the paper's new idea on top, foundational knowledge at the bottom,
+        and the syntheses (v8.23.0) between them, "putting the knowledge
+        together". Kept separate from syntheses on purpose (Patrick: a
+        later ticket). v8.23.0 went part of the way inside the force view:
+        `hierarchyForce` draws concepts to rings by depth around the paper
+        and each synthesis beside its parent (`frontend/src/knowledge/README.md`).
+        Open: a third view beside force and 3D, or a mode of the force view;
+        and whether the Connections card should grow a tree to explore in
+        place (Patrick sketched one, 2026-10-15, and left it to this view).
+        **Reframed 2026-10-20** (from the `todos.md` inbox): the ticket is
+        about **assessing what the reader knows**. Take the nodes and concepts
+        the reader has marked as known (the check-offs), and build the
+        tree/pyramid from them, so the layout shows what the reader already
+        has and what still sits between them and the paper. The layout above
+        is how that assessment gets drawn, not the goal in itself.
+
+- [x] **The Reader card, stage 3: the PDF view** *(v8.40.0)* — the paper's
+      PDF in the Reader, drawn by pdf.js from the copy `services/pdf` already
+      caches, served from our origin (`GET /api/paper/<ref>/pdf`). A **Text /
+      PDF switch** sits under the paper, remembered per thread
+      (`ThreadRecord.readerView`). A paper with no HTML render (Adam,
+      1412.6980, which neither arXiv nor ar5iv could convert; open-access
+      papers not on arXiv) opens in the PDF, with Text greyed out and a
+      tooltip saying why (Patrick). Switching slides the arriving view in
+      from its button's side, and the switch's thumb slides with it. Pages
+      are sized up front, drawn near the view and never torn down, so a
+      selection can't vanish under a redraw.
+
+      **The AI tools work on it.** pdf.js's text layer keeps text
+      selectable, so the highlight menu (Explain · Simplify · Chat) works
+      as in the text view, quoting "page 3". The Reader Assistant reads the
+      PDF's text page by page, the page in view first (`_pdf_context`; it
+      needs the `pdf` extra and says so without it).
+
+      **A table of contents for every PDF.** The PDF's own bookmarks when it
+      has them (Attention has 22), else the section headings found in its
+      text (`services/pdf/headings.py`), since many arXiv PDFs have none
+      (Adam, SAC). A heading is a short, larger-or-bolder line that is
+      numbered or a standard name (Abstract, References); the heuristic
+      joins a number set apart from its title, spaces small caps, takes a
+      wrapped heading's second line, and shows ALL CAPS in sentence case.
+      It matched Attention's bookmarks exactly. Each entry knows how far down
+      its page the heading sits, because papers often start two sections on
+      one page: knowing only the page, a click on the SHARSA paper's "The
+      curse of horizon in policy learning" landed on, and lit, "Horizon
+      reduction makes RL scale better" below it (Patrick). A clicked entry
+      now stays lit until you scroll by hand, in both views.
+
+      **The contents' fold got smooth** (Patrick, both views): it slides by
+      transform now, and the PDF pages resize once the width settles,
+      keeping your place (`docs/bugs.md`).
+
+- [x] **The Reader card, stage 2: the highlight menu and the Reader
+      Assistant** *(v8.38.0)* — select text in the Reader for **Explain ·
+      Simplify · Chat**. Explain and Simplify ask a new **Reader Assistant**
+      about the passage ("Explain this passage from section 3.2, Attention:
+      …"); Chat attaches it to the assistant's bar for a question of your
+      own. No Expand: in the Knowledge Graph it adds a concept, and the
+      Reader has no graph to add to (Patrick). The assistant docks on the
+      right (the corner kept free for it), keeps its own chat
+      (`<thread>:reader`, saved as `ThreadRecord.readerChat`), and answers
+      through the graph-free researcher over the paper itself: the client
+      sends only the arXiv id and the section in view, and
+      `POST /api/ask_reader` lays the paper out from the cached document
+      (the section in view whole, then the rest under 60,000 characters;
+      most papers fit whole). It searches the library and the web, never
+      the literature (Patrick's choice: paper + library + web).
+
+      **Generalized rather than copied.** The Knowledge Graph's assistant
+      became a shared panel and stream engine (`frontend/src/assistant/`),
+      and both assistants are that one component with their own words and
+      context; the course's messages are byte-for-byte unchanged. The
+      highlight menu and its hook moved to `frontend/src/selection/`, the
+      menu now taking each tool's actions. The side-chat tools are listed
+      once in `store/chats` (`SIDE_CHAT_FIELDS`) and looped over by saving,
+      seeding, summaries, the `@` list, the rail's working dot and deletion.
+
+      **Math in a highlight**, shaped by four browser rounds (2026-10-24): a
+      formula selected whole reads as its LaTeX, part of one as the glyphs
+      plus the whole formula (`∇ϕ log πϕ (part of $…$)`); display mode is
+      read from KaTeX's own MathML; a question bubble scrolls wide math
+      inside itself. A highlighted equation used to lose its highlight the
+      moment the menu appeared, which turned out to be React rewriting every
+      KaTeX span on re-render; `notation/MathText`'s span is memoized now
+      (`docs/bugs.md`). An enlarged figure also covers only the middle of the
+      app now, never a docked assistant or the rail, in every tool
+      (`figures/figureLayer`, `docs/bugs.md`).
+
+      Filed alongside, to do another day: **one assistant across the tools,
+      floating over the app** (Patrick's idea, with suggestions, in the
+      OnePager's Larger phases). **Next in the Reader:** the PDF fallback
+      viewer with the same AI tools.
+
+- [x] **The Reader card, stage 1: the paper itself** *(v8.37.0)* — the third
+      card on a paper's home, beside the Citation Graph and the Knowledge
+      Graph. Workshopped 2026-10-21 in `docs/brainstorm.md`, filed and built
+      2026-10-23. The Reader shows the paper from its ar5iv render: a contents
+      panel that follows the reading, then the text with KaTeX equations
+      (numbered), figures on a white mat that open in the shared lightbox,
+      tables, algorithms with their line numbers and nesting, footnotes that
+      open in place, and the references. A citation shows its entry on hover
+      and jumps to it on click, and a figure or equation number jumps to its
+      target. The backend (`integrations/arxiv/document.py`, `GET
+      /api/paper/<ref>/document`) is a **second parse of ar5iv beside the
+      flat full-text one**: it keeps sections, figures and every citation
+      marker tied to its `bib.bibN` entry, which the later stages build on,
+      and sends a JSON tree the frontend renders itself, so no third-party
+      HTML is ever injected. When there's nothing to read the card says why:
+      not on arXiv, no ar5iv render (with a link to the PDF), or ar5iv
+      unreachable (with Try again).
+
+      **Four browser rounds shaped it** (Patrick, 2026-10-23):
+      - LaTeX that didn't typeset (`\resizebox` wrappers left in LaTeXML's
+        `alttext`, `\nicefrac`) and algorithms that lost their indentation;
+        both fixed in the parse, and the cache key carries a parse version so
+        a fix reaches already-cached papers. See `docs/bugs.md`.
+      - Figures enlarge in the same lightbox the assistants use.
+      - The contents panel: first a `|←` button, which scrolled away with the
+        list; then **drag to resize, drag well past the floor to fold it to a
+        thin coral line, and only the line's bump reopens it**, so it never
+        competes with the explorer rail's drag. Open, the same line runs down
+        the panel's right edge with a `‹` bump that folds it with the docked
+        panels' slide. It stays at every window width.
+      - The way back to the cards: a ← was tried for the Reader alone, then
+        for all three tools top-left; Patrick kept the centred ↑ for all
+        three (`frontend/src/tools/README.md`).
+
+      Also in this release: `/api/figure_proxy` responses are sandboxed
+      (`docs/bugs.md`). **Next, in the OnePager's new order:** the selection
+      menu (Explain · Simplify · Expand), then the PDF fallback viewer with
+      the same AI tools, then citation hover cards, then Knowledge Graph notes
+      in the margin.
+
 - [x] **Switching the data source keeps the thread you're in** *(v8.28.1)*
       — from the `todos.md` inbox (2026-10-18): changing provider landed the
       reader in a new thread. A thread is keyed by provider + seed, so the
@@ -4671,6 +4869,47 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       it still answers against the fully restored graph. Deliberately left as-is.)*
 
 ### UI & rendering polish
+
+- [x] **Immediate Quick response context and a compact model picker**
+      *(v8.38.2)* — clicking Quick response stamps the replacement turn before
+      streaming and immediately fills its timer header with a muted “Quick
+      response” label and colored bolt. The tooltip says “Answered from the
+      model’s own knowledge.”; the status remains on the finished/saved turn
+      across all chat interfaces, including the shared Knowledge and Reader
+      assistants. General and Citation Graph quick replies also retain
+      “Answered as a question” and the completed reply’s “Lecture on it instead”
+      action. The original start time still measures the full wait. The chat
+      model picker’s scrolling list is capped at 180px even when its viewport
+      measurement finds more space, and shrinks further in tight windows;
+      the heading, close control and Settings default stay outside the list.
+      Regression tests cover status before prose, completion, routing and
+      viewport height limits. Approved by Patrick, 2026-10-24.
+
+- [x] **Equal heights for stacked tool cards** *(v8.36.3)* — the Citation
+      Graph, Knowledge Graph and Reader cards use equal fractional grid rows,
+      so a single-column layout gives each card the height needed by the
+      longest description at the current width. Text still wraps naturally,
+      with no clipping or fixed pixel height, and the existing horizontal
+      layout keeps its sizing. Approved in the browser by Patrick, 2026-10-23.
+
+- [x] **Responsive Citation Graph legend and local search** *(v8.36.2)* —
+      the legend and find control now share the canvas’s bottom row, matching
+      the Knowledge Graph’s responsive layout. Legend entries wrap between
+      items and ellipsize labels that cannot fit; swatches and the collapsed
+      find button retain their size. The expanded search pill uses at most
+      65% of the row and lets its input shrink, so narrowing the browser or
+      opening docked panels no longer makes it cover the legend. Empty row
+      space passes pointer events through to the canvas. Approved by Patrick,
+      2026-10-23.
+
+- [x] **Align lecture labels and their clock** *(v8.36.1)* — lecture replies
+      now put scope/routing metadata and the response timer in one flex header,
+      aligned on the first baseline. The metadata can wrap while the clock
+      keeps its own width and the beats keep the full bubble width. This removes
+      the empty top strip that the generic answer timer reserved above lecture
+      labels, without changing ordinary answer layouts or beat controls.
+      Verified by a shared-header regression test and approved in the browser
+      by Patrick, 2026-10-23.
 
 - [x] **Concise chat clocks that survive Quick response** *(v8.34.1)* —
       general chats and the Citation and Knowledge Graph assistants share
@@ -6315,6 +6554,14 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       inbox, 2026-07-08.)*
 
 ### Infrastructure, quality & tooling
+
+- [x] **`filelock` upgraded past a HIGH CVE** *(v8.38.1)* — CVE-2026-112940
+      (arbitrary file overwrite) in `filelock` 3.29.4, which comes in through
+      `huggingface-hub` (and `virtualenv` for nox), fixed in 4.2.1. `uv lock
+      --upgrade-package filelock` resolved it to 4.2.4, with `virtualenv`,
+      `python-discovery` and `packaging` following. CI's Trivy scan had been
+      failing on it since v8.36.1, while releases kept publishing
+      (`docs/bugs.md`).
 
 - [x] **Install `curious-astronaut` through the work Artifactory**
       *(no release — verified 2026-10-21)* — the publish itself was **done**:

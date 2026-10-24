@@ -573,3 +573,147 @@ def test_a_mentioned_knowledge_graph_chat_brings_its_course_outline():
     assert "Q-learning learns values." not in first
     # An unmentioned chat is its summary only.
     assert "THE COURSE" not in second
+
+
+READER_DOC = {
+    "available": True,
+    "title": [{"kind": "text", "text": "Attention Is All You Need"}],
+    "abstract": [{"kind": "paragraph", "inlines": [{"kind": "text", "text": "Transformers."}]}],
+    "sections": [
+        {
+            "id": "S1",
+            "level": 1,
+            "number": "1",
+            "title": [{"kind": "text", "text": "Introduction"}],
+            "blocks": [{"kind": "paragraph", "inlines": [{"kind": "text", "text": "RNNs are slow."}]}],
+        },
+        {
+            "id": "S3.SS2",
+            "level": 2,
+            "number": "3.2",
+            "title": [{"kind": "text", "text": "Attention"}],
+            "blocks": [
+                {"kind": "paragraph", "inlines": [
+                    {"kind": "text", "text": "We scale by "},
+                    {"kind": "math", "latex": "\\sqrt{d_k}", "display": False},
+                ]},
+                {"kind": "equation", "id": "S3.E1", "latex": "QK^T", "tag": "(1)"},
+            ],
+        },
+    ],
+    "bibliography": [],
+}
+
+
+def test_ask_reader_lays_out_the_paper_being_read(client, monkeypatch):
+    """The Reader's assistant (v8.38.0): the graph-free researcher, handed the
+    paper from the cached document, the section in view shown whole first."""
+    seen: dict = {}
+    asked: list = []
+
+    def fake_document(ref):
+        asked.append(ref)
+        return READER_DOC
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        yield events.Token(text="ok")
+
+    monkeypatch.setattr(agents_routes.arxiv, "get_document", fake_document)
+    patch_agents(monkeypatch, fake_run)
+    response = client.post(
+        "/api/ask_reader",
+        json={"question": "explain", "paper": "1706.03762", "section": "S3.SS2", "quick": True,
+              "model": "anthropic:claude-x"},
+    )
+    assert frames(response) == [("token", {"text": "ok"}), ("done", {})]
+    assert asked == ["1706.03762"]
+    assert seen["paper_search"] is False
+    assert seen["quick"] is True
+    assert seen["model"] == "anthropic:claude-x"
+    reading = seen["reading"]
+    assert "THE PAPER BEING READ: 'Attention Is All You Need'" in reading
+    assert "Abstract: Transformers." in reading
+    assert "Outline:\n1 Introduction\n  3.2 Attention" in reading
+    assert "THE SECTION THEY ARE READING: 3.2 Attention" in reading
+    assert "We scale by $\\sqrt{d_k}$" in reading
+    assert "$$QK^T$$ (1)" in reading
+    # The section in view comes first and isn't repeated in the running text.
+    assert reading.index("THE SECTION THEY ARE READING") < reading.index("## 1 Introduction")
+    assert "## 3.2 Attention\n(shown above)" in reading
+
+
+def test_ask_reader_needs_a_question_and_a_readable_paper(client, monkeypatch):
+    patch_agents(monkeypatch, lambda **_kwargs: iter(()))
+    monkeypatch.setattr(agents_routes.arxiv, "get_document", lambda ref: {"available": False})
+    # No PDF either (v8.40.0's fallback): and never a network lookup in a test.
+    monkeypatch.setattr(agents_routes.pdf_service, "paper_pdf_url", lambda ref, provider: None)
+    assert client.post("/api/ask_reader", json={"paper": "1706.03762"}).status_code == 400
+    assert client.post("/api/ask_reader", json={"question": "q", "paper": "1706.03762"}).status_code == 400
+    assert client.post("/api/ask_reader", json={"question": "q", "paper": "not-an-id"}).status_code == 400
+
+    def boom(ref):
+        raise TimeoutError("ar5iv slow")
+
+    monkeypatch.setattr(agents_routes.arxiv, "get_document", boom)
+    assert client.post("/api/ask_reader", json={"question": "q", "paper": "1706.03762"}).status_code == 400
+
+
+def _pdf_pages(monkeypatch, pages, *, has_extra=True):
+    """Stand a paper's PDF in for the Reader assistant's PDF context."""
+    monkeypatch.setattr(agents_routes.pdf_service, "paper_pdf_url", lambda ref, provider: "https://x/p.pdf")
+    monkeypatch.setattr(agents_routes.pdf_service, "get_pdf_pages", lambda url: {"available": True, "pages": pages})
+    monkeypatch.setattr(agents_routes.optional, "available", lambda extra: has_extra)
+
+
+def test_ask_reader_reads_the_pdf_page_by_page_in_the_pdf_view(client, monkeypatch):
+    """v8.40.0: in the PDF view the section is page:<n>, and the PDF's text is
+    laid out with that page first."""
+    seen: dict = {}
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        yield events.Token(text="ok")
+
+    _pdf_pages(monkeypatch, ["Page one text.", "Page two text.", "Page three text."])
+    monkeypatch.setattr(agents_routes.arxiv, "get_document", lambda ref: pytest.fail("PDF view reads the PDF"))
+    patch_agents(monkeypatch, fake_run)
+    response = client.post(
+        "/api/ask_reader",
+        json={"question": "explain", "paper": "1412.6980", "section": "page:2", "title": "Adam"},
+    )
+    assert frames(response)[-1] == ("done", {})
+    reading = seen["reading"]
+    assert "THE PAPER BEING READ: 'Adam', as its PDF (3 pages)." in reading
+    assert "THE PAGE THEY ARE READING: page 2\n\nPage two text." in reading
+    assert "--- page 2 ---\n(shown above)" in reading
+    assert reading.index("Page two text.") < reading.index("--- page 1 ---")
+
+
+def test_ask_reader_prefers_the_document_and_falls_back_to_the_pdf(client, monkeypatch):
+    seen: dict = {}
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        yield events.Token(text="ok")
+
+    patch_agents(monkeypatch, fake_run)
+    _pdf_pages(monkeypatch, ["From the PDF."])
+    monkeypatch.setattr(agents_routes.arxiv, "get_document", lambda ref: READER_DOC)
+    client.post("/api/ask_reader", json={"question": "q", "paper": "1706.03762", "section": "S1"}).data
+    assert "Attention Is All You Need" in seen["reading"] and "From the PDF." not in seen["reading"]
+
+    # No HTML render (Adam): the PDF stands in.
+    monkeypatch.setattr(agents_routes.arxiv, "get_document", lambda ref: {"available": False})
+    client.post("/api/ask_reader", json={"question": "q", "paper": "1412.6980"}).data
+    assert "From the PDF." in seen["reading"]
+
+
+def test_ask_reader_says_when_the_pdf_extra_is_missing(client, monkeypatch):
+    patch_agents(monkeypatch, lambda **_kwargs: iter(()))
+    _pdf_pages(monkeypatch, ["text"], has_extra=False)
+    response = client.post(
+        "/api/ask_reader", json={"question": "q", "paper": "1412.6980", "section": "page:1"}
+    )
+    assert response.status_code == 400
+    assert "uv sync --extra pdf" in response.json["error"]

@@ -173,3 +173,16 @@ callbacks dispatch into the store's highlight slice. `AnswerMarkdown` and
 the *correction affordance*, since one-click correction is what makes routing
 by model affordable in the first place. Beats lighting as they stream, trace
 chips, and clickable `[n]` citations are standing browser-milestone items.
+
+Lecture turns put their scope/routing metadata and response timer in a shared
+flex header, aligned on the first baseline. Only the metadata wraps; the timer
+keeps its own width. This avoids the standalone timer spacer pushing lecture
+labels down, while beats retain the full bubble width.
+
+Quick response stamps `ChatMsg.quickResponse` when the replacement turn starts,
+before streaming begins. All chat transcripts show a muted “Quick response”
+label with a colored bolt beside the clock immediately, retaining it on the
+finished/saved turn. Its tooltip says “Answered from the model’s own knowledge.”
+
+Quick response status does not replace the question-routing line or its
+optional lecture action: both remain visible when the turn is marked as an answer.

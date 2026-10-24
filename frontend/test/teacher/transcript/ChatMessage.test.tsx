@@ -38,7 +38,71 @@ const turn = (overrides: Partial<ChatMsg> = {}): ChatMsg => ({
 
 afterEach(cleanup)
 
+it('shows Quick response beside the clock before any prose arrives and after completion', () => {
+  const { container, rerender } = render(
+    <ChatMessage
+      message={turn({ quickResponse: true, startedAt: Date.now() })}
+      active={false}
+      streaming
+      working
+      onEnlarge={() => {}}
+    />,
+  )
+  const label = screen.getByTitle("Answered from the model's own knowledge.")
+  expect(label.textContent).toBe('Quick response')
+  expect(label.closest('.chat-lecture-header')?.querySelector('.response-timer')).toBeTruthy()
+  expect(container.querySelector('.chat > .response-timer')).toBeNull()
+  rerender(
+    <ChatMessage
+      message={turn({ quickResponse: true, respondedIn: 5000, text: 'Answer.' })}
+      active={false}
+      streaming={false}
+      onEnlarge={() => {}}
+    />,
+  )
+  expect(screen.getByTitle("Answered from the model's own knowledge.")).toBeTruthy()
+  expect(screen.getByText('Answer.')).toBeTruthy()
+})
+
+it('keeps the question routing line and lecture action beside Quick response context', () => {
+  const reroute = vi.fn()
+  render(
+    <ChatMessage
+      message={turn({
+        quickResponse: true,
+        routedTo: 'answer',
+        respondedIn: 5000,
+        text: 'Answer.',
+      })}
+      active={false}
+      streaming={false}
+      onEnlarge={() => {}}
+      onReroute={reroute}
+    />,
+  )
+  expect(screen.getByTitle("Answered from the model's own knowledge.")).toBeTruthy()
+  expect(screen.getByText('Answered as a question')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Lecture on it instead' }))
+  expect(reroute).toHaveBeenCalledOnce()
+})
+
 describe('a turn whose answer is a lecture', () => {
+  it('keeps lecture metadata beside its timer in a shared header above the beats', () => {
+    const { container } = render(
+      <ChatMessage
+        message={turn({ beats: [BEAT], routedTo: 'lecture', respondedIn: 61_000 })}
+        active={false}
+        streaming={false}
+        onEnlarge={() => {}}
+      />,
+    )
+    const header = container.querySelector('.chat-lecture-header')!
+    expect(header.contains(screen.getByText('Answered as a lecture'))).toBe(true)
+    expect(header.contains(screen.getByTitle('How long this answer took'))).toBe(true)
+    expect(header.contains(screen.getByText('The first idea.'))).toBe(false)
+    expect(container.querySelector('.chat > .response-timer')).toBeNull()
+  })
+
   it('renders its beats where the prose would be', () => {
     render(
       <ChatMessage

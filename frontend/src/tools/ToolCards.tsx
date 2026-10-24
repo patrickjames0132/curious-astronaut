@@ -3,8 +3,8 @@
  *
  * Description:
  * A paper thread's card home: the paper at the top, then one card per tool
- * that works on it — the citation graph, and (Phase 5b) the knowledge
- * network. Opening a card switches the thread to that tool; clicking the
+ * that works on it — the citation graph, (Phase 5b) the knowledge network,
+ * and the Reader (the paper itself). Opening a card switches the thread to that tool; clicking the
  * thread in the rail always comes back here (`openThread`).
  *
  * Authors:
@@ -65,6 +65,20 @@ function NetworkIcon() {
   )
 }
 
+/** An open book: the paper itself.
+ * @returns The icon.
+ */
+function BookIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+        <path d="M12 6.5C10 5 7 4.6 4 5v13c3-.4 6 0 8 1.5 2-1.5 5-1.9 8-1.5V5c-3-.4-6 0-8 1.5Z" />
+        <path d="M12 6.5v13" />
+      </g>
+    </svg>
+  )
+}
+
 const CARDS: ToolCard[] = [
   {
     tool: 'graph',
@@ -81,6 +95,14 @@ const CARDS: ToolCard[] = [
       'A short course on what you need to know first: the ideas this paper rests on, ' +
       'broken down as far as you want to go.',
     icon: <NetworkIcon />,
+  },
+  {
+    tool: 'reader',
+    title: 'Reader',
+    blurb:
+      'The paper itself, section by section, with its equations typeset and every ' +
+      'citation one click from its reference.',
+    icon: <BookIcon />,
   },
 ]
 

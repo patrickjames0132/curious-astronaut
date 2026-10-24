@@ -7,7 +7,7 @@
  * concept's states (v8.17.0): known (green) and new (grey, never opened or
  * broken down; it turns violet once you do). Outlines follow the citation
  * graph and need no entry. A synthesis (v8.23.0) gets its entry once the course
- * has one, and the pyramid (v8.37.0) adds the faded "skipped" state.
+ * has one, and the pyramid (v8.41.0) adds the faded "skipped" state.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>

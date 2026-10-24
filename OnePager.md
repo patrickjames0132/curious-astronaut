@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.34.1 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.38.2 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -1171,9 +1171,6 @@ than deleted so the plan doesn't get re-proposed.
       are navigation labels — they have to read well out of context, in a
       list, not just above their own card.
 
-- [ ] **Show the paper inline on the card home** — needs clarifying with
-      Patrick before building: the card header already shows the title,
-      authors, year and TL;DR. *(From the `todos.md` inbox, 2026-10-09.)*
 - [ ] **A new loading screen for the Paper Graph** — today a build is a
       spinner card with a progress bar over an empty canvas. Shape not yet
       decided. *(From the `todos.md` inbox, 2026-10-09.)*
@@ -1223,6 +1220,30 @@ than deleted so the plan doesn't get re-proposed.
       2026-10-22.)*
 
 ### Enhancements & tech debt
+
+- [ ] **Publish only from a commit whose CI is green** — filed 2026-10-24
+      after v8.36.1 through v8.38.0 published while CI on `main` was red
+      (a HIGH CVE in `filelock`, fixed in v8.38.1; the story is in
+      [docs/bugs.md](docs/bugs.md)). Today `release.yml` runs on the `v*`
+      tag alone and never looks at `ci.yml`, so a red gate doesn't stop a
+      PyPI upload, and a PyPI version can't be replaced, only yanked.
+      Options, roughly in order of preference:
+      - **Run the gate inside the release**: make `ci.yml` callable
+        (`workflow_call`) and give `release.yml`'s build job `needs:` on it.
+        The release then re-runs the whole gate on the tagged commit,
+        including a fresh Trivy scan (about 6 minutes, Windows being the
+        slow leg), and can't publish past a failure.
+      - **Check the tagged commit's CI result** in a first job (`gh api`
+        on its check runs) and fail unless `ci.yml` passed. Cheaper, but CI
+        may still be running when the tag lands, so it needs a wait loop.
+      - **Trigger the release from CI** (`workflow_run` on `ci.yml`
+        completing). Least preferred: it changes which workflow publishes,
+        and trusted publishing names the workflow file.
+      Constraint for any of them (CLAUDE.md, "Quality gate"): PyPI's
+      trusted-publisher config names `release.yml` and the `testpypi` /
+      `pypi` environments, so keep that filename and those environments;
+      the environments' deployment rules live outside the repo. Rehearse
+      through the TestPyPI `workflow_dispatch` before a real tag.
 
 - [ ] **Make the backend's researcher layout match the three assistants** —
       the product now has three chats: the General chat, the Citation Graph
@@ -1563,25 +1584,6 @@ than deleted so the plan doesn't get re-proposed.
       - **Let the tutor draw on the reader's library**, not only the paper's
         references, when it writes a lesson: the researcher's
         `search_sources` already does this for answers. *(From the `todos.md` inbox, 2026-10-09.)*
-      - **A pyramid layout for the Knowledge Graph**, a layered view with
-        foundations at the bottom and the paper on top, each node placed by
-        the depth of its prerequisite chain, shared nodes at their natural
-        level. Patrick's picture from the synthesis workshop (2026-10-13):
-        the paper's new idea on top, foundational knowledge at the bottom,
-        and the syntheses (v8.23.0) between them, "putting the knowledge
-        together". Kept separate from syntheses on purpose (Patrick: a
-        later ticket). v8.23.0 went part of the way inside the force view:
-        `hierarchyForce` draws concepts to rings by depth around the paper
-        and each synthesis beside its parent (`frontend/src/knowledge/README.md`).
-        Open: a third view beside force and 3D, or a mode of the force view;
-        and whether the Connections card should grow a tree to explore in
-        place (Patrick sketched one, 2026-10-15, and left it to this view).
-        **Reframed 2026-10-20** (from the `todos.md` inbox): the ticket is
-        about **assessing what the reader knows**. Take the nodes and concepts
-        the reader has marked as known (the check-offs), and build the
-        tree/pyramid from them, so the layout shows what the reader already
-        has and what still sits between them and the paper. The layout above
-        is how that assessment gets drawn, not the goal in itself.
       - **The tutor's suggested syntheses, as the Knowledge Graph
         Assistant's tool.** The assistant shipped in v8.25.0 (the researcher
         generalized, `knowledge/assistant/`); its synthesis half was deferred
@@ -1602,22 +1604,6 @@ than deleted so the plan doesn't get re-proposed.
         design, not a new UI. The researcher runs graph-free here, so the
         tool needs the course's ids, which `_course_context` only shows as
         text today.
-      - **A paper-reader card: open the PDF in the browser, with reading
-        tools.** A third card on the thread's card home (beside Paper Graph
-        and Knowledge Graph) that opens the paper's PDF in the app and gives
-        the reader tools over it, after
-        [SpatialRead](https://www.producthunt.com/p/spatialread/spatialread)
-        (see the landscape sweep below). Patrick's word is "editing tools",
-        which needs pinning down before design: highlights and notes over the
-        PDF, or SpatialRead's expand/simplify explanations of a selected
-        passage (which would share its plumbing with the lessons' Explain and
-        Expand pill, v8.25.0's `useLessonSelection`, and could feed the
-        Knowledge Graph). Constraints to read
-        first: [docs/pdf-mining.md](docs/pdf-mining.md) settles that whole
-        PDFs sit on disk under `services/pdf` (so serving the stored file is
-        cheap), PyMuPDF is the optional `pdf` extra (so the card must degrade
-        without it), and only open-access papers have a PDF at all. *(From
-        the `todos.md` inbox, 2026-10-16.)*
 
       **Later stages, deliberately out of v1:**
       - **A challenger agent** that asks probe questions to learn what the
@@ -1730,6 +1716,154 @@ than deleted so the plan doesn't get re-proposed.
       the literature. *(As shipped in v8.14.0 the nodes are concepts and the
       paper grounding sits in the lessons' citations, but the combination
       still holds.)*
+- [ ] **Reader card — how do I read it?** — a third card on the thread's
+      card home, beside Paper Graph and Knowledge Graph, for reading the
+      paper itself. Workshopped 2026-10-21 (filed from `docs/brainstorm.md`
+      2026-10-23, decisions settled with Patrick the same day). It replaces
+      two older items: the 2026-10-16 "paper-reader card" (a SpatialRead-style
+      PDF viewer with "editing tools") and the vague "Show the paper inline on
+      the card home" (2026-10-09).
+
+      **The prior art is SpatialRead, and it changes what v1 leads with.**
+      [SpatialRead](https://www.producthunt.com/products/spatialread) is a
+      desktop paper reader: a PDF viewer where you highlight text and run
+      Explain, Simplify or Expand on it, with your own API key or local
+      Ollama, and screenshot analysis of figures. Its graph is built from
+      *your own reading*. It's closed source and reportedly paid ($49–$99
+      depending on the listing), and reportedly ships a "critical peer
+      reviewer" agent, i.e. *generated* critique. So highlight-and-explain
+      alone would be a free SpatialRead with less polish: still worth
+      something by the reach rule, but v1 should **lead with what only
+      Curious Astronaut can do**, connecting the text to structure the app
+      already has:
+      - `[23]` resolves to the **actual cited paper**, a real node in the
+        Paper Graph, via S2.
+      - Terms and per-section notes come from the paper's **Knowledge
+        Graph** prerequisites, including what the reader has ticked off.
+      - A guided read reuses the **lecturer**, the current paragraph
+        highlighted the way Paper Graph nodes light up today.
+
+      **The main technical fact: the full text we have today is flat.**
+      `integrations/arxiv/fulltext.py` reduces ar5iv's HTML to plain text
+      blocks: math survives as LaTeX, but `<cite>` and `<figure>` are dropped
+      and section structure isn't kept. That's right for its job (model
+      context), but a Reader needs sections, figures in place, and citation
+      markers still tied to their bibliography entries. So the Reader's core
+      is a **new structured parse beside the flat one**, not a reuse of it.
+      `services/pdf/text.py` is flatter still.
+
+      ```
+      ┌ Reader: Attention Is All You Need ─────────────────────────┐
+      │ Contents     │ 3.2 Scaled Dot-Product Attention            │ Teacher        │
+      │ 1 Intro      │ We call our particular attention "Scaled    │ ▸ Before this  │
+      │ 2 Background │ Dot-Product Attention" [Figure 2]…          │   section: you │
+      │ 3 Model    ◂ │                                             │   need softmax │
+      │   3.1        │   Attention(Q,K,V) = softmax(QKᵀ/√dₖ)V  [?] │   ✓ known      │
+      │   3.2 ◂      │                                             │                │
+      │ 4 Why self-  │ …additive attention [2] ← hover: Bahdanau   │ Ask about the  │
+      │   attention  │   2014 · open in Paper Graph                │ selection…     │
+      └──────────────┴─────────────────────────────────────────────┴────────────────┘
+      ```
+
+      **Settled decisions (Patrick, 2026-10-23):**
+      1. **Text source: ar5iv first, PDF viewer as v2 fallback.** Structured
+         ar5iv HTML gives real math, figures and citation links, but only
+         for arXiv papers. A pdf.js viewer covers every open-access paper but
+         can't practically link citations or terms. The fallback viewer is
+         also what blocks "Click a library citation to open the source at
+         that page", so building it unblocks that item too. Constraints from
+         [docs/pdf-mining.md](docs/pdf-mining.md): whole PDFs already sit on
+         disk under `services/pdf`, PyMuPDF is the optional `pdf` extra (the
+         card must degrade without it), and only open-access papers have a
+         PDF at all.
+      2. **Citation resolution:** ar5iv ties each marker to a bibliography
+         entry; match that entry to S2's reference list by arXiv id or DOI
+         first, title as fallback. Markers stay unlinked in the PDF fallback;
+         proper PDF reference parsing needs something like GROBID (a heavy
+         Java service), wrong for an easy install.
+      3. **Reading at your own pace before a guided read.** A margin teacher
+         that responds when you act ships first; the guided read (reusing
+         the lecturer's beat format) comes later.
+
+      **Reordered after the first browser round (Patrick, 2026-10-23).**
+      Reading the text showed the AI tools and the PDF fallback matter more
+      than first planned, so they move ahead of the citation hover card:
+      1. ✓ **Shipped in v8.37.0**: structured ar5iv parse, the Reader card,
+         reading view and table of contents, figures in the lightbox. The
+         full story is in [docs/history.md](docs/history.md).
+      2. ✓ **Shipped in v8.38.0**: the highlight menu in the Reader
+         (Explain · Simplify · Chat) and the Reader Assistant beside it. No
+         Expand (Patrick, 2026-10-24): in the Knowledge Graph it adds a
+         concept, and the Reader has nothing to add one to until a
+         SpatialRead-style canvas of ideas spun off the paper exists. The
+         full story is in [docs/history.md](docs/history.md).
+      3. ✓ **Shipped in v8.40.0**: the PDF view, with a Text / PDF switch,
+         a table of contents (the PDF's bookmarks, else headings found in
+         its text), and the highlight menu and Reader Assistant working on
+         it. The full story is in [docs/history.md](docs/history.md). Still
+         open from it: "Click a library citation to open the source at that
+         page" can now be built on the PDF view.
+      4. Citation hover card, plus a jump into the Paper Graph.
+      5. Knowledge Graph notes in the margin (when one exists for the paper).
+
+      **Later:** a margin teacher you can ask about the selection, then the
+      guided read.
+
+      **Links run both ways.** v1 links the text out to the graphs; the
+      reverse is "show me where the paper uses this": from a Knowledge Graph
+      concept, jump to the passages that rely on it; from a Paper Graph node,
+      jump to the sentences that cite it. The same structured parse serves
+      both directions, so it belongs to this card.
+
+      **Open:**
+      - For the brainstorm's **shareable snapshot** idea: showing arXiv text
+        in a local app is like viewing it in a browser, but putting it in an
+        exported snapshot is redistribution, and arXiv licenses vary by paper.
+- [ ] **One assistant across the tools, floating over the app** —
+      Patrick's idea (2026-10-24), filed while the Reader's selection menu was
+      being built, to workshop another day. Today each tool docks its own
+      assistant (the Citation Graph's, the Knowledge Graph's, and the
+      Reader's from v8.38.0), and with the contents and detail panels that
+      is a lot of side columns — "almost too many". Referencing other chats
+      with `@thread[…]` everywhere is also messy. The idea: **one AI assistant
+      for every tool, still separate from the General chats**, launched from
+      a small floating icon in the bottom-right corner that overlays the whole
+      app and can be dragged and clicked at any time (after ChatGPT's
+      desktop companion).
+
+      **Suggestions and adjustments (Claude, 2026-10-24), not yet settled:**
+      - **It knows what's on screen.** Each question carries the current
+        view as context: the graph on the Citation Graph, the course on the
+        Knowledge Graph, the paper and the section being read in the Reader.
+        That removes most `@` references; `@` stays for *other* threads.
+      - **The icon floats; the chat doesn't stay small.** Researched answers
+        carry citations, figures and long explanations, and a pet-sized
+        window would be cramped. Clicking the icon opens a full-height panel
+        over the right edge, closed again with ✕ or Esc, so no tool keeps a
+        column. Dragging the icon is fine; a freely draggable chat window
+        tends to sit on exactly what you're reading.
+      - **One conversation per thread, aware of the tool**, rather than one
+        per tool. This reverses "assistants encapsulated per tool" (Patrick,
+        2026-10-09), so it's Patrick's call; a chat per tool that the
+        floating assistant switches between is the alternative. One global
+        conversation across threads would mix papers.
+      - **Every highlight menu answers there.** A lesson's Explain / Expand
+        / Chat and the Reader's Explain / Simplify / Chat all go to the same
+        assistant, opening it if closed.
+      - **It's a large change, its own phase.** The Citation Graph's
+        assistant also runs lectures, paper filters and the landing chat, and
+        those need a home in the unified one. The groundwork is already
+        there: since v8.38.0 the Knowledge Graph's and the Reader's
+        assistants are one component on one stream engine
+        (`frontend/src/assistant/`), differing only in their context and
+        endpoint, so the work is mostly the shell and the Citation Graph's
+        extras.
+
+      **Open:** per-thread or per-tool conversations; where lectures live;
+      whether the panel overlays the tool or pushes it aside on wide
+      screens; how it behaves on narrow windows; whether the icon's position
+      is remembered.
+
 - [ ] **Phase 6 — Slides from the lecture** — a deck built by the existing
       agent crew from lecture beats + already-mined paper figures.
       *(Renumbered from the retired audio phase, 2026-08-16. Patrick,

@@ -663,12 +663,12 @@ export function useHierarchyForce(
   }, [fgRef, map, data, enabled])
 }
 
-/** How hard the pyramid pulls a node to its spot, every tick (v8.37.0). Not
+/** How hard the pyramid pulls a node to its spot, every tick (v8.41.0). Not
  *  scaled by alpha, so the nodes reach their rows before the engine cools. */
 export const PYRAMID_PULL = 0.2
 
 /**
- * Lay the pyramid out on a view's engine (v8.37.0): the charge, links and
+ * Lay the pyramid out on a view's engine (v8.41.0): the charge, links and
  * centring are switched off and each node is pulled straight to its spot
  * (`pyramidLayout`), so a new breakdown's concepts glide into their rows from
  * beside the item that needs them.
@@ -707,7 +707,7 @@ export function usePyramidForce(
 export const PYRAMID_CURVE = 0.25
 
 /**
- * How much a pyramid line bends (v8.37.0): straight between neighbouring
+ * How much a pyramid line bends (v8.41.0): straight between neighbouring
  * rows, curved when it spans more, so it can't run straight through an item
  * on a row between (the rows raise what they can, `pyramidRows`, but an item
  * needed both low and high has to stay low).
@@ -723,7 +723,7 @@ export function pyramidCurve(link: CanvasLink, spots: ReadonlyMap<string, Spot>)
 }
 
 /**
- * Whether a line runs into an item the course skips (v8.37.0), so the
+ * Whether a line runs into an item the course skips (v8.41.0), so the
  * pyramid fades it with the item.
  *
  * @param link The line.

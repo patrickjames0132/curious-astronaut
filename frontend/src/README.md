@@ -40,24 +40,39 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 across all three, so the switch never
    │                                 remounts it — see teacher/README.md.
    ├─ card home (paper threads)    tools/ToolCards.tsx — the paper, then a
-   │                                 card per tool (Citation Graph, Knowledge Graph)
+   │                                 card per tool (Citation Graph, Knowledge
+   │                                 Graph, Reader)
+   ├─ Reader                       reader/Reader.tsx — the paper itself from
+   │  │                              its ar5iv render (v8.37.0)
+   │  ├─ contents rail             (in Reader.tsx; follows the reading)
+   │  ├─ highlight menu            selection/SelectionMenu.tsx (shared:
+   │  │                              Explain · Simplify · Chat, v8.38.0)
+   │  ├─ the PDF view              reader/PdfView.tsx (pdf.js, lazy-loaded;
+   │  │                              v8.40.0), with the Text/PDF switch
+   │  └─ the text                  reader/ReaderBody.tsx — blocks and runs:
+   │                                 equations (notation/ TeX), figures,
+   │                                 tables, citations, refs, footnotes
    ├─ knowledge network            knowledge/KnowledgeNetwork.tsx — a short
    │  │                              course on the paper's prerequisites
    │  ├─ controls (folded)         knowledge/KnowledgeControls.tsx (2D / 3D /
    │  │                              Pyramid, release, fit, clear)
    │  ├─ the graph                 knowledge/KnowledgeGraph.tsx (2D, and the
-   │  │                              pyramid, v8.37.0), or KnowledgeGraph3D.tsx
+   │  │                              pyramid, v8.41.0), or KnowledgeGraph3D.tsx
    │  │                              (lazy-loaded)
    │  ├─ legend                    knowledge/KnowledgeLegend.tsx
    │  ├─ find control (🔍 → pill)  graph/controls/FindBar.tsx (shared)
    │  ├─ lesson panel (on click)   knowledge/KnowledgePanel.tsx
    │  │  ├─ lesson images          figures/FigCard.tsx (shared, v8.24.0)
-   │  │  └─ highlight menu         knowledge/SelectionMenu.tsx (Explain ·
-   │  │                              Expand over a selected passage, v8.25.0)
+   │  │  └─ highlight menu         selection/SelectionMenu.tsx (shared:
+   │  │                              Explain · Expand · Chat here, v8.25.0)
    │  └─ image lightbox            figures/Lightbox.tsx
    ├─ Knowledge Graph Assistant    knowledge/assistant/CourseAssistant.tsx —
    │                                 docked beside the Knowledge Graph; its
-   │                                 own chat (store/chats.ts)
+   │                                 own chat (store/chats.ts). The panel is
+   │                                 assistant/DockedAssistant.tsx (shared)
+   ├─ Reader Assistant             reader/ReaderAssistant.tsx — docked
+   │                                 beside the Reader (v8.38.0), the same
+   │                                 shared panel, its own chat
    ├─ graph area                   graph/GraphExplorer.tsx
    │  ├─ overlays (from the shell): loading / error, and the ↑ back up to
    │  │                              the paper's cards  (App.tsx)
@@ -107,6 +122,10 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
       └─ figure lightbox           figures/Lightbox.tsx (same instance type as above,
                                     but GraphExplorer and Teacher each own their own)
 ```
+
+`assistant/` (the docked assistants' shared panel and stream engine) and
+`selection/` (the highlight menu) joined it in v8.38.0, when the Reader
+became the second user of what the Knowledge Graph had built.
 
 `figures/` is the frontend's first true multi-consumer, root-level folder:
 `Lightbox.tsx` was promoted from `teacher/figures/` once the detail panel became

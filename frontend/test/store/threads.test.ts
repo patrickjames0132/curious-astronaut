@@ -421,6 +421,33 @@ describe('legacy migration', () => {
     expect(conversations[threadId].chat[0].text).toBe('graph question')
     expect(conversations[`${threadId}:knowledge`].chat[1].text).toBe('course answer')
   })
+
+  it("saves a thread's Reader chat as readerChat and restores it (v8.38.0)", async () => {
+    const store = makeStore()
+    await store.dispatch(loadGraph({ seed: 'DQN' }))
+    const threadId = store.getState().transcript.activeKey
+    store.dispatch(conversationEnsured(`${threadId}:reader`))
+    store.dispatch(turnStarted('reader question', `${threadId}:reader`))
+    store.dispatch(tokenAppended('reader answer', `${threadId}:reader`))
+    const state = store.getState()
+    const body = explorationBody(state, state.explorations.byId[state.explorations.activeId])
+    const saved = body.exploration!.threads.find((thread) => thread.id === threadId)!
+    expect(saved.readerChat?.chat.map((turn) => turn.text)).toEqual([
+      'reader question',
+      'reader answer',
+    ])
+    // A thread with no Knowledge Graph chat saves none.
+    expect(saved.courseChat).toBeUndefined()
+    const fresh = makeStore()
+    fresh.dispatch(
+      explorationOpened(
+        migrateExploration({ id: body.id, name: body.name, data: body } as SavedSession),
+      ),
+    )
+    expect(fresh.getState().transcript.byKey[`${threadId}:reader`].chat[1].text).toBe(
+      'reader answer',
+    )
+  })
 })
 
 describe('more than one General chat (v8.31.0)', () => {

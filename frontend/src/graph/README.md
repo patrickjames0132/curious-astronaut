@@ -271,3 +271,11 @@ another seed selects or creates its thread. Filter values, selection and layout
 are parked with the outgoing workspace and restored on return. The simulation
 is still local and rebuilds its positions; mutable force nodes never enter Redux.
 Citation inspection can open paper details without changing this graph.
+
+The citation legend and local find share a bottom flex row (`.graph-footer`),
+matching the Knowledge Graph’s layout. The legend wraps between entries and
+ellipsizes labels that cannot fit; its swatches and the collapsed find button
+keep their size. Opening find caps the pill at 65% of the available row and
+lets its input shrink, so resizing the browser or opening panels cannot make
+the two overlays cover each other. The row passes empty-space pointer events
+through to the graph.

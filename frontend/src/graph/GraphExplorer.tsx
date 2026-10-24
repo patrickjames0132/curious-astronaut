@@ -1049,19 +1049,19 @@ export default function GraphExplorer({
         )}
 
         {hasGraph && (
-          <FindBar
-            query={findQuery}
-            onQuery={setFindQuery}
-            count={findSet ? findSet.size : null}
-            onSelectAll={onFindSelectAll}
-          />
-        )}
-        {hasGraph && (
-          <Legend
-            hasExpanded={expandedIds.size > 0}
-            hasSurveys={hasSurveyRings}
-            hasGhosts={view.ghostIds.size > 0}
-          />
+          <div className="graph-footer">
+            <Legend
+              hasExpanded={expandedIds.size > 0}
+              hasSurveys={hasSurveyRings}
+              hasGhosts={view.ghostIds.size > 0}
+            />
+            <FindBar
+              query={findQuery}
+              onQuery={setFindQuery}
+              count={findSet ? findSet.size : null}
+              onSelectAll={onFindSelectAll}
+            />
+          </div>
         )}
       </main>
 

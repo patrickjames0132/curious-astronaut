@@ -8,13 +8,14 @@
  * `graph/controls/GraphControls.tsx`, `detail/DetailPanel.tsx`,
  * `teacher/Teacher.tsx`).
  *
- * Four phases, because the app has four first-times: {@link HOME_TOUR}
+ * Five phases, because the app has five first-times: {@link HOME_TOUR}
  * covers the search surface and auto-runs on first launch, before any paper
  * is open; {@link CARDS_TOUR} covers a paper thread's card home and auto-runs
  * on the first one; {@link GRAPH_TOUR} covers the graph tools and auto-runs
  * on the first graph; {@link KNOWLEDGE_TOUR} covers the knowledge network and
- * auto-runs on the first course. `App.tsx` picks the list (and the seen-flag)
- * by which of the four is on screen.
+ * auto-runs on the first course; {@link READER_TOUR} covers the Reader and
+ * auto-runs on the first paper read. `App.tsx` picks the list (and the
+ * seen-flag) by which of the five is on screen.
  * One more list, {@link SETTINGS_TOUR}, belongs to the settings modal, which
  * mounts it itself (the ? beside its ✕): its steps *stage* the section or
  * sub-page they point at, so the walk drives the modal's own nav.
@@ -37,6 +38,8 @@ export const TOUR_KEYS = {
   cards: 'curious_astronaut.tour.cards',
   /** The knowledge network — the first course opened. */
   knowledge: 'curious_astronaut.tour.knowledge',
+  /** The Reader — the first paper read. */
+  reader: 'curious_astronaut.tour.reader',
   /** The graph-tools tour — first graph. */
   graph: 'curious_astronaut.tour.graph',
   /** The settings modal's tour — first time it is opened. */
@@ -164,8 +167,8 @@ export const CARDS_TOUR: TourStep[] = [
     body:
       'The Citation Graph maps the papers this one built on and the ones it spawned. The ' +
       'Knowledge Graph is a short course on the ideas you need to ' +
-      'know first. Clicking the thread in the sidebar always brings you back to these ' +
-      'cards, and so does the ↑ at the top of each tool.',
+      'know first. The Reader is the paper itself. Clicking the thread in the sidebar ' +
+      'always brings you back to these cards, and so does the ↑ at the top of each tool.',
   },
 ]
 
@@ -256,6 +259,64 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
       'concept means, how two connect, or what to study next. It keeps its own chat, apart from ' +
       'the Citation Graph’s; type @ to bring that one, or any other in this exploration, into ' +
       'a question. The 📚 in its bar picks which of your sources it may search.',
+  },
+]
+
+/**
+ * The Reader: the contents, the live parts of the text (citations, refs,
+ * footnotes), the highlight menu and the Reader Assistant (v8.38.0). Short,
+ * like the cards' tour: reading needs no lesson.
+ */
+export const READER_TOUR: TourStep[] = [
+  {
+    target: '[data-tour="reader-page"]',
+    title: 'The paper itself',
+    body:
+      'This is the paper’s own text, from arXiv’s HTML render, with its equations typeset ' +
+      'and its figures and tables in place. A citation like [13] jumps to its entry in the ' +
+      'references (hover it to read the entry first), a figure or equation number jumps to ' +
+      'that figure or equation, and a small raised number opens its footnote in place.',
+  },
+  {
+    target: '[data-tour="reader-contents"]',
+    title: 'Contents',
+    body:
+      'The sections, following along as you read. Click one to go straight there. Drag ' +
+      'the panel’s right edge to resize it. The bump on that edge folds it away to a thin ' +
+      'line at the left (so does dragging it narrow enough); the line’s bump brings it back.',
+  },
+  {
+    target: '[data-tour="reader-page"]',
+    title: 'Highlight a passage',
+    body:
+      'Select a word, a sentence or an equation and a small menu appears over it. ' +
+      '“Explain” asks the Reader Assistant what it means, “Simplify” asks for it in plain ' +
+      'words, and “Chat” opens the assistant with the passage attached to its bar, so you ' +
+      'can ask anything about it.',
+  },
+  {
+    target: '[data-tour="reader-view-switch"]',
+    presentIf: '[data-tour="reader-view-switch"]',
+    title: 'Text or PDF',
+    body:
+      'Switch between the paper’s text (typeset equations, live citations) and its PDF, ' +
+      'the original layout. The choice is remembered for this paper. A paper with no ' +
+      'text opens as its PDF, and the highlight menu and the assistant work on either.',
+  },
+  {
+    target: '[data-tour="reader-assistant-btn"]',
+    presentIf: '[data-tour="reader-assistant-btn"]',
+    title: 'The Reader Assistant',
+    body:
+      'The 🎓 opens an assistant beside the paper. It reads the paper, starting with the ' +
+      'section you’re in, and searches your library and the web only when a question reaches ' +
+      'past it. It keeps its own chat, apart from this paper’s graphs’; type @ to bring one of ' +
+      'those into a question. The 📚 in its bar picks which of your sources it may search.',
+  },
+  {
+    target: '[data-tour="tool-back"]',
+    title: 'Back up to the paper’s cards',
+    body: 'The ↑ at the top takes you back up to this paper’s cards and its other tools.',
   },
 ]
 
