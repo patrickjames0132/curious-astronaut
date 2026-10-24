@@ -79,8 +79,14 @@
 .tool-card:nth-child(2) {
   animation-delay: 60ms;
 }
+.tool-card:nth-child(3) {
+  animation-delay: 120ms;
+}
 .tool-card-knowledge {
   --card-accent: var(--seed-ref);
+}
+.tool-card-reader {
+  --card-accent: var(--reader-ink);
 }
 /* Individual transforms compose with the entrance animation's transform;
    its forwards fill must not pin the hover lift back at translateY(0). */

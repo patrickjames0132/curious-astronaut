@@ -31,7 +31,7 @@ import type { WorkspaceState } from './workspace'
  * Which surface a paper thread shows: its card home, or one of the tools the
  * cards open. General has no seed, so it has no cards and no tool.
  */
-export type ThreadTool = 'cards' | 'graph' | 'knowledge'
+export type ThreadTool = 'cards' | 'graph' | 'knowledge' | 'reader'
 
 export interface ThreadRecord {
   id: string

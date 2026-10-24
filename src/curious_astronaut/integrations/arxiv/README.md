@@ -46,6 +46,7 @@ client.py       — fetch_html, fetch_image, is_ar5iv_url, the shared cache TTL
      ↓
 figures.py      — extracts {image, caption} pairs from the render
 fulltext.py     — strips the render to readable body text
+document.py     — parses the render into a structured document (Reader card)
 
 categories.py   — a paper's own category codes, via arXiv's export API (its
                   own host + client — unrelated to ar5iv's client.py above)
@@ -58,12 +59,40 @@ vocab.py        — the bundled taxonomy: what categories exist + their labels
   an id?) or `.search` (is there an id inside this text?) depending on caller.
 - **`client.py`** — `fetch_html()` (the raw ar5iv fetch), `fetch_image()` +
   `is_ar5iv_url()` (the same-origin image proxy's fetch + SSRF-safe host
-  allowlist), and `CACHE_TTL` (30 days — ar5iv renders are static). `AR5IV_HOST`
+  allowlist), `absolute_url()` (an ar5iv-relative image src made absolute;
+  `figures.py`'s private `_abs_url()` until `document.py` needed it too), and `CACHE_TTL` (30 days — ar5iv renders are static). `AR5IV_HOST`
   / `BASE_URL` keep the ar5iv name because they *are* ar5iv.org — the package
   name is the arXiv umbrella; the transport still talks to the ar5iv service.
-- **`figures.py`** — `get_figures()`, backed by `_FigureParser` (tracks
-  `<figure>` nesting so a stray inner figure can't overwrite the outer one's
-  image) and `_abs_url()`. Both private.
+- **`figures.py`** — `get_figures()`, backed by the private `_FigureParser`
+  (tracks `<figure>` nesting so a stray inner figure can't overwrite the
+  outer one's image).
+- **`document.py`** (v8.37.0) — `get_document()` and `parse_document()`, the
+  Reader card's parse. It keeps exactly what `fulltext.py` drops: sections
+  (flat, with a level and number each), figures and tables in place, displayed
+  equations with their numbers, footnotes, and every citation marker as its
+  own run still tied to its `bib.bibN` entry, which is what the Reader's
+  citation links resolve. The output is a JSON tree of blocks and inline runs
+  that the frontend renders itself, so it never sanitizes ar5iv's markup. The
+  parse builds a small element tree with `HTMLParser` (no new dependency) and
+  walks it by LaTeXML's `ltx_*` classes; an unrecognized wrapper is walked
+  through, so it loses only its styling. Two ar5iv facts it handles: vector
+  figures arrive as `<object type="image/svg+xml">`, not `<img>`, and a paper
+  ar5iv failed to convert can come back as a **200 page with no body**
+  (1412.6980), which counts as unavailable like a 404.
+  Two more, found in the first browser round on SAC (1801.01290):
+  - **`alttext` isn't always KaTeX-ready.** LaTeXML keeps an author's
+    `\resizebox{…}{…}{$…$}` (or `\scalebox`, `\adjustbox`) around a
+    formula, and some macros KaTeX lacks (`\nicefrac`). `_latex()` unwraps
+    the boxes by brace matching (an unbalanced one is left alone) and swaps
+    the macros (`_MACRO_SWAPS`). SAC went from 165 to 168 of 168 formulas
+    typesetting. Add a macro there when a paper turns up another one.
+  - **Algorithms indent with typographic spaces.** An `ltx_listing`'s lines
+    lead with em/en/thin spaces (2402.03300), while the ASCII whitespace
+    around them is the HTML source's own formatting. `_listing()` sums the
+    former into an `indent` in em.
+  The cache key carries `_PARSE_VERSION`: bump it whenever the parse's
+  output changes, or a document cached by the old parse is served for the
+  rest of its 30 days.
 - **`fulltext.py`** — `get_fulltext()` and `html_to_text()`, backed by
   `_TextParser`. `html_to_text()` is public because it's reused outside this
   package — see below. **Equations survive:** ar5iv carries each formula's
@@ -81,7 +110,7 @@ vocab.py        — the bundled taxonomy: what categories exist + their labels
   `export.arxiv.org`, a different service entirely.
 - **`vocab.py`** — see "Category taxonomy" below.
 
-`__init__.py` re-exports `ID_RE`, `get_categories`, `get_figures`,
+`__init__.py` re-exports `ID_RE`, `get_categories`, `get_document`, `get_figures`,
 `get_fulltext`, `html_to_text`, `is_ar5iv_url`, and `fetch_image`.
 
 ## Design decisions worth knowing
@@ -112,7 +141,7 @@ vocab.py        — the bundled taxonomy: what categories exist + their labels
   text (extraction, not discrimination — hence `search`, where
   `looks_arxiv` uses `fullmatch`), then `looks_arxiv()` for the same
   prefix-or-not lookup as the graph build; plus the detail panel's figures
-  (`get_figures()`), category tags (`get_categories()`), and the
+  (`get_figures()`), the Reader card's document (`get_document()`), category tags (`get_categories()`), and the
   `/api/figure_proxy` route (`is_ar5iv_url()` to allowlist, `fetch_image()`
   to relay) so the browser never talks to ar5iv directly and the proxy
   can't be abused as an open relay.

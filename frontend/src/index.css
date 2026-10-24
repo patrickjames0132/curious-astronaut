@@ -25,6 +25,9 @@
      helmet's ^_^, and the seed's colour on the graph, which is what these
      chips make. (Teal until v8.7.0; it sat too close to glass blue.) */
   --seed-ref: #e8b44a;
+  /* The Reader card's accent (v8.37.0): coral, a third hue beside the Citation
+     Graph's glass blue and the Knowledge Graph's gold. */
+  --reader-ink: #f08c7c;
   /* The wordmark (.rail-brand): the visor rim's glass blue on dark (7.5:1 on
      the rail), a deeper glass on light (below). */
   --brand: #6fb6ce;
@@ -141,6 +144,7 @@
   --bolt: var(--seed-ref);
   --accent-strong: #2f7f9c;
   --seed-ref: #8c600b;
+  --reader-ink: #b4473a;
   /* Deeper glass, 7.1:1 on the white rail (the rim blue was ~2.3:1). The
      visor glass itself (#12314a) was tried here in v8.7.0 and reverted. */
   --brand: #1d5f7a;

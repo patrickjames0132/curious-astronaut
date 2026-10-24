@@ -16,16 +16,16 @@ tour/
               the bubble, walks the steps (arrow keys / Esc wired)
   steps.ts  — HOME_TOUR (the search surface) + CARDS_TOUR (a paper's card
               home) + GRAPH_TOUR (the graph tools) + KNOWLEDGE_TOUR (the
-              course)
+              course) + READER_TOUR (the Reader)
               + SETTINGS_TOUR (the settings modal's own walk),
               and TOUR_KEYS, one seen-flag per phase
   tour.css  — backdrop (z 70) < spotlight (71) < bubble (72); the dimming is
               the spotlight's 200vmax box-shadow, so there's exactly one hole
 ```
 
-## Four phases
+## Five phases
 
-The app has four first-times, so the tour has four phases, each with its
+The app has five first-times, so the tour has five phases, each with its
 own localStorage seen-flag: **HOME_TOUR** (the chat bar, its two toggles, the
 data-source dropdown, and the three header drawers — Library, Assistant,
 Sessions) auto-runs on first launch, before any paper is open;
@@ -36,8 +36,10 @@ assistant — which docks on the Citation Graph alone — the lectures, the Q&A
 researcher) auto-runs when the first
 graph lands; **KNOWLEDGE_TOUR** (the graph's colours and gestures, the
 legend, the folding course controls with 2D/3D, the lesson panel and its
-citations) auto-runs on the first course, since v8.14.0. `App.tsx`
-picks the list by which of the four is on screen —
+citations) auto-runs on the first course, since v8.14.0; **READER_TOUR**
+(the text's live citations, refs and footnotes, the contents, the ↑ back)
+auto-runs on the first paper read, since v8.37.0. `App.tsx`
+picks the list by which of the five is on screen —
 the same "?" click tours whatever the user is actually looking at. Swapping the `steps` prop mid-run restarts the walk from the new list's
 first stop.
 

@@ -42,7 +42,7 @@ changes the provider for the next search.
 
 A thread with a seed is a **paper thread**, and it shows one surface at a time:
 its card home or a tool a card opened. `ThreadRecord.tool` remembers which
-(`'cards' | 'graph' | 'knowledge'`), so a revisit reopens it; `threadTool()`
+(`'cards' | 'graph' | 'knowledge' | 'reader'`), so a revisit reopens it; `threadTool()`
 reads it, returning null for General and `'graph'` for a thread saved before
 the field existed, since those always showed their graph. `ThreadRecord.paper`
 holds the seed's hydrated details for the card home's header. Both are thread

@@ -81,7 +81,8 @@ paper, or the reader's own book at the figure's page.
   detail panel. The teacher's answer figures need it (they can be for *any*
   cited paper, not just the one you're looking at).
 - **Each caller owns its own lightbox state.** `Teacher.tsx`,
-  `graph/GraphExplorer.tsx` and `knowledge/KnowledgeNetwork.tsx` each hold
+  `graph/GraphExplorer.tsx`, `knowledge/KnowledgeNetwork.tsx` and
+  `reader/Reader.tsx` (v8.37.0) each hold
   their own `useState<AnswerFigure | null>` and render their own
   `<Lightbox>` instance. Simpler than threading one shared instance through
   unrelated component trees for a view that's never open from two places at

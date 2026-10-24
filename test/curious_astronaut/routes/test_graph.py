@@ -197,6 +197,56 @@ def test_figures_rewrites_images_to_the_proxy_and_degrades(client, monkeypatch):
     assert response.json == {"available": False, "figures": []}
 
 
+def test_document_rewrites_nested_images_to_the_proxy(client, monkeypatch):
+    image = {"src": "https://ar5iv.labs.arxiv.org/x.png", "alt": "", "width": None, "height": None}
+    doc = {
+        "available": True,
+        "title": [],
+        "abstract": [],
+        "bibliography": [],
+        "sections": [
+            {
+                "id": "S1",
+                "level": 1,
+                "number": "1",
+                "title": [],
+                "blocks": [
+                    {"kind": "figure", "images": [dict(image)], "caption": []},
+                    {"kind": "list", "items": [[{"kind": "figure", "images": [dict(image)], "caption": []}]]},
+                ],
+            }
+        ],
+    }
+    seen = {}
+
+    def fake_document(ref):
+        seen["ref"] = ref
+        return doc
+
+    monkeypatch.setattr(graph_routes.arxiv, "get_document", fake_document)
+    response = client.get("/api/paper/arXiv:1706.03762/document")
+    assert seen["ref"] == "1706.03762"
+    blocks = response.json["sections"][0]["blocks"]
+    proxied = "/api/figure_proxy?src=https%3A%2F%2Far5iv.labs.arxiv.org%2Fx.png"
+    assert blocks[0]["images"][0]["src"] == proxied
+    assert blocks[1]["items"][0][0]["images"][0]["src"] == proxied
+
+
+def test_document_degrades_with_a_reason(client, monkeypatch):
+    assert client.get("/api/paper/abc123def/document").json == {"available": False, "reason": "not_arxiv"}
+
+    monkeypatch.setattr(graph_routes.arxiv, "get_document", lambda ref: {"available": False})
+    assert client.get("/api/paper/1412.6980/document").json == {"available": False, "reason": "no_render"}
+
+    def boom(ref):
+        raise TimeoutError("ar5iv slow")
+
+    monkeypatch.setattr(graph_routes.arxiv, "get_document", boom)
+    response = client.get("/api/paper/1412.6980/document")
+    assert response.status_code == 200  # degrade, never 500
+    assert response.json == {"available": False, "reason": "error"}
+
+
 def test_figures_fall_back_to_mined_pdf_floats(client, monkeypatch):
     """No ar5iv render → the paper's OA PDF is mined; mined floats come back
     as /api/pdf_figure image URLs. For an arXiv ref the PDF URL needs no
@@ -363,6 +413,9 @@ def test_figure_proxy_is_locked_to_ar5iv(client, monkeypatch):
     assert response.status_code == 200
     assert response.data == b"\x89PNG"
     assert response.headers["Cache-Control"] == "public, max-age=86400"
+    # Author-supplied bytes on our origin: sandboxed if opened directly.
+    assert "sandbox" in response.headers["Content-Security-Policy"]
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
 def _shape_for(client, monkeypatch, query: str):

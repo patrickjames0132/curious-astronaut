@@ -11,6 +11,7 @@ POST /api/graph/links              -> the citations among the papers on a graph
 GET /api/paper/<arxiv_id>          -> full details for one paper (panel hydrate)
 POST /api/paper/tldr               -> generate (or recall) a paper's TL;DR
 GET /api/paper/<ref>/figures       -> figures + captions (ar5iv, else mined OA PDF)
+GET /api/paper/<arxiv_id>/document -> the paper as a structured document (Reader card)
 GET /api/paper/<arxiv_id>/code     -> code & artifact links (Hugging Face Papers)
 GET /api/paper/<arxiv_id>/categories -> the paper's own arXiv category tags
 GET /api/pdf_figure/<token>/<n>    -> one mined PDF float, rendered to PNG
@@ -544,6 +545,64 @@ def api_figures(paper_ref: str) -> Response:
     return jsonify({"available": bool(figures), "figures": figures})
 
 
+@bp.get("/api/paper/<path:paper_ref>/document")
+def api_document(paper_ref: str) -> Response:
+    """Fetch a paper's structured document for the Reader card.
+
+    ar5iv only for now: the Reader's citation links and section structure
+    come from its render, and a PDF has neither (the PDF fallback viewer is
+    the Reader's v2, see the OnePager).
+
+    Args:
+        paper_ref: The paper's arXiv id (the frontend sends ``arxiv_id ?? id``,
+            so a paper not on arXiv arrives as its provider id).
+
+    Returns:
+        JSON: ``integrations.arxiv.document``'s shape, figure images rewritten
+        to the same-origin proxy. When there's nothing to read it is
+        ``{available: false, reason}``, where ``reason`` is ``not_arxiv``,
+        ``no_render`` (ar5iv couldn't convert it) or ``error`` (ar5iv
+        unreachable) — the panel-nicety philosophy, never a 500.
+    """
+    ref = normalize_arxiv_id(paper_ref)
+    if not arxiv.looks_arxiv(ref):
+        return jsonify({"available": False, "reason": "not_arxiv"})
+    try:
+        document = arxiv.get_document(ref)
+    except Exception:  # ar5iv down/slow
+        current_app.logger.warning("document fetch failed for %s", ref, exc_info=True)
+        return jsonify({"available": False, "reason": "error"})
+    if not document.get("available"):
+        return jsonify({"available": False, "reason": "no_render"})
+    _proxy_images(document["sections"])
+    return jsonify(document)
+
+
+def _proxy_images(sections: list[dict]) -> None:
+    """Point every figure image in a document at the same-origin proxy, in place.
+
+    Args:
+        sections: The document's sections (figures can nest in a float's or
+            a list's blocks, so the walk goes all the way down).
+    """
+
+    def walk(blocks: list[dict]) -> None:
+        """Rewrite one list of blocks and everything nested in it.
+
+        Args:
+            blocks: The blocks.
+        """
+        for block in blocks:
+            for image in block.get("images", []):
+                image["src"] = "/api/figure_proxy?src=" + urllib.parse.quote(image["src"], safe="")
+            walk(block.get("blocks", []))
+            for item in block.get("items", []):
+                walk(item)
+
+    for section in sections:
+        walk(section["blocks"])
+
+
 @bp.get("/api/paper/<path:paper_ref>/code")
 def api_code(paper_ref: str) -> Response:
     """Fetch a paper's code & artifact links (Hugging Face Papers).
@@ -642,8 +701,16 @@ def figure_proxy() -> ResponseReturnValue:
     except Exception:
         current_app.logger.warning("figure proxy failed for %s", src, exc_info=True)
         return Response(status=502)
+    # The bytes are a paper author's, served from our origin. An SVG (or an
+    # HTML page someone points `src` at) opened directly would run its
+    # scripts here, so the response is sandboxed; inside an <img> nothing
+    # changes, since images never run script.
     return Response(
         data,
         mimetype=content_type,
-        headers={"Cache-Control": "public, max-age=86400"},
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            "X-Content-Type-Options": "nosniff",
+        },
     )

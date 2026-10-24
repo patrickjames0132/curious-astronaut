@@ -27,8 +27,12 @@ keeps its internal names (the `'graph'` tool id, `GraphExplorer`,
   on the paper's prerequisites (Phase 5b, v8.14.0). Until then it was shown
   disabled under a "Coming soon" badge; the `soon` flag on `ToolCard` is still
   there for the next tool.
+- **Reader** opens `reader/Reader`, the paper itself from its ar5iv render
+  (v8.37.0). Its tool id is `'reader'`; it has no assistant yet (the
+  margin teacher is a later Reader stage).
 
-The cards use their icon's accent (glass blue for citations, gold for knowledge)
+The cards use their icon's accent (glass blue for citations, gold for
+knowledge, coral `--reader-ink` for the Reader)
 for a brighter border, tinted surface and soft glow on hover or keyboard focus.
 They lift 4px and grow 2.5%, with a smaller pressed state. The icon and its
 rounded square grow together by another 8% (4% while pressed), using the
@@ -82,7 +86,7 @@ mounted through the move would cost more than the effect is worth.
 
 ## Verified by
 
-`test/tools/ToolCards.test.tsx` covers the header, both cards and the
+`test/tools/ToolCards.test.tsx` covers the header, the three cards and the
 one-time fetch. `test/store/threads.test.ts` ("card home") covers the
 navigation underneath: opening onto cards without a build, building in place
 without a twin thread, resuming on the last tool, opening from the rail onto
@@ -94,3 +98,13 @@ authors” / “Show fewer”. The accent-colored, semibold text button uses a d
 A normal word space separates it from the authors, so a wrapped control aligns
 with the start of the text rather than retaining an inline margin. The full provider text is preserved, and the
 publication year stays visible when the author list is collapsed.
+
+## The way back stays an ↑ (v8.37.0 review)
+
+The Reader's review tried a ← instead, first for the Reader alone (a centred
+↑ over a page of text can read as "scroll to top"), then for all three tools
+in their top-left corners, with the graphs' controls moved right to make room.
+Patrick preferred the ↑ in both rounds (2026-10-23): it matches the cards
+sitting "above" the tools, and the top-left versions looked worse. So every
+tool, the Reader included, keeps the centred ↑. Don't re-propose the ←
+without a new reason.

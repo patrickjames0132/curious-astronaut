@@ -78,9 +78,13 @@ test/
                                 the tutor's calls stubbed and the canvas
                                 swapped for node buttons; a written lesson's
                                 images land inline, described and credited
+  reader/
+    Reader.test.tsx           — the Reader over a stubbed document: the text,
+                                the contents, citation and footnote clicks,
+                                and each reason there's nothing to read
   tools/
-    ToolCards.test.tsx        — the card home's paper header, both cards,
-                                and the one-time paper fetch
+    ToolCards.test.tsx        — the card home's paper header, its three
+                                cards, and the one-time paper fetch
   tour/
     Tour.test.tsx             — step walking, absent-target skipping, the
                                 three ways out

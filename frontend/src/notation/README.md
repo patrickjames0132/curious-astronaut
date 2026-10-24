@@ -7,7 +7,8 @@ here.
 
 ```
 notation/
-  MathText.tsx        the DOM surface: KaTeX-typeset <MathText> component
+  MathText.tsx        the DOM surface: KaTeX-typeset <MathText> component, and
+                      <TeX> for a formula already held as bare LaTeX
   splitMath.ts        tokenise text into plain / math runs (the shared parser)
   prepareMath.ts      the Markdown surface: make splitMath's verdict binding
                       on remark-math (money escaped, math re-delimited)
@@ -85,6 +86,10 @@ caption, and a lesson image's description). Every figure-caption render path is
 covered — the detail panel's inline captions, the shared inline `FigCard` (the
 assistant's answers and the knowledge panel's lessons), and the shared enlarged
 `Lightbox`.
+
+`<TeX>` (HTML, bare LaTeX): `reader/ReaderBody.tsx`, the Reader card's
+equations and inline math. ar5iv hands over each formula's `alttext` as a
+value, so there's no delimiter to find and no currency to rule out.
 
 `prepareMath` (Markdown): `teacher/transcript/AnswerMarkdown.tsx`, the one
 surface that renders math through remark-math rather than `<MathText>` — so it

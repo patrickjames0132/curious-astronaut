@@ -49,8 +49,16 @@ import Teacher from './teacher/Teacher'
 import Sources from './library/Sources'
 import SettingsModal from './settings/SettingsModal'
 import Tour from './tour/Tour'
-import { CARDS_TOUR, GRAPH_TOUR, HOME_TOUR, KNOWLEDGE_TOUR, TOUR_KEYS } from './tour/steps'
+import {
+  CARDS_TOUR,
+  GRAPH_TOUR,
+  HOME_TOUR,
+  KNOWLEDGE_TOUR,
+  READER_TOUR,
+  TOUR_KEYS,
+} from './tour/steps'
 import ToolCards from './tools/ToolCards'
+import Reader from './reader/Reader'
 import KnowledgeNetwork from './knowledge/KnowledgeNetwork'
 import CourseAssistant from './knowledge/assistant/CourseAssistant'
 import type { LessonQuote } from './knowledge/assistant/askCourse'
@@ -204,10 +212,11 @@ export default function App() {
   // collapsed panel, so clicking a thread in the rail kept popping it back
   // open (Patrick, 2026-10-09). It opens only on its own button or a tour stop.
 
-  // The guided tour, in four phases keyed by what's on screen: the HOME
+  // The guided tour, in five phases keyed by what's on screen: the HOME
   // tour (the search surface) auto-runs once on first launch, the CARDS tour
   // on the first card home, the GRAPH tour (the graph tools) on the first
-  // graph, the KNOWLEDGE tour on the first course. Each phase auto-runs once ever (its own localStorage flag); the
+  // graph, the KNOWLEDGE tour on the first course, the READER tour on the
+  // first paper read. Each phase auto-runs once ever (its own localStorage flag); the
   // header's "?" re-runs the current phase any time.
   const hasGraph = showGraph && graph.nodes.length > 0
   const tourPhase = hasGraph
@@ -216,11 +225,14 @@ export default function App() {
       ? 'cards'
       : tool === 'knowledge'
         ? 'knowledge'
-        : 'home'
+        : tool === 'reader'
+          ? 'reader'
+          : 'home'
   const tourSteps = {
     graph: GRAPH_TOUR,
     cards: CARDS_TOUR,
     knowledge: KNOWLEDGE_TOUR,
+    reader: READER_TOUR,
     home: HOME_TOUR,
   }[tourPhase]
   const [tourOpen, setTourOpen] = useState(false)
@@ -466,6 +478,10 @@ export default function App() {
                 >
                   {overlays}
                 </KnowledgeNetwork>
+              ) : tool === 'reader' && activeThread ? (
+                <Reader key={`reader:${epoch}`} thread={activeThread}>
+                  {overlays}
+                </Reader>
               ) : (
                 <div className="tool-pending">{overlays}</div>
               )}
