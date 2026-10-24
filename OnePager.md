@@ -1221,6 +1221,30 @@ than deleted so the plan doesn't get re-proposed.
 
 ### Enhancements & tech debt
 
+- [ ] **Publish only from a commit whose CI is green** — filed 2026-10-24
+      after v8.36.1 through v8.38.0 published while CI on `main` was red
+      (a HIGH CVE in `filelock`, fixed in v8.38.1; the story is in
+      [docs/bugs.md](docs/bugs.md)). Today `release.yml` runs on the `v*`
+      tag alone and never looks at `ci.yml`, so a red gate doesn't stop a
+      PyPI upload, and a PyPI version can't be replaced, only yanked.
+      Options, roughly in order of preference:
+      - **Run the gate inside the release**: make `ci.yml` callable
+        (`workflow_call`) and give `release.yml`'s build job `needs:` on it.
+        The release then re-runs the whole gate on the tagged commit,
+        including a fresh Trivy scan (about 6 minutes, Windows being the
+        slow leg), and can't publish past a failure.
+      - **Check the tagged commit's CI result** in a first job (`gh api`
+        on its check runs) and fail unless `ci.yml` passed. Cheaper, but CI
+        may still be running when the tag lands, so it needs a wait loop.
+      - **Trigger the release from CI** (`workflow_run` on `ci.yml`
+        completing). Least preferred: it changes which workflow publishes,
+        and trusted publishing names the workflow file.
+      Constraint for any of them (CLAUDE.md, "Quality gate"): PyPI's
+      trusted-publisher config names `release.yml` and the `testpypi` /
+      `pypi` environments, so keep that filename and those environments;
+      the environments' deployment rules live outside the repo. Rehearse
+      through the TestPyPI `workflow_dispatch` before a real tag.
+
 - [ ] **Make the backend's researcher layout match the three assistants** —
       the product now has three chats: the General chat, the Citation Graph
       assistant and the Knowledge Graph Assistant (v8.25.0). The backend
