@@ -196,7 +196,9 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
     target: '[data-tour="knowledge-controls"]',
     title: 'The course controls',
     body:
-      'Open these controls to fly through the course in 3D, or for ' +
+      'Open these controls to fly through the course in 3D, or to stack it as a Pyramid: ' +
+      'foundations at the bottom, the paper on top, and whatever your check-offs let you ' +
+      'skip faded. They also hold ' +
       'Release (unpin the nodes you dragged), Fit (the whole course in view) and Clear ' +
       '(drop a selection). In 3D, navigation hints appear below the graph; on narrow ' +
       'panels, hover or focus the ⓘ beside search, or click it to keep the hints open.',

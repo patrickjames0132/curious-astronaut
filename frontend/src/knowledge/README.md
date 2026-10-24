@@ -19,7 +19,8 @@ knowledge/
   KnowledgePanel.tsx    — the side panel: why it's needed, what it needs, the lesson
   SelectionMenu.tsx     — Explain · Expand over a passage highlighted in a lesson (v8.25.0)
   useLessonSelection.ts — reads that selection and places the menu
-  look.ts               — shared by both views: colours, sizes, labels, stable data, clicks
+  look.ts               — shared by the views: colours, sizes, labels, stable data, clicks
+  pyramid.ts            — the pyramid's rows, their order, and what the check-offs skip (v8.37.0)
   useLessons.ts         — lesson streaming that outlives the tool's mount
   model.ts              — the graph and the pure rules over it (no React, no store)
   assistant/            — the course assistant, docked beside the course (v8.25.0)
@@ -180,6 +181,57 @@ has a "Bridge two topics" phase).
   2D (`SYNTHESIS_EDGE`), and in 3D a camera-facing ◆ sprite in place of the
   sphere (`nodeThreeObjectExtend` is false for it alone), so it is the same
   diamond from any angle; a legend entry once the course has one.
+
+## The pyramid (v8.37.0)
+
+A third view beside 2D and 3D (the controls' **Pyramid**), and the ticket
+that Patrick's 2026-10-13 picture of a pyramid left open: the paper on top,
+foundations along the bottom, the syntheses between them. Reframed on
+2026-10-20, it is about **what the reader knows**: the layout is how that gets
+drawn. Settled with Patrick on 2026-10-23: a view of its own (not a mode of
+the force view), the whole course drawn with the gap standing out, and rows
+by height above the foundations.
+
+- **Rows by height above the foundations, then raised** (`pyramidRows`).
+  First every item that needs nothing goes on the bottom row, and every
+  other item one row above the highest thing beneath it (`beneath`: what it
+  needs, plus the syntheses building toward it; a synthesis's members). So a
+  shared prerequisite is drawn once at its natural level, and a synthesis
+  lands between what it combines and what it builds toward. Then, top down,
+  each item **rises to sit just under the lowest item that needs it**
+  (Patrick, at the first browser round): a foundation needed only near the
+  top had sat on the bottom row, its line running straight through the item
+  between. Nothing sinks, so what an item needs stays below it. The force
+  view's rings count the other way (`courseDepths`, fewest steps down from
+  the paper). The paper is always the top row, alone.
+- **Long lines curve** (`pyramidCurve`, `PYRAMID_CURVE`): an item needed
+  both low and high must stay low, so a line can still span several rows;
+  it bends rather than run straight through what stands between.
+- **Rows ordered so lines don't cross** (`pyramidLayout`): alphabetical
+  first, then a few barycentre sweeps, down and back up, sorting each row by
+  the mean x of its neighbours on the row just placed, the standard layered
+  graph drawing step. Rows are centred under the paper, `COLUMN_GAP` apart,
+  `ROW_GAP` between them. Both are eyeballed, not fitted.
+- **The check-offs change how it's drawn, never where** (a test pins this).
+  Known items are green as everywhere. What the course **skips** because
+  something known needs it (`skippedItems`: not in `courseOrder` and not
+  known) fades, with the lines into it (`intoSkipped`), so what's left
+  between the green and the paper stands out. A focus (hover, open item,
+  find) takes over the dimming while it lasts. The legend adds **Skipped**.
+- **No summary line.** A top-centre pill ("You know 4 · 7 to learn before
+  the paper · 12 skipped") went in and came out in the same browser round
+  (Patrick): the green and the fading already say it.
+- **The same canvas, keyed apart.** `KnowledgeGraph` draws it (`pyramid`),
+  so clicks, focus, labels, selection and the alt-drag box all carry over.
+  `KnowledgeNetwork` keys it by view, so the pyramid gets its own engine:
+  charge, links and centring off, and `usePyramidForce` pulls each node to
+  its spot every tick (`PYRAMID_PULL`, not scaled by alpha, so nodes reach
+  their rows before the engine cools). Nodes start on their spots, and a new
+  breakdown's concepts glide in from beside what needs them. A node can
+  still be dragged and pins where it's dropped (Patrick, in case a row is
+  wrong); Release sends it back to its row.
+- **Remembered** in the view preference (`ca.knowledge3d`: `'1'` 3D, `'0'`
+  2D, `'pyramid'`).
 
 ## Hiding, deleting, and bringing back (v8.23.0, split in v8.26.0)
 
@@ -608,7 +660,13 @@ closes it when the selection collapses or leaves the lesson.
   breaks it down), and the concept joins its remembered `breakdown`, which a
   later breakdown keeps, so deleting it can be undone like any other.
   While the tutor names it, the item wears the breakdown's dashed ring
-  (v8.26.0, Patrick: `ringed`, the `expanding` set plus the item). A note
+  (v8.26.0, Patrick: `ringed`, the `expanding` set plus the item). Since
+  v8.37.0 an item whose lesson is being written (or its "How it fits in"
+  rewritten) wears it too (Patrick): a lesson keeps streaming after the
+  panel closes (`useLessons` never aborts one), and the ring is how the
+  graph shows it. One ring for both, since the panel says which is
+  happening; it reads `writing`, not the drafts, so a lesson still streaming
+  from before the tool was left keeps its ring. A note
   in the footer's left (above the lesson until v8.26.0) says what happened
   and links the concept: "Added *X* as something this needs", "Already in
   the course: *X*", or why nothing was added (the passage names the

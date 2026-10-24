@@ -18,6 +18,7 @@ import {
   SYNTHESIS_STRENGTH,
   MEMBER_LINK_STRENGTH,
   type CanvasLink,
+  type CanvasNode,
   courseDepths,
   hierarchyForce,
   synthesisHeight,
@@ -25,7 +26,7 @@ import {
   useHierarchyForce,
 } from '../../src/knowledge/look'
 import { SELECTION_RING } from '../../src/graph/theme'
-import { SYNTHESIS_EDGE_DIM, edgeColor } from '../../src/knowledge/look'
+import { PYRAMID_CURVE, SYNTHESIS_EDGE_DIM, edgeColor } from '../../src/knowledge/look'
 
 /** A "needs" edge's slate (v8.24.0) as `useCanvasInk` reads it with no
  *  stylesheet loaded (jsdom): the `--knowledge-edge*` fallbacks. */
@@ -41,6 +42,8 @@ const engine = vi.hoisted(() => ({
     onEngineStop?: () => void
     onNodeClick?: (node: { id: string }, event?: { shiftKey: boolean }) => void
     linkColor?: (link: { source: string; target: string }) => string
+    graphData?: { nodes: CanvasNode[] }
+    linkCurvature?: (link: { source: string; target: string }) => number
   },
 }))
 vi.mock('react-force-graph-2d', () => ({
@@ -403,4 +406,21 @@ it('paints 3D edges the brighter slate, having no hover to light them', () => {
   // A dimmed edge stays dim, and the open item's own stay blue, in 3D too.
   expect(edgeColor(link, new Set(['c']), null, null, ink, true)).toBe(DIMMED)
   expect(edgeColor(link, new Set(['a']), 'a', 'a', ink, true)).toBe(SELECTION_RING)
+})
+
+it('draws the pyramid: nodes start on their rows, and what is skipped fades', () => {
+  let course = withChildren(PAPER, PAPER.rootId, [
+    { name: 'Q-learning', why: 'The update rule it approximates.' },
+    { name: 'Experience replay', why: 'How it decorrelates samples.' },
+  ])
+  course = withChildren(course, 'q learning', [{ name: 'MDPs', why: 'What Q is defined over.' }])
+  renderGraph({ ...course, known: ['q learning'] }, { pyramid: true })
+  const paper = engine.props.graphData!.nodes.find((node) => node.id === course.rootId)!
+  expect([paper.x, paper.y]).toEqual([0, 0])
+  // Into MDPs, under the known Q-learning: faded. Into Q-learning itself: not.
+  expect(engine.props.linkColor!({ source: 'q learning', target: 'mdps' })).toBe(DIMMED)
+  expect(engine.props.linkColor!({ source: course.rootId, target: 'q learning' })).toBe(EDGE)
+  // A line to the next row is straight; one spanning two rows curves.
+  expect(engine.props.linkCurvature!({ source: course.rootId, target: 'q learning' })).toBe(0)
+  expect(engine.props.linkCurvature!({ source: course.rootId, target: 'mdps' })).toBe(PYRAMID_CURVE)
 })

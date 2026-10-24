@@ -14,6 +14,13 @@
  * An item with part of its breakdown hidden wears a red count on its
  * top-right (v8.26.0); a double-click brings them back.
  *
+ * The same canvas draws the **pyramid** (v8.37.0, `pyramid`): every item held
+ * to its row (`pyramid.ts`), the paper on top, and what the course skips
+ * because the reader knows what needs it faded, so the gap between the green
+ * and the paper stands out. A line spanning several rows curves round what
+ * stands between. A node dragged there pins as in 2D; Release sends it back
+ * to its row.
+ *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
@@ -23,6 +30,7 @@ import ForceGraph2DImport from 'react-force-graph-2d'
 import { SELECTION_RING, useCanvasInk } from '../graph/theme'
 import {
   HIDDEN_BADGE,
+  SYNTHESIS_EDGE_DIM,
   badgeText,
   hiddenCounts,
   labelled,
@@ -31,9 +39,12 @@ import {
   shortLabel,
   dimLook,
   edgeColor,
+  intoSkipped,
   linkLit,
+  pyramidCurve,
   touches,
   useHierarchyForce,
+  usePyramidForce,
   useGraphData,
   pinNode,
   releaseNodes,
@@ -43,6 +54,7 @@ import {
   type CanvasNode,
 } from './look'
 import type { KnowledgeMap } from './model'
+import { pyramidLayout, skippedItems } from './pyramid'
 import { inBox, type BoxBounds } from '../ui/useBoxSelect'
 
 // The lib's generic prop typings fight our accessor signatures, as on the
@@ -86,6 +98,8 @@ export interface KnowledgeGraphProps {
   engineRef?: { current: KnowledgeEngine | null }
   /** How many nodes are pinned, whenever a drag or a Release changes it. */
   onPinned: (count: number) => void
+  /** Draw the pyramid instead of the force layout (2D only, v8.37.0). */
+  pyramid?: boolean
 }
 
 /** What a view offers the network: the nodes inside a box on screen, and Release. */
@@ -132,10 +146,29 @@ function traceShape(
 export default function KnowledgeGraph(props: KnowledgeGraphProps) {
   const { map, width, height, expanding, focus, fitSignal, lit, anchorId } = props
   const { selected, onOpen, onExpand, onSelect, onClose, engineRef, onPinned, onHover } = props
+  const pyramid = !!props.pyramid
   const ink = useCanvasInk()
   const hidden = useMemo(() => hiddenCounts(map), [map])
   const [hoverId, setHoverId] = useState<string | null>(null)
-  const data = useGraphData(map)
+  const graphData = useGraphData(map)
+  // The pyramid's spots, and what it fades: the rows follow the course's
+  // shape alone, the fading what the reader knows.
+  const spots = useMemo(
+    () => (pyramid ? pyramidLayout(map) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the rows read nodes and edges only
+    [pyramid, map.nodes, map.edges],
+  )
+  const skipped = useMemo(() => (pyramid ? skippedItems(map) : null), [pyramid, map])
+  // An item with no place yet starts on its spot, so opening the pyramid
+  // shows it built rather than flying in from the middle.
+  const data = useMemo(() => {
+    if (spots)
+      for (const node of graphData.nodes) {
+        const spot = spots.get(node.id)
+        if (node.x === undefined && spot) Object.assign(node, spot)
+      }
+    return graphData
+  }, [graphData, spots])
   const onNodeClick = useNodeClicks(map.openId, onOpen, onExpand, onSelect, onClose)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null)
@@ -168,10 +201,12 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
   // A little more room than the engine's default: labels sit under the discs
   // (the links' lengths are useHierarchyForce's).
   useEffect(() => {
-    fgRef.current?.d3Force('charge')?.strength(-160)
-  }, [])
-  // The course keeps a tree: rings by depth, syntheses beside their parent.
-  useHierarchyForce(fgRef, map, data)
+    if (!pyramid) fgRef.current?.d3Force('charge')?.strength(-160)
+  }, [pyramid])
+  // The course keeps a tree: rings by depth, syntheses beside their parent;
+  // or, in the pyramid, every item on its row.
+  useHierarchyForce(fgRef, map, data, !pyramid)
+  usePyramidForce(fgRef, data, spots)
 
   useFitButton(fitSignal, () => {
     if (data.nodes.length > 1) fgRef.current?.zoomToFit(400, 80)
@@ -226,9 +261,18 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
       // Under a focus only the focused item's own edges stay lit, as on the
       // citation graph; the open item's lit edges take the selection blue.
       // A neutral slate, dimmed or brightened by the focus (`edgeColor`, v8.24.0).
-      linkColor={(link: CanvasLink) => edgeColor(link, lit, anchorId, map.openId, ink)}
+      // In the pyramid, a line into a skipped item fades with it, unless a
+      // focus is lighting things by its own rule.
+      linkColor={(link: CanvasLink) =>
+        !lit && skipped && intoSkipped(link, skipped)
+          ? link.synthesis
+            ? SYNTHESIS_EDGE_DIM
+            : ink.knowledgeEdgeDim
+          : edgeColor(link, lit, anchorId, map.openId, ink)
+      }
       // A synthesis's lines are dashed: drawn, never a "needs" edge (v8.23.0).
       linkLineDash={(link: CanvasLink) => (link.synthesis ? [2, 1.5] : null)}
+      linkCurvature={(link: CanvasLink) => (spots ? pyramidCurve(link, spots) : 0)}
       linkWidth={(link: CanvasLink) =>
         touches(link, map.openId) && linkLit(link, lit, anchorId) ? 1.4 : 0.8
       }
@@ -242,7 +286,10 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
         const nodeX = node.x
         const nodeY = node.y
         const picked = selected.has(item.id)
-        const dim = !!lit && !lit.has(item.id)
+        // A focus decides what dims; with none, the pyramid fades what the
+        // course skips.
+        const faded = !lit && !!skipped?.has(item.id)
+        const dim = lit ? !lit.has(item.id) : faded
 
         ctx.beginPath()
         traceShape(ctx, item.kind === 'synthesis', nodeX, nodeY, radius)
@@ -258,8 +305,8 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
         // One outline, on the disc's own edge, as on the citation graph:
         // black on every node, the canvas's hard ink (white on dark, near
         // black on light) on the open one, the selection blue on picked ones.
-        // While its breakdown is in flight the edge turns into moving blue
-        // dashes.
+        // While its breakdown is in flight, or its lesson is being written
+        // (v8.37.0), the edge turns into moving blue dashes.
         const busy = expanding.has(item.id)
         const open = map.openId === item.id
         ctx.lineWidth = (open || picked || busy ? 2 : 1) / scale
@@ -306,7 +353,9 @@ export default function KnowledgeGraph(props: KnowledgeGraphProps) {
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
         ctx.fillStyle = ink.ink
+        if (faded) ctx.globalAlpha = 0.45
         ctx.fillText(shortLabel(item.title), nodeX, nodeY + radius + 3)
+        ctx.globalAlpha = 1
       }}
       nodePointerAreaPaint={(node: CanvasNode, color: string, ctx: CanvasRenderingContext2D) => {
         const item = map.nodes[node.id]
