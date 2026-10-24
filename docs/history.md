@@ -6423,6 +6423,14 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Infrastructure, quality & tooling
 
+- [x] **`filelock` upgraded past a HIGH CVE** *(v8.38.1)* — CVE-2026-112940
+      (arbitrary file overwrite) in `filelock` 3.29.4, which comes in through
+      `huggingface-hub` (and `virtualenv` for nox), fixed in 4.2.1. `uv lock
+      --upgrade-package filelock` resolved it to 4.2.4, with `virtualenv`,
+      `python-discovery` and `packaging` following. CI's Trivy scan had been
+      failing on it since v8.36.1, while releases kept publishing
+      (`docs/bugs.md`).
+
 - [x] **Install `curious-astronaut` through the work Artifactory**
       *(no release — verified 2026-10-21)* — the publish itself was **done**:
       8.3.0 went to PyPI on 2026-09-27 by trusted publishing from a `v*` tag
