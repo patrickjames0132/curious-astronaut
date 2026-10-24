@@ -1577,25 +1577,6 @@ than deleted so the plan doesn't get re-proposed.
       - **Let the tutor draw on the reader's library**, not only the paper's
         references, when it writes a lesson: the researcher's
         `search_sources` already does this for answers. *(From the `todos.md` inbox, 2026-10-09.)*
-      - **A pyramid layout for the Knowledge Graph**, a layered view with
-        foundations at the bottom and the paper on top, each node placed by
-        the depth of its prerequisite chain, shared nodes at their natural
-        level. Patrick's picture from the synthesis workshop (2026-10-13):
-        the paper's new idea on top, foundational knowledge at the bottom,
-        and the syntheses (v8.23.0) between them, "putting the knowledge
-        together". Kept separate from syntheses on purpose (Patrick: a
-        later ticket). v8.23.0 went part of the way inside the force view:
-        `hierarchyForce` draws concepts to rings by depth around the paper
-        and each synthesis beside its parent (`frontend/src/knowledge/README.md`).
-        Open: a third view beside force and 3D, or a mode of the force view;
-        and whether the Connections card should grow a tree to explore in
-        place (Patrick sketched one, 2026-10-15, and left it to this view).
-        **Reframed 2026-10-20** (from the `todos.md` inbox): the ticket is
-        about **assessing what the reader knows**. Take the nodes and concepts
-        the reader has marked as known (the check-offs), and build the
-        tree/pyramid from them, so the layout shows what the reader already
-        has and what still sits between them and the paper. The layout above
-        is how that assessment gets drawn, not the goal in itself.
       - **The tutor's suggested syntheses, as the Knowledge Graph
         Assistant's tool.** The assistant shipped in v8.25.0 (the researcher
         generalized, `knowledge/assistant/`); its synthesis half was deferred

@@ -3842,6 +3842,67 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **The Knowledge Graph pyramid, and a ring while a lesson is written**
+      *(v8.42.0)* — a third view beside 2D and 3D (course controls → View →
+      **Pyramid**) that stacks the course in rows: foundations at the bottom,
+      the paper on top, syntheses between what they combine and what they
+      build toward. Settled with Patrick at the start (2026-10-23): **a view
+      of its own**, not a mode of the force view (rows stay put instead of
+      drifting); **the whole course drawn, with the gap standing out**; and
+      **rows by height above the foundations**, not by distance from the
+      paper as the force view's rings count. The full design is in
+      `frontend/src/knowledge/README.md` ("The pyramid"); the layout is pure
+      functions in `knowledge/pyramid.ts`.
+
+      - **What the reader knows changes how it's drawn, never where.** Known
+        items are green as everywhere; what the course skips because
+        something known needs it (`skippedItems`: out of `courseOrder`, not
+        known) fades with the lines into it, so what still sits between the
+        green and the paper stands out. The legend adds **Skipped**.
+        Checking an item off never moves a node (a test pins it).
+      - **Rows ordered so lines don't cross**: a few barycentre sweeps, the
+        standard layered-graph step. The view is the 2D canvas keyed apart
+        (`pyramid` prop), so clicks, focus, find, selection and the alt-drag
+        box all carry over; `usePyramidForce` pulls each node to its spot.
+      - **Browser round, Patrick's changes:** (1) a leaf needed only high up
+        sat on the bottom row, its line running straight through the item
+        between: a second pass now **raises every item to just under the
+        lowest item that needs it**, and a line that must still span several
+        rows **curves** (`pyramidCurve`). (2) **Dragging stays on**, as in the
+        other views, in case a row is wrong; Release sends a node back. (3) A
+        top-centre summary pill ("You know 4 · 7 to learn before the paper ·
+        12 skipped") first collided with the shell's ↑, was moved under it,
+        and then **came out**: the green and the fading already say it.
+      - **A node whose lesson is being written wears the breakdown's
+        spinning blue ring** (Patrick, same round, in every view). A lesson
+        always kept streaming after the panel closed (`useLessons` never
+        aborts one), but nothing on the graph showed it. One ring for both,
+        since the panel says which is happening; a "How it fits in" rewrite
+        rings too. It reads `writing`, not the drafts, so a lesson still
+        streaming from before the tool was left keeps its ring.
+      - **Left open:** whether the Connections card grows a tree to explore
+        in place (Patrick's 2026-10-15 sketch) — not built here.
+
+      **The ticket as it was filed** (a Phase 5 follow-up from 5b): a layered view with
+        foundations at the bottom and the paper on top, each node placed by
+        the depth of its prerequisite chain, shared nodes at their natural
+        level. Patrick's picture from the synthesis workshop (2026-10-13):
+        the paper's new idea on top, foundational knowledge at the bottom,
+        and the syntheses (v8.23.0) between them, "putting the knowledge
+        together". Kept separate from syntheses on purpose (Patrick: a
+        later ticket). v8.23.0 went part of the way inside the force view:
+        `hierarchyForce` draws concepts to rings by depth around the paper
+        and each synthesis beside its parent (`frontend/src/knowledge/README.md`).
+        Open: a third view beside force and 3D, or a mode of the force view;
+        and whether the Connections card should grow a tree to explore in
+        place (Patrick sketched one, 2026-10-15, and left it to this view).
+        **Reframed 2026-10-20** (from the `todos.md` inbox): the ticket is
+        about **assessing what the reader knows**. Take the nodes and concepts
+        the reader has marked as known (the check-offs), and build the
+        tree/pyramid from them, so the layout shows what the reader already
+        has and what still sits between them and the paper. The layout above
+        is how that assessment gets drawn, not the goal in itself.
+
 - [x] **The Reader card, stage 3: the PDF view** *(v8.40.0)* — the paper's
       PDF in the Reader, drawn by pdf.js from the copy `services/pdf` already
       caches, served from our origin (`GET /api/paper/<ref>/pdf`). A **Text /

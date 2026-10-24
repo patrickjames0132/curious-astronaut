@@ -54,10 +54,11 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 tables, citations, refs, footnotes
    ├─ knowledge network            knowledge/KnowledgeNetwork.tsx — a short
    │  │                              course on the paper's prerequisites
-   │  ├─ controls (folded)         knowledge/KnowledgeControls.tsx (progress,
-   │  │                              next lesson, 2D / 3D, labels, fit)
-   │  ├─ the graph                 knowledge/KnowledgeGraph.tsx, or
-   │  │                              KnowledgeGraph3D.tsx (lazy-loaded)
+   │  ├─ controls (folded)         knowledge/KnowledgeControls.tsx (2D / 3D /
+   │  │                              Pyramid, release, fit, clear)
+   │  ├─ the graph                 knowledge/KnowledgeGraph.tsx (2D, and the
+   │  │                              pyramid, v8.42.0), or KnowledgeGraph3D.tsx
+   │  │                              (lazy-loaded)
    │  ├─ legend                    knowledge/KnowledgeLegend.tsx
    │  ├─ find control (🔍 → pill)  graph/controls/FindBar.tsx (shared)
    │  ├─ lesson panel (on click)   knowledge/KnowledgePanel.tsx

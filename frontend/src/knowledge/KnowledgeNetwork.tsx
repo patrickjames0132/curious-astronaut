@@ -7,7 +7,7 @@
  * paper sits in the middle; breaking an item down adds the concepts it needs
  * as new nodes, and a concept two items share is one node with two arrows
  * into it. A click opens the item's lesson in a side panel; a double-click
- * breaks it down. The course controls (2D / 3D and the citation
+ * breaks it down. The course controls (2D / 3D / Pyramid and the citation
  * graph's Release · Fit · Clear row) fold into a sliders button like the
  * citation graph's, a legend
  * sits bottom-left, and the citation graph's find bar sits bottom-right
@@ -17,6 +17,10 @@
  * Since v8.25.0 a passage highlighted in a lesson can be explained by the
  * course's assistant (`assistant/`, docked by the shell) or expanded into a
  * concept the lesson's item needs.
+ *
+ * Since v8.42.0 a third view, the **pyramid**, stacks the course in rows
+ * (foundations at the bottom, the paper on top) and fades what the reader's
+ * check-offs let them skip, so what is left to learn stands out.
  *
  * This component owns the in-flight state (which items are being broken
  * down, which failed) and the calls; the course itself lives on the thread
@@ -65,7 +69,11 @@ import { usePresence } from '../ui/usePresence'
 import { useBoxSelect } from '../ui/useBoxSelect'
 import { useEscapeClear } from '../graph/hooks/useEscapeClear'
 import { focusAnchor, focusOf } from '../graph/model'
-import KnowledgeControls, { KnowledgeNavigationHelp, NAVIGATION_HINT } from './KnowledgeControls'
+import KnowledgeControls, {
+  KnowledgeNavigationHelp,
+  NAVIGATION_HINT,
+  type KnowledgeView,
+} from './KnowledgeControls'
 import KnowledgeGraph, { type KnowledgeEngine } from './KnowledgeGraph'
 import KnowledgeLegend from './KnowledgeLegend'
 import KnowledgePanel, { type PhraseNote } from './KnowledgePanel'
@@ -107,8 +115,19 @@ const FIND_COPY: FindCopy = {
     `Select all ${count} matching item${count === 1 ? '' : 's'}, ready to check off or delete`,
 }
 
-/** localStorage keys for the per-browser view preferences. */
+/** localStorage key for the per-browser view: '1' is 3D, '0' 2D (the key's
+ *  values before the pyramid), 'pyramid' the pyramid (v8.42.0). */
 const MODE_KEY = 'ca.knowledge3d'
+
+/**
+ * The remembered view.
+ *
+ * @returns 2D unless 3D or the pyramid was chosen last.
+ */
+function readView(): KnowledgeView {
+  const stored = readPreference(MODE_KEY)
+  return stored === '1' ? '3d' : stored === 'pyramid' ? 'pyramid' : '2d'
+}
 
 /** How long the "Deleted …" note stays up, in ms. */
 const DELETED_NOTE_MS = 6000
@@ -207,7 +226,8 @@ export default function KnowledgeNetwork({
   const [expanding, setExpanding] = useState<ReadonlySet<string>>(new Set())
   const [failed, setFailed] = useState<Record<string, string>>({})
   const [focus, setFocus] = useState<{ id: string; seq: number } | null>(null)
-  const [threeD, setThreeD] = useState(() => readPreference(MODE_KEY) === '1')
+  const [view, setView] = useState<KnowledgeView>(readView)
+  const threeD = view === '3d'
   const [fitSignal, setFitSignal] = useState(0)
   const { drafts, write, quick, writing, refit, refitting } = useLessons(threadId, provider)
   // A lesson image enlarged full-screen (v8.24.0); held here, outside the
@@ -430,14 +450,21 @@ export default function KnowledgeNetwork({
     [dispatch, threadId],
   )
   // The item an Expand is working on wears the breakdown's dashed ring
-  // (v8.26.0, Patrick): it is a breakdown of one, after all.
-  const ringed = useMemo(
-    () =>
-      phrase?.state === 'working' && !expanding.has(phrase.nodeId)
-        ? new Set(expanding).add(phrase.nodeId)
-        : expanding,
-    [expanding, phrase],
-  )
+  // (v8.26.0, Patrick): it is a breakdown of one, after all. So does one
+  // whose lesson is being written (v8.42.0, Patrick), or its "How it fits
+  // in" rewritten: a stream carries on with the panel closed, and the ring
+  // shows it. Read from `writing` rather than the drafts, so a lesson still
+  // streaming from before the tool was left keeps its ring; it is
+  // recomputed every render, and a stream's start, end and failure each
+  // cause one.
+  const ringed = useMemo(() => {
+    const busy = new Set(expanding)
+    if (phrase?.state === 'working') busy.add(phrase.nodeId)
+    for (const nodeId of Object.keys(map?.nodes ?? {}))
+      if (writing(nodeId) || refitting.has(nodeId)) busy.add(nodeId)
+    return busy.size === expanding.size ? expanding : busy
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `writing` reads a module-level set; drafts change with it
+  }, [expanding, phrase, map?.nodes, writing, refitting, drafts])
 
   // Hide items (v8.23.0; "Delete" until v8.26.0): never the paper, and with
   // them what only they needed and the syntheses they leave short. A note
@@ -650,17 +677,19 @@ export default function KnowledgeNetwork({
             <KnowledgeGraph3D {...graphProps} />
           </Suspense>
         ) : (
-          <KnowledgeGraph {...graphProps} />
+          // Keyed, so the pyramid gets an engine of its own rather than the
+          // force view's, with its forces swapped under it.
+          <KnowledgeGraph key={view} {...graphProps} pyramid={view === 'pyramid'} />
         )}
 
         <KnowledgeControls
-          threeD={threeD}
-          onThreeD={(on) => {
-            setThreeD(on)
+          view={view}
+          onView={(next) => {
+            setView(next)
             setPinned(0)
             // 3D reports no hover: a 2D one would otherwise stay lit there.
             setHoverId(null)
-            writePreference(MODE_KEY, on ? '1' : '0')
+            writePreference(MODE_KEY, next === '3d' ? '1' : next === 'pyramid' ? 'pyramid' : '0')
           }}
           onFit={() => setFitSignal((count) => count + 1)}
           pinnedCount={pinned}
@@ -751,6 +780,7 @@ export default function KnowledgeNetwork({
         <div className="knowledge-footer">
           <KnowledgeLegend
             hasSyntheses={Object.values(map.nodes).some((node) => node.kind === 'synthesis')}
+            pyramid={view === 'pyramid'}
           />
           <FindBar
             query={findQuery}

@@ -1054,3 +1054,41 @@ it('explains a highlighted passage in the course assistant without touching the 
   expect(ask.mock.calls[0][0].course.open).toBe('Q-learning')
   expect(store.getState().explorations.byId.saved.threads[1].knowledge!.edges.length).toBe(before)
 })
+
+it('switches to the pyramid, whose legend adds Skipped, and remembers it', async () => {
+  let course = createMap({ id: 'DQN', title: 'Playing Atari' })
+  course = withChildren(course, course.rootId, ROOT_CHILDREN)
+  mount({ ...course, known: [course.edges[0].to] })
+  expect(screen.queryByText('Skipped')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Open the course controls' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Pyramid' }))
+  expect(await screen.findByText('Skipped')).toBeTruthy()
+  expect(localStorage.getItem('ca.knowledge3d')).toBe('pyramid')
+  fireEvent.click(screen.getByRole('button', { name: '2D' }))
+  expect(screen.queryByText('Skipped')).toBeNull()
+  expect(localStorage.getItem('ca.knowledge3d')).toBe('0')
+  localStorage.removeItem('ca.knowledge3d')
+})
+
+it('rings a node while its lesson is written, and keeps the ring after the panel closes', async () => {
+  vi.spyOn(api, 'expandKnowledge').mockResolvedValue(ROOT_CHILDREN)
+  let finish: () => void = () => undefined
+  vi.spyOn(api, 'streamLesson').mockImplementation(
+    (_body, handlers) =>
+      new Promise<void>((resolve) => {
+        finish = () => {
+          handlers.onToken('Q-learning learns values.')
+          handlers.onDone()
+          resolve()
+        }
+      }),
+  )
+  mount()
+  fireEvent.click(await screen.findByText('node: Q-learning'))
+  await waitFor(() => expect(screen.getByText(/^ringed:/).textContent).toContain('q learning'))
+  // Closed with the lesson still streaming: the ring stays on the node.
+  fireEvent.keyDown(window, { key: 'Escape' })
+  expect(screen.getByText(/^ringed:/).textContent).toContain('q learning')
+  act(() => finish())
+  await waitFor(() => expect(screen.getByText(/^ringed:/).textContent).not.toContain('q learning'))
+})

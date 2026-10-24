@@ -7,12 +7,13 @@
  * concept's states (v8.17.0): known (green) and new (grey, never opened or
  * broken down; it turns violet once you do). Outlines follow the citation
  * graph and need no entry. A synthesis (v8.23.0) gets its entry once the course
- * has one.
+ * has one, and the pyramid (v8.42.0) adds the faded "skipped" state.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
+import { dimColor } from '../graph/theme'
 import { KNOWLEDGE_COLOR } from './look'
 
 /**
@@ -20,9 +21,16 @@ import { KNOWLEDGE_COLOR } from './look'
  *
  * @param props Component props.
  * @param props.hasSyntheses The course has a synthesis, so its entry shows.
+ * @param props.pyramid The pyramid is on screen, so "skipped" shows.
  * @returns The legend row.
  */
-export default function KnowledgeLegend({ hasSyntheses = false }: { hasSyntheses?: boolean }) {
+export default function KnowledgeLegend({
+  hasSyntheses = false,
+  pyramid = false,
+}: {
+  hasSyntheses?: boolean
+  pyramid?: boolean
+}) {
   return (
     <div className="legend knowledge-legend" data-tour="knowledge-legend">
       <span>
@@ -47,6 +55,12 @@ export default function KnowledgeLegend({ hasSyntheses = false }: { hasSyntheses
         <i style={{ background: KNOWLEDGE_COLOR.fresh }} />
         <span className="knowledge-legend-label">New</span>
       </span>
+      {pyramid && (
+        <span title="Under something you know: the course skips it, so the pyramid fades it">
+          <i style={{ background: dimColor(KNOWLEDGE_COLOR.concept) }} />
+          <span className="knowledge-legend-label">Skipped</span>
+        </span>
+      )}
       {hasSyntheses && (
         <span title="How several concepts or syntheses come together, taught just before what they build toward. Select two or more, then ◆ Synthesize">
           <i className="diamond" style={{ background: KNOWLEDGE_COLOR.synthesis }} />

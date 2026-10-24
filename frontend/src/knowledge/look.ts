@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { REL_COLOR, SELECTION_RING, dimColor, type CanvasInk } from '../graph/theme'
 import { missingChildren, synthesisLinks, type KnowledgeMap, type KnowledgeNode } from './model'
+import { ROW_GAP, type Spot } from './pyramid'
 
 /** Fill per role: the paper in gold (as on the citation graph), concepts in violet. */
 export const KNOWLEDGE_COLOR = {
@@ -622,16 +623,18 @@ function placeSynthesis(
  * @param data The engine's nodes and links.
  * @param data.nodes Its nodes.
  * @param data.links Its links.
+ * @param enabled False in the pyramid, which places nodes by its own pull.
  */
 export function useHierarchyForce(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fgRef: { current: any },
   map: KnowledgeMap,
   data: { nodes: CanvasNode[]; links: CanvasLink[] },
+  enabled = true,
 ): void {
   useEffect(() => {
     const engine = fgRef.current
-    if (!engine) return
+    if (!engine || !enabled) return
     engine.d3Force('hierarchy', hierarchyForce(map, data.nodes))
     const count = new Map<string, number>()
     for (const link of data.links)
@@ -657,5 +660,76 @@ export function useHierarchyForce(
           )
         )
       })
-  }, [fgRef, map, data])
+  }, [fgRef, map, data, enabled])
+}
+
+/** How hard the pyramid pulls a node to its spot, every tick (v8.42.0). Not
+ *  scaled by alpha, so the nodes reach their rows before the engine cools. */
+export const PYRAMID_PULL = 0.2
+
+/**
+ * Lay the pyramid out on a view's engine (v8.42.0): the charge, links and
+ * centring are switched off and each node is pulled straight to its spot
+ * (`pyramidLayout`), so a new breakdown's concepts glide into their rows from
+ * beside the item that needs them.
+ *
+ * @param fgRef The engine's handle.
+ * @param data The engine's nodes and links.
+ * @param data.nodes Its nodes.
+ * @param data.links Its links.
+ * @param spots Each item's spot, or null outside the pyramid.
+ */
+export function usePyramidForce(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fgRef: { current: any },
+  data: { nodes: CanvasNode[]; links: CanvasLink[] },
+  spots: ReadonlyMap<string, Spot> | null,
+): void {
+  useEffect(() => {
+    const engine = fgRef.current
+    if (!engine || !spots) return
+    engine.d3Force('charge')?.strength(0)
+    engine.d3Force('link')?.strength(0)
+    engine.d3Force('center', null)
+    engine.d3Force('pyramid', () => {
+      for (const node of data.nodes) {
+        const spot = spots.get(node.id)
+        if (!spot || node.x === undefined || node.y === undefined) continue
+        node.vx = (node.vx ?? 0) + (spot.x - node.x) * PYRAMID_PULL
+        node.vy = (node.vy ?? 0) + (spot.y - node.y) * PYRAMID_PULL
+      }
+    })
+  }, [fgRef, data, spots])
+}
+
+/** How far a pyramid line spanning several rows bends (react-force-graph's
+ *  curvature: a fraction of the line's length). */
+export const PYRAMID_CURVE = 0.25
+
+/**
+ * How much a pyramid line bends (v8.42.0): straight between neighbouring
+ * rows, curved when it spans more, so it can't run straight through an item
+ * on a row between (the rows raise what they can, `pyramidRows`, but an item
+ * needed both low and high has to stay low).
+ *
+ * @param link The line.
+ * @param spots Each item's spot.
+ * @returns The curvature, 0 for straight.
+ */
+export function pyramidCurve(link: CanvasLink, spots: ReadonlyMap<string, Spot>): number {
+  const from = spots.get(endId(link.source))
+  const to = spots.get(endId(link.target))
+  return from && to && Math.abs(to.y - from.y) > ROW_GAP * 1.5 ? PYRAMID_CURVE : 0
+}
+
+/**
+ * Whether a line runs into an item the course skips (v8.42.0), so the
+ * pyramid fades it with the item.
+ *
+ * @param link The line.
+ * @param skipped The skipped items.
+ * @returns True when its far end is skipped.
+ */
+export function intoSkipped(link: CanvasLink, skipped: ReadonlySet<string>): boolean {
+  return skipped.has(endId(link.target))
 }

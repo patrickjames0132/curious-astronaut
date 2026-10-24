@@ -5,7 +5,7 @@
  * The knowledge graph's controls, folded into a sliders button in the
  * top-left corner exactly as the citation graph's are (and styled by the same
  * `.ctrl-icon` / `.controls` rules, so the two canvases share one corner
- * button): 2D / 3D, the citation graph's action row
+ * button): 2D / 3D / Pyramid (v8.42.0), the citation graph's action row
  * (Release · Fit · Clear; no Refresh, since nothing here is refetched), and
  * the gesture hints. Folded by default, so the canvas is the reader's. Until
  * v8.17.0 it also showed the course's progress and a Next lesson button; the
@@ -20,12 +20,15 @@ import InfoTip from '../ui/InfoTip'
 import SlidersGlyph from '../ui/SlidersGlyph'
 import { usePresence } from '../ui/usePresence'
 
+/** The course's three views: the force layout flat or in 3D, or the pyramid. */
+export type KnowledgeView = '2d' | '3d' | 'pyramid'
+
 /**
  * Render the folding controls.
  *
  * @param props Component props.
- * @param props.threeD Whether the 3D view is on.
- * @param props.onThreeD Switch between 2D and 3D.
+ * @param props.view The view on screen.
+ * @param props.onView Switch views.
  * @param props.onFit Fit the whole course in view.
  * @param props.pinnedCount Nodes pinned by dragging.
  * @param props.onRelease Unpin them all.
@@ -34,16 +37,16 @@ import { usePresence } from '../ui/usePresence'
  * @returns The button, or the open panel.
  */
 export default function KnowledgeControls({
-  threeD,
-  onThreeD,
+  view,
+  onView,
   onFit,
   pinnedCount,
   onRelease,
   selectedCount,
   onClear,
 }: {
-  threeD: boolean
-  onThreeD: (on: boolean) => void
+  view: KnowledgeView
+  onView: (view: KnowledgeView) => void
   onFit: () => void
   pinnedCount: number
   onRelease: () => void
@@ -52,6 +55,7 @@ export default function KnowledgeControls({
 }) {
   const [collapsed, setCollapsed] = useState(true)
   const panel = usePresence(!collapsed)
+  const threeD = view === '3d'
 
   return (
     <>
@@ -62,7 +66,7 @@ export default function KnowledgeControls({
           data-tour="knowledge-controls"
           aria-expanded={false}
           onClick={() => setCollapsed(false)}
-          title="Open the course controls — 2D / 3D, Release · Fit · Clear"
+          title="Open the course controls — 2D / 3D / Pyramid, Release · Fit · Clear"
           aria-label="Open the course controls"
         >
           <SlidersGlyph />
@@ -90,15 +94,22 @@ export default function KnowledgeControls({
         <div className="ctrl-body">
           <div className="ctrl-label">View</div>
           <div className="layout-toggle">
-            <button className={threeD ? '' : 'on'} onClick={() => onThreeD(false)}>
+            <button className={view === '2d' ? 'on' : ''} onClick={() => onView('2d')}>
               2D
             </button>
             <button
               className={threeD ? 'on' : ''}
-              onClick={() => onThreeD(true)}
+              onClick={() => onView('3d')}
               title="Fly through the course in 3D"
             >
               3D
+            </button>
+            <button
+              className={view === 'pyramid' ? 'on' : ''}
+              onClick={() => onView('pyramid')}
+              title="Stack the course in rows: foundations at the bottom, the paper on top, and what you know lets you skip faded"
+            >
+              Pyramid
             </button>
           </div>
 
