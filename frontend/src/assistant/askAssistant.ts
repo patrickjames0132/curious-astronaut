@@ -147,7 +147,9 @@ export function askAssistant(tool: AssistantTool, request: AssistantQuestion, pr
     dispatch(streamStarted(streamId, key))
     const history =
       request.history ?? conversationHistory(getState().transcript.byKey[key]?.chat ?? [])
-    dispatch(turnStarted(question, key, request.quick ? request.startedAt : undefined))
+    dispatch(
+      turnStarted(question, key, request.quick ? request.startedAt : undefined, request.quick),
+    )
     dispatch(turnContextSet(borrowedChats(getState(), question, key), key))
     let failed = false
     let failure = 'This answer stopped before it finished.'

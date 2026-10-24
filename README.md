@@ -380,7 +380,11 @@ The Vite dev server proxies `/api/*` to Flask.
      and the 📚 Library filters icon inside its bar. Every answer carries a
      **response timer** at its top right: a running clock while it's on its
      way, then a dimmed clock and duration, in whole seconds. ⚡ Quick response
-     preserves the original start time, so the duration includes the full wait. Over a graph the assistant works from the graph and
+     preserves the original start time, so the duration includes the full wait.
+     Its muted label and colored bolt appear immediately beside the clock, with
+     “Answered from the model’s own knowledge.” in the tooltip. General and
+     Citation Graph quick answers retain “Answered as a question” and the
+     completed answer’s “Lecture on it instead” action. Over a graph the assistant works from the graph and
      grows it along citations rather than searching for papers, so the paper
      filters stay on your chats. It was a stack of two folding
      sections from v7.10.0, a **Lecture** section above a **Chat** one, which
@@ -496,3 +500,7 @@ record, version by version).
 Lecture replies align their scope and routing labels with the response timer
 in one header row; long labels wrap without crowding the clock or narrowing
 the lecture beats.
+
+The chat model picker keeps its model list within a compact 180px scrolling
+area (smaller when the window needs it), with its heading and Settings default
+option always above the list.

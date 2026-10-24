@@ -35,6 +35,9 @@ import { usePresence } from '../ui/usePresence'
  *  so a tight window still gives the list what room there is (Patrick). */
 const EDGE_GAP = 8
 
+/** Keep the model list compact even when the window has ample space. */
+const LIST_MAX_HEIGHT = 180
+
 /** What the popover lists, once fetched. */
 interface Choices {
   /** The researcher's model in Settings, `"provider:model"` ('' if unset). */
@@ -205,7 +208,8 @@ export default function ModelPicker({
         pop.offsetTop > 0
           ? window.innerHeight - EDGE_GAP - top - chrome
           : top + pop.offsetHeight - EDGE_GAP - chrome
-      setListHeight(list.scrollHeight > room ? Math.max(0, Math.floor(room)) : null)
+      const limit = Math.max(0, Math.min(LIST_MAX_HEIGHT, Math.floor(room)))
+      setListHeight(list.scrollHeight > limit ? limit : null)
     }
     measure()
     window.addEventListener('resize', measure)

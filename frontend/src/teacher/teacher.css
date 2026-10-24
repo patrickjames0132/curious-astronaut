@@ -1486,7 +1486,19 @@
   white-space: nowrap;
 }
 
-/* Lecture metadata and clock share a real row; only the metadata wraps. */
+.chat-quick-response {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.chat-quick-response .quick-bolt {
+  fill: var(--bolt);
+  stroke: var(--bolt);
+}
+/* Lecture metadata or Quick response status shares a row with the clock. */
 .chat-lecture-header {
   display: flex;
   align-items: baseline;
@@ -1536,7 +1548,8 @@
   overflow: hidden;
 }
 .model-pop-list {
-  max-height: 260px;
+  max-height: 180px;
+  overscroll-behavior: contain;
   overflow-y: auto;
   border-top: 1px solid var(--border);
 }

@@ -147,7 +147,7 @@ function target(state: TranscriptState, key: string | undefined): Conversation |
 type Keyed = { key?: string }
 
 /** A keyed action stamped with when it was dispatched (`Date.now()`). */
-type Timed = Keyed & { at: number }
+type Timed = Keyed & { at: number; quick?: boolean }
 
 /**
  * Build the `prepare` half of a keyed action: payload first, key second.
@@ -435,12 +435,13 @@ const transcriptSlice = createSlice({
           text: '',
           unfinished: true,
           startedAt: action.meta.at,
+          ...(action.meta.quick && { quickResponse: true }),
         })
       },
       // Quick response replaces the exchange, but continues its original clock.
-      prepare: (question: string, key?: string, startedAt?: number) => ({
+      prepare: (question: string, key?: string, startedAt?: number, quick = false) => ({
         payload: question,
-        meta: { key, at: startedAt ?? Date.now() },
+        meta: { key, at: startedAt ?? Date.now(), quick },
       }),
     },
     /**
