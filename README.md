@@ -30,7 +30,8 @@ concept or deletes it for good, and a red count on a node shows what's hidden
 beneath it, back with a double-click), and tick off
 what you already know (shift-click or alt-drag to tick off several at once, or 🔍 find concepts
 by name and select every match). There's a
-3D mode too. The legend stays beside search and wraps only as space tightens;
+3D mode too. Both graphs keep their legend beside local search: legend entries wrap and
+the search field shrinks as the browser narrows or panels open;
 on narrow 3D graph panels, ⓘ beside search holds the navigation hints (click away or press Esc to close). Paper citations highlight the current graph; graph icons open or resume that paper's thread
 directly (onto its graph if you're on one, onto its cards otherwise). Type **@** and pick another chat from the suggestions (a thread's Citation
 Graph or Knowledge Graph conversation, e.g. `@thread[PPO › Knowledge Graph]`) to
@@ -50,7 +51,8 @@ panel collapse to an ellipsis, with **Show all authors ▾** and **Show fewer �
 controls. The year stays visible, and expanding preserves the complete author
 list.
 
-The graph-choice cards glow in their blue or gold accent, lift slightly, and
+The graph-choice cards keep equal heights when stacked vertically, sized to
+the longest description at the current width. The graph-choice cards glow in their blue or gold accent, lift slightly, and
 grow on hover or keyboard focus; their icons and rounded squares grow together
 a little further. Reduced-motion settings keep the highlight without movement.
 
@@ -482,3 +484,7 @@ For the project's direction and past, two living docs sit beside the code:
 **[OnePager.md](OnePager.md)** (the vision, the full feature stack, and the
 open backlog) and **[docs/history.md](docs/history.md)** (the complete shipped
 record, version by version).
+
+Lecture replies align their scope and routing labels with the response timer
+in one header row; long labels wrap without crowding the clock or narrowing
+the lecture beats.

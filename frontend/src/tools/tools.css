@@ -51,6 +51,8 @@
 .tool-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  /* Match the tallest content-sized row when the cards stack, too. */
+  grid-auto-rows: 1fr;
   gap: 24px;
   margin-top: 36px;
 }

@@ -298,18 +298,71 @@ export default function ChatMessage({
     message.role === 'user' ? splitAttached(message.text) : { attached: [], body: message.text }
   const borrowedId = (title: string) =>
     message.borrowedThreads?.find((thread) => thread.title === title)?.id
+  const lectureHeader =
+    message.role === 'assistant' && (message.routedTo === 'lecture' || beats.length > 0)
+  const metadata = (
+    <>
+      {(() => {
+        // What the turn was scoped to, when that was anything other than
+        // "what you were looking at": the message's ask ("the references,
+        // 2010–2019 · 12 papers") or the hand-picked selection. The one
+        // place the priority list is visible in the transcript, so a reader
+        // can tell why an answer covered what it did — and why a filtered-out
+        // paper turned up anyway.
+        const scoped = message.scope ? describeScope(message.scope) : null
+        return scoped ? <div className="chat-scoped">Scoped to {scoped}</div> : null
+      })()}
+      {message.routedTo && (
+        // Which assistant answered, and the offer of the other. This line is
+        // what makes routing by model acceptable at all: a misroute costs one
+        // click rather than a wrong answer the reader has to notice and work
+        // around. It is absent when the reader chose the destination
+        // themselves, because there is then nothing to second-guess.
+        <div className="chat-routed">
+          <span>
+            {message.routedTo === 'lecture' ? 'Answered as a lecture' : 'Answered as a question'}
+          </span>
+          {onReroute && (
+            <button
+              type="button"
+              className="chat-reroute"
+              onClick={(event) => {
+                event.stopPropagation()
+                onReroute()
+              }}
+              title={
+                message.routedTo === 'lecture'
+                  ? 'Ask this as a question instead'
+                  : 'Ask for a lecture on this instead'
+              }
+            >
+              {message.routedTo === 'lecture' ? 'Answer it instead' : 'Lecture on it instead'}
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  )
+  const timer =
+    message.role === 'assistant' ? (
+      <ResponseTimer
+        startedAt={message.startedAt}
+        respondedIn={message.respondedIn}
+        running={!!working}
+      />
+    ) : null
   return (
     <div
       className={`chat ${message.role}${clickable ? ' clickable' : ''}${active ? ' active' : ''}`}
       onClick={onActivate}
     >
-      {/* The answer's clock, at the block's top right (v8.33.0). */}
-      {message.role === 'assistant' && (
-        <ResponseTimer
-          startedAt={message.startedAt}
-          respondedIn={message.respondedIn}
-          running={!!working}
-        />
+      {lectureHeader ? (
+        <div className="chat-lecture-header">
+          <div className="chat-lecture-meta">{metadata}</div>
+          {timer}
+        </div>
+      ) : (
+        timer
       )}
       <AttachedChips
         chips={attached.map((item, index) => {
@@ -385,45 +438,7 @@ export default function ChatMessage({
           )}
         </div>
       )}
-      {(() => {
-        // What the turn was scoped to, when that was anything other than
-        // "what you were looking at": the message's ask ("the references,
-        // 2010–2019 · 12 papers") or the hand-picked selection. The one
-        // place the priority list is visible in the transcript, so a reader
-        // can tell why an answer covered what it did — and why a filtered-out
-        // paper turned up anyway.
-        const scoped = message.scope ? describeScope(message.scope) : null
-        return scoped ? <div className="chat-scoped">Scoped to {scoped}</div> : null
-      })()}
-      {message.routedTo && (
-        // Which assistant answered, and the offer of the other. This line is
-        // what makes routing by model acceptable at all: a misroute costs one
-        // click rather than a wrong answer the reader has to notice and work
-        // around. It is absent when the reader chose the destination
-        // themselves, because there is then nothing to second-guess.
-        <div className="chat-routed">
-          <span>
-            {message.routedTo === 'lecture' ? 'Answered as a lecture' : 'Answered as a question'}
-          </span>
-          {onReroute && (
-            <button
-              type="button"
-              className="chat-reroute"
-              onClick={(event) => {
-                event.stopPropagation()
-                onReroute()
-              }}
-              title={
-                message.routedTo === 'lecture'
-                  ? 'Ask this as a question instead'
-                  : 'Ask for a lecture on this instead'
-              }
-            >
-              {message.routedTo === 'lecture' ? 'Answer it instead' : 'Lecture on it instead'}
-            </button>
-          )}
-        </div>
-      )}
+      {!lectureHeader && metadata}
       {beats.length > 0 && (
         // A lecture delivered as this answer, behind its own caret. Twelve
         // beats are fine as the newest thing on screen and unusable as the
