@@ -23,10 +23,12 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  fetchCited,
   fetchDocument,
   fetchPdfContents,
   pdfUrl,
   type AnswerFigure,
+  type PaperDetails,
   type ReaderDocument,
   type ReaderSection,
   type ReaderUnavailable,
@@ -35,12 +37,15 @@ import type { PassageQuote } from '../assistant/askAssistant'
 import Lightbox from '../figures/Lightbox'
 import SelectionMenu from '../selection/SelectionMenu'
 import { useTextSelection } from '../selection/useTextSelection'
-import { useAppDispatch } from '../store'
+import { useAppDispatch, useAppSelector } from '../store'
 import { threadReaderViewSet, type ReaderView, type ThreadRecord } from '../store/explorations'
+import { graphFocusRequested, openPaper, openTool } from '../store/workspace'
 import AuthorList from '../ui/AuthorList'
 import { usePresence } from '../ui/usePresence'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import { Blocks, Inlines } from './ReaderBody'
+import CitationCard, { type CitationActions } from './CitationCard'
+import { useCitationCard } from './useCitationCard'
 import PdfView from './PdfView'
 import type { PdfOutlineEntry } from './pdf'
 import { askReader, documentRef, readerMessage, setReadingSection } from './askReader'
@@ -335,7 +340,60 @@ export default function Reader({
     element.classList.add('landed')
     window.setTimeout(() => element.classList.remove('landed'), 1600)
   }, [])
-  const links = useMemo(() => ({ bibliography, jump, enlarge: setEnlarged }), [bibliography, jump])
+
+  // The citation cards (v8.43.0): the bibliography matched to the papers it
+  // names, once the text is in; a card shows an entry's own text meanwhile.
+  const [cited, setCited] = useState<Record<string, PaperDetails>>({})
+  const [matching, setMatching] = useState(false)
+  const textAvailable = !!doc?.available
+  useEffect(() => {
+    setCited({})
+    if (!textAvailable || !ref) return
+    const controller = new AbortController()
+    setMatching(true)
+    fetchCited(ref, provider, controller.signal)
+      .then(setCited)
+      .catch(() => {}) // a nicety: the cards show the entries' own text
+      .finally(() => {
+        if (!controller.signal.aborted) setMatching(false)
+      })
+    return () => controller.abort()
+  }, [textAvailable, ref, provider])
+  const citationCard = useCitationCard(pageRef)
+  const closeCard = citationCard.close
+  useEffect(() => closeCard(), [view, ref, closeCard])
+  const graph = useAppSelector((state) => state.workspace.graph)
+  const citationActions = useMemo<CitationActions>(
+    () => ({
+      open: (paper) => {
+        closeCard()
+        void dispatch(openPaper({ seed: paper.id, provider }))
+      },
+      read: (paper) => {
+        closeCard()
+        void dispatch(openPaper({ seed: paper.id, provider })).then(() =>
+          dispatch(openTool('reader')),
+        )
+      },
+      showInGraph: (paper) => {
+        closeCard()
+        dispatch(graphFocusRequested(paper.id))
+        void dispatch(openTool('graph'))
+      },
+      goToReference: (entryId) => {
+        closeCard()
+        jump(entryId)
+      },
+    }),
+    [closeCard, dispatch, provider, jump],
+  )
+  const openCard = citationCard.card
+  const cardEntry = openCard ? bibliography.get(openCard.bib) : undefined
+  const cardPaper = openCard ? cited[openCard.bib] : undefined
+  const links = useMemo(
+    () => ({ bibliography, cite: citationCard.cite, jump, enlarge: setEnlarged }),
+    [bibliography, citationCard.cite, jump],
+  )
 
   // A contents entry clicked stays the active one until the reader scrolls
   // by hand: two headings close together on a page would otherwise light the
@@ -693,6 +751,21 @@ export default function Reader({
           }}
         >
           {body}
+          {openCard && cardEntry && view === 'text' && (
+            <CitationCard
+              entry={cardEntry}
+              paper={cardPaper}
+              matching={matching}
+              provider={provider}
+              inGraph={graph ? graph.nodes.some((node) => node.id === cardPaper?.id) : null}
+              pinned={openCard.pinned}
+              placement={openCard.placement}
+              actions={citationActions}
+              onClose={citationCard.close}
+              onPointerEnter={citationCard.keep}
+              onPointerLeave={citationCard.release}
+            />
+          )}
         </div>
         {/* Text or PDF (v8.40.0), remembered on the thread. Shown even when
             there's no text (Patrick), its Text button saying why; hidden only

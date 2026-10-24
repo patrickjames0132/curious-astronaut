@@ -784,7 +784,7 @@ export default function KnowledgePanel({
         </p>
         <h2 className="lesson-title">{node.title}</h2>
         {/* A long author list folds behind the shared disclosure (v8.32.1),
-            as on the Paper Graph's detail panel: a large collaboration's
+            as on the Citation Graph's detail panel: a large collaboration's
             list ran a full screen above the lesson. */}
         {node.paper && (node.paper.authors || node.paper.year) && (
           <p className="lesson-meta">

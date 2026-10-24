@@ -1796,7 +1796,10 @@ than deleted so the plan doesn't get re-proposed.
          it. The full story is in [docs/history.md](docs/history.md). Still
          open from it: "Click a library citation to open the source at that
          page" can now be built on the PDF view.
-      4. Citation hover card, plus a jump into the Citation Graph.
+      4. ✓ **Shipped in v8.43.0**: the citation cards. Hover a citation to
+         preview the paper it cites, click to pin; Open, Read, Show in
+         Citation Graph and Reference ↓. The full story is in
+         [docs/history.md](docs/history.md).
       5. Knowledge Graph notes in the margin (when one exists for the paper).
       6. **An answer lights up its passage** (Patrick, 2026-10-24). When a
          Reader Assistant answer finishes, or when it's clicked later, the

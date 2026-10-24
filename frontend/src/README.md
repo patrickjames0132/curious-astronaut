@@ -49,9 +49,11 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │  │                              Explain · Simplify · Chat, v8.38.0)
    │  ├─ the PDF view              reader/PdfView.tsx (pdf.js, lazy-loaded;
    │  │                              v8.40.0), with the Text/PDF switch
-   │  └─ the text                  reader/ReaderBody.tsx — blocks and runs:
-   │                                 equations (notation/ TeX), figures,
-   │                                 tables, citations, refs, footnotes
+   │  ├─ the text                  reader/ReaderBody.tsx — blocks and runs:
+   │  │                              equations (notation/ TeX), figures,
+   │  │                              tables, citations, refs, footnotes
+   │  └─ citation card             reader/CitationCard.tsx — the paper a
+   │                                 citation cites, and ways on (v8.43.0)
    ├─ knowledge network            knowledge/KnowledgeNetwork.tsx — a short
    │  │                              course on the paper's prerequisites
    │  ├─ controls (folded)         knowledge/KnowledgeControls.tsx (2D / 3D /

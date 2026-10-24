@@ -4,8 +4,9 @@
  * Description:
  * Render the Reader's parsed document: blocks (paragraphs, equations,
  * figures, tables, lists) and the inline runs inside them. Citations, figure
- * and equation refs, and footnotes are live: a ref or a citation jumps within
- * the page, and a footnote opens in place.
+ * and equation refs, and footnotes are live: a ref jumps within the page, a
+ * citation opens the cited paper's card (`CitationCard`, v8.43.0), and a
+ * footnote opens in place.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -14,7 +15,7 @@
 import { useContext, useState, type ReactNode } from 'react'
 import type { ReaderBlock, ReaderCell, ReaderInline } from '../api'
 import { TeX } from '../notation/MathText'
-import { ReaderLinksContext, mathTextOf, plainText, readerDomId } from './links'
+import { ReaderLinksContext, mathTextOf, readerDomId } from './links'
 
 /**
  * A footnote: its mark, which opens the note's text in place.
@@ -54,7 +55,7 @@ function Note({ mark, inlines }: { mark: string; inlines: ReaderInline[] }) {
  * @returns Its rendering.
  */
 function Inline({ run }: { run: ReaderInline }) {
-  const { bibliography, jump } = useContext(ReaderLinksContext)
+  const { cite, jump } = useContext(ReaderLinksContext)
   switch (run.kind) {
     case 'text':
       if (run.style === 'italic') return <em>{run.text}</em>
@@ -65,22 +66,25 @@ function Inline({ run }: { run: ReaderInline }) {
       return <>{run.text}</>
     case 'math':
       return <TeX latex={run.latex} display={run.display} />
-    case 'cite': {
-      const entry = bibliography.get(run.bib)
+    case 'cite':
+      // Hover previews the cited paper's card, a click pins it (v8.43.0);
+      // going to the reference list is one of the card's buttons.
       return (
         <a
           className="reader-cite"
           href={`#${readerDomId(run.bib)}`}
-          title={entry ? plainText(entry.text) : undefined}
+          aria-haspopup="dialog"
+          aria-expanded={cite.open === run.bib}
+          onPointerEnter={(event) => cite.hover(run.bib, event.currentTarget)}
+          onPointerLeave={() => cite.leave()}
           onClick={(event) => {
             event.preventDefault()
-            jump(run.bib)
+            cite.pin(run.bib, event.currentTarget)
           }}
         >
           {run.text}
         </a>
       )
-    }
     case 'ref':
       return (
         <a

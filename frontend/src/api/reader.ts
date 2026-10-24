@@ -5,11 +5,14 @@
  * The Reader card's document: a paper's HTML render (arXiv's own, else
  * ar5iv's) parsed into sections,
  * blocks and inline runs by `integrations/arxiv/document.py`. The shapes here
- * mirror that module's docstring.
+ * mirror that module's docstring. Also the PDF view's file and contents,
+ * and the papers the bibliography names (`fetchCited`, the citation cards).
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
+
+import type { PaperDetails } from './graph'
 
 /** One run of text inside a block. */
 export type ReaderInline =
@@ -149,4 +152,28 @@ export async function fetchPdfContents(
     entries?: { title: string; level: number; page: number; top?: number }[]
   }
   return data.entries ?? []
+}
+
+/**
+ * The papers a Reader document's bibliography names (v8.43.0), for its
+ * citation cards: each entry matched to the provider's reference list.
+ *
+ * @param ref The paper's arXiv id.
+ * @param provider Whose papers to match to (the thread's provider).
+ * @param signal Aborts the request when the paper changes.
+ * @returns The matched papers by bibliography entry id (`bib.bib2`); empty on
+ *          any failure, when the cards show the entries' own text.
+ */
+export async function fetchCited(
+  ref: string,
+  provider: string,
+  signal?: AbortSignal,
+): Promise<Record<string, PaperDetails>> {
+  const res = await fetch(
+    `/api/paper/${encodeURIComponent(ref)}/cited?provider=${encodeURIComponent(provider)}`,
+    { signal },
+  )
+  if (!res.ok) return {}
+  const data = (await res.json()) as { papers?: Record<string, PaperDetails> }
+  return data.papers ?? {}
 }

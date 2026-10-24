@@ -20,6 +20,7 @@ down.
 | `GET /api/paper/<ref>` | hydrate one paper's details for the panel |
 | `GET /api/paper/<ref>/figures` | the paper's figures — ar5iv, else floats mined from its OA PDF |
 | `GET /api/paper/<ref>/document` | the paper as a structured document for the Reader card (v8.37.0; arXiv's HTML first, ar5iv as the fallback since v8.39.0) |
+| `GET /api/paper/<ref>/cited` | the Reader document's bibliography matched to the papers it names, for its citation cards (v8.43.0; `services/reader/citations.py`): `{papers: {<entry id>: node}}` by the `provider` query arg's reference list; a nicety, `{papers: {}}` on any failure |
 | `GET /api/paper/<ref>/pdf` | the paper's PDF from the local cache, for the Reader's PDF view (v8.40.0): arXiv's for an arXiv id, else the provider's open-access PDF; 404 with none, 502 when the download fails |
 | `GET /api/paper/<ref>/pdf-contents` | the PDF's table of contents (v8.40.0): its outline, else headings found in its text, each entry `{title, level, page, top?}`; a nicety, `{source: "none", entries: []}` on any failure. A distinct suffix, not `…/pdf/contents`, so the `<path:>` rule for `…/pdf` can't swallow it |
 | `GET /api/paper/<ref>/code` | Hugging Face code & artifact links |

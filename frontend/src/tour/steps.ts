@@ -274,9 +274,11 @@ export const READER_TOUR: TourStep[] = [
     title: 'The paper itself',
     body:
       'This is the paper’s own text, from arXiv’s HTML render, with its equations typeset ' +
-      'and its figures and tables in place. A citation like [13] jumps to its entry in the ' +
-      'references (hover it to read the entry first), a figure or equation number jumps to ' +
-      'that figure or equation, and a small raised number opens its footnote in place.',
+      'and its figures and tables in place. Hover a citation like [13] to see the paper it ' +
+      'cites, and click it to keep that card open: from there you can open the paper, read ' +
+      'it, find it in the Citation Graph or go to its entry in the references. A figure or ' +
+      'equation number jumps to that figure or equation, and a small raised number opens ' +
+      'its footnote in place.',
   },
   {
     target: '[data-tour="reader-contents"]',

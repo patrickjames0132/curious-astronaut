@@ -1,7 +1,7 @@
 /* The knowledge network (Phase 5b): the graph fills the middle, the course
    controls fold into a sliders button top-left and the legend sits
    bottom-left, and the lesson panel docks on the right — the same shape as
-   the paper graph, its controls and its detail panel. */
+   the Citation Graph, its controls and its detail panel. */
 
 .knowledge {
   position: relative;

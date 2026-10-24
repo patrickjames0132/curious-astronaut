@@ -81,6 +81,8 @@ beforeEach(() => {
   localStorage.removeItem('ca.readerContentsWidth')
   // The server's PDF contents: none unless a test says so (never a real fetch).
   vi.spyOn(api, 'fetchPdfContents').mockResolvedValue([])
+  // The citation cards' matches: none unless a test says so.
+  vi.spyOn(api, 'fetchCited').mockResolvedValue({})
 })
 
 afterEach(() => {
@@ -236,15 +238,89 @@ it('lists sections down to subsubsections in the contents, and jumps', async () 
   expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
 })
 
-it('ties a citation to its entry and jumps there', async () => {
+/** The paper `[2]` was matched to (`fetchCited`). */
+const BAHDANAU = {
+  id: 'nmt',
+  arxiv_id: '1409.0473',
+  title: 'Neural Machine Translation by Jointly Learning to Align and Translate',
+  year: 2014,
+  citation_count: 27000,
+  authors: 'Dzmitry Bahdanau, Kyunghyun Cho, Yoshua Bengio',
+  venue: 'ICLR',
+  tldr: 'Attention lets the decoder look back at the source.',
+  url: null,
+}
+
+it('pins a citation’s card on click, showing the paper it cites', async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const cited = vi.spyOn(api, 'fetchCited').mockResolvedValue({ 'bib.bib2': BAHDANAU })
   mount(<Reader thread={THREAD} />)
   const cite = await screen.findByText('2', { selector: 'a.reader-cite' })
-  expect(cite.getAttribute('title')).toBe('Bahdanau et al. Neural MT. 2014.')
+  await waitFor(() => expect(cited).toHaveBeenCalledWith('1706.03762', 's2', expect.anything()))
   fireEvent.click(cite)
-  const entry = document.getElementById('reader-bib.bib2')
-  expect(entry?.classList.contains('landed')).toBe(true)
-  expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+  const card = await screen.findByRole('dialog', { name: `Cited: ${BAHDANAU.title}` })
+  expect(cite.getAttribute('aria-expanded')).toBe('true')
+  expect(card.textContent).toContain('Dzmitry Bahdanau, Kyunghyun Cho, Yoshua Bengio · 2014 · ICLR')
+  expect(card.textContent).toContain('27,000 citations')
+  expect(card.textContent).toContain('Attention lets the decoder look back')
+  // Hovering elsewhere leaves a pinned card be; Esc closes it.
+  fireEvent.pointerLeave(cite)
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect(screen.queryByRole('dialog')).toBeNull()
+})
+
+it('goes to the reference from the card, which closes', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  mount(<Reader thread={THREAD} />)
+  fireEvent.click(await screen.findByText('2', { selector: 'a.reader-cite' }))
+  // Unmatched (the default stub): the entry's own text, and why.
+  const card = await screen.findByRole('dialog', { name: 'Reference 2' })
+  expect(card.textContent).toContain('Bahdanau et al. Neural MT. 2014.')
+  await waitFor(() =>
+    expect(card.textContent).toContain(
+      'Not found in Semantic Scholar’s list of this paper’s references.',
+    ),
+  )
+  expect(screen.queryByRole('button', { name: 'Open' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Reference ↓' }))
+  expect(document.getElementById('reader-bib.bib2')?.classList.contains('landed')).toBe(true)
+  expect(screen.queryByRole('dialog')).toBeNull()
+})
+
+it('previews a card on hover and lets it go when the pointer leaves', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  vi.spyOn(api, 'fetchCited').mockResolvedValue({ 'bib.bib2': BAHDANAU })
+  mount(<Reader thread={THREAD} />)
+  const cite = await screen.findByText('2', { selector: 'a.reader-cite' })
+  fireEvent.pointerEnter(cite)
+  // Not at once: a pointer passing over the text shouldn't flash cards.
+  expect(screen.queryByRole('dialog')).toBeNull()
+  const card = await screen.findByRole('dialog')
+  expect(card.classList.contains('pinned')).toBe(false)
+  // On the card, it stays; off both, it goes.
+  fireEvent.pointerLeave(cite)
+  fireEvent.pointerEnter(card)
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  expect(screen.queryByRole('dialog')).toBeTruthy()
+  fireEvent.pointerLeave(card)
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+})
+
+it('opens the cited paper, or shows it in the Citation Graph', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  vi.spyOn(api, 'fetchCited').mockResolvedValue({ 'bib.bib2': BAHDANAU })
+  const detail = vi.spyOn(api, 'fetchPaperDetail').mockResolvedValue(BAHDANAU)
+  const { store } = mount(<Reader thread={THREAD} />)
+  const cite = await screen.findByText('2', { selector: 'a.reader-cite' })
+  await waitFor(() => expect(api.fetchCited).toHaveBeenCalled())
+  fireEvent.click(cite)
+  fireEvent.click(await screen.findByRole('button', { name: 'Show in Citation Graph' }))
+  expect(store.getState().workspace.focusRequest).toBe('nmt')
+  expect(screen.queryByRole('dialog')).toBeNull()
+  fireEvent.click(cite)
+  fireEvent.click(await screen.findByRole('button', { name: 'Open' }))
+  // The paper opens as its own thread, by the thread's provider.
+  await waitFor(() => expect(detail).toHaveBeenCalledWith('nmt', 's2'))
 })
 
 it('opens a footnote in place', async () => {

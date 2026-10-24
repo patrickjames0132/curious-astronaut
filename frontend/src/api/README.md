@@ -15,7 +15,8 @@ api/
                  code links, category tags (routes/graph.py)
   knowledge.ts — the knowledge network: expand an item, stream its lesson,
                  find a written lesson's images (routes/knowledge.py)
-  reader.ts    — the Reader card's structured document, and its PDF's URL (routes/graph.py)
+  reader.ts    — the Reader card's structured document, its PDF's URL and
+                 contents, and the papers its citations name (routes/graph.py)
   sessions.ts  — saved workspaces                          (routes/sessions.py)
   settings.ts  — the settings modal's config read/write     (routes/settings.py)
   sources.ts   — the local semantic library                (routes/sources.py)
