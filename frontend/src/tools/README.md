@@ -94,3 +94,7 @@ authors” / “Show fewer”. The accent-colored, semibold text button uses a d
 A normal word space separates it from the authors, so a wrapped control aligns
 with the start of the text rather than retaining an inline margin. The full provider text is preserved, and the
 publication year stays visible when the author list is collapsed.
+
+The card grid uses equal fractional auto rows, so stacked cards share the
+height of the tallest card at the current width. Text wraps without clipping
+or a fixed height, and the existing side-by-side sizing stays the same.
