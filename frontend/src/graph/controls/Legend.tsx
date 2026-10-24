@@ -40,32 +40,32 @@ export default function Legend({
     <div className="legend">
       <span>
         <i style={{ background: REL_COLOR.seed }} />
-        Seed
+        <span className="legend-label">Seed</span>
       </span>
       <span title="Papers the seed cites. A blue edge runs to a paper the one in focus cites (the seed, or the paper you've opened or are pointing at).">
         <i style={{ background: REL_COLOR.reference }} />
-        References
+        <span className="legend-label">References</span>
       </span>
       <span title="Papers that cite the seed. A green edge runs from a paper that cites the one in focus (the seed, or the paper you've opened or are pointing at).">
         <i style={{ background: REL_COLOR.citation }} />
-        Citations
+        <span className="legend-label">Citations</span>
       </span>
       {hasSurveys && (
         <span title="Surveys and reviews: the field's own overviews of a period. The ring is orange; the fill still says whether it's a reference or a citation.">
           <i className="ring survey" />
-          Surveys
+          <span className="legend-label">Surveys</span>
         </span>
       )}
       {hasExpanded && (
         <span>
           <i style={{ background: EXPANDED_COLOR }} />
-          Expanded
+          <span className="legend-label">Expanded</span>
         </span>
       )}
       {hasGhosts && (
         <span>
           <i className="ring ghost" />
-          In scope, hidden by your filters
+          <span className="legend-label">In scope, hidden by your filters</span>
         </span>
       )}
     </div>

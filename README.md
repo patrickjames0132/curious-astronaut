@@ -30,7 +30,8 @@ concept or deletes it for good, and a red count on a node shows what's hidden
 beneath it, back with a double-click), and tick off
 what you already know (shift-click or alt-drag to tick off several at once, or 🔍 find concepts
 by name and select every match). There's a
-3D mode too. The legend stays beside search and wraps only as space tightens;
+3D mode too. Both graphs keep their legend beside local search: legend entries wrap and
+the search field shrinks as the browser narrows or panels open;
 on narrow 3D graph panels, ⓘ beside search holds the navigation hints (click away or press Esc to close). Paper citations highlight the current graph; graph icons open or resume that paper's thread
 directly (onto its graph if you're on one, onto its cards otherwise). Type **@** and pick another chat from the suggestions (a thread's Citation
 Graph or Knowledge Graph conversation, e.g. `@thread[PPO › Knowledge Graph]`) to

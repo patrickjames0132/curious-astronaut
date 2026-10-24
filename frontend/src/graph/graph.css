@@ -565,6 +565,64 @@
   border-radius: 2px;
 }
 
+/* Share the canvas width, as the knowledge graph does: neither overlay may
+   cover the other when the browser or a docked panel narrows the graph. */
+.graph-footer {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  right: 14px;
+  z-index: 4;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px 14px;
+  pointer-events: none;
+}
+.graph-footer > * {
+  pointer-events: auto;
+}
+.graph-footer .legend {
+  position: static;
+  flex: 0 1 auto;
+  width: max-content;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  box-sizing: border-box;
+  border-radius: 20px;
+  padding: 10px 14px;
+}
+.graph-footer .legend > span {
+  min-width: 0;
+  max-width: 100%;
+}
+.graph-footer .legend i {
+  flex-shrink: 0;
+}
+.graph-footer .legend .legend-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.graph-footer .graph-find,
+.graph-footer .graph-find-toggle {
+  position: static;
+  margin-left: auto;
+}
+.graph-footer .graph-find-toggle {
+  flex-shrink: 0;
+}
+.graph-footer .graph-find {
+  max-width: 65%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.graph-footer .graph-find input {
+  min-width: 0;
+}
+
 /* --- legend --- */
 .legend {
   position: absolute;
