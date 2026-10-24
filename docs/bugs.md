@@ -22,6 +22,26 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### Releases kept publishing while CI on `main` was red (v8.38.1)
+
+- **Symptom.** CI on `main` failed for v8.36.1, v8.36.2 and v8.37.0 (v8.36.3's
+  run was cancelled), every time the same way: Trivy found a HIGH CVE
+  (CVE-2026-112940) in `filelock` 3.29.4. Those releases, and v8.38.0 after
+  them, published regardless. Noticed only when a doc-only commit's CI
+  failed too, on 2026-10-24.
+- **Root cause.** Two gaps that each looked covered. The local gate passed
+  because Trivy refreshes its vulnerability database at most daily
+  (`NextUpdate`) and the CVE landed after the last local download, while CI
+  downloads a fresh one each run. And `release.yml` runs on the tag alone, so
+  nothing stops a publish while `ci.yml` is red; nobody checked `main`'s CI
+  after merging.
+- **Fix.** `filelock` upgraded to 4.2.4 (`uv lock --upgrade-package
+  filelock`). The scan went green locally after `trivy fs --download-db-only`.
+- **Lesson / guard.** After pushing to `main`, read its CI (`gh run list
+  --workflow ci.yml`) before calling a release done, and refresh Trivy's
+  database before a release's local gate. Making the release wait on a green
+  CI run is the structural fix; it's a proposal, not done.
+
 ### A highlighted equation lost its highlight the moment the menu appeared (v8.38.0)
 
 - **Symptom.** Select an equation in the Reader and the Explain · Simplify ·
