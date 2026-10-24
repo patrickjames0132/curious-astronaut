@@ -94,7 +94,7 @@ optional, behind a key.
    past the neighborhood expand the graph or pull that paper from S2 on demand.
 
 4. **Knowledge Graph — a short course on a paper's prerequisites** `[core]`
-   — a second tool beside the Paper Graph, on the same seed paper. The paper
+   — a second tool beside the Citation Graph, on the same seed paper. The paper
    sits at the centre of a graph you grow one item at a time into **the ideas
    you need to know to understand it**. Each concept can be broken down
    further — DQN → Q-learning → Bellman equations → … → eigenvectors, as deep
@@ -1171,7 +1171,7 @@ than deleted so the plan doesn't get re-proposed.
       are navigation labels — they have to read well out of context, in a
       list, not just above their own card.
 
-- [ ] **A new loading screen for the Paper Graph** — today a build is a
+- [ ] **A new loading screen for the Citation Graph** — today a build is a
       spinner card with a progress bar over an empty canvas. Shape not yet
       decided. *(From the `todos.md` inbox, 2026-10-09.)*
 
@@ -1542,7 +1542,7 @@ than deleted so the plan doesn't get re-proposed.
       2026-09-27 when publishing did — leaving only deploy.)*
 
 - [ ] **Reorganize the frontend's graph and knowledge packages** —
-      `frontend/src/graph/` is really the *Citation Graph* (the Paper Graph),
+      `frontend/src/graph/` is really the *Citation Graph* (once the Paper Graph),
       named before the Knowledge Graph (`frontend/src/knowledge/`) existed, so
       the folders no longer say which graph is which. Rename and restructure
       them so the two graphs read as siblings, with shared pieces visibly
@@ -1562,7 +1562,7 @@ than deleted so the plan doesn't get re-proposed.
       this order:
 
       **5a — Thread card home ✓, shipped in v8.13.0** — paper threads open
-      on a card home (Paper Graph + Knowledge Graph cards, as since
+      on a card home (Citation Graph + Knowledge Graph cards, as since
       renamed), and the graph builds only when its card is opened. The full
       story is in [docs/history.md](docs/history.md).
 
@@ -1710,7 +1710,7 @@ than deleted so the plan doesn't get re-proposed.
       paper grounding sits in the lessons' citations, but the combination
       still holds.)*
 - [ ] **Reader card — how do I read it?** — a third card on the thread's
-      card home, beside Paper Graph and Knowledge Graph, for reading the
+      card home, beside Citation Graph and Knowledge Graph, for reading the
       paper itself. Workshopped 2026-10-21 (filed from `docs/brainstorm.md`
       2026-10-23, decisions settled with Patrick the same day). It replaces
       two older items: the 2026-10-16 "paper-reader card" (a SpatialRead-style
@@ -1730,11 +1730,11 @@ than deleted so the plan doesn't get re-proposed.
       Curious Astronaut can do**, connecting the text to structure the app
       already has:
       - `[23]` resolves to the **actual cited paper**, a real node in the
-        Paper Graph, via S2.
+        Citation Graph, via S2.
       - Terms and per-section notes come from the paper's **Knowledge
         Graph** prerequisites, including what the reader has ticked off.
       - A guided read reuses the **lecturer**, the current paragraph
-        highlighted the way Paper Graph nodes light up today.
+        highlighted the way Citation Graph nodes light up today.
 
       **The main technical fact: the full text we have today is flat.**
       `integrations/arxiv/fulltext.py` reduces ar5iv's HTML to plain text
@@ -1754,7 +1754,7 @@ than deleted so the plan doesn't get re-proposed.
       │   3.1        │   Attention(Q,K,V) = softmax(QKᵀ/√dₖ)V  [?] │   ✓ known      │
       │   3.2 ◂      │                                             │                │
       │ 4 Why self-  │ …additive attention [2] ← hover: Bahdanau   │ Ask about the  │
-      │   attention  │   2014 · open in Paper Graph                │ selection…     │
+      │   attention  │   2014 · open in Citation Graph             │ selection…     │
       └──────────────┴─────────────────────────────────────────────┴────────────────┘
       ```
 
@@ -1796,15 +1796,24 @@ than deleted so the plan doesn't get re-proposed.
          it. The full story is in [docs/history.md](docs/history.md). Still
          open from it: "Click a library citation to open the source at that
          page" can now be built on the PDF view.
-      4. Citation hover card, plus a jump into the Paper Graph.
+      4. Citation hover card, plus a jump into the Citation Graph.
       5. Knowledge Graph notes in the margin (when one exists for the paper).
+      6. **An answer lights up its passage** (Patrick, 2026-10-24). When a
+         Reader Assistant answer finishes, or when it's clicked later, the
+         span of the paper it's talking about is highlighted in the text or
+         the PDF and scrolled into view, the way the Citation Graph's
+         teacher glows the papers an answer cites (`store/highlight`). A
+         question asked from a highlight already knows its passage; for the
+         rest, the answer has to say which passage it means: say a quoted
+         phrase the client finds in the text, or the section and page it
+         came from. In the PDF the span is found in pdf.js's text layer.
 
       **Later:** a margin teacher you can ask about the selection, then the
       guided read.
 
       **Links run both ways.** v1 links the text out to the graphs; the
       reverse is "show me where the paper uses this": from a Knowledge Graph
-      concept, jump to the passages that rely on it; from a Paper Graph node,
+      concept, jump to the passages that rely on it; from a Citation Graph node,
       jump to the sentences that cite it. The same structured parse serves
       both directions, so it belongs to this card.
 

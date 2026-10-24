@@ -11,7 +11,7 @@ either. The goal, in Patrick's words, is that the reader feels they are
 ```
 knowledge/
   KnowledgeNetwork.tsx  — the tool: starts the course, expands items, wires it all
-  KnowledgeGraph.tsx    — the 2D canvas (react-force-graph-2d, as the paper graph)
+  KnowledgeGraph.tsx    — the 2D canvas (react-force-graph-2d, as the Citation Graph)
   KnowledgeGraph3D.tsx  — the 3D scene (react-force-graph-3d), lazy-loaded
   KnowledgeControls.tsx — the folding course controls (sliders button, top-left)
   KnowledgeLegend.tsx   — node kinds, the edge, and node states (bottom-left)
@@ -39,7 +39,7 @@ knowledge/
    needs the ideas. So the graph holds the paper and concepts, and the paper's
    real references moved into the lessons as citations (removed again in
    v8.17.0: see Lessons). The controls fold
-   into a sliders button like the paper graph's, a legend explains the
+   into a sliders button like the Citation Graph's, a legend explains the
    colours, labels default to the neighbourhood in focus, and the way back to
    the cards is an ↑.
 
@@ -490,7 +490,7 @@ appears.
   labels shrink with distance. Until v8.17.0 a Nearby / All toggle in the
   controls chose between naming the neighbourhood in focus and every node.
 - **The controls** (`KnowledgeControls`) fold into a sliders button in the
-  top-left corner. It is the shared `ui/SlidersGlyph`, on the paper graph's
+  top-left corner. It is the shared `ui/SlidersGlyph`, on the Citation Graph's
   own `.ctrl-icon` / `.controls` styles, so the two canvases have one corner
   button. Folded by default. Inside are 2D/3D, the citation
   graph's action row **Release · Fit · Clear** (no Refresh: nothing here is

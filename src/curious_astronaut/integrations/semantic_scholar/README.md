@@ -293,7 +293,7 @@ citers arrive with `is_survey` None.
   `storage/README.md`) — this *is* the mechanism behind the agentic Q&A
   tools `expand_node` and `search_papers`.
 - **`services/graph/growth.py`** — `links_between` calls `reference_ids()`
-  for the Paper Graph's "Links between papers" switch (v8.18.0).
+  for the Citation Graph's "Links between papers" switch (v8.18.0).
 - **`teacher/tools.py`** — calls `get_paper()` to lazily hydrate a neighbor
   node's abstract/tldr on demand, only when the agent's `read_paper` tool
   needs detail that a light-field neighbor node doesn't carry.
