@@ -4753,6 +4753,21 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Immediate Quick response context and a compact model picker**
+      *(v8.38.2)* — clicking Quick response stamps the replacement turn before
+      streaming and immediately fills its timer header with a muted “Quick
+      response” label and colored bolt. The tooltip says “Answered from the
+      model’s own knowledge.”; the status remains on the finished/saved turn
+      across all chat interfaces, including the shared Knowledge and Reader
+      assistants. General and Citation Graph quick replies also retain
+      “Answered as a question” and the completed reply’s “Lecture on it instead”
+      action. The original start time still measures the full wait. The chat
+      model picker’s scrolling list is capped at 180px even when its viewport
+      measurement finds more space, and shrinks further in tight windows;
+      the heading, close control and Settings default stay outside the list.
+      Regression tests cover status before prose, completion, routing and
+      viewport height limits. Approved by Patrick, 2026-10-24.
+
 - [x] **Equal heights for stacked tool cards** *(v8.36.3)* — the Citation
       Graph, Knowledge Graph and Reader cards use equal fractional grid rows,
       so a single-column layout gives each card the height needed by the

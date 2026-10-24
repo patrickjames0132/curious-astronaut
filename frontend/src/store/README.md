@@ -209,3 +209,8 @@ and run the offline suite with `npm test`.
 Quick response preserves the working answer’s original start time when replacing
 the exchange, so its running and completed timers include the full wait. New
 messages and ordinary retries start a fresh clock.
+
+Quick response stamps `ChatMsg.quickResponse` when the replacement turn starts,
+before streaming begins. All chat transcripts show a muted “Quick response”
+label with a colored bolt beside the clock immediately, retaining it on the
+finished/saved turn. Its tooltip says “Answered from the model’s own knowledge.”

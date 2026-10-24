@@ -300,6 +300,7 @@ export default function ChatMessage({
     message.borrowedThreads?.find((thread) => thread.title === title)?.id
   const lectureHeader =
     message.role === 'assistant' && (message.routedTo === 'lecture' || beats.length > 0)
+  const quickHeader = message.role === 'assistant' && !!message.quickResponse
   const metadata = (
     <>
       {(() => {
@@ -356,9 +357,28 @@ export default function ChatMessage({
       className={`chat ${message.role}${clickable ? ' clickable' : ''}${active ? ' active' : ''}`}
       onClick={onActivate}
     >
-      {lectureHeader ? (
+      {lectureHeader || quickHeader ? (
         <div className="chat-lecture-header">
-          <div className="chat-lecture-meta">{metadata}</div>
+          <div className="chat-lecture-meta">
+            {quickHeader ? (
+              <span
+                className="chat-quick-response"
+                title="Answered from the model's own knowledge."
+              >
+                <svg
+                  className="quick-bolt"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M13.5 2 5 13.5h6L9.5 22 19 9.5h-6.2L13.5 2Z" />
+                </svg>
+                Quick response
+              </span>
+            ) : (
+              metadata
+            )}
+          </div>
           {timer}
         </div>
       ) : (
@@ -438,7 +458,7 @@ export default function ChatMessage({
           )}
         </div>
       )}
-      {!lectureHeader && metadata}
+      {(!lectureHeader || quickHeader) && metadata}
       {beats.length > 0 && (
         // A lecture delivered as this answer, behind its own caret. Twelve
         // beats are fine as the newest thing on screen and unusable as the

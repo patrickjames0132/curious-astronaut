@@ -481,7 +481,7 @@ export function useConversation() {
       const streamId = `ask:${nextStreamId()}`
       dispatch(streamStarted(streamId, key))
       history ??= conversationHistory(store.getState().transcript.byKey[key]?.chat ?? [])
-      dispatch(turnStarted(question, key, quick ? startedAt : undefined))
+      dispatch(turnStarted(question, key, quick ? startedAt : undefined, quick))
       dispatch(turnContextSet(borrowedChats(store.getState(), question, key), key))
       // Stamp the turn with the graph it is about, while that is still what is
       // on screen. Skipped graph-free: there is no graph to name, and an
@@ -500,7 +500,9 @@ export function useConversation() {
         )
         dispatch(turnScopeStamped(scopeStamp(turnScope), key))
       }
-      if (routed) dispatch(turnRouted('answer', key))
+      // Quick response is still a question answer, and retains the option
+      // to request a lecture once it finishes. Stamp it before streaming.
+      if (routed || quick) dispatch(turnRouted('answer', key))
       // Why it ended, if it ended badly. The default covers the commonest
       // case by far — the run was simply abandoned (tab closed, exploration
       // deleted), which raises nothing worth quoting at a reader.

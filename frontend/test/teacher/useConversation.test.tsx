@@ -414,6 +414,8 @@ describe('the scope priority list, resolved once per turn', () => {
     const questions = chat().filter((turn) => turn.role === 'user')
     expect(questions).toHaveLength(1)
     const last = chat()[chat().length - 1]
+    expect(last.quickResponse).toBe(true)
+    expect(last.routedTo).toBe('answer')
     expect(last.respondedIn).toBe(11_000)
     expect(last.text).toBe('An answer.')
     expect(last.failed).toBeUndefined()

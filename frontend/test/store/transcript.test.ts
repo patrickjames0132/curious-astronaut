@@ -355,6 +355,16 @@ describe("an answer's response timer (v8.33.0)", () => {
     expect(active(state).chat[1].respondedIn).toBe(15_000)
   })
 
+  it('marks Quick response immediately and retains the label after completion', () => {
+    let state = playAll(turnStarted('quick answer', undefined, 1000, true))
+    expect(active(state).chat[1].text).toBe('')
+    expect(active(state).chat[1].quickResponse).toBe(true)
+    state = reducer(state, turnCompleted())
+    expect(active(state).chat[1].quickResponse).toBe(true)
+    state = reducer(state, turnStarted('ordinary question'))
+    expect(active(state).chat[3].quickResponse).toBeUndefined()
+  })
+
   it('gives each answer its own clock', () => {
     const state = playAll(
       at(0, () => turnStarted('first?')),

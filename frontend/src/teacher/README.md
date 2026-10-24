@@ -278,3 +278,16 @@ messages and ordinary retries start a fresh clock.
 Lecture timers sit in a shared header row beside scope and routing metadata,
 with baseline alignment and wrapping text, rather than the standalone answer
 timer’s reserved top strip.
+
+Quick response stamps `ChatMsg.quickResponse` when the replacement turn starts,
+before streaming begins. All chat transcripts show a muted “Quick response”
+label with a colored bolt beside the clock immediately, retaining it on the
+finished/saved turn. Its tooltip says “Answered from the model’s own knowledge.”
+
+The model picker caps its scrolling model list at 180px, including when its
+window-fitting measurement finds more room. In tight windows it shrinks further;
+the heading, close control and Settings default stay outside the scrolling list.
+
+Quick responses in General and Citation Graph chats retain “Answered as a
+question” and the completed answer’s “Lecture on it instead” action, alongside
+the Quick response status. The routing label is stamped before streaming.
