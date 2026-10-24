@@ -149,12 +149,12 @@ def test_get_figures_refresh_bypasses_cache(monkeypatch):
 
 
 def test_abs_url_passes_through_absolute_urls():
-    assert figures._abs_url("https://other.example.com/x.png") == "https://other.example.com/x.png"
+    assert client.absolute_url("https://other.example.com/x.png") == "https://other.example.com/x.png"
 
 
 def test_abs_url_handles_host_relative_path():
-    assert figures._abs_url("/assets/x.png") == f"{client.BASE_URL}/assets/x.png"
+    assert client.absolute_url("/assets/x.png") == f"{client.BASE_URL}/assets/x.png"
 
 
 def test_abs_url_handles_document_relative_path():
-    assert figures._abs_url("./x.png") == f"{client.BASE_URL}/x.png"
+    assert client.absolute_url("./x.png") == f"{client.BASE_URL}/x.png"

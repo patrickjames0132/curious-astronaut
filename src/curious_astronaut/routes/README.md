@@ -19,6 +19,7 @@ down.
 | `POST /api/graph/links` | the citations among the papers on a graph, for the "Links between papers" switch (v8.18.0) |
 | `GET /api/paper/<ref>` | hydrate one paper's details for the panel |
 | `GET /api/paper/<ref>/figures` | the paper's figures — ar5iv, else floats mined from its OA PDF |
+| `GET /api/paper/<ref>/document` | the paper as a structured document for the Reader card (ar5iv only, v8.37.0) |
 | `GET /api/paper/<ref>/code` | Hugging Face code & artifact links |
 | `GET /api/paper/<ref>/categories` | the paper's own arXiv category tags |
 | `GET /api/pdf_figure/<token>/<n>` | one mined PDF float, rendered to PNG |
@@ -30,7 +31,9 @@ Design decisions worth knowing:
   (graph, paper) map failures to real HTTP: 400 (no seed), 404 (S2 knows no
   such paper), 502 (S2 down, with a user-facing "try again"). The panel
   niceties (figures, code) instead degrade to `available: false` on ANY
-  upstream failure — a missing figure strip must never 500 the panel.
+  upstream failure — a missing figure strip must never 500 the panel. The
+  Reader's `/document` follows the niceties and adds a `reason`
+  (`not_arxiv`, `no_render`, `error`) so the card can say which it was.
 - **Growing a graph needs no agent (v8.18.0).** `/api/graph/expand` is the
   reader's twin of the researcher's `expand_node`, with the same "only real
   edges" rule, but sized like the seed's own neighbourhood
@@ -87,7 +90,11 @@ Design decisions worth knowing:
   Pydantic model everywhere inside the app).
 - **The figure proxy is an SSRF chokepoint.** `is_ar5iv_url` allowlists the
   ar5iv host before any fetch, so `/api/figure_proxy` can't be used as an
-  open relay; responses carry a day-long `Cache-Control`. This is the
+  open relay; responses carry a day-long `Cache-Control`. Since v8.37.0 they
+  also carry a sandboxing `Content-Security-Policy` and `nosniff`: the bytes
+  are a paper author's (the Reader shows SVG figures), served from our origin,
+  so one opened directly must not run script here. Inside an `<img>` the
+  headers change nothing. This is the
   same-origin contract behind both the detail panel's figure strip and the
   researcher's `show_figure` payloads. Its figure-manifest sibling
   `/api/pdf_figure/<token>/<n>` holds the same posture a different way: the

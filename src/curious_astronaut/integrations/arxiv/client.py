@@ -3,7 +3,7 @@
 Description:
 Shared HTTP transport for ar5iv (arXiv's LaTeX→HTML renderer).
 
-``figures.py`` and ``fulltext.py`` each extract something different from the
+``figures.py``, ``fulltext.py`` and ``document.py`` each extract something different from the
 same ar5iv HTML render, so the raw fetch (and its cache TTL) live here once
 instead of one module reaching into the other's internals.
 
@@ -51,6 +51,23 @@ def fetch_html(arxiv_id: str) -> str | None:
         if exc.code == 404:
             return None
         raise
+
+
+def absolute_url(src: str) -> str:
+    """Absolutize an ar5iv-relative image src against the ar5iv host.
+
+    Args:
+        src: The raw ``src`` attribute from an ar5iv ``<img>`` — absolute,
+            host-relative (``/...``), or document-relative.
+
+    Returns:
+        An absolute URL on the ar5iv host (already-absolute URLs pass through).
+    """
+    if src.startswith("http://") or src.startswith("https://"):
+        return src
+    if src.startswith("/"):
+        return BASE_URL + src
+    return f"{BASE_URL}/{src.lstrip('./')}"
 
 
 def is_ar5iv_url(url: str) -> bool:

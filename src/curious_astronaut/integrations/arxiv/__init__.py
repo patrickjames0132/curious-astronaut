@@ -16,6 +16,9 @@ Four things live here, all arXiv-specific and all for arXiv papers only:
   * ``figures``  — ``{image, caption}`` pairs from the render's ``<figure>``s.
   * ``fulltext`` — the render stripped to readable body text; also
     ``html_to_text``, a generic helper reused by the web-page source ingester.
+  * ``document`` — the render as a structured document (sections, figures,
+    equations, citations tied to their bibliography entries) for the Reader
+    card.
 * **the arXiv category taxonomy** (``vocab`` — ``name_for`` over the bundled
   ``taxonomy.json``): the ~155 arXiv category codes, for labelling an arXiv
   paper's own tags. S2's parallel vocabulary is ``semantic_scholar.vocab``.
@@ -43,6 +46,7 @@ import re
 from . import vocab
 from .categories import get_categories, get_title
 from .client import fetch_image, is_ar5iv_url
+from .document import get_document
 from .figures import get_figures
 from .fulltext import get_fulltext, html_to_text
 
@@ -101,6 +105,7 @@ __all__ = [
     "extract_id",
     "fetch_image",
     "get_categories",
+    "get_document",
     "get_figures",
     "get_fulltext",
     "get_title",

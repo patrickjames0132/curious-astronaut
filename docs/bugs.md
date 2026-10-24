@@ -22,6 +22,23 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The figure proxy served whatever ar5iv sent, as ar5iv sent it (v8.37.0)
+
+- **Symptom.** None seen. Found while adding SVG figures for the Reader:
+  `/api/figure_proxy` relays any ar5iv URL with the upstream content type, so
+  it would serve an SVG, or an ar5iv HTML page, as a live document on our own
+  origin.
+- **Root cause.** The proxy was built for PNG thumbnails inside `<img>`, where
+  nothing runs. Its SSRF allowlist limits *where* it fetches from, not *what*
+  it hands back, and SVGs are author-supplied files.
+- **Fix.** Every proxied response carries `Content-Security-Policy:
+  default-src 'none'; style-src 'unsafe-inline'; sandbox` and
+  `X-Content-Type-Options: nosniff` (`routes/graph.py`). Inside `<img>`
+  nothing changes; opened directly, nothing can run.
+- **Lesson / guard.** A same-origin proxy is our origin speaking: allowlist
+  the source *and* defang the response. `test_figure_proxy_is_locked_to_ar5iv`
+  asserts both headers.
+
 ### The Papers ＋ draft was taken by the chat being left (v8.32.1)
 
 - **Symptom.** The rail's Papers ＋ should open a new chat with `@` typed and
@@ -1992,6 +2009,51 @@ only work around them — so the entry exists to explain why some piece of our c
 looks paranoid, and to stop a later cleanup from quietly removing the guard.
 **Fix** here means *our* workaround, not a repair; **Lesson / guard** is what keeps
 us honest when their data changes again.
+
+### LaTeXML's formula text isn't always LaTeX that KaTeX can typeset (v8.37.0)
+
+- **Symptom.** In the Reader, a few of Soft Actor-Critic's (1801.01290)
+  formulas showed as red source text, e.g.
+  `\displaystyle\resizebox{22609920}{}{$\operatorname{\mathbb{E}}…$}`, and
+  `\nicefrac` stayed literal. Its algorithm box lost its nesting: every line
+  flush left.
+- **Root cause.** **ar5iv's (LaTeXML's) output.** A formula's `alttext` keeps
+  the author's box wrapper (`\resizebox`, `\scalebox`, `\adjustbox`) with a
+  `$…$` inside, and macros from packages KaTeX doesn't implement. An
+  algorithm's indentation is encoded as leading em/en/thin spaces
+  (`\u2003\u2002`) in each `ltx_listingline`, which our whitespace tidying
+  collapsed.
+- **Fix (workaround).** `document._latex()` unwraps box commands by brace
+  matching (an unbalanced one is left alone) and swaps known macros
+  (`_MACRO_SWAPS`: `\nicefrac` → `\tfrac`); SAC went from 165 to 168 of 168
+  formulas typesetting. `_listing()` sums the leading typographic spaces into
+  an `indent` in em before tidying. The cache key carries `_PARSE_VERSION`,
+  so a fix reaches documents already cached.
+- **Lesson / guard.** Check a new paper by running all its formulas through
+  KaTeX with `throwOnError: true`, not by eye; a new unsupported macro is a
+  one-line `_MACRO_SWAPS` entry. Bump `_PARSE_VERSION` with any change to the
+  parse's output. Tests: `test_box_wrappers_are_unwrapped_for_katex`,
+  `test_macros_katex_lacks_are_swapped`,
+  `test_algorithm_lines_keep_their_number_and_indent`.
+
+### ar5iv answers a failed conversion with a 200 and an empty page (v8.37.0)
+
+- **Symptom.** Adam (1412.6980) came back from ar5iv as HTTP 200, about 8 KB,
+  titled "Untitled Document", with no body. A 404 is what the code expected
+  for "no render".
+- **Root cause.** **ar5iv's service.** Some papers it couldn't convert are
+  served as a stub page rather than a 404. ar5iv is also often slow: on
+  2026-10-23 four fetches timed out (two at the app's 30s, two with curl at
+  90s and 150s).
+- **Fix (workaround).** `document.parse_document()` reports a page with no
+  sections and no abstract as `available: false`, the same as a 404, and the
+  Reader says ar5iv couldn't convert the paper, with a link to the PDF. A
+  timeout reads as `error` with Try again.
+- **Lesson / guard.** Judge an ar5iv answer by its content, not its status.
+  `test_a_page_with_no_body_is_unavailable`. The PDF fallback viewer (the
+  Reader's stage 3 in the OnePager) is the real answer to both.
+  `fulltext.get_fulltext()` doesn't check for the stub yet; it would hand
+  the researcher an empty text.
 
 ### Semantic Scholar ships every citation edge twice — a release is two overlapping export batches
 

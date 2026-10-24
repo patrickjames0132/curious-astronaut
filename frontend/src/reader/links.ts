@@ -1,0 +1,76 @@
+/**
+ * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
+ *
+ * Description:
+ * What the Reader's runs share with the page around them: the context a
+ * citation or ref reads to jump, the DOM ids paper elements render under, and
+ * a run list as plain text. Apart from `ReaderBody.tsx` so that file exports
+ * components only (fast refresh).
+ *
+ * Authors:
+ * Charles Patrick James <charles.patrick.james@gmail.com>
+ */
+
+import { createContext } from 'react'
+import type { AnswerFigure, ReaderBibEntry, ReaderInline } from '../api'
+
+/** What a run needs from the page around it. */
+interface ReaderLinks {
+  /** Bibliography entries by element id, for a citation's tooltip. */
+  bibliography: Map<string, ReaderBibEntry>
+  /** Scroll the page to one of the paper's own element ids. */
+  jump: (target: string) => void
+  /** Open a figure panel in the shared lightbox. */
+  enlarge: (figure: AnswerFigure) => void
+}
+
+export const ReaderLinksContext = createContext<ReaderLinks>({
+  bibliography: new Map(),
+  jump: () => {},
+  enlarge: () => {},
+})
+
+/**
+ * The DOM id a paper element renders under. ar5iv's ids (`S3.F1`) are only
+ * unique within the paper, so they're prefixed to stay clear of the app's own.
+ *
+ * @param id The paper's element id.
+ * @returns The id to put in the DOM.
+ */
+export function readerDomId(id: string): string {
+  return `reader-${id}`
+}
+
+/**
+ * A run list as plain text, for tooltips and accessible labels.
+ *
+ * @param inlines The runs.
+ * @returns Their text, math kept as its LaTeX source.
+ */
+export function plainText(inlines: ReaderInline[]): string {
+  return inlines
+    .map((run) => {
+      if (run.kind === 'math') return run.latex
+      if (run.kind === 'note') return ''
+      return run.text
+    })
+    .join('')
+}
+
+/**
+ * A run list as a `MathText` string: text as is, math fenced in `$…$`. For
+ * surfaces shared with the rest of the app that take a string (the lightbox's
+ * caption).
+ *
+ * @param inlines The runs.
+ * @returns The string, footnotes left out.
+ */
+export function mathTextOf(inlines: ReaderInline[]): string {
+  return inlines
+    .map((run) => {
+      if (run.kind === 'math') return `$${run.latex}$`
+      if (run.kind === 'note') return ''
+      return run.text
+    })
+    .join('')
+}

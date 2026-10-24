@@ -3822,6 +3822,46 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **The Reader card, stage 1: the paper itself** *(v8.37.0)* — the third
+      card on a paper's home, beside the Citation Graph and the Knowledge
+      Graph. Workshopped 2026-10-21 in `docs/brainstorm.md`, filed and built
+      2026-10-23. The Reader shows the paper from its ar5iv render: a contents
+      panel that follows the reading, then the text with KaTeX equations
+      (numbered), figures on a white mat that open in the shared lightbox,
+      tables, algorithms with their line numbers and nesting, footnotes that
+      open in place, and the references. A citation shows its entry on hover
+      and jumps to it on click, and a figure or equation number jumps to its
+      target. The backend (`integrations/arxiv/document.py`, `GET
+      /api/paper/<ref>/document`) is a **second parse of ar5iv beside the
+      flat full-text one**: it keeps sections, figures and every citation
+      marker tied to its `bib.bibN` entry, which the later stages build on,
+      and sends a JSON tree the frontend renders itself, so no third-party
+      HTML is ever injected. When there's nothing to read the card says why:
+      not on arXiv, no ar5iv render (with a link to the PDF), or ar5iv
+      unreachable (with Try again).
+
+      **Four browser rounds shaped it** (Patrick, 2026-10-23):
+      - LaTeX that didn't typeset (`\resizebox` wrappers left in LaTeXML's
+        `alttext`, `\nicefrac`) and algorithms that lost their indentation;
+        both fixed in the parse, and the cache key carries a parse version so
+        a fix reaches already-cached papers. See `docs/bugs.md`.
+      - Figures enlarge in the same lightbox the assistants use.
+      - The contents panel: first a `|←` button, which scrolled away with the
+        list; then **drag to resize, drag well past the floor to fold it to a
+        thin coral line, and only the line's bump reopens it**, so it never
+        competes with the explorer rail's drag. Open, the same line runs down
+        the panel's right edge with a `‹` bump that folds it with the docked
+        panels' slide. It stays at every window width.
+      - The way back to the cards: a ← was tried for the Reader alone, then
+        for all three tools top-left; Patrick kept the centred ↑ for all
+        three (`frontend/src/tools/README.md`).
+
+      Also in this release: `/api/figure_proxy` responses are sandboxed
+      (`docs/bugs.md`). **Next, in the OnePager's new order:** the selection
+      menu (Explain · Simplify · Expand), then the PDF fallback viewer with
+      the same AI tools, then citation hover cards, then Knowledge Graph notes
+      in the margin.
+
 - [x] **Switching the data source keeps the thread you're in** *(v8.28.1)*
       — from the `todos.md` inbox (2026-10-18): changing provider landed the
       reader in a new thread. A thread is keyed by provider + seed, so the

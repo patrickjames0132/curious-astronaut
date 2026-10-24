@@ -36,6 +36,20 @@ function MathSpan({ value, display }: { value: string; display: boolean }) {
 }
 
 /**
+ * Typeset one formula that is already known to be LaTeX — no delimiters, no
+ * `splitMath` pass. For callers that hold a formula as a value (the Reader's
+ * parsed ar5iv math), where the dollar heuristics have nothing to decide.
+ *
+ * @param props Component props.
+ * @param props.latex The formula's LaTeX source.
+ * @param props.display Typeset as a displayed equation rather than inline.
+ * @returns The rendered KaTeX span.
+ */
+export function TeX({ latex, display = false }: { latex: string; display?: boolean }) {
+  return <MathSpan value={latex} display={display} />
+}
+
+/**
  * Typeset the LaTeX math in `children`. Falls back to rendering the raw string
  * (or nothing, for null/empty) when there's no math, so it's safe to wrap every
  * text surface unconditionally.

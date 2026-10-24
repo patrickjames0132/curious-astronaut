@@ -13,8 +13,8 @@ Each **exploration** holds its threads in two groups in the sidebar: **Chats**,
 for searches and broad questions (start as many as you like with the ＋; each
 is named after its first question), and **Papers**, a thread for each paper
 you open (its ＋ opens a chat with `@` typed, ready to find one). A paper thread opens on its **card home**: the paper (title,
-authors, TL;DR) and a card for each tool that works on it: the **Citation Graph**
-and the **Knowledge Graph**. The Citation Graph builds only when you open its card, and clicking a thread in the sidebar always
+authors, TL;DR) and a card for each tool that works on it: the **Citation Graph**,
+the **Knowledge Graph** and the **Reader**. The Citation Graph builds only when you open its card, and clicking a thread in the sidebar always
 brings you back to its cards; the graph you left is kept in memory, conversation and all. Each graph
 docks its own AI assistant (🎓): the **Citation Graph Assistant** and the
 **Knowledge Graph Assistant**, which reads the course and its lessons; the cards
@@ -37,6 +37,14 @@ directly (onto its graph if you're on one, onto its cards otherwise). Type **@**
 Graph or Knowledge Graph conversation, e.g. `@thread[PPO › Knowledge Graph]`) to
 bring it into the agent's context. Lectures remain part of their thread's history, including follow-up
 questions after a reload. Existing saved sessions migrate lazily when opened.
+
+The **Reader** is the paper itself, from arXiv's HTML render (ar5iv): its
+equations typeset, figures that enlarge with their captions, tables,
+algorithms and footnotes in place. A citation shows its reference on hover
+and jumps to it on click, and a figure or equation number jumps to it. The
+contents follow along as you read; drag their edge to resize them, or fold
+them away to a thin line with the bump on that edge. Papers not on arXiv, or
+that ar5iv couldn't convert, say so (with a link to the PDF).
 
 Long author lists on the paper’s card home, detail panel and Knowledge Graph
 panel collapse to an ellipsis, with **Show all authors ▾** and **Show fewer ▴**

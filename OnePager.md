@@ -1780,17 +1780,35 @@ than deleted so the plan doesn't get re-proposed.
          that responds when you act ships first; the guided read (reusing
          the lecturer's beat format) comes later.
 
-      **v1, the differentiating parts first:**
-      1. Structured ar5iv parse, the Reader card, reading view and table of
-         contents. *(In progress on `feature/reader`, 2026-10-23.)*
-      2. Citation hover card, plus a jump into the Paper Graph.
-      3. Knowledge Graph notes in the margin (when one exists for the paper).
-      4. Highlight-and-explain and "explain this equation": table stakes, not
-         the headline. Shares plumbing with the lessons' Explain and Expand
-         pill (`useLessonSelection`, v8.25.0).
+      **Reordered after the first browser round (Patrick, 2026-10-23).**
+      Reading the text showed the AI tools and the PDF fallback matter more
+      than first planned, so they move ahead of the citation hover card:
+      1. ✓ **Shipped in v8.37.0**: structured ar5iv parse, the Reader card,
+         reading view and table of contents, figures in the lightbox. The
+         full story is in [docs/history.md](docs/history.md).
+      2. **The selection menu in the Reader**: highlight a passage for
+         Explain · Simplify · Expand, the Knowledge Graph's `SelectionMenu`
+         (v8.25.0) reused, plus SpatialRead's Simplify. "Explain this
+         equation" belongs here.
+      3. **The PDF fallback: a viewer plus the AI tools** (Patrick's choice
+         over saved highlights and notes, 2026-10-23). pdf.js renders the
+         PDF `services/pdf` already caches, served from our origin. It covers
+         papers ar5iv can't render (Adam, 1412.6980), non-arXiv open-access
+         papers, and a slow ar5iv (four fetches timed out on
+         2026-10-23, at 30s, 30s, 90s and 150s): show the PDF first and switch
+         to the structured view once it arrives. Its text layer keeps
+         selection working, so step 2's menu works on PDFs too. It also
+         unblocks "Click a library citation to open the source at that
+         page". Before building it, check **arXiv's own HTML**
+         (`arxiv.org/html/<id>`): it's LaTeXML too (the GRPO algorithm,
+         2402.03300, parsed unchanged) and answered within a minute while
+         ar5iv was timing out, so it may be the faster first source for
+         recent papers.
+      4. Citation hover card, plus a jump into the Paper Graph.
+      5. Knowledge Graph notes in the margin (when one exists for the paper).
 
-      **v2:** the PDF fallback viewer (shipping the library page viewer with
-      it), then the guided read.
+      **Later:** a margin teacher you can ask about the selection, then the
+      guided read.
 
       **Links run both ways.** v1 links the text out to the graphs; the
       reverse is "show me where the paper uses this": from a Knowledge Graph
@@ -1799,8 +1817,6 @@ than deleted so the plan doesn't get re-proposed.
       both directions, so it belongs to this card.
 
       **Open:**
-      - What share of the papers Patrick actually reads are on arXiv? That
-        decides how much the v2 PDF fallback matters.
       - For the brainstorm's **shareable snapshot** idea: showing arXiv text
         in a local app is like viewing it in a browser, but putting it in an
         exported snapshot is redistribution, and arXiv licenses vary by paper.

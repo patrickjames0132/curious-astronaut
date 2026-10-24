@@ -40,7 +40,14 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 across all three, so the switch never
    │                                 remounts it — see teacher/README.md.
    ├─ card home (paper threads)    tools/ToolCards.tsx — the paper, then a
-   │                                 card per tool (Citation Graph, Knowledge Graph)
+   │                                 card per tool (Citation Graph, Knowledge
+   │                                 Graph, Reader)
+   ├─ Reader                       reader/Reader.tsx — the paper itself from
+   │  │                              its ar5iv render (v8.37.0)
+   │  ├─ contents rail             (in Reader.tsx; follows the reading)
+   │  └─ the text                  reader/ReaderBody.tsx — blocks and runs:
+   │                                 equations (notation/ TeX), figures,
+   │                                 tables, citations, refs, footnotes
    ├─ knowledge network            knowledge/KnowledgeNetwork.tsx — a short
    │  │                              course on the paper's prerequisites
    │  ├─ controls (folded)         knowledge/KnowledgeControls.tsx (progress,
