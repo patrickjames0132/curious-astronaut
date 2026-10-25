@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.41.0 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.47.0 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -1205,17 +1205,6 @@ than deleted so the plan doesn't get re-proposed.
       settings today, and the Knowledge Graph's knobs live under Agents →
       Tutor. Patrick expects more Knowledge Graph settings to arrive as it
       grows, so the split waits until there's enough to fill its sub-page.
-
-- [ ] **Turn the Tutor's lesson length and images per lesson back into
-      number fields** — two Tutor rows under Agents → Agent Settings.
-      **Lesson length** (`lesson_words`) is an `ExtrasSlider` (100–1500,
-      step 50): make it an incremental number field again, as it was before
-      the slider. **Images per lesson** is an `ExtrasRange` over two knobs, a
-      floor (`min_images`, default 2) and a cap (`images`, default 3): drop
-      the min/max pair for one incremental number field. That means deciding
-      what happens to the floor in the tutor's backend, which today sends a
-      lesson back when it has fewer images than `min_images`. Bring the row
-      hints and the Tutor's README along. *(Patrick, 2026-10-21.)*
 
 - [ ] **Auto-correct spelling in the chat bars** — typos in a question go
       to the agent as typed. Correct them as the reader types, in every chat

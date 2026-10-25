@@ -29,7 +29,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import Tour from '../tour/Tour'
 import { SETTINGS_TOUR, TOUR_KEYS } from '../tour/steps'
 import {
@@ -63,10 +63,9 @@ const MAX_PER_BAND = 200 // OpenAlex's page cap — no query can return more.
  *  credentials and per-agent tuning — and a tab strip framed them as two views
  *  of one thing.
  *
- *  The gear and the web carry U+FE0F (the emoji variation selector): both
- *  code points default to *text* presentation, so without it the font draws
- *  them as small monochrome glyphs beside three full-size colour emoji, and
- *  the column looks like two different icon sets. */
+ *  The gear carries U+FE0F (the emoji variation selector) to match the
+ *  other emoji. Graph uses connected nodes drawn in SVG, so it reads as a
+ *  graph rather than a spider web. */
 const SECTIONS = [
   {
     id: 'general',
@@ -77,7 +76,22 @@ const SECTIONS = [
   },
   {
     id: 'graph',
-    icon: '🕸\uFE0F',
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path d="m6 7 10 3M6 7l3 11m7-8-7 8m7-8 3 9" />
+        <circle cx="6" cy="7" r="2.5" fill="var(--panel)" />
+        <circle cx="16" cy="10" r="2.5" fill="var(--panel)" />
+        <circle cx="9" cy="18" r="2.5" fill="var(--panel)" />
+        <circle cx="19" cy="19" r="2.5" fill="var(--panel)" />
+      </svg>
+    ),
     label: 'Graph',
     blurb:
       "How big a graph comes back and how far back its recent-citer queries reach. Left automatic, Curious Astronaut sizes each graph from the seed's own citation pool; turn that off to size it yourself.",
@@ -156,6 +170,7 @@ function agentEntry(
 function NumberInput({
   value,
   min,
+  max,
   step,
   placeholder,
   onChange,
@@ -164,6 +179,8 @@ function NumberInput({
   value: number | ''
   /** Smallest value the config field accepts — 1 for positive, 0 for non-negative. */
   min: number
+  /** Largest accepted value, if bounded. */
+  max?: number
   step?: number
   /** Shown while empty — the code default an unset knob falls back to. */
   placeholder?: string
@@ -174,11 +191,16 @@ function NumberInput({
     <input
       type="number"
       min={min}
+      max={max}
       step={step}
       placeholder={placeholder}
       value={value}
       onChange={(event) =>
-        onChange(event.target.value === '' ? '' : Math.max(min, Number(event.target.value)))
+        onChange(
+          event.target.value === ''
+            ? ''
+            : Math.min(max ?? Infinity, Math.max(min, Number(event.target.value))),
+        )
       }
     />
   )
@@ -199,6 +221,7 @@ function ExtrasNumber({
   extrasKey,
   fallback,
   min = 1,
+  max,
 }: {
   draft: AppConfig
   edit: Edit
@@ -207,12 +230,15 @@ function ExtrasNumber({
   fallback: number
   /** 1 for a `PositiveInt` knob (the default), 0 where 0 disables the feature. */
   min?: number
+  /** Largest accepted override, if bounded. */
+  max?: number
 }) {
   const entry = draft.llm.agents.find((candidate) => candidate.id === agentId)
   return (
     <NumberInput
       value={entry?.extras?.[extrasKey] ?? ''}
       min={min}
+      max={max}
       placeholder={String(fallback)}
       onChange={(value) =>
         edit((next) => {
@@ -270,61 +296,8 @@ function SliderReset({
 }
 
 /**
- * A single-thumb slider over one agent-extras knob, with its value read out
- * beside it. Unset, it sits at the code default; moving it writes an
- * override, and ↺ removes it.
- *
- * @returns The slider row.
- */
-function ExtrasSlider({
-  draft,
-  edit,
-  agentId,
-  knob,
-  min,
-  max,
-  step = 1,
-  readout,
-}: {
-  draft: AppConfig
-  edit: Edit
-  agentId: string
-  knob: SliderKnob
-  min: number
-  max: number
-  step?: number
-  /** The value as the reader should read it ("350 words"). */
-  readout: (value: number) => string
-}) {
-  const entry = draft.llm.agents.find((candidate) => candidate.id === agentId)
-  const value = entry?.extras?.[knob.key] ?? knob.fallback
-  const fill = ((value - min) / (max - min)) * 100
-  return (
-    <div className="settings-slider">
-      <input
-        type="range"
-        className="settings-slider-single"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        aria-label={readout(value)}
-        style={{ '--fill': `${fill}%` } as CSSProperties}
-        onChange={(event) =>
-          edit((next) => {
-            agentEntry(next, agentId).extras[knob.key] = Number(event.target.value)
-          })
-        }
-      />
-      <span className="settings-slider-readout">{readout(value)}</span>
-      <SliderReset draft={draft} edit={edit} agentId={agentId} knobs={[knob]} />
-    </div>
-  )
-}
-
-/**
  * A two-thumb slider over a pair of agent-extras knobs, a floor and a cap
- * (the tutor's fewest and most images), on one track so the floor can never
+ * (lecture beats or images per lesson), on one track so the floor can never
  * stand above the cap: the floor's thumb stops at the cap's, and dragging
  * the cap below the floor pulls the floor down with it.
  *
@@ -791,6 +764,8 @@ const GROUP_BLURBS: Record<string, string> = {
     'Answers questions. Plans the research, reads papers in full, walks the citation graph, searches your library and the open web through the scouts, and writes the grounded answer — the most tool calls and the most judgment of any agent.',
   'Paper scout':
     "Finds papers by free-text search — on the researcher's behalf mid-answer, and directly from the search bar.",
+  Tutor:
+    'Builds the Knowledge Graph: breaks a paper into the ideas you need to understand first, expands their prerequisites, and writes lessons that teach each concept with examples and images.',
   'Web scout':
     "Searches the open web for the researcher. The search itself runs on the vendor's side, so it needs a cloud vendor that offers one.",
 }
@@ -1258,36 +1233,26 @@ const ROW_DEFS: RowDef[] = [
     ),
   },
   {
-    key: 'lecturer-min-beats',
+    key: 'lecturer-beats',
     section: 'agents',
     page: 'agents',
     group: 'Lecturer',
-    label: 'Minimum beats',
-    hint: 'The shortest lecture, in beats. Empty = the code default.',
+    label: 'Lecture length',
+    hint: 'Minimum and maximum lecture beats. Raising the upper end makes lectures longer and slower to write. ↺ goes back to the default (7–12 beats).',
     control: (draft, edit) => (
-      <ExtrasNumber
+      <ExtrasRange
         draft={draft}
         edit={edit}
         agentId="lecturer"
-        extrasKey="min_beats"
-        fallback={7}
-      />
-    ),
-  },
-  {
-    key: 'lecturer-max-beats',
-    section: 'agents',
-    page: 'agents',
-    group: 'Lecturer',
-    label: 'Maximum beats',
-    hint: 'The longest lecture, in beats — raising this materially lengthens (and slows) every lecture.',
-    control: (draft, edit) => (
-      <ExtrasNumber
-        draft={draft}
-        edit={edit}
-        agentId="lecturer"
-        extrasKey="max_beats"
-        fallback={12}
+        floor={{ key: 'min_beats', fallback: 7 }}
+        cap={{ key: 'max_beats', fallback: 12 }}
+        min={1}
+        max={Math.max(
+          30,
+          draft.llm.agents.find((agent) => agent.id === 'lecturer')?.extras?.max_beats ?? 12,
+        )}
+        labels={{ floor: 'Minimum lecture beats', cap: 'Maximum lecture beats' }}
+        readout={(low, high) => (low === high ? `${high} beats` : `${low} – ${high} beats`)}
       />
     ),
   },
@@ -1470,7 +1435,7 @@ const ROW_DEFS: RowDef[] = [
     page: 'agents',
     group: 'Tutor',
     label: 'Model',
-    hint: 'The LLM behind the Knowledge Graph: it breaks a paper into the ideas you need to know first, and writes each lesson. Teaching quality shows here, so it sits on the same tier as the lecturer.',
+    hint: 'The LLM that drives this agent. Teaching quality shows here, so choose a capable model on the same tier as the lecturer.',
     control: (draft, edit, models) => (
       <ModelInput draft={draft} edit={edit} agentId="tutor" models={models} />
     ),
@@ -1492,17 +1457,16 @@ const ROW_DEFS: RowDef[] = [
     page: 'agents',
     group: 'Tutor',
     label: 'Lesson length',
-    hint: 'Roughly how long a lesson runs, in words (100–1500). Longer lessons cost more and take longer to write. Lessons already written stay as they are; new ones use the new length. ↺ goes back to the default.',
+    hint: 'Roughly how long a lesson runs, in words (100–1500). Longer lessons cost more and take longer to write. Lessons already written stay as they are; new ones use the new length. Empty = the code default.',
     control: (draft, edit) => (
-      <ExtrasSlider
+      <ExtrasNumber
         draft={draft}
         edit={edit}
         agentId="tutor"
-        knob={{ key: 'lesson_words', fallback: 350 }}
+        extrasKey="lesson_words"
+        fallback={350}
         min={100}
         max={1500}
-        step={50}
-        readout={(words) => `${words} words`}
       />
     ),
   },
@@ -1703,6 +1667,8 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
   // '' is the section's own landing page. A section with sub-pages opens
   // there rather than dropping you into an arbitrary first child.
   const [page, setPage] = useState<PageId | ''>('')
+  const [agentTab, setAgentTab] = useState('Summarizer')
+  const agentTabsId = useId()
   // The settings tour: auto-runs once ever on the first open (its own
   // seen-flag, like the app's two phases), then only from the ? button.
   const [tourOpen, setTourOpen] = useState(false)
@@ -1745,6 +1711,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
     setFilter('')
     setSection(target as SectionId)
     setPage((sub ?? '') as PageId | '')
+    if (target === 'agents' && sub === 'agents') setAgentTab('Lecturer')
   }, [])
 
   const query = filter.trim().toLowerCase()
@@ -1845,7 +1812,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
     }
   }
 
-  // A search reaches across sub-pages and ignores folding — hiding a matching
+  // A search reaches across sub-pages and ignores tabs and folding — hiding a matching
   // row behind either is the thing search exists to avoid.
   const searching = query !== ''
 
@@ -1871,6 +1838,10 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
     if (last && last.name === row.group) last.rows.push(row)
     else groups.push({ name: row.group, rows: [row] })
   }
+
+  const tabbedAgents = section === 'agents' && page === 'agents' && !searching
+  const selectedAgent = groups.find((group) => group.name === agentTab) ?? groups[0]
+  const shownGroups = tabbedAgents ? groups.filter((group) => group === selectedAgent) : groups
 
   const toggleGroup = (name: string) =>
     setFoldedGroups((previous) => {
@@ -1936,44 +1907,94 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
         </aside>
 
         <div className="settings-content">
-          <button
-            className="settings-help"
-            onClick={() => setTourOpen(true)}
-            aria-label="Tour the settings"
-            title="Tour the settings"
-            data-tour="settings-help"
-          >
-            ?
-          </button>
-          <button className="settings-close" onClick={onClose} aria-label="Close settings">
-            ✕
-          </button>
-          <div className="settings-scroll">
+          <header className="settings-header">
+            <h2>
+              {SECTIONS.find((entry) => entry.id === section)?.label}
+              {pageLabel && (
+                <>
+                  <span className="settings-crumb-sep">›</span>
+                  {pageLabel}
+                </>
+              )}
+            </h2>
+            <div className="settings-header-actions">
+              <button
+                className="settings-help"
+                onClick={() => setTourOpen(true)}
+                aria-label="Tour the settings"
+                title="Tour the settings"
+                data-tour="settings-help"
+              >
+                ?
+              </button>
+              <button className="settings-close" onClick={onClose} aria-label="Close settings">
+                ✕
+              </button>
+            </div>
+          </header>
+          {tabbedAgents && draft && (
+            <div className="settings-agent-tabs" role="tablist" aria-label="Agents">
+              {groups.map((group, index) => (
+                <button
+                  key={group.name}
+                  type="button"
+                  role="tab"
+                  id={`${agentTabsId}-tab-${group.name?.replaceAll(' ', '-')}`}
+                  aria-selected={group === selectedAgent}
+                  aria-controls={`${agentTabsId}-panel`}
+                  tabIndex={group === selectedAgent ? 0 : -1}
+                  onClick={() => setAgentTab(group.name!)}
+                  onKeyDown={(event) => {
+                    let nextIndex = index
+                    if (event.key === 'ArrowRight') nextIndex = (index + 1) % groups.length
+                    else if (event.key === 'ArrowLeft')
+                      nextIndex = (index + groups.length - 1) % groups.length
+                    else if (event.key === 'Home') nextIndex = 0
+                    else if (event.key === 'End') nextIndex = groups.length - 1
+                    else return
+                    event.preventDefault()
+                    setAgentTab(groups[nextIndex].name!)
+                    const tabs =
+                      event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+                        '[role="tab"]',
+                      )
+                    tabs?.[nextIndex].focus()
+                  }}
+                >
+                  {group.name}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="settings-scroll" key={tabbedAgents ? selectedAgent?.name : 'settings'}>
             {!draft && !error && <div className="settings-loading">Loading…</div>}
 
             {draft && (
               <>
-                <h2>
-                  {SECTIONS.find((entry) => entry.id === section)?.label}
-                  {pageLabel && (
-                    <>
-                      <span className="settings-crumb-sep">›</span>
-                      {pageLabel}
-                    </>
-                  )}
-                </h2>
-
                 {activeSection?.blurb && !searching && !pageLabel && (
                   <p className="settings-blurb">{activeSection.blurb}</p>
                 )}
-                {groups.map((group) => {
+                {shownGroups.map((group) => {
                   // A search opens everything it matched: the reader asked for
                   // exactly these rows and should not have to unfold them.
                   const open =
-                    group.name === undefined || searching || !foldedGroups.has(group.name)
+                    tabbedAgents ||
+                    group.name === undefined ||
+                    searching ||
+                    !foldedGroups.has(group.name)
                   return (
-                    <div key={group.name ?? group.rows[0].key}>
-                      {group.name !== undefined && (
+                    <div
+                      key={group.name ?? group.rows[0].key}
+                      role={tabbedAgents ? 'tabpanel' : undefined}
+                      id={tabbedAgents ? `${agentTabsId}-panel` : undefined}
+                      aria-labelledby={
+                        tabbedAgents
+                          ? `${agentTabsId}-tab-${group.name?.replaceAll(' ', '-')}`
+                          : undefined
+                      }
+                      tabIndex={tabbedAgents ? 0 : undefined}
+                    >
+                      {group.name !== undefined && !tabbedAgents && (
                         <button
                           type="button"
                           className="settings-group-head"

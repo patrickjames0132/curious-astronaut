@@ -5003,6 +5003,38 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Settings header, agent tabs and clearer controls** *(v8.47.0)* —
+      the settings pane now has a fixed header for its section title and
+      sub-page breadcrumb, with a divider beneath and space reserved for the
+      tour and close buttons. Long pages scroll below those controls. Agent
+      Settings presents one tab per agent, with keyboard arrows/Home/End,
+      retained draft edits and a description above its fields (including the
+      Tutor). Search still reaches every agent; the tour selects the Lecturer
+      tab for its model stop. Model Providers keeps its foldable groups.
+      Graph uses a connected-nodes icon instead of a spider web; the sidebar
+      gear and modal close icon are larger. The lecturer's minimum/maximum
+      beats share a two-thumb range with defaults 7–12 and reset, preventing
+      inverted bounds. Regression tests cover tab navigation, search, edits,
+      range ordering, persistence and reset. Approved by Patrick, 2026-10-25.
+
+- [x] **Turn the Tutor's lesson length and images per lesson back into
+      number fields** — two Tutor rows under Agents → Agent Settings.
+      **Lesson length** (`lesson_words`) is an `ExtrasSlider` (100–1500,
+      step 50): make it an incremental number field again, as it was before
+      the slider. **Images per lesson** is an `ExtrasRange` over two knobs, a
+      floor (`min_images`, default 2) and a cap (`images`, default 3): drop
+      the min/max pair for one incremental number field. That means deciding
+      what happens to the floor in the tutor's backend, which today sends a
+      lesson back when it has fewer images than `min_images`. Bring the row
+      hints and the Tutor's README along. *(Patrick, 2026-10-21.)*
+
+      **Shipped in v8.47.0, with the image decision revised by Patrick
+      (2026-10-25).** Lesson length is a number field again, bounded to
+      100–1500 words with 350 as its default; clearing removes the override.
+      Patrick explicitly kept the images-per-lesson min/max slider, so its
+      floor and the tutor's backend behavior stay as they are. The settings
+      hints and package README describe these controls.
+
 - [x] **Recent chats in the collapsed sidebar** — with the sidebar collapsed,
       there's no way back to a recent chat without opening it again. Add
       buttons for the most recent chats to the collapsed rail, so switching

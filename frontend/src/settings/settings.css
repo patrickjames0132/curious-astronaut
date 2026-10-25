@@ -86,6 +86,12 @@
   text-align: center;
 }
 
+.settings-nav-icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
 /* --- content pane ------------------------------------------------------ */
 
 .settings-content {
@@ -98,12 +104,29 @@
 
 .settings-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 26px 34px 20px;
+  padding: 20px 34px;
 }
 
+/* Keep the section title and modal actions above the scrolling fields. */
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: 20px;
+  padding: 14px 16px 14px 34px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-header-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 12px;
+}
 .settings-content h2 {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 17px;
   color: var(--text-strong);
 }
@@ -115,12 +138,9 @@
 }
 
 .settings-close {
-  position: absolute;
-  top: 14px;
-  right: 16px;
   border: none;
   background: none;
-  font-size: 16px;
+  font-size: 20px;
   cursor: pointer;
   color: var(--muted);
 }
@@ -132,9 +152,6 @@
 /* The tour launcher: a ringed ? beside the ✕, the same idle/hover tones. It
    is deliberately small — a way in for the curious, not a call to action. */
 .settings-help {
-  position: absolute;
-  top: 15px;
-  right: 44px;
   width: 18px;
   height: 18px;
   padding: 0;
@@ -224,11 +241,8 @@
   width: 110px;
 }
 
-/* Sliders (ExtrasSlider, ExtrasRange): a 4px track and 16px thumb, as the
-   graph controls' range sliders draw them, with the value read out beside it
-   and a ↺ while it's overridden. A single slider fills up to its thumb from
-   the `--fill` var; the two-thumb one overlays two inputs on a shared
-   track + fill, with only the thumbs taking the pointer. */
+/* Image range: two thumbs on a shared track, a readout and a reset while
+   overridden. Only the thumbs take the pointer. */
 .settings-slider {
   display: flex;
   align-items: center;
@@ -264,22 +278,6 @@
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
-}
-.settings-row-control .settings-slider-single {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 16px;
-  margin: 0;
-}
-.settings-slider-single::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(to right, var(--accent) var(--fill), var(--border) var(--fill));
-}
-.settings-slider-single::-moz-range-track {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(to right, var(--accent) var(--fill), var(--border) var(--fill));
 }
 .settings-range {
   position: relative;
@@ -747,4 +745,32 @@
 .settings-landing-link:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Agent tabs stay beside the fixed heading while their fields scroll. */
+.settings-agent-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 10px 16px 10px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-agent-tabs [role='tab'] {
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.settings-agent-tabs [role='tab']:hover {
+  background: var(--hover);
+}
+.settings-agent-tabs [aria-selected='true'] {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--text-strong);
 }

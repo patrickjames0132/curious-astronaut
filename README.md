@@ -221,6 +221,13 @@ graph explorer runs fine without it, but the Assistant panel needs it.
   that puts the lecturer and researcher on its advanced model and the
   summarizer and scouts on its light one, in one click.
 
+  Settings ▸ Agents ▸ Agent Settings has a tab for each agent, with its
+  description, model and tuning controls together. Search reaches across all
+  tabs. The lecturer's lecture length uses a minimum/maximum beat slider;
+  the Tutor's lesson length is a word-count number field, while its images
+  per lesson keep a minimum/maximum slider. The pane's title and tour/close
+  controls stay above the scrolling fields.
+
 ### 2. Build the frontend & run
 
 **Single-server** (serves the built frontend + API together):
