@@ -22,6 +22,21 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### Arriving in the PDF lit the passage but left the reader at the top (v8.48.0, pre-release)
+
+- **Symptom.** With a passage lit, switching from the text to the PDF lit
+  the right box (equation (6), page 5) but the pane stayed on page 1.
+  Clicking the answer afterwards scrolled there fine.
+- **Root cause.** A freshly opened PDF view sizes its pages at once, then
+  fits them to the pane's width a moment later. `scrollToPlace` landed in
+  between, and PdfView, which keeps the page in view across a change of
+  scale, put the pane back where it had been: the top.
+- **Fix.** `scrollToPlace` lands only once the page's scale has held for
+  250ms (`SCALE_SETTLED`), giving up waiting after ~5s.
+- **Lesson / guard.** Two pieces of code that each "keep the reader's place"
+  will fight over it on arrival; the later one wins. Reproduced only live,
+  since jsdom lays nothing out; the Reader test waits for the scroll.
+
 ### A narrowed window left the margin notes over their headings (v8.46.0)
 
 - **Symptom.** Shrinking the window in the text view put a section's

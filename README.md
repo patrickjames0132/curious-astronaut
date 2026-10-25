@@ -71,8 +71,13 @@ underlined in red, one at a time when you click them. Clicking the answer
 goes back to its passage, in either view, and switching views keeps it in
 sight. In the PDF the assistant also gets a picture of what you highlighted,
 so it reads an equation as typeset. For what won't select as text, an
-equation, a figure, a table, hold ⌥ (Alt) and drag a box over it in the PDF
-and ask about it the same way; the ⓘ beside the zoom sums up the controls.
+equation, a figure, a table, hold ⌥ (Alt) and drag a box over it and ask
+about it the same way. In the PDF the assistant sees a picture of the box; in
+the text the box takes the whole equations and figures it touches, and the
+assistant gets their LaTeX and sees the figures themselves. A passage asked
+about in one view lights in the other too, by its figure and equation
+numbers, and when part of it has no place there a note says so, with the
+other view a click away. The ⓘ beside the switch sums up the controls.
 
 An enlarged figure covers the middle of the app, never the sidebar or a
 docked assistant, so an assistant explaining a figure stays readable beside it.
