@@ -18,7 +18,15 @@ import { chatCleared } from '../../src/store/transcript'
 function lit(threadId: string, scroll = false) {
   return highlight(
     undefined,
-    passagesLit({ threadId, answer: 1, passage: 'words', places: [], quotes: [], scroll }),
+    passagesLit({
+      threadId,
+      answer: 1,
+      passage: 'words',
+      places: [],
+      labels: [],
+      quotes: [],
+      scroll,
+    }),
   )
 }
 
@@ -31,6 +39,7 @@ describe('lit passages', () => {
         answer: 3,
         passage: null,
         places: [],
+        labels: [],
         quotes: ['a quote'],
         scroll: true,
       }),

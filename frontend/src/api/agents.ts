@@ -670,6 +670,9 @@ export async function streamAskReader(
     /** Where a passage highlighted in the PDF view is (v8.45.0): the server
      *  sends the model a picture of it. */
     places?: PdfPlace[]
+    /** Figures boxed in the text view (v8.48.0), by their images' sources
+     *  (the figure proxy's URLs): the server sends the model the images. */
+    figures?: string[]
     provider: Provider
     source_ids?: string[]
     history?: HistoryTurn[]

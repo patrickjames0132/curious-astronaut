@@ -63,6 +63,8 @@ export interface AssistantBody {
   model?: string
   /** Where a highlighted passage is in the paper's PDF (the Reader's, v8.45.0). */
   places?: PdfPlace[]
+  /** Figures boxed in the Reader's text, by their images' sources (v8.48.0). */
+  figures?: string[]
 }
 
 /**
@@ -92,6 +94,12 @@ export interface AssistantQuestion {
   /** Where the passage it asks about is in the paper's PDF (v8.45.0): kept
    *  on the user turn and sent along. */
   places?: PdfPlace[]
+  /** Figures boxed in the Reader's text (v8.48.0), by their images'
+   *  sources: kept on the user turn and sent along, for the model to see. */
+  figures?: string[]
+  /** The labels the passage covers (v8.48.0), kept on the user turn so
+   *  either of the Reader's views can light it. Not sent. */
+  labels?: string[]
 }
 
 /** The question in flight in each side chat, by its key. */
@@ -153,13 +161,11 @@ export function askAssistant(tool: AssistantTool, request: AssistantQuestion, pr
     const history =
       request.history ?? conversationHistory(getState().transcript.byKey[key]?.chat ?? [])
     dispatch(
-      turnStarted(
-        question,
-        key,
-        request.quick ? request.startedAt : undefined,
-        request.quick,
-        request.places,
-      ),
+      turnStarted(question, key, request.quick ? request.startedAt : undefined, request.quick, {
+        places: request.places,
+        figures: request.figures,
+        labels: request.labels,
+      }),
     )
     dispatch(turnContextSet(borrowedChats(getState(), question, key), key))
     let failed = false
@@ -175,6 +181,7 @@ export function askAssistant(tool: AssistantTool, request: AssistantQuestion, pr
           thread_context: siblingContext(getState(), question, key),
           ...(request.quick && { quick: true }),
           ...(request.places?.length && { places: request.places }),
+          ...(request.figures?.length && { figures: request.figures }),
           model: getState().transcript.byKey[key]?.model,
         },
         {
@@ -222,6 +229,10 @@ export interface PassageQuote {
   /** Where it sits in the paper's PDF, when highlighted in the Reader's PDF
    *  view (v8.45.0). */
   places?: PdfPlace[]
+  /** Figures boxed in the Reader's text (v8.48.0), by their images' sources. */
+  figures?: string[]
+  /** The labels it covers (v8.48.0): "Figure 1", "(6)". */
+  labels?: string[]
 }
 
 /**

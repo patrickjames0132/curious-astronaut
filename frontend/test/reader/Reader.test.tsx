@@ -577,6 +577,7 @@ it('lights an answer’s passages in the text, going there only when asked', asy
         answer: 1,
         passage: null,
         places: [],
+        labels: [],
         quotes: ['recurrent networks'],
         scroll: false,
       }),
@@ -592,6 +593,7 @@ it('lights an answer’s passages in the text, going there only when asked', asy
         answer: 1,
         passage: null,
         places: [],
+        labels: [],
         quotes: ['the dominant models'],
         scroll: true,
       }),
@@ -612,7 +614,7 @@ it('lights places in the PDF: the passage where it was highlighted, the quotes w
   Element.prototype.scrollTo = scrollTo as unknown as typeof Element.prototype.scrollTo
   vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'no_render' })
   const quoted = { page: 1, rects: [[10, 20, 30, 40]] }
-  const find = vi.spyOn(api, 'findPdfQuotes').mockResolvedValue([[quoted]])
+  const find = vi.spyOn(api, 'findPdfQuotes').mockResolvedValue({ found: [[quoted]], labelled: [] })
   pdfStub.fail = false
   const { store } = mount(<Harness />)
   const view = await screen.findByTestId('pdf-view')
@@ -625,6 +627,7 @@ it('lights places in the PDF: the passage where it was highlighted, the quotes w
         answer: 1,
         passage: 'the words as asked',
         places: [highlighted],
+        labels: [],
         quotes: ['a quote'],
         scroll: true,
       }),
@@ -632,8 +635,9 @@ it('lights places in the PDF: the passage where it was highlighted, the quotes w
   })
   await waitFor(() => expect(lit()).toEqual([highlighted, quoted]))
   // Only the quotes are searched for: the passage has its places.
-  expect(find).toHaveBeenCalledWith('1706.03762', 's2', ['a quote'], expect.anything())
-  expect(scrollTo).toHaveBeenCalledTimes(1)
+  expect(find).toHaveBeenCalledWith('1706.03762', 's2', ['a quote'], [], expect.anything())
+  // Once the page's scale has settled.
+  await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1))
   // A passage with no places (asked in the text view) is searched for by its
   // words and a part-formula's glyphs, never its LaTeX.
   act(() => {
@@ -643,13 +647,20 @@ it('lights places in the PDF: the passage where it was highlighted, the quotes w
         answer: 3,
         passage: 'Vψ(st) − Qθ (part of $$V_\\psi(s_t) - Q_\\theta$$)',
         places: [],
+        labels: [],
         quotes: [],
         scroll: false,
       }),
     )
   })
   await waitFor(() =>
-    expect(find).toHaveBeenLastCalledWith('1706.03762', 's2', ['Vψ(st) − Qθ'], expect.anything()),
+    expect(find).toHaveBeenLastCalledWith(
+      '1706.03762',
+      's2',
+      ['Vψ(st) − Qθ'],
+      [],
+      expect.anything(),
+    ),
   )
   await waitFor(() => expect(lit()).toEqual([quoted]))
   expect(scrollTo).toHaveBeenCalledTimes(1)
@@ -661,7 +672,7 @@ it('goes to what is lit on switching between the text and the PDF', async () => 
   const scrollTo = vi.fn()
   Element.prototype.scrollTo = scrollTo as unknown as typeof Element.prototype.scrollTo
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
-  vi.spyOn(api, 'findPdfQuotes').mockResolvedValue([])
+  vi.spyOn(api, 'findPdfQuotes').mockResolvedValue({ found: [], labelled: [] })
   pdfStub.fail = false
   const { store } = mount(<Harness />)
   await screen.findByRole('heading', { name: '3.2Attention' })
@@ -673,6 +684,7 @@ it('goes to what is lit on switching between the text and the PDF', async () => 
         answer: 1,
         passage: 'Recurrent networks',
         places: [{ page: 2, rects: [[10, 20, 30, 40]] }],
+        labels: [],
         quotes: [],
         scroll: false,
       }),
@@ -1220,7 +1232,7 @@ it('shows a crosshair over the PDF while ⌥ is held, and says how in the contro
   await screen.findByRole('heading', { name: '3.2Attention' })
   const help = screen.getByRole('button', { name: 'How to use the reader' })
   fireEvent.click(help)
-  expect(screen.getByText(/Switch to the PDF to box/)).toBeTruthy()
+  expect(screen.getByText(/drag a box over equations, figures or tables/)).toBeTruthy()
   fireEvent.click(help)
   fireEvent.click(screen.getByRole('button', { name: 'PDF' }))
   await screen.findByTestId('pdf-view')
@@ -1258,4 +1270,134 @@ it('quotes a box with no words in it as its picture', async () => {
   expect(ask.mock.calls[0][0].question).toBe(
     'Simplify, in plain words, this passage from page 1:\n\n“the boxed area, pictured”',
   )
+})
+
+it('asks about a box over the text by the whole elements it takes, a figure as its image', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const ask = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
+  const read = vi.spyOn(api, 'fetchPdfPassage')
+  const { store } = mount(<Harness onAssistant={() => {}} />)
+  await screen.findByRole('heading', { name: '3.2Attention' })
+  const article = document.querySelector('.reader-article') as HTMLElement
+  const equation = document.querySelector('.reader-equation') as HTMLElement
+  const figure = document.querySelector('.reader-figure') as HTMLElement
+  // jsdom lays nothing out: the article at the top left, the equation and
+  // the figure one under the other, everything else out of the way.
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    if (this === article) return new DOMRect(0, 0, 800, 3000)
+    if (this === equation) return new DOMRect(40, 400, 600, 40)
+    if (this === figure) return new DOMRect(40, 460, 600, 200)
+    return new DOMRect(0, 2000, 0, 0)
+  })
+  fireEvent.mouseDown(equation, { altKey: true, button: 0, clientX: 100, clientY: 410 })
+  fireEvent.mouseMove(window, { clientX: 300, clientY: 500 })
+  fireEvent.mouseUp(window, { clientX: 300, clientY: 500 })
+  const menu = await screen.findByRole('toolbar', { name: 'Boxed area' })
+  // Snapped to what it took: the equation and the figure, whole.
+  const box = document.querySelector('.reader-text-box') as HTMLElement
+  expect([box.style.left, box.style.top, box.style.width, box.style.height]).toEqual([
+    '40px',
+    '400px',
+    '600px',
+    '260px',
+  ])
+  fireEvent.mouseDown(within(menu).getByRole('button', { name: 'Explain' }))
+  await waitFor(() => expect(ask).toHaveBeenCalled())
+  const body = ask.mock.calls[0][0]
+  // The equation as its LaTeX, the figure as its caption; no PDF read.
+  expect(body.question).toContain('$$QK^{T}$$')
+  expect(body.question).toContain('Figure 1. The Transformer.')
+  expect(body.figures).toEqual(['/api/figure_proxy?src=x'])
+  expect(body.places).toBeUndefined()
+  expect(read).not.toHaveBeenCalled()
+  const turn = store.getState().transcript.byKey['attention:reader'].chat[0]
+  expect(turn.boxedFigures).toEqual(body.figures)
+  expect(document.querySelector('.reader-text-box')).toBeNull()
+})
+
+it('lights a passage from the other view by its labels, and says when part of it isn’t here', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  vi.spyOn(api, 'findPdfQuotes').mockResolvedValue({ found: [[]], labelled: [[]] })
+  pdfStub.fail = false
+  const { store } = mount(<Harness />)
+  await screen.findByRole('heading', { name: '3.2Attention' })
+  const ask = (labels: string[]) =>
+    act(() => {
+      store.dispatch(
+        passagesLit({
+          threadId: THREAD.id,
+          answer: 1,
+          passage: 'glyphs the text has nowhere',
+          places: [{ page: 2, rects: [[1, 2, 3, 4]] }],
+          labels,
+          quotes: [],
+          scroll: false,
+        }),
+      )
+    })
+  // Asked in the PDF over Figure 1: the text has it, by its label.
+  ask(['Figure 1'])
+  expect(screen.queryByRole('status')).toBeNull()
+  // Over an equation the text has no label for: said, with the PDF offered.
+  ask(['(9)'])
+  const note = await screen.findByRole('status')
+  expect(note.textContent).toContain('Part of this passage isn’t in the text')
+  fireEvent.click(within(note).getByRole('button', { name: 'Show in PDF' }))
+  await screen.findByTestId('pdf-view')
+  // In the PDF it was asked in, nothing is missing.
+  await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+})
+
+it('says when part of a passage asked in the text has no place in the PDF', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const find = vi
+    .spyOn(api, 'findPdfQuotes')
+    .mockResolvedValue({ found: [[]], labelled: [[{ page: 2, rects: [[1, 2, 3, 4]] }]] })
+  pdfStub.fail = false
+  const { store } = mount(<Harness />, { ...THREAD, readerView: 'pdf' })
+  await screen.findByTestId('pdf-view')
+  act(() => {
+    store.dispatch(
+      passagesLit({
+        threadId: THREAD.id,
+        answer: 1,
+        passage: 'An unnumbered $$x^2$$ and Figure 1. The Transformer.',
+        places: [],
+        labels: ['Figure 1'],
+        quotes: [],
+        scroll: false,
+      }),
+    )
+  })
+  await waitFor(() =>
+    expect(find).toHaveBeenCalledWith(
+      '1706.03762',
+      's2',
+      ['An unnumbered', 'and Figure 1. The Transformer.'],
+      ['Figure 1'],
+      expect.anything(),
+    ),
+  )
+  // The unnumbered equation has no place in a PDF.
+  const note = await screen.findByRole('status')
+  expect(note.textContent).toContain('isn’t in the PDF')
+  expect(within(note).getByRole('button', { name: 'Show in text' })).toBeTruthy()
+})
+
+it('carries the labels a text selection or box reaches into the question', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const opened = vi.fn()
+  mount(<Reader thread={THREAD} onAssistant={opened} />)
+  const tag = await screen.findByText('(1)')
+  const equation = tag.closest('.reader-equation')!
+  Range.prototype.getBoundingClientRect ??= () => new DOMRect(100, 200, 80, 16)
+  const range = document.createRange()
+  range.selectNodeContents(equation.querySelector('.reader-equation-body')!)
+  const selection = window.getSelection()!
+  selection.removeAllRanges()
+  selection.addRange(range)
+  fireEvent.mouseUp(document)
+  fireEvent.mouseDown(await screen.findByRole('button', { name: 'Chat' }))
+  await waitFor(() => expect(opened).toHaveBeenCalled())
+  expect(opened.mock.calls[0][0]).toMatchObject({ labels: ['(1)'] })
 })

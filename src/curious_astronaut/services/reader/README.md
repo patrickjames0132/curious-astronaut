@@ -36,3 +36,25 @@ paper and open it (`GET /api/paper/<arxiv_id>/cited`). It returns
 Verified by `test/curious_astronaut/services/reader/test_citations.py`
 (matching on the real shapes of Attention's and SAC's bibliographies, the
 cache, the providers, all offline) and the route's tests.
+
+## `figures.py` — figures boxed in the text (v8.48.0)
+
+`figure_pngs(sources)` turns the figures a box over the Reader's text took
+into PNGs for the model, which `/api/ask_reader` sends with the question.
+An image can't be selected, so before the box the model only ever saw a
+figure's caption.
+
+- **Held to the figure proxy's allowlist.** The Reader sends the image
+  sources as the page shows them, our proxy's URLs (`/api/figure_proxy?src=`);
+  each is unwrapped and checked with `arxiv.is_render_url` (ar5iv, and
+  arXiv's HTML render) before anything is fetched, so a question can't make
+  the server fetch anywhere else.
+- **Every one a PNG.** Many renders draw their plots as SVG (all of SAC's
+  results), which the model can't take; pymupdf (the `pdf` extra) renders
+  SVG, JPEG and the rest to PNG, an SVG at twice its size to stay legible.
+  Without the extra only PNGs go.
+- At most eight images a question (SAC's results figure is six panels; a
+  cap of four cut it short); anything refused, unfetchable or
+  unreadable is left out, never an error.
+
+Tested with a real SVG rendered by pymupdf (`test_figures.py`).

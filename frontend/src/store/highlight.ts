@@ -34,6 +34,9 @@ export interface LitPassages {
   /** Where that passage sits in the PDF, when it was highlighted there
    *  (`ChatMsg.places`): the PDF view lights it there, not by its words. */
   places: PdfPlace[]
+  /** The labels that passage covers (v8.48.0): "Figure 1", "(6)", which
+   *  both views light it by, whichever it was asked in. */
+  labels: string[]
   /** The paper's words the answer quotes. */
   quotes: string[]
   /** Counts the requests to scroll to them: the Reader scrolls when it

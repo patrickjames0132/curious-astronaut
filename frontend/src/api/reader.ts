@@ -207,14 +207,16 @@ export interface PdfPoint {
  * @param ref The paper's arXiv id, or its provider id.
  * @param provider Who to ask for a non-arXiv paper's open-access PDF.
  * @param where Where the drag began and ended (`span`), or a box's places.
- * @returns The words and places; empty on any failure.
+ * @returns The words, places, and the labels they cover ("Figure 1", "(6)",
+ *          v8.48.0, which the text view lights the same things by); empty
+ *          on any failure.
  */
 export async function fetchPdfPassage(
   ref: string,
   provider: string,
   where: { span: { start: PdfPoint; end: PdfPoint } } | { places: PdfPlace[] },
-): Promise<{ text: string; places: PdfPlace[] }> {
-  const none = { text: '', places: [] }
+): Promise<{ text: string; places: PdfPlace[]; labels: string[] }> {
+  const none = { text: '', places: [], labels: [] }
   try {
     const res = await fetch(
       `/api/paper/${encodeURIComponent(ref)}/pdf-passage?provider=${encodeURIComponent(provider)}`,
@@ -225,40 +227,46 @@ export async function fetchPdfPassage(
       },
     )
     if (!res.ok) return none
-    const data = (await res.json()) as { text?: string; places?: PdfPlace[] }
-    return { text: data.text ?? '', places: data.places ?? [] }
+    const data = (await res.json()) as { text?: string; places?: PdfPlace[]; labels?: string[] }
+    return { text: data.text ?? '', places: data.places ?? [], labels: data.labels ?? [] }
   } catch {
     return none
   }
 }
 
 /**
- * Where an answer's quotes are in a paper's PDF (v8.45.0).
+ * Where an answer's quotes are in a paper's PDF (v8.45.0), and its labels
+ * (v8.48.0): a float's region by "Figure 1", an equation's line by "(6)".
  *
  * @param ref The paper's arXiv id, or its provider id.
  * @param provider Who to ask for a non-arXiv paper's open-access PDF.
  * @param quotes The quotes.
+ * @param labels The labels, as the text view writes them.
  * @param signal Aborts the request when the lit passages change.
- * @returns One list of places per quote, in order (empty for one not found,
- *          and for all of them on any failure).
+ * @returns One list of places per quote and per label, in order (empty for
+ *          one not found, and for all of them on any failure).
  */
 export async function findPdfQuotes(
   ref: string,
   provider: string,
   quotes: string[],
+  labels: string[],
   signal?: AbortSignal,
-): Promise<PdfPlace[][]> {
-  const none = quotes.map((): PdfPlace[] => [])
+): Promise<{ found: PdfPlace[][]; labelled: PdfPlace[][] }> {
+  const none = {
+    found: quotes.map((): PdfPlace[] => []),
+    labelled: labels.map((): PdfPlace[] => []),
+  }
   const res = await fetch(
     `/api/paper/${encodeURIComponent(ref)}/pdf-find?provider=${encodeURIComponent(provider)}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quotes }),
+      body: JSON.stringify({ quotes, labels }),
       signal,
     },
   )
   if (!res.ok) return none
-  const data = (await res.json()) as { found?: PdfPlace[][] }
-  return data.found ?? none
+  const data = (await res.json()) as { found?: PdfPlace[][]; labelled?: PdfPlace[][] }
+  return { found: data.found ?? none.found, labelled: data.labelled ?? none.labelled }
 }

@@ -198,8 +198,8 @@ next launch. SQLite remains the durable store.
 `library.ts` loads uploaded sources once and refreshes after source operations.
 `highlight.ts` contains serializable paper ids and clears on navigation;
 since v8.45.0 it also holds the Reader's lit passages (`passages`: the
-thread, the answer, the passage its question was asked about and that
-passage's places in the PDF, the answer's quotes, and a counter of requests
+thread, the answer, the passage its question was asked about, that
+passage's places in the PDF and its labels (v8.48.0), the answer's quotes, and a counter of requests
 to go to them), set by the Reader Assistant and shown by the Reader.
 `selectScope` replaced `selectGroundingNodes`/`selectLectureNodes` in v7.24.0
 (they intersected the selection with the visible set and kept hidden

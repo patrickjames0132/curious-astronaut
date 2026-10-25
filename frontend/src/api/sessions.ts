@@ -40,6 +40,18 @@ export interface ChatMsg {
    * lights there, and what a retry sends again. User turns only.
    */
   places?: PdfPlace[]
+  /**
+   * Figures boxed in the Reader's text view (v8.48.0), by their images'
+   * sources: sent with the question so the model sees them, and again on a
+   * retry. User turns only; not `figures`, an answer's own.
+   */
+  boxedFigures?: string[]
+  /**
+   * The labels the passage covers (v8.48.0): "Figure 1", "Table 2", "(6)".
+   * Both of the Reader's views know them, so an answer lights a passage
+   * asked in one view in the other too. User turns only.
+   */
+  labels?: string[]
   /** Ids of the papers this answer cited (assistant turns only). */
   cited?: string[]
   /**

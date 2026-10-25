@@ -63,7 +63,11 @@ A passage highlighted in the Reader's PDF view carries **places** too
 (`PassageQuote.places`, `AssistantQuestion.places`): where it sits on the
 page. `askAssistant` keeps them on the user turn (`ChatMsg.places`) and
 sends them with the question, so the server can picture the passage for
-the model; a retry sends the turn's places again.
+the model; a retry sends the turn's places again. Figures boxed in the
+Reader's text go the same way (`figures`, kept as `ChatMsg.boxedFigures`,
+v8.48.0): the server sends the model their images. And the labels a
+passage covers (`labels`, "Figure 1", "(6)") are kept on the turn, not
+sent: the Reader lights the passage by them in whichever view it's in.
 
 ## Verified by
 

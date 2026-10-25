@@ -2,11 +2,13 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * A box drawn over the PDF view (v8.46.0, the Reader's stage 7): hold ⌥
- * (Alt) and drag, for what a text selection can't grab, an equation, a
- * figure, a table. The box is a place (`PdfPlace`), so it goes the way a
- * highlight does: the server reads the words inside it and pictures it for
- * the model, and the answer lights it.
+ * A box drawn with ⌥ (Alt) and a drag, for what a text selection can't
+ * grab, an equation, a figure, a table: over the PDF's pages (v8.46.0, the
+ * Reader's stage 7) or the text view's article (v8.48.0, stage 8). The hook
+ * only draws; what a box means is the view's. In the PDF it's a place
+ * (`PdfPlace`): the server reads the words inside it and pictures it for
+ * the model. In the text it takes the whole elements it touches
+ * (`textBox.ts`): there's nothing to picture that isn't already there.
  *
  * ⌥-drag only, no button (Patrick, 2026-10-25): text selection stays the
  * plain drag, and the box is taught by the tour, the controls' ⓘ and the
@@ -21,8 +23,10 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { PdfPlace } from '../api'
 
-/** A box on a page, in PDF points: `[x0, y0, x1, y1]` from its top-left. */
-export interface PdfBox {
+/** A box in a frame, `[x0, y0, x1, y1]` from its top-left in the frame's
+ *  units: a PDF page's points, or the text article's pixels (scale 1). */
+export interface DrawnBox {
+  /** The 1-based frame: the PDF's page, or 1 for the text's article. */
   page: number
   rect: number[]
   /** False while it's still being dragged. */
@@ -33,14 +37,19 @@ export interface PdfBox {
 const MIN_SIZE = 8
 
 /**
- * The page element a box sits on, and its scale (px per point).
+ * The frame a box sits in, and its scale (px per unit).
  *
  * @param pane The scrolling pane.
- * @param page The 1-based page.
+ * @param frames The frames' selector.
+ * @param page The 1-based frame.
  * @returns The element and scale, or null when it isn't laid out.
  */
-function pageOf(pane: HTMLElement, page: number): { element: HTMLElement; scale: number } | null {
-  const element = pane.querySelectorAll<HTMLElement>('.reader-pdf-page')[page - 1]
+function frameOf(
+  pane: HTMLElement,
+  frames: string,
+  page: number,
+): { element: HTMLElement; scale: number } | null {
+  const element = pane.querySelectorAll<HTMLElement>(frames)[page - 1]
   return element ? { element, scale: Number(element.dataset.scale) || 1 } : null
 }
 
@@ -48,30 +57,38 @@ function pageOf(pane: HTMLElement, page: number): { element: HTMLElement; scale:
  * Where a box is on screen.
  *
  * @param pane The scrolling pane.
+ * @param frames The frames' selector (`PDF_FRAMES` or `TEXT_FRAMES`).
  * @param box The box.
- * @returns Its screen rectangle, or null when its page isn't laid out.
+ * @returns Its screen rectangle, or null when its frame isn't laid out.
  */
-export function boxOnScreen(pane: HTMLElement, box: PdfBox): DOMRect | null {
-  const holder = pageOf(pane, box.page)
+export function boxOnScreen(pane: HTMLElement, frames: string, box: DrawnBox): DOMRect | null {
+  const holder = frameOf(pane, frames, box.page)
   if (!holder) return null
   const origin = holder.element.getBoundingClientRect()
   const [left, top, right, bottom] = box.rect.map((value) => value * holder.scale)
   return new DOMRect(origin.left + left, origin.top + top, right - left, bottom - top)
 }
 
+/** The frames a box is drawn in: the PDF's pages. */
+export const PDF_FRAMES = '.reader-pdf-page'
+/** The frames a box is drawn in: the text view's article. */
+export const TEXT_FRAMES = '.reader-article'
+
 /**
- * Draw a box over the PDF's pages with ⌥-drag.
+ * Draw a box in a view's frames with ⌥-drag.
  *
- * @param root The scrolling pane holding the pages.
- * @param enabled Whether the PDF view is showing.
+ * @param root The scrolling pane holding the frames.
+ * @param enabled Whether the view is showing.
+ * @param frames The frames' selector (`PDF_FRAMES` or `TEXT_FRAMES`).
  * @returns The box (being drawn, or drawn), a counter that changes when the
- *          page under it scrolls (to move its menu), and a way to let it go.
+ *          frame under it scrolls (to move its menu), and a way to let it go.
  */
-export function usePdfBox(
+export function useBoxDraw(
   root: RefObject<HTMLElement | null>,
   enabled: boolean,
-): { box: PdfBox | null; moved: number; clear: () => void } {
-  const [box, setBox] = useState<PdfBox | null>(null)
+  frames: string,
+): { box: DrawnBox | null; moved: number; clear: () => void } {
+  const [box, setBox] = useState<DrawnBox | null>(null)
   const [moved, setMoved] = useState(0)
   const drawn = useRef(false)
   drawn.current = !!box?.done
@@ -130,15 +147,15 @@ export function usePdfBox(
     const onDown = (event: MouseEvent) => {
       const target = event.target as Element | null
       if (event.button !== 0 || target?.closest?.('.selection-menu')) return
-      const element = target?.closest?.<HTMLElement>('.reader-pdf-page')
-      // A plain click anywhere lets a drawn box go; ⌥ on a page draws one.
+      const element = target?.closest?.<HTMLElement>(frames)
+      // A plain click anywhere lets a drawn box go; ⌥ in a frame draws one.
       if (!event.altKey || !element) {
         if (drawn.current) setBox(null)
         return
       }
       event.preventDefault()
       window.getSelection()?.removeAllRanges()
-      const pages = Array.from(pane.querySelectorAll<HTMLElement>('.reader-pdf-page'))
+      const pages = Array.from(pane.querySelectorAll<HTMLElement>(frames))
       const scale = Number(element.dataset.scale) || 1
       drag = { page: pages.indexOf(element) + 1, element, scale, left: 0, top: 0 }
       const [left, top] = pointAt(event)
@@ -177,17 +194,17 @@ export function usePdfBox(
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
-  }, [root, enabled])
+  }, [root, enabled, frames])
 
   return { box, moved, clear }
 }
 
 /**
- * A drawn box as a place, the shape a highlight's places take.
+ * A box drawn over the PDF as a place, the shape a highlight's places take.
  *
  * @param box The box.
  * @returns Its place.
  */
-export function boxPlace(box: PdfBox): PdfPlace {
+export function boxPlace(box: DrawnBox): PdfPlace {
   return { page: box.page, rects: [box.rect] }
 }

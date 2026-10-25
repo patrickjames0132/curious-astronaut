@@ -29,6 +29,12 @@ words, which come in reading order with their boxes:
   copy and the PDF), else by their first and last few words.
 * ``render_places`` — a PNG of each page's part, attached to the question,
   so the model *sees* an equation the PDF's glyphs can't spell.
+* ``labels_in`` / ``label_places`` — the labels both of the Reader's views
+  share (v8.48.0): "Figure 1", "Table 2", "Algorithm 1", an equation's
+  "(6)". A place is told which it covers, and a label is found as a place,
+  a float by the mined manifest's region and an equation by its number's
+  line, so a box or highlight from one view lights in the other: positions
+  mean nothing across views, labels mean the same thing in both.
 
 Nothing is stored: like a figure (``docs/pdf-mining.md``), all of it is
 derived from the PDF on disk in milliseconds. The words are memoized in
@@ -41,6 +47,7 @@ Charles Patrick James <charles.patrick.james@gmail.com>
 from __future__ import annotations
 
 import functools
+import re
 import unicodedata
 from pathlib import Path
 from typing import NamedTuple, TypedDict
@@ -63,6 +70,15 @@ END_WORDS = 5
 """Words matched at each end of a quote not found whole."""
 STRETCH = 1.5
 """How much longer than the quote a match by its ends may run."""
+
+FLOAT_LABEL = re.compile(r"^\s*(figure|fig\.|table|algorithm)\s*(\d+)", re.IGNORECASE)
+"""A float's caption, as it opens: "Figure 3.", "Fig. 3:", "Table 1"."""
+EQUATION_NUMBER = re.compile(r"^\((\d+[a-z]?)\)[.,;]?$")
+"""An equation's number, as a word of its own: "(6)"."""
+WORD_GAP = 8.0
+"""Points after a word the next on its line may start; a column's gutter is wider."""
+NUMBER_REACH = 120.0
+"""Points right of a place an equation's number may sit and still be its."""
 
 LIGATURES = {"ﬀ": "ff", "ﬁ": "fi", "ﬂ": "fl", "ﬃ": "ffi", "ﬄ": "ffl", "ﬅ": "st", "ﬆ": "st"}
 """Ligatures a PDF's text can carry, spelled out."""
@@ -391,6 +407,172 @@ def _columns(rects: list[list[float]]) -> list[list[list[float]]]:
         else:
             group.append(rect)
     return groups
+
+
+def float_label(caption: str) -> str | None:
+    """The label a float's caption opens with, as the text view writes it.
+
+    Args:
+        caption: The caption ("Figure 1. Training curves…").
+
+    Returns:
+        "Figure 1", "Table 2", "Algorithm 1", or None for one without.
+    """
+    match = FLOAT_LABEL.match(caption)
+    if not match:
+        return None
+    kind = match.group(1).lower()
+    name = "Figure" if kind.startswith("fig") else kind.capitalize()
+    return f"{name} {match.group(2)}"
+
+
+def _number(word: Word) -> str | None:
+    """An equation's number, if a word is one.
+
+    Args:
+        word: The word.
+
+    Returns:
+        "(6)", or None.
+    """
+    match = EQUATION_NUMBER.match(word.text)
+    return f"({match.group(1)})" if match else None
+
+
+def _overlaps(first: list[float], second: list[float]) -> bool:
+    """Whether two rectangles share any area.
+
+    Args:
+        first: ``[x0, y0, x1, y1]``.
+        second: The other.
+
+    Returns:
+        True when they overlap.
+    """
+    return first[0] < second[2] and second[0] < first[2] and first[1] < second[3] and second[1] < first[3]
+
+
+def _equation_line(words: tuple[Word, ...], number: Word) -> list[float]:
+    """The line an equation's number closes: its column's words beside it.
+
+    The column is the span of the page's text lines that run past the
+    number's left edge, so the other column's words on the same height
+    aren't taken. A tall equation (a fraction) overlaps the band and is
+    taken whole across it.
+
+    Args:
+        words: Every word of the PDF.
+        number: The number's word.
+
+    Returns:
+        The rectangle around the equation's line and its number.
+    """
+    page = [word for word in words if word.page == number.page]
+    lines: dict[tuple[int, int], list[float]] = {}
+    for word in page:
+        box = lines.setdefault((word.block, word.line), [word.x0, word.x1])
+        box[0], box[1] = min(box[0], word.x0), max(box[1], word.x1)
+    spans = [span for span in lines.values() if span[0] <= number.x0 and span[1] >= number.x0 - 5]
+    left = min((span[0] for span in spans), default=number.x0)
+    band = (number.y0 - 4, number.y1 + 4)
+    taken = [
+        word
+        for word in page
+        if word.y0 < band[1] and word.y1 > band[0] and word.x0 >= left - 2 and word.x1 <= number.x1
+    ]
+    return [
+        round(min(word.x0 for word in taken), 2),
+        round(min(word.y0 for word in taken), 2),
+        round(max(word.x1 for word in taken), 2),
+        round(max(word.y1 for word in taken), 2),
+    ]
+
+
+def _closes_its_line(words: tuple[Word, ...], number: Word) -> bool:
+    """Whether a number word is the last on its line, as an equation's is.
+
+    Args:
+        words: Every word of the PDF.
+        number: The word.
+
+    Returns:
+        True when no word follows it at its height within a word's gap
+        (prose that says "see (6)" goes on past it); the other column's
+        words, across the gutter, don't count.
+    """
+    middle = (number.y0 + number.y1) / 2
+    return not any(
+        word.page == number.page
+        and number.x1 < word.x0 <= number.x1 + WORD_GAP
+        and word.y0 < middle < word.y1
+        for word in words
+    )
+
+
+def label_places(path: str | Path, floats: list[dict], labels: list[str]) -> list[list[Place]]:
+    """Where each label is in a PDF: a float's region, an equation's line.
+
+    Args:
+        path: Filesystem path to the PDF.
+        floats: The PDF's mined manifest (``get_pdf_floats``'s ``floats``).
+        labels: The labels, as the text view writes them.
+
+    Returns:
+        For each label, in order, its places; empty for one not found.
+    """
+    words = _words(path)
+    found: list[list[Place]] = []
+    for label in labels:
+        if label.startswith("("):
+            numbers = [word for word in words if _number(word) == label]
+            number = next((word for word in numbers if _closes_its_line(words, word)), None)
+            found.append([{"page": number.page, "rects": [_equation_line(words, number)]}] if number else [])
+            continue
+        entry = next((item for item in floats if float_label(str(item.get("caption", ""))) == label), None)
+        found.append(
+            [{"page": int(entry["page"]), "rects": [[round(float(value), 2) for value in entry["region"]]]}]
+            if entry
+            else []
+        )
+    return found
+
+
+def labels_in(path: str | Path, floats: list[dict], places: list[Place]) -> list[str]:
+    """The labels a passage's places cover: the floats they overlap, and the
+    equations whose numbers close a line they reach.
+
+    Args:
+        path: Filesystem path to the PDF.
+        floats: The PDF's mined manifest.
+        places: The places (a highlight's lines, or a box).
+
+    Returns:
+        The labels, in reading order, each once.
+    """
+    words = _words(path)
+    labels: list[str] = []
+    for place in places:
+        for item in floats:
+            label = float_label(str(item.get("caption", "")))
+            if (
+                label
+                and label not in labels
+                and int(item.get("page", 0)) == place["page"]
+                and any(_overlaps(rect, [float(value) for value in item["region"]]) for rect in place["rects"])
+            ):
+                labels.append(label)
+        for word in words:
+            label = _number(word)
+            if not label or label in labels or word.page != place["page"]:
+                continue
+            middle = (word.y0 + word.y1) / 2
+            beside = any(
+                rect[1] - SLACK <= middle <= rect[3] + SLACK and rect[0] - SLACK <= word.x0 <= rect[2] + NUMBER_REACH
+                for rect in place["rects"]
+            )
+            if beside and _closes_its_line(words, word):
+                labels.append(label)
+    return labels
 
 
 def _between(words: list[Word], head: Word, tail: Word) -> list[Word]:

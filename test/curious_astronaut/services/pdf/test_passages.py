@@ -168,3 +168,55 @@ def test_places_are_pictured_one_png_per_page(tmp_path):
     )
     assert len(images) == 2
     assert all(image.startswith(b"\x89PNG") for image in images)
+
+
+def _two_columns(tmp_path):
+    """A two-column page: an equation numbered (3) in the left column, prose
+    in the right at its height, and prose that cites "(3)" mid-line."""
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)
+    # Justified lines, as a paper's are, run to the column's edge (~290).
+    page.insert_text((60, 100), "The left column opens with words, set justified out", fontsize=10)
+    page.insert_text((100, 140), "x = y + z", fontsize=10)
+    page.insert_text((270, 140), "(3)", fontsize=10)
+    page.insert_text((320, 140), "The right column runs beside it here.", fontsize=10)
+    page.insert_text((60, 180), "As (3) shows the left column goes on, to its edge", fontsize=10)
+    page.insert_text((60, 400), "Figure 2. A plot of the results.", fontsize=10)
+    path = tmp_path / "columns.pdf"
+    doc.save(path)
+    doc.close()
+    return path
+
+
+FLOATS = [{"kind": "figure", "page": 1, "caption": "Figure 2. A plot of the results.", "region": [60, 300, 300, 390]}]
+
+
+def test_a_float_label_reads_as_the_text_view_writes_it():
+    assert passages.float_label("Figure 1. Training curves") == "Figure 1"
+    assert passages.float_label("Fig. 3: Results") == "Figure 3"
+    assert passages.float_label("TABLE 2 Parameters") == "Table 2"
+    assert passages.float_label("Algorithm 1 Soft Actor-Critic") == "Algorithm 1"
+    assert passages.float_label("A caption with no label") is None
+
+
+def test_labels_are_found_as_places_a_float_by_its_region_an_equation_by_its_line(tmp_path):
+    path = _two_columns(tmp_path)
+    figure, equation, missing = passages.label_places(path, FLOATS, ["Figure 2", "(3)", "(4)"])
+    assert figure == [{"page": 1, "rects": [[60.0, 300.0, 300.0, 390.0]]}]
+    # The equation's line in its own column: the right column's words at the
+    # same height aren't taken, and the "(3)" cited mid-line isn't the one.
+    [place] = equation
+    assert place["page"] == 1
+    left, top, right, bottom = place["rects"][0]
+    assert 99 <= left <= 101 and right < 300 and top < 140 < bottom + 3
+    assert missing == []
+
+
+def test_a_place_is_told_the_labels_it_covers(tmp_path):
+    path = _two_columns(tmp_path)
+    # A box over the equation's body reaches its number, beside it.
+    assert passages.labels_in(path, FLOATS, [{"page": 1, "rects": [[95, 128, 160, 145]]}]) == ["(3)"]
+    # One over part of the figure.
+    assert passages.labels_in(path, FLOATS, [{"page": 1, "rects": [[100, 320, 150, 340]]}]) == ["Figure 2"]
+    # The prose citing "(3)" isn't an equation.
+    assert passages.labels_in(path, FLOATS, [{"page": 1, "rects": [[55, 168, 300, 184]]}]) == []

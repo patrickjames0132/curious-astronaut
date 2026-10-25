@@ -919,18 +919,18 @@
    click spotlights that one node. A non-resolving marker renders as bare text
    (never reaches this element). */
 /* A quote of the paper being read (v8.45.0, the Reader Assistant's ⟦…⟧):
-   the paper's own words, underlined in the gold they're lit with in the
-   paper; a click lights them there and goes to them. */
+   the paper's own words, underlined in the red they're lit with in the
+   paper (`--passage-lit`); a click lights them there and goes to them. */
 .paper-quote {
   padding: 0 1px;
   border-radius: 3px;
-  text-decoration: underline dotted color-mix(in srgb, var(--seed-ref) 80%, transparent);
+  text-decoration: underline dotted color-mix(in srgb, var(--passage-lit) 80%, transparent);
   text-underline-offset: 3px;
   cursor: pointer;
 }
 .paper-quote:hover,
 .paper-quote:focus-visible {
-  background: color-mix(in srgb, var(--seed-ref) 18%, transparent);
+  background: color-mix(in srgb, var(--passage-lit) 18%, transparent);
 }
 .paper-quote-plain {
   quotes: '“' '”';

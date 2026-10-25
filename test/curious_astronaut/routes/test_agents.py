@@ -765,3 +765,21 @@ def test_ask_reader_asks_in_words_alone_without_places_or_a_picture(client, monk
     monkeypatch.setattr(agents_routes.pdf_service, "fetch_pdf", refuse)
     frames(client.post("/api/ask_reader", json={**body, "places": [{"page": 1, "rects": [[1, 2, 3, 4]]}]}))
     assert seen["images"] == [] and "HIGHLIGHTED" not in seen["reading"]
+
+
+def test_ask_reader_shows_the_model_figures_boxed_in_the_text(client, monkeypatch):
+    """v8.48.0: a box over the text sends its figures' image sources; the
+    model gets the images, and is told they're pictured."""
+    seen: dict = {}
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        yield events.Token(text="ok")
+
+    _pdf_pages(monkeypatch, ["Page one text."])
+    monkeypatch.setattr(agents_routes.reader_figures, "figure_pngs", lambda raw: [b"\x89PNG fig"] if raw else [])
+    patch_agents(monkeypatch, fake_run)
+    body = {"question": "q", "paper": "1412.6980", "section": "page:1", "figures": ["/api/figure_proxy?src=x"]}
+    frames(client.post("/api/ask_reader", json=body))
+    assert seen["images"] == [b"\x89PNG fig"]
+    assert "THE FIGURE THEY BOXED in the paper's text is pictured in the image sent" in seen["reading"]

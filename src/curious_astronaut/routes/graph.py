@@ -745,11 +745,13 @@ def api_paper_pdf_passage(paper_ref: str) -> Response:
         provider: Who to ask for a non-arXiv paper's open-access PDF.
 
     Returns:
-        JSON ``{text, places}``: the words, and their lines' rectangles. A
-        nicety: anything that goes wrong comes back empty, and the Reader
-        keeps the browser's own reading.
+        JSON ``{text, places, labels}``: the words, their lines'
+        rectangles, and the labels they cover (v8.48.0: "Figure 1", "(6)"),
+        which the text view lights the same things by. A nicety: anything
+        that goes wrong comes back empty, and the Reader keeps the browser's
+        own reading.
     """
-    none = {"text": "", "places": []}
+    none: dict = {"text": "", "places": [], "labels": []}
     payload = request.get_json(silent=True) or {}
     span = pdf_passages.clean_span(payload.get("span"))
     places = pdf_passages.clean_places(payload.get("places"))
@@ -757,9 +759,10 @@ def api_paper_pdf_passage(paper_ref: str) -> Response:
     if path is None:
         return jsonify(none)
     try:
-        if span:
-            return jsonify(pdf_passages.passage_between(path, *span))
-        return jsonify(pdf_passages.passage_at(path, places))
+        read = pdf_passages.passage_between(path, *span) if span else pdf_passages.passage_at(path, places)
+        # A box's own rectangle reaches past its words (a figure has none).
+        covered = read["places"] + (places if not span else [])
+        return jsonify({**read, "labels": _labels_in(paper_ref, path, covered)})
     except pdf_service.PdfError:
         current_app.logger.warning("PDF passage failed for %s", paper_ref, exc_info=True)
         return jsonify(none)
@@ -773,27 +776,85 @@ def api_paper_pdf_find(paper_ref: str) -> Response:
         paper_ref: The paper's arXiv id, or its provider node id.
 
     Body:
-        ``{quotes: [str]}``, at most 40.
+        ``{quotes: [str], labels?: [str]}``, at most 40 each: labels as the
+        text view writes them, "Figure 1", "(6)" (v8.48.0).
 
     Query args:
         provider: Who to ask for a non-arXiv paper's open-access PDF.
 
     Returns:
-        JSON ``{found: [[{page, rects}]]}``, one list of places per quote, in
-        order (empty for one not found). A nicety: anything that goes wrong
-        finds nothing.
+        JSON ``{found: [[{page, rects}]], labelled: [[{page, rects}]]}``, one
+        list of places per quote and per label, in order (empty for one not
+        found): a float's region, an equation's line. A nicety: anything
+        that goes wrong finds nothing.
     """
     payload = request.get_json(silent=True) or {}
-    raw = payload.get("quotes")
-    quotes = [quote for quote in raw[:40] if isinstance(quote, str)] if isinstance(raw, list) else []
-    path = _cached_pdf(paper_ref) if quotes else None
+    quotes = _strings(payload.get("quotes"))
+    labels = _strings(payload.get("labels"))
+    none: dict[str, list] = {"found": [[] for _ in quotes], "labelled": [[] for _ in labels]}
+    path = _cached_pdf(paper_ref) if quotes or labels else None
     if path is None:
-        return jsonify({"found": [[] for _ in quotes]})
+        return jsonify(none)
     try:
-        return jsonify({"found": pdf_passages.find_quotes(path, quotes)})
+        return jsonify(
+            {
+                "found": pdf_passages.find_quotes(path, quotes),
+                "labelled": pdf_passages.label_places(path, _floats(paper_ref), labels) if labels else [],
+            }
+        )
     except pdf_service.PdfError:
         current_app.logger.warning("PDF quote search failed for %s", paper_ref, exc_info=True)
-        return jsonify({"found": [[] for _ in quotes]})
+        return jsonify(none)
+
+
+def _strings(raw: object) -> list[str]:
+    """A request's list of strings, capped at 40; anything else is none.
+
+    Args:
+        raw: The field.
+
+    Returns:
+        Its strings.
+    """
+    return [item for item in raw[:40] if isinstance(item, str)] if isinstance(raw, list) else []
+
+
+def _labels_in(paper_ref: str, path: Path, places: list) -> list[str]:
+    """The labels a passage's places cover, or none when they can't be read:
+    a nicety on a nicety, never the reason a passage comes back empty.
+
+    Args:
+        paper_ref: The paper's arXiv id, or its provider node id.
+        path: The PDF on disk.
+        places: The passage's places.
+
+    Returns:
+        Its labels ("Figure 1", "(6)").
+    """
+    try:
+        return pdf_passages.labels_in(path, _floats(paper_ref), places)
+    except Exception:
+        current_app.logger.warning("PDF labels failed for %s", paper_ref, exc_info=True)
+        return []
+
+
+def _floats(paper_ref: str) -> list[dict]:
+    """A paper's mined float manifest, for its labels' regions (v8.48.0).
+
+    Args:
+        paper_ref: The paper's arXiv id, or its provider node id.
+
+    Returns:
+        The manifest's entries; none when it can't be mined.
+    """
+    url = pdf_service.paper_pdf_url(normalize_arxiv_id(paper_ref), _requested_provider())
+    if not url:
+        return []
+    try:
+        return list(pdf_service.get_pdf_floats(url).get("floats") or [])
+    except Exception:  # an unreadable file: labels by equation number only
+        current_app.logger.warning("PDF floats failed for %s", paper_ref, exc_info=True)
+        return []
 
 
 @bp.get("/api/paper/<path:paper_ref>/code")

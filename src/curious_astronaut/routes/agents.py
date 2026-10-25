@@ -46,6 +46,7 @@ from ..services import pdf as pdf_service
 from ..services import search as search_service
 from ..services.graph import Node, Provider, resolve_provider
 from ..services.pdf import passages as pdf_passages
+from ..services.reader import figures as reader_figures
 from .sse import sse, sse_response
 
 bp = Blueprint("agents", __name__)
@@ -785,13 +786,15 @@ def api_ask_reader() -> ResponseReturnValue:
     chat's job, and the paper's Citation Graph is one card away.
 
     Body:
-        ``{question, paper, section?, title?, places?, history?,
+        ``{question, paper, section?, title?, places?, figures?, history?,
         thread_context?, provider?, source_ids?, quick?, model?}`` —
         ``paper`` the arXiv id (or provider id) the Reader read, ``section``
         the section in view or ``page:<n>`` in the PDF view (v8.40.0),
         ``title`` the paper's title for a PDF, ``places`` where a passage
-        highlighted in the PDF view is (v8.45.0, ``_highlight_context``);
-        the rest as for ``/api/ask_sources``.
+        highlighted in the PDF view is (v8.45.0, ``_highlight_context``),
+        ``figures`` the image sources of figures boxed in the text view
+        (v8.48.0, ``services/reader/figures.py``); the rest as for
+        ``/api/ask_sources``.
 
     Returns:
         An SSE stream as for ``/api/ask_sources``. HTTP 400 when the question
@@ -808,6 +811,17 @@ def api_ask_reader() -> ResponseReturnValue:
     if not reading:
         return jsonify({"error": error}), 400
     highlight, images = _highlight_context(payload.get("paper"), provider, payload.get("places"))
+    # Figures boxed in the text view (v8.48.0): their images, which the
+    # question's own words (their captions) can't show.
+    figures = reader_figures.figure_pngs(payload.get("figures"))
+    if figures:
+        highlight += (
+            f"\n\nTHE FIGURE{'S' if len(figures) > 1 else ''} THEY BOXED in the paper's text "
+            f"{'are' if len(figures) > 1 else 'is'} pictured in the image"
+            f"{'s' if len(figures) > 1 else ''} sent with their question; the passage they "
+            "quote gives the caption. Read the figure from the picture."
+        )
+        images = [*images, *figures]
 
     return sse_response(
         _relay(
