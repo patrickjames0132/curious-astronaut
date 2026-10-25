@@ -65,6 +65,7 @@ import { conceptOf, pdfContentsNotes, textNotesInPdf, useConceptNotes } from './
 import { useAnchoredCard } from './useAnchoredCard'
 import { useMarginNotes } from './useMarginNotes'
 import { boxesOf, findPassage, indexText, scrollToRange, type LitBox } from './passages'
+import { glide as glideTo } from './glide'
 import { selectionSpan } from './pdfPlaces'
 import { boxOnScreen, boxPlace, PDF_FRAMES, TEXT_FRAMES, useBoxDraw } from './useBoxDraw'
 import { labelElements, labelsInRange, labelsOf, readBox } from './textBox'
@@ -90,6 +91,33 @@ const HEADING_ROOM = 24
 /** What a box with no words in it (a figure) is quoted as: the model sees
  *  its picture. */
 const BOXED_AREA = 'the boxed area, pictured'
+
+/** Where the last jump landed, marked until the reader moves on. */
+let landed: { element: Element; release: () => void } | null = null
+
+/**
+ * Mark where a jump landed (`.landed`), until the reader presses anywhere
+ * or hits Esc, or the next jump lands.
+ *
+ * @param element The jump's target.
+ */
+function markLanded(element: Element) {
+  landed?.release()
+  element.classList.add('landed')
+  const release = () => {
+    element.classList.remove('landed')
+    document.removeEventListener('pointerdown', release, true)
+    document.removeEventListener('keydown', onKey, true)
+    if (landed?.element === element) landed = null
+  }
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') release()
+  }
+  // The press that made the jump is over by now: the next one releases it.
+  document.addEventListener('pointerdown', release, true)
+  document.addEventListener('keydown', onKey, true)
+  landed = { element, release }
+}
 
 /**
  * A box's rectangle as the style that draws it in its frame.
@@ -389,21 +417,22 @@ export default function Reader({
   const jump = useCallback((target: string) => {
     const place = outlinePlaces.current.get(target)
     const element = document.getElementById(place ? pdfPageId(place.page) : readerDomId(target))
-    if (!element) return
-    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     const pane = pageRef.current
-    // A PDF heading whose place on its page is known: straight to it, with
-    // the same room above as the text view's headings get.
-    if (place?.top !== undefined && pane) {
+    if (!element || !pane) return
+    // To the target's top, with the room above a heading gets (in the PDF,
+    // at a heading's own place on its page when known), measured afresh as
+    // the page settles (`glide`: figures loading above it moved it, and
+    // jumps landed short).
+    glideTo(pane, () => {
       const offset = element.getBoundingClientRect().top - pane.getBoundingClientRect().top
-      const top = pane.scrollTop + offset + place.top * pdfScale(element) - HEADING_ROOM
-      pane.scrollTo({ top, behavior: still ? 'auto' : 'smooth' })
-      return
-    }
-    element.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' })
-    // Mark where a jump landed, so a reference in a long list is easy to find.
-    element.classList.add('landed')
-    window.setTimeout(() => element.classList.remove('landed'), 1600)
+      const within = place?.top !== undefined ? place.top * pdfScale(element) : 0
+      return pane.scrollTop + offset + within - HEADING_ROOM
+    })
+    if (place?.top !== undefined) return
+    // Mark where a jump landed, so a reference in a long list is easy to
+    // find; it stays until the reader presses anywhere or hits Esc (Patrick:
+    // it faded before the eye found it).
+    markLanded(element)
   }, [])
 
   // The citation cards (v8.43.0): the bibliography matched to the papers it
@@ -443,6 +472,9 @@ export default function Reader({
       showInGraph: (paper) => {
         closeCard()
         dispatch(graphFocusRequested(paper.id))
+        // The Citation Graph then offers the way back here, as a lesson
+        // opened from a concept card does (Patrick).
+        dispatch(threadReturnSet({ id: thread.id, returnTo: { tool: 'reader', from: 'graph' } }))
         void dispatch(openTool('graph'))
       },
       goToReference: (entryId) => {

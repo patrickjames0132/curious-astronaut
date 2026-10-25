@@ -25,6 +25,7 @@
 
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { findPdfQuotes, type PdfPlace } from '../api'
+import { glide } from './glide'
 import { passageParts } from './passages'
 
 /** Nothing lit: one array, so the default never changes identity. */
@@ -106,12 +107,10 @@ export function scrollToPlace(pane: HTMLElement, place: PdfPlace): () => void {
 function landOn(pane: HTMLElement, element: HTMLElement, place: PdfPlace) {
   const first = place.rects[0]
   if (!first) return
-  const scale = Number(element.dataset.scale) || 1
-  const top = element.getBoundingClientRect().top - pane.getBoundingClientRect().top
-  const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  pane.scrollTo({
-    top: pane.scrollTop + top + first[1] * scale - pane.clientHeight / 3,
-    behavior: still ? 'auto' : 'smooth',
+  glide(pane, () => {
+    const scale = Number(element.dataset.scale) || 1
+    const top = element.getBoundingClientRect().top - pane.getBoundingClientRect().top
+    return pane.scrollTop + top + first[1] * scale - pane.clientHeight / 3
   })
 }
 

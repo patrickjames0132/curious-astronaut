@@ -45,7 +45,8 @@ equations typeset, figures that enlarge with their captions, tables,
 algorithms and footnotes in place. Hover a citation to see the paper it
 cites (title, authors, citations, TL;DR), and click it to keep the card
 open: from there you can open that paper, read it, find it in the Citation
-Graph, or go to its entry in the references. Once you've started the
+Graph (which then offers **Back to reading**), or go to its entry in the
+references, marked until you click elsewhere. Once you've started the
 paper's Knowledge Graph course, each section shows the concepts from it that
 the section builds on, in the margin (or under the heading in a narrow
 window), a ✓ on the ones you know; click one for why the paper needs it, the

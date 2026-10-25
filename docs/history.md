@@ -3903,6 +3903,29 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
         has and what still sits between them and the paper. The layout above
         is how that assessment gets drawn, not the goal in itself.
 
+- [x] **The Reader card: polish after stage 8** *(v8.49.0)* — four things
+      Patrick found reading:
+
+      - **Scrolls that land.** Every scroll the Reader makes itself
+        (contents, Reference ↓, figure and equation numbers, lit passages,
+        PDF places) "often stops short". Measured on Attention: a jump to the
+        Conclusion landed 1,000px short. Lazy figures showed as their bare
+        20px mat until scrolled near, then grew; a smooth scroll had fixed
+        its destination before they did. Figures now hold their declared
+        size before they load (`reservedSize`), and every Reader scroll goes
+        through `glide`, which measures its target again once it settles and
+        goes the rest of the way, letting go if the reader scrolls
+        ([docs/bugs.md](bugs.md)). After: 24px from the top, as aimed.
+      - **The capsule's gap.** The folded zoom left an empty gap between
+        the Text/PDF switch and the ⓘ in the text view; its edge is now a
+        dim line, the same color open or folded.
+      - **The reference stays marked.** Reference ↓ marks the entry it lands
+        on in red until the reader presses anywhere or hits Esc, not for
+        1.6s (`markLanded`).
+      - **Back to reading from the Citation Graph.** A citation card's
+        **Show in Citation Graph** leaves the way back, as a lesson opened
+        from a concept card does (`ThreadRecord.returnTo`).
+
 - [x] **The Reader card, stage 8: the box in the text, and passages that cross views** *(v8.48.0)* —
       the same ⌥-drag box as the PDF's (`useBoxDraw`, shared), over the
       text view. **Not a picture**: the text has nothing to recover, its

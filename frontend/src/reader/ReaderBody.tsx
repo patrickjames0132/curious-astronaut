@@ -12,7 +12,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useContext, useState, type ReactNode } from 'react'
+import { useContext, useState, type CSSProperties, type ReactNode } from 'react'
 import type { ReaderBlock, ReaderCell, ReaderInline } from '../api'
 import { TeX } from '../notation/MathText'
 import { ReaderLinksContext, mathTextOf, readerDomId } from './links'
@@ -160,6 +160,30 @@ function Table({ rows }: { rows: ReaderCell[][] }) {
   )
 }
 
+/** A figure image's mat (`reader.css`: 10px padding each side). */
+const FIGURE_MAT = 20
+/** Its tallest, mat included (`reader.css`'s max-height). */
+const FIGURE_MAX_HEIGHT = 520
+
+/**
+ * The size a figure image will show at, held before it loads (v8.49.0). A
+ * lazy image has no size until it arrives, so it showed as its bare mat
+ * (20px square) and grew by up to 500px when scrolled near: every smooth
+ * scroll past figures landed short, by as much as 1,000px (Patrick: "the
+ * scrolling often stops short"). Its declared size gives the final box:
+ * its own proportions, no taller than the mat's limit, never wider than it
+ * is; `aspect-ratio` keeps that true when the column is narrower.
+ *
+ * @param width Its declared width, in pixels.
+ * @param height Its declared height.
+ * @returns The style that holds its place, or none without a size.
+ */
+function reservedSize(width: number | null, height: number | null): CSSProperties | undefined {
+  if (!width || !height) return undefined
+  const shown = Math.min(width, ((FIGURE_MAX_HEIGHT - FIGURE_MAT) * width) / height)
+  return { width: shown + FIGURE_MAT, aspectRatio: `auto ${width} / ${height}` }
+}
+
 /**
  * A figure's panels, each opening in the lightbox with the figure's caption.
  *
@@ -191,6 +215,7 @@ function FigurePanels({ block }: { block: Extract<ReaderBlock, { kind: 'figure' 
             alt={image.alt && image.alt !== 'Refer to caption' ? image.alt : block.tag}
             width={image.width ?? undefined}
             height={image.height ?? undefined}
+            style={reservedSize(image.width, image.height)}
             loading="lazy"
           />
         </button>

@@ -565,7 +565,7 @@
 .reader-controls-help .info-tip-button {
   width: 28px;
   height: 28px;
-  margin-right: 2px;
+  margin: 0 2px;
   border: 0;
   background: none;
   font-size: 15px;
@@ -1067,26 +1067,36 @@
    and folds back into it on the way to the text: its column animates from
    nothing to its own width (the grid `0fr` → `1fr` trick), in step with the
    switch's thumb. */
+/* The zoom folds away in the text view to a dim line between the switch
+   and the ⓘ, where it opens from in the PDF (Patrick: the fold left an
+   empty gap). The line is the fold's own edge, so it stays; only the zoom's
+   buttons fade, and its padding folds with it. */
 .reader-zoom-fold {
   display: grid;
   grid-template-columns: 0fr;
-  opacity: 0;
-  transition:
-    grid-template-columns var(--motion-switch) var(--ease-rise),
-    opacity var(--motion-switch) var(--ease-rise);
+  margin-left: 2px;
+  border-left: 1px solid color-mix(in srgb, var(--muted) 45%, var(--border));
+  transition: grid-template-columns var(--motion-switch) var(--ease-rise);
 }
+/* The line is one color open or folded (Patrick). */
 .reader-zoom-fold.open {
   grid-template-columns: 1fr;
-  opacity: 1;
 }
 .reader-zoom {
   display: flex;
   align-items: center;
   overflow: hidden;
   min-width: 0;
-  padding: 0 3px 0 4px;
-  border-left: 1px solid var(--border);
+  padding: 0;
+  opacity: 0;
   white-space: nowrap;
+  transition:
+    padding var(--motion-switch) var(--ease-rise),
+    opacity var(--motion-switch) var(--ease-rise);
+}
+.reader-zoom-fold.open .reader-zoom {
+  padding: 0 3px 0 4px;
+  opacity: 1;
 }
 /* Every button in the capsule is one height, so nothing changes size as
    the zoom comes and goes (Patrick). */

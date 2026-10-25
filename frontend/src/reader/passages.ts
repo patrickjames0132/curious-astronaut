@@ -31,6 +31,8 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
+import { glide } from './glide'
+
 /** A quote in an answer: ⟦the paper's exact words⟧. */
 const QUOTE_MARK = /⟦([^⟦⟧]{2,600})⟧/g
 /** A highlight's passage in its question: "… passage from X:\n\n“…”". */
@@ -309,16 +311,16 @@ export function boxesOf(ranges: Range[], frame: Element): LitBox[] {
  * @param range The range.
  */
 export function scrollToRange(pane: HTMLElement, range: Range) {
-  // A DOM that can't measure ranges (jsdom) measures the element they start in.
-  const box =
-    typeof range.getBoundingClientRect === 'function'
-      ? range.getBoundingClientRect()
-      : range.startContainer.parentElement?.getBoundingClientRect()
-  if (!box) return
-  const frame = pane.getBoundingClientRect()
-  const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  pane.scrollTo({
-    top: pane.scrollTop + box.top - frame.top - pane.clientHeight / 3,
-    behavior: still ? 'auto' : 'smooth',
+  // Measured afresh as the page settles (`glide`): a figure loading above
+  // it moves it.
+  glide(pane, () => {
+    // A DOM that can't measure ranges (jsdom) measures the element they start in.
+    const box =
+      typeof range.getBoundingClientRect === 'function'
+        ? range.getBoundingClientRect()
+        : range.startContainer.parentElement?.getBoundingClientRect()
+    if (!box) return null
+    const frame = pane.getBoundingClientRect()
+    return pane.scrollTop + box.top - frame.top - pane.clientHeight / 3
   })
 }
