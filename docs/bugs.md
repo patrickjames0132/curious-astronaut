@@ -22,6 +22,23 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### A narrowed window left the margin notes over their headings (v8.46.0)
+
+- **Symptom.** Shrinking the window in the text view put a section's
+  Knowledge Graph note on top of its heading: "Builds on" and the first
+  concept drawn across "3.1 Notation".
+- **Root cause.** In a wide pane `layOut` (`useMarginNotes`) lifts each
+  margin note with an inline `translate` so "Builds on" sits level with its
+  heading. Narrowed, the CSS returns the note to the flow under its heading,
+  but `layOut` only ever touched notes still in the margin, so the last lift
+  stayed on the inline style and carried the note up over the heading.
+- **Fix.** `layOut` clears the shift (`translate`, `data-pushed`) from every
+  note that isn't in the margin.
+- **Lesson / guard.** Inline styles set for one layout outlive a media or
+  container query that switches to another; whatever sets them must also
+  unset them. `useMarginNotes.test.ts` checks a note back under its heading
+  sheds its lift.
+
 ### A drag in the PDF view selected the wrong stretch of the page (v8.45.0)
 
 - **Symptom.** Highlighting in the PDF view often selected something other

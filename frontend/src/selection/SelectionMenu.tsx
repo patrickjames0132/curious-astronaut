@@ -34,20 +34,24 @@ export interface SelectionAction {
  * @param props Component props.
  * @param props.selection The highlighted passage and its anchor.
  * @param props.actions The buttons, in order.
+ * @param props.label What the toolbar is over, for screen readers: a box
+ *   drawn over the PDF (v8.46.0) isn't highlighted text.
  * @returns The menu.
  */
 export default function SelectionMenu({
   selection,
   actions,
+  label = 'Highlighted text',
 }: {
   selection: TextSelection
   actions: SelectionAction[]
+  label?: string
 }) {
   return (
     <div
       className="selection-menu"
       role="toolbar"
-      aria-label="Highlighted text"
+      aria-label={label}
       style={{ left: selection.left, top: selection.top }}
     >
       {actions.map((action) => (

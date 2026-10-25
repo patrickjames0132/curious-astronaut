@@ -18,8 +18,9 @@
  *   layer, near the heading's height, by its words, and the curve goes
  *   straight there.
  *
- * A note under its heading instead (the text view's narrow layout) is left
- * alone and has no curve. The work is done straight on the DOM, a frame
+ * A note under its heading instead (the text view's narrow layout) has no
+ * curve, and lets go of any shift it had in the margin: kept, a window
+ * narrowed past the margin left it lifted over its own heading. The work is done straight on the DOM, a frame
  * after anything moves: the pane resizing, a note growing or shrinking
  * ("+N more", `NOTES_CHANGED`), the text reflowing, or a PDF page's text
  * layer arriving (`PDF_TEXT_DRAWN`).
@@ -124,10 +125,17 @@ export function layOut(pane: HTMLElement) {
     note,
     holder: note.closest<HTMLElement>('.reader-pdf-note') ?? note,
   }))
+  // A note back under its heading (the pane narrowed) sheds the shift it had
+  // in the margin: kept, it lifted the note over its own heading (Patrick).
+  const inMargin = notes.filter(({ holder }) => getComputedStyle(holder).position === 'absolute')
+  for (const { holder } of notes) {
+    if (inMargin.some((entry) => entry.holder === holder)) continue
+    delete holder.dataset.pushed
+    holder.style.translate = ''
+  }
   // Where each sits without the shift it was given last time, and where it
   // would like to be; then each goes as near that as the one above allows.
-  const placed = notes
-    .filter(({ holder }) => getComputedStyle(holder).position === 'absolute')
+  const placed = inMargin
     .map((entry) => {
       const shifted = Number(entry.holder.dataset.pushed) || 0
       const box = entry.holder.getBoundingClientRect()

@@ -201,17 +201,18 @@ export interface PdfPoint {
  * columns and pages, which the browser's reading of pdf.js's text layer
  * isn't, and their lines' rectangles.
  *
+ * A box drawn over the PDF (v8.46.0) is read the same way, by its places:
+ * the words inside it.
+ *
  * @param ref The paper's arXiv id, or its provider id.
  * @param provider Who to ask for a non-arXiv paper's open-access PDF.
- * @param span Where the drag began and ended.
- * @param span.start Where it began.
- * @param span.end Where it ended.
+ * @param where Where the drag began and ended (`span`), or a box's places.
  * @returns The words and places; empty on any failure.
  */
 export async function fetchPdfPassage(
   ref: string,
   provider: string,
-  span: { start: PdfPoint; end: PdfPoint },
+  where: { span: { start: PdfPoint; end: PdfPoint } } | { places: PdfPlace[] },
 ): Promise<{ text: string; places: PdfPlace[] }> {
   const none = { text: '', places: [] }
   try {
@@ -220,7 +221,7 @@ export async function fetchPdfPassage(
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ span }),
+        body: JSON.stringify(where),
       },
     )
     if (!res.ok) return none

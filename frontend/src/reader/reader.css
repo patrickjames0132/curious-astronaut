@@ -526,6 +526,30 @@
   opacity: 1;
   scale: 1;
 }
+/* The controls' ⓘ (v8.46.0, `ui/InfoTip`): the capsule's last item, a
+   button of the zoom's size, its card opening up from the bar. */
+.reader-controls-help .info-tip-button {
+  width: 28px;
+  height: 28px;
+  margin-right: 2px;
+  border: 0;
+  background: none;
+  font-size: 15px;
+  line-height: 1;
+}
+.reader-controls-help .info-tip-button:hover {
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.reader-controls-help .info-tip-pop {
+  width: 260px;
+}
+.reader-controls-help .info-tip-pop p {
+  margin: 0;
+}
+.reader-controls-help .info-tip-pop p + p {
+  margin-top: 6px;
+}
 @container reader-page (min-width: 1000px) {
   .reader-article.has-notes {
     margin-left: max(0px, calc((100% - 72ch - 232px) / 2));
@@ -879,6 +903,24 @@
   border-radius: 2px;
   background: color-mix(in srgb, var(--seed-ref) 40%, transparent);
   mix-blend-mode: multiply;
+}
+/* A box drawn with ⌥-drag (v8.46.0, `usePdfBox`): a dashed outline in the
+   selection's accent while it's drawn and its menu is up; once asked about
+   it lights like a highlight (`.reader-pdf-lit`). Above the text layer, so
+   it shows over the words, and never in the way of a click. */
+.reader-pdf-box {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  border: 1.5px dashed var(--accent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+/* Holding ⌥ over the PDF (`usePdfBox`): a crosshair over the pages, words
+   included, so the box mode shows before the drag (Patrick). */
+.reader-boxing .reader-pdf-page,
+.reader-boxing .reader-pdf-page * {
+  cursor: crosshair;
 }
 .reader-pdf-page.landed {
   outline: 3px solid color-mix(in srgb, var(--reader-ink) 60%, transparent);

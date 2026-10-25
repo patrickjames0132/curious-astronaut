@@ -1808,13 +1808,23 @@ than deleted so the plan doesn't get re-proposed.
          text and the PDF; in the PDF by where the highlight was, read and
          pictured by the server. The full story is in
          [docs/history.md](docs/history.md).
-      7. **Draw a box to ask** (Patrick, 2026-10-25). In the PDF view, drag
-         a rectangle over an equation, a figure or a table and ask about
-         it, for what text selection can't grab. It's another way into
-         v8.45.0's places: the box is a place, which the server reads
-         (`passage_at`) and pictures for the model (`render_places`), and
-         the answer lights it like a highlight. Needs a gesture that doesn't
-         fight text selection.
+      7. ✓ **Shipped in v8.46.0**: ⌥-drag a box over the PDF to ask about
+         an equation, a figure or a table, pictured for the model. The full
+         story is in [docs/history.md](docs/history.md).
+      8. **The box in the text view, snapping to elements** (Patrick,
+         2026-10-25: "nice, and more importantly consistent"). The same
+         ⌥-drag and dashed box as the PDF, but no picture: the text view
+         has nothing to recover (equations are LaTeX, prose is text), and
+         screenshotting HTML is heavy and unreliable under KaTeX. Instead
+         the box takes the whole elements it touches, each in its best
+         form: an equation as its LaTeX, **a figure as its actual image**
+         (fetched server-side from ar5iv and attached as the PDF crop is)
+         with its caption, a table as its contents and caption, prose as
+         text. Figures are the real gap today: an image can't be selected,
+         so the model never sees one asked about from the text. The menu,
+         the answer lighting the box and the controls' ⓘ follow the PDF's.
+         Work: hit-testing the box against the article's blocks, and an
+         image attachment on `/api/ask_reader` for a figure's URL.
 
       **Later:** a margin teacher you can ask about the selection, then the
       guided read.

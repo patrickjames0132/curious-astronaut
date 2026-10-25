@@ -44,6 +44,7 @@ import {
 } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import type { PdfPlace } from '../api'
+import type { PdfBox } from './usePdfBox'
 import { PDF_TEXT_DRAWN, pdfPageId } from './links'
 import { outlineOf, pdfjs, type PdfOutlineEntry } from './pdf'
 
@@ -91,6 +92,8 @@ const SETTLE = 200
  * @param props.root The scrolling pane, for drawing ahead of the view.
  * @param props.notes Its margin notes.
  * @param props.lit Rectangles to light on it, in PDF points (v8.45.0).
+ * @param props.drawn A box being drawn or drawn on it, in PDF points
+ *   (v8.46.0, `usePdfBox`), or null.
  * @returns The page.
  */
 function PdfPage({
@@ -101,6 +104,7 @@ function PdfPage({
   root,
   notes,
   lit,
+  drawn,
 }: {
   pdf: PDFDocumentProxy
   page: number
@@ -109,6 +113,7 @@ function PdfPage({
   root: RefObject<HTMLElement | null>
   notes: PdfMarginNote[]
   lit: number[][]
+  drawn: number[] | null
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -207,6 +212,18 @@ function PdfPage({
           }}
         />
       ))}
+      {drawn && (
+        <div
+          className="reader-pdf-box"
+          aria-hidden="true"
+          style={{
+            left: drawn[0] * scale,
+            top: drawn[1] * scale,
+            width: (drawn[2] - drawn[0]) * scale,
+            height: (drawn[3] - drawn[1]) * scale,
+          }}
+        />
+      )}
       <div ref={text} className="textLayer" />
       {notes.map((note) => (
         <div
@@ -239,6 +256,7 @@ function PdfPage({
  *   the pages (v8.44.0); 1 fits.
  * @param props.lit What a Reader Assistant answer is about, to light as
  *   boxes over the pages (v8.45.0, `usePdfPassages`).
+ * @param props.box A box drawn over a page with ⌥-drag (v8.46.0), or null.
  * @returns The pages, or a loading line.
  */
 export default function PdfView({
@@ -251,6 +269,7 @@ export default function PdfView({
   margin = 0,
   zoom = 1,
   lit = NO_PLACES,
+  box = null,
 }: {
   url: string
   root: RefObject<HTMLElement | null>
@@ -261,6 +280,7 @@ export default function PdfView({
   margin?: number
   zoom?: number
   lit?: PdfPlace[]
+  box?: PdfBox | null
 }) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
   const [sizes, setSizes] = useState<PageSize[]>([])
@@ -408,6 +428,7 @@ export default function PdfView({
           root={root}
           notes={notes.filter((note) => note.page === index + 1)}
           lit={lit.filter((place) => place.page === index + 1).flatMap((place) => place.rects)}
+          drawn={box?.page === index + 1 ? box.rect : null}
         />
       ))}
     </div>

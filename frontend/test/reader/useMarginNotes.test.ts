@@ -83,3 +83,16 @@ it('lifts a text note so “Builds on” sits level with its heading', () => {
   layOut(section)
   expect(note.style.translate).toBe('0 -35px')
 })
+
+it('lets a note back under its heading go of its margin shift', () => {
+  // The pane narrowed: the note left the margin, and kept its lift, it sat
+  // over its own heading (Patrick).
+  const note = document.createElement('aside')
+  note.className = 'reader-concepts'
+  note.dataset.pushed = '-35'
+  note.style.translate = '0 -35px'
+  document.body.append(note)
+  layOut(document.body)
+  expect(note.style.translate).toBe('')
+  expect(note.dataset.pushed).toBeUndefined()
+})

@@ -70,7 +70,9 @@ dragged, across columns and pages), and any of the paper's words it quotes,
 underlined in gold, one at a time when you click them. Clicking the answer
 goes back to its passage, in either view, and switching views keeps it in
 sight. In the PDF the assistant also gets a picture of what you highlighted,
-so it reads an equation as typeset.
+so it reads an equation as typeset. For what won't select as text, an
+equation, a figure, a table, hold ⌥ (Alt) and drag a box over it in the PDF
+and ask about it the same way; the ⓘ beside the zoom sums up the controls.
 
 An enlarged figure covers the middle of the app, never the sidebar or a
 docked assistant, so an assistant explaining a figure stays readable beside it.

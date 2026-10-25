@@ -9,6 +9,8 @@ user (v8.38.0).
 selection/
   SelectionMenu.tsx   — the pill: a row of text buttons, each tool's own
   useTextSelection.ts — reads the selection in a container and places the pill
+                        (`pillAnchor` places it over any box: the Reader's
+                        PDF box, v8.46.0)
   formulas.ts         — what a selection over typeset math says: LaTeX, parts in context
   selection.css       — the pill's look (colours: index.css --selection-menu-*)
 ```

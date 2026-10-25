@@ -21,6 +21,7 @@ reader/
   passages.ts     — an answer's passages: read out, found in the text, lit
   usePdfPassages.ts — the same in the PDF, as places: boxes over its pages
   pdfPlaces.ts    — where a PDF highlight began and ended, as points on its pages
+  usePdfBox.ts    — a box drawn over the PDF with ⌥-drag, to ask about
   useAnchoredCard.ts — when a card shows, stays and goes, and where it sits
   selectionText.ts — what a highlight says (formulas as LaTeX) and where it's from
   askReader.ts    — the Reader Assistant's asking: what it sends, the
@@ -40,8 +41,38 @@ reading view and the contents (v8.37.0); (2) the highlight menu and the
 Reader Assistant (v8.38.0, below); (3) the PDF view with the same
 AI tools (v8.40.0, below); (4) the citation cards, resolving `[23]` to the
 real cited paper (v8.43.0, below); (5) the Knowledge Graph notes (v8.44.0,
-below); (6) an answer lighting up the passage it's about (v8.45.0, below).
+below); (6) an answer lighting up the passage it's about (v8.45.0, below);
+(7) a box drawn over the PDF to ask about (v8.46.0, below).
 Read the OnePager entry before extending it.
+
+## A box over the PDF (v8.46.0)
+
+Hold ⌥ (Alt) and drag over a PDF page to draw a box, for what a text
+selection can't grab: an equation, a figure, a table (`usePdfBox`). The
+highlight menu comes up over it (`SelectionMenu`, labelled "Boxed area",
+placed by `pillAnchor`), and it's asked about the way a highlight is,
+because a box is a place (`PdfPlace`, from v8.45.0, below):
+
+- **Its words** are read as soon as it's drawn (`/pdf-passage` with
+  `places`, the server's `passage_at`), and quoted in the question; a box
+  with no words in it, a figure, is quoted as "the boxed area, pictured".
+- **Its picture** goes to the model with the question (`render_places`),
+  which is what makes an equation or a figure readable to it.
+- **The answer lights it** as a highlight's places light, a box on the page,
+  kept on the user turn (`ChatMsg.places`).
+
+**⌥-drag only, no button** (Patrick, 2026-10-25): text selection stays the
+plain drag and needs no mode, and the box is taught where the Reader's help
+lives: the ⓘ at the end of the Text/PDF capsule (`ui/InfoTip`, as the 3D
+course explains its navigation; what it says follows the view), the tour's
+highlight step, the assistant's tip and the PDF button's tooltip. Holding
+⌥ over the PDF turns the pointer into a crosshair (`.reader-boxing`), so
+the mode shows before the drag. ⌥ also keeps the browser from starting a
+selection (the mousedown is cancelled). A drag smaller than 8px each way is a click, not a box; a
+plain click elsewhere, Esc or a menu choice lets the box go, and the menu
+follows the page as it scrolls. While drawn and its menu is up the box is a
+dashed outline in the selection's accent (`.reader-pdf-box`); once asked
+about, it lights in gold like any lit passage.
 
 ## An answer lights up its passage (v8.45.0)
 
@@ -454,6 +485,9 @@ remembered choice, a chosen PDF that won't open, a highlight's page, a
 PDF highlight asked about in the PDF's own words with its places sent and
 kept, and the PDF's lit places (the passage's at once, the quotes the
 server finds, an older turn's passage found by its words).
+A box drawn with ⌥-drag (only with ⌥, and not as a click) is read, asked
+about by its place and kept on the turn, and a box with no words is quoted
+as its picture.
 `test/reader/passages.test.ts` covers reading quotes out, finding them
 however the text differs, and lighting them; `test/reader/pdfPlaces.test.ts`
 a highlight's rectangles as places, kept to the band its drag spans. The

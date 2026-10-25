@@ -39,7 +39,8 @@ import type { PassageQuote } from '../assistant/askAssistant'
 import Lightbox from '../figures/Lightbox'
 import { courseOrder } from '../knowledge/model'
 import SelectionMenu from '../selection/SelectionMenu'
-import { useTextSelection } from '../selection/useTextSelection'
+import InfoTip from '../ui/InfoTip'
+import { pillAnchor, useTextSelection } from '../selection/useTextSelection'
 import { useAppDispatch, useAppSelector } from '../store'
 import { passagesCleared } from '../store/highlight'
 import {
@@ -65,6 +66,7 @@ import { useAnchoredCard } from './useAnchoredCard'
 import { useMarginNotes } from './useMarginNotes'
 import { boxesOf, findPassage, indexText, scrollToRange, type LitBox } from './passages'
 import { selectionSpan } from './pdfPlaces'
+import { boxOnScreen, boxPlace, usePdfBox } from './usePdfBox'
 import { usePdfPassages, type PdfLight } from './usePdfPassages'
 import PdfView, { type PdfMarginNote } from './PdfView'
 import type { PdfOutlineEntry } from './pdf'
@@ -83,6 +85,10 @@ const GLIDE_FALLBACK = 600
 /** Room left above a PDF heading a jump lands on, as the text view's
  *  `scroll-padding-top` leaves above its headings. */
 const HEADING_ROOM = 24
+
+/** What a box with no words in it (a figure) is quoted as: the model sees
+ *  its picture. */
+const BOXED_AREA = 'the boxed area, pictured'
 
 /** No lit passages: one array, so the default never changes identity. */
 const NO_PASSAGES: string[] = []
@@ -732,6 +738,69 @@ export default function Reader({
   useEffect(() => {
     if (selection && passagesLitNow.current) dispatch(passagesCleared())
   }, [selection, dispatch])
+
+  /**
+   * Ask about a passage, or attach it to the assistant's bar (Chat).
+   *
+   * @param action Which of the menu's actions.
+   * @param passage Its words.
+   * @param from Where it is from, as a phrase.
+   * @param places Where it sits in the PDF, when it's from there.
+   */
+  const send = (
+    action: (typeof MENU)[number]['action'],
+    passage: string,
+    from: string,
+    places: PdfPlace[] | undefined,
+  ) => {
+    if (action === 'chat') {
+      onAssistant?.({ text: passage, from, places })
+      return
+    }
+    onAssistant?.()
+    void dispatch(
+      askReader({
+        threadId: thread.id,
+        question: readerMessage(action, passage, from),
+        provider,
+        places,
+      }),
+    )
+  }
+
+  // A box drawn over the PDF with ⌥-drag (v8.46.0, `usePdfBox`), for an
+  // equation, a figure or a table: its words are read as soon as it's drawn,
+  // and it's asked about like a highlight, by its place.
+  const {
+    box,
+    moved: boxMoved,
+    clear: clearBox,
+  } = usePdfBox(pageRef, view === 'pdf' && !!ref && !pdfFailure)
+  const boxWords = useRef<Promise<string> | null>(null)
+  const boxDone = box?.done ? box : null
+  useEffect(() => {
+    boxWords.current =
+      boxDone && ref
+        ? fetchPdfPassage(ref, provider, { places: [boxPlace(boxDone)] }).then((read) => read.text)
+        : null
+    if (boxDone && passagesLitNow.current) dispatch(passagesCleared())
+  }, [boxDone, ref, provider, dispatch])
+  const boxMenu = useMemo(() => {
+    const pane = pageRef.current
+    const onScreen = boxDone && pane ? boxOnScreen(pane, boxDone) : null
+    return onScreen ? { text: '', ...pillAnchor(onScreen) } : null
+    // boxMoved: the page scrolled under the box, so its menu moves too.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [boxDone, boxMoved])
+  const pickBox = async (action: (typeof MENU)[number]['action']) => {
+    if (!boxDone) return
+    const words = (await boxWords.current) ?? ''
+    clearBox()
+    setReadingSection(thread.id, `page:${boxDone.page}`)
+    // A figure has no words: the picture is the passage.
+    send(action, words || BOXED_AREA, `page ${boxDone.page}`, [boxPlace(boxDone)])
+  }
+
   const pick = async (action: (typeof MENU)[number]['action'], browserPassage: string) => {
     // Where it's from, and where it sits on the page, must be read while the
     // text is still selected.
@@ -749,23 +818,11 @@ export default function Reader({
     let passage = browserPassage
     let where: PdfPlace[] | undefined
     if (span && ref) {
-      const read = await fetchPdfPassage(ref, provider, span)
+      const read = await fetchPdfPassage(ref, provider, { span })
       if (read.text) passage = read.text
       if (read.places.length) where = read.places
     }
-    if (action === 'chat') {
-      onAssistant?.({ text: passage, from: source.from, places: where })
-      return
-    }
-    onAssistant?.()
-    void dispatch(
-      askReader({
-        threadId: thread.id,
-        question: readerMessage(action, passage, source.from),
-        provider,
-        places: where,
-      }),
-    )
+    send(action, passage, source.from, where)
   }
 
   const paper = thread.paper
@@ -788,6 +845,7 @@ export default function Reader({
         notes={pdfNotes}
         margin={pdfNotes.length ? PDF_NOTES_ROOM : 0}
         zoom={zoom}
+        box={box}
         lit={pdfLit}
       />
     )
@@ -1114,7 +1172,7 @@ export default function Reader({
                   type="button"
                   aria-pressed={view === 'pdf'}
                   onClick={() => chooseView('pdf')}
-                  title="Read the paper as its PDF: the original layout"
+                  title="Read the paper as its PDF: the original layout. ⌥-drag (Alt) to box an equation or figure and ask about it"
                 >
                   PDF
                 </button>
@@ -1158,6 +1216,25 @@ export default function Reader({
                   </button>
                 </div>
               </div>
+              {/* The controls, said (v8.46.0): ⌥-drag has no button of its
+                  own (Patrick), so it's explained here, like the 3D
+                  course's navigation. */}
+              <InfoTip label="How to use the reader" className="reader-controls-help">
+                <p>
+                  Select text, a word, a sentence or an equation, for Explain, Simplify or Chat.
+                </p>
+                {view === 'pdf' ? (
+                  <>
+                    <p>
+                      Hold ⌥ (Alt) and drag to draw a box over an equation, a figure or a table, and
+                      ask about it the same way.
+                    </p>
+                    <p>− and + zoom; the percentage fits the page to the width.</p>
+                  </>
+                ) : (
+                  <p>Switch to the PDF to box an equation or figure with ⌥-drag (Alt).</p>
+                )}
+              </InfoTip>
             </div>
           </div>
         )}
@@ -1169,6 +1246,17 @@ export default function Reader({
             label: item.label,
             title: item.title,
             onPick: (passage) => void pick(item.action, passage),
+          }))}
+        />
+      )}
+      {boxMenu && !selection && (
+        <SelectionMenu
+          selection={boxMenu}
+          label="Boxed area"
+          actions={MENU.map((item) => ({
+            label: item.label,
+            title: item.title,
+            onPick: () => void pickBox(item.action),
           }))}
         />
       )}
