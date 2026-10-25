@@ -148,7 +148,14 @@ function target(state: TranscriptState, key: string | undefined): Conversation |
 type Keyed = { key?: string }
 
 /** A keyed action stamped with when it was dispatched (`Date.now()`). */
-type Timed = Keyed & { at: number; quick?: boolean; places?: PdfPlace[] }
+/** What a Reader question carries beyond its words (v8.45.0+). */
+export interface TurnExtras {
+  places?: PdfPlace[]
+  figures?: string[]
+  labels?: string[]
+}
+
+type Timed = Keyed & { at: number; quick?: boolean } & TurnExtras
 
 /**
  * Build the `prepare` half of a keyed action: payload first, key second.
@@ -429,8 +436,14 @@ const transcriptSlice = createSlice({
       reducer(state, action: PayloadAction<string, string, Timed>) {
         const conversation = target(state, action.meta.key)
         if (!conversation) return
-        const places = action.meta.places
-        conversation.chat.push({ role: 'user', text: action.payload, ...(places && { places }) })
+        const { places, figures, labels } = action.meta
+        conversation.chat.push({
+          role: 'user',
+          text: action.payload,
+          ...(places && { places }),
+          ...(figures && { boxedFigures: figures }),
+          ...(labels?.length && { labels }),
+        })
         // The answer's clock starts with its turn (v8.33.0, `ResponseTimer`).
         conversation.chat.push({
           role: 'assistant',
@@ -446,10 +459,10 @@ const transcriptSlice = createSlice({
         key?: string,
         startedAt?: number,
         quick = false,
-        places?: PdfPlace[],
+        extras: TurnExtras = {},
       ) => ({
         payload: question,
-        meta: { key, at: startedAt ?? Date.now(), quick, places },
+        meta: { key, at: startedAt ?? Date.now(), quick, ...extras },
       }),
     },
     /**

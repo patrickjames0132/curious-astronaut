@@ -392,8 +392,8 @@
    (`boxesOf` in `reader/passages.ts`), drawn behind the text so an
    equation lights as one box, not KaTeX's spans one by one. The article is
    their frame; `isolation` keeps the boxes, at z-index -1, above its
-   background and under its words. In the gold the answer's quotes are
-   underlined in. */
+   background and under its words. In the red the answer's quotes are
+   underlined in (`--passage-lit`: gold is the Knowledge Graph's notes'). */
 .reader-article {
   position: relative;
   isolation: isolate;
@@ -403,7 +403,7 @@
   z-index: -1;
   pointer-events: none;
   border-radius: 3px;
-  background: color-mix(in srgb, var(--seed-ref) 40%, transparent);
+  background: color-mix(in srgb, var(--passage-lit) 32%, transparent);
 }
 
 /* The Knowledge Graph notes (v8.44.0): the course's concepts a section
@@ -525,6 +525,40 @@
   margin-right: 0.25em;
   opacity: 1;
   scale: 1;
+}
+/* Part of a lit passage has no place in this view (v8.48.0): a note over
+   the controls, with the other view a click away. */
+.reader-lit-note {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid color-mix(in srgb, var(--passage-lit) 50%, var(--border));
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: 0 4px 14px var(--shadow);
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+  translate: -50% 0;
+  pointer-events: auto;
+}
+.reader-lit-note button {
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--passage-lit) 22%, transparent);
+  color: var(--text-strong);
+  font: inherit;
+  cursor: pointer;
+}
+.reader-lit-note button:hover,
+.reader-lit-note button:focus-visible {
+  background: color-mix(in srgb, var(--passage-lit) 36%, transparent);
 }
 /* The controls' ⓘ (v8.46.0, `ui/InfoTip`): the capsule's last item, a
    button of the zoom's size, its card opening up from the bar. */
@@ -895,16 +929,16 @@
 }
 /* An answer's passages in the PDF (v8.45.0): boxes at the places
    `usePdfPassages` lights, under the text layer so selecting still works,
-   in the gold of `.reader-text-lit`. Multiplied into the page, so
-   the ink stays black under the gold. */
+   in the red of `.reader-text-lit`. Multiplied into the page, so
+   the ink stays black under the red. */
 .reader-pdf-lit {
   position: absolute;
   pointer-events: none;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--seed-ref) 40%, transparent);
+  background: color-mix(in srgb, var(--passage-lit) 32%, transparent);
   mix-blend-mode: multiply;
 }
-/* A box drawn with ⌥-drag (v8.46.0, `usePdfBox`): a dashed outline in the
+/* A box drawn with ⌥-drag (v8.46.0, `useBoxDraw`): a dashed outline in the
    selection's accent while it's drawn and its menu is up; once asked about
    it lights like a highlight (`.reader-pdf-lit`). Above the text layer, so
    it shows over the words, and never in the way of a click. */
@@ -916,11 +950,25 @@
   border-radius: 3px;
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
-/* Holding ⌥ over the PDF (`usePdfBox`): a crosshair over the pages, words
-   included, so the box mode shows before the drag (Patrick). */
+/* Holding ⌥ (`useBoxDraw`): a crosshair over the PDF's pages or the text's
+   article, words included, so the box mode shows before the drag
+   (Patrick). */
 .reader-boxing .reader-pdf-page,
-.reader-boxing .reader-pdf-page * {
+.reader-boxing .reader-pdf-page *,
+.reader-boxing .reader-article,
+.reader-boxing .reader-article * {
   cursor: crosshair;
+}
+/* A box over the text (v8.48.0, `textBox.ts`): as the PDF's, dashed in the
+   selection's accent; once let go it snaps to the elements it took. Above
+   the text, never in the way of a click. */
+.reader-text-box {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  border: 1.5px dashed var(--accent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .reader-pdf-page.landed {
   outline: 3px solid color-mix(in srgb, var(--reader-ink) 60%, transparent);

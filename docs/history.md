@@ -3903,6 +3903,37 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
         has and what still sits between them and the paper. The layout above
         is how that assessment gets drawn, not the goal in itself.
 
+- [x] **The Reader card, stage 8: the box in the text, and passages that cross views** *(v8.48.0)* —
+      the same ⌥-drag box as the PDF's (`useBoxDraw`, shared), over the
+      text view. **Not a picture**: the text has nothing to recover, its
+      equations already LaTeX, and screenshotting HTML is unreliable under
+      KaTeX. The box **takes the whole elements it touches** and snaps to
+      them (`textBox.ts`), each in its best form: an equation as its LaTeX,
+      a table as its cells, **a figure as its actual image** with its
+      caption. Figures were the gap, since an image can't be selected: the
+      server fetches each through the figure proxy's allowlist and sends it
+      as a PNG, SVG plots rendered by pymupdf (`services/reader/figures.py`;
+      up to eight, as SAC's results figure is six panels). Tried live: the
+      model read values off SAC's training curves.
+
+      **Across the views, by label** (Patrick: "can one box map to the
+      other view?"). Positions mean nothing across them; the labels both
+      share do: "Figure 1", "Table 2", "Algorithm 1", "(6)". A question keeps
+      them (`ChatMsg.labels`); the PDF finds a float by its mined region and
+      an equation by its number's line in its own column
+      (`label_places`, `labels_in`), the text an element by its tag. **What
+      can't map is said**: a note over the controls, "Part of this passage
+      isn't in the PDF · Show in text" (or the other way), for an
+      unnumbered equation, a label one view lacks, or words found nowhere.
+      Older questions read their labels off their own words. Tried live on
+      SAC: equation (6) boxed in the text lit in the PDF, and an older
+      question about equation (2) did too.
+
+      Also: the AI's highlights are in **the Reader's red**, not gold, which
+      the Knowledge Graph's notes use beside the text (Patrick); a ⓘ line
+      for the text view's box; and arriving in the PDF lands once the
+      pages' scale settles ([docs/bugs.md](bugs.md)).
+
 - [x] **The Reader card, stage 7: a box over the PDF** *(v8.46.0)* —
       hold ⌥ (Alt) and drag over a PDF page to draw a box around what a text
       selection can't grab, an equation, a figure or a table, and ask about

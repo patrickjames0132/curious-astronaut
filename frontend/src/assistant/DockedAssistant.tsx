@@ -259,6 +259,8 @@ export default function DockedAssistant({
         provider,
         sourceIds: sources.scope,
         places: quote?.places,
+        figures: quote?.figures,
+        labels: quote?.labels,
       }),
     )
   }
@@ -337,6 +339,8 @@ export default function DockedAssistant({
         quick,
         startedAt: quick ? chat[index]?.startedAt : undefined,
         places: question.places,
+        figures: question.boxedFigures,
+        labels: question.labels,
       }),
     )
   }

@@ -28,6 +28,10 @@
   /* The Reader card's accent (v8.37.0): coral, a third hue beside the Citation
      Graph's glass blue and the Knowledge Graph's gold. */
   --reader-ink: #f08c7c;
+  /* What a Reader Assistant answer lights in the paper, and its quotes (v8.48.0):
+     the Reader's own red, not gold, which the Knowledge Graph's notes use there
+     (Patrick). */
+  --passage-lit: var(--reader-ink);
   /* The wordmark (.rail-brand): the visor rim's glass blue on dark (7.5:1 on
      the rail), a deeper glass on light (below). */
   --brand: #6fb6ce;
@@ -145,6 +149,10 @@
   --accent-strong: #2f7f9c;
   --seed-ref: #8c600b;
   --reader-ink: #b4473a;
+  /* What a Reader Assistant answer lights in the paper, and its quotes (v8.48.0):
+     the Reader's own red, not gold, which the Knowledge Graph's notes use there
+     (Patrick). */
+  --passage-lit: var(--reader-ink);
   /* Deeper glass, 7.1:1 on the white rail (the rim blue was ~2.3:1). The
      visor glass itself (#12314a) was tried here in v8.7.0 and reverted. */
   --brand: #1d5f7a;

@@ -653,7 +653,11 @@ def test_pdf_passage_reads_a_highlight_from_where_it_sits(client, monkeypatch, t
     monkeypatch.setattr(graph_routes.pdf_passages, "passage_at", fake_passage)
     places = [{"page": 2, "rects": [[1, 2, 3, 4]]}]
     response = client.post("/api/paper/1412.6980/pdf-passage", json={"places": places + ["junk"]})
-    assert response.json == {"text": "the words", "places": [{"page": 2, "rects": [[1.0, 2.0, 3.0, 4.0]]}]}
+    assert response.json == {
+        "text": "the words",
+        "places": [{"page": 2, "rects": [[1.0, 2.0, 3.0, 4.0]]}],
+        "labels": [],
+    }
     assert seen["places"] == [{"page": 2, "rects": [[1.0, 2.0, 3.0, 4.0]]}]
 
 
@@ -672,15 +676,16 @@ def test_pdf_passage_reads_a_drag_from_its_two_ends(client, monkeypatch, tmp_pat
     monkeypatch.setattr(graph_routes.pdf_passages, "passage_between", fake_between)
     span = {"start": {"page": 3, "left": 55, "top": 670}, "end": {"page": 3, "left": 445, "top": 453}}
     response = client.post("/api/paper/1801.01290/pdf-passage", json={"span": span})
-    assert response.json == {"text": "every word between", "places": []}
+    assert response.json == {"text": "every word between", "places": [], "labels": []}
     assert seen["ends"] == ({"page": 3, "left": 55.0, "top": 670.0}, {"page": 3, "left": 445.0, "top": 453.0})
 
 
 def test_pdf_passage_and_find_are_niceties_that_never_error(client, monkeypatch):
     monkeypatch.setattr(graph_routes.optional, "available", lambda extra: False)
     places = [{"page": 1, "rects": [[1, 2, 3, 4]]}]
-    assert client.post("/api/paper/x/pdf-passage", json={"places": places}).json == {"text": "", "places": []}
-    assert client.post("/api/paper/x/pdf-find", json={"quotes": ["a b c d"]}).json == {"found": [[]]}
+    nothing = {"text": "", "places": [], "labels": []}
+    assert client.post("/api/paper/x/pdf-passage", json={"places": places}).json == nothing
+    assert client.post("/api/paper/x/pdf-find", json={"quotes": ["a b c d"]}).json == {"found": [[]], "labelled": []}
 
     monkeypatch.setattr(graph_routes.optional, "available", lambda extra: True)
     monkeypatch.setattr(graph_routes.pdf_service, "paper_pdf_url", lambda ref, provider: "https://x/p.pdf")
@@ -689,9 +694,9 @@ def test_pdf_passage_and_find_are_niceties_that_never_error(client, monkeypatch)
         raise graph_routes.pdf_service.PdfError("blocked")
 
     monkeypatch.setattr(graph_routes.pdf_service, "fetch_pdf", refuse)
-    assert client.post("/api/paper/x/pdf-passage", json={"places": places}).json == {"text": "", "places": []}
-    assert client.post("/api/paper/x/pdf-find", json={"quotes": ["a", 3]}).json == {"found": [[]]}
-    assert client.post("/api/paper/x/pdf-find", json={}).json == {"found": []}
+    assert client.post("/api/paper/x/pdf-passage", json={"places": places}).json == nothing
+    assert client.post("/api/paper/x/pdf-find", json={"quotes": ["a", 3]}).json == {"found": [[]], "labelled": []}
+    assert client.post("/api/paper/x/pdf-find", json={}).json == {"found": [], "labelled": []}
 
 
 def test_pdf_find_answers_one_list_of_places_per_quote(client, monkeypatch, tmp_path):
@@ -701,4 +706,33 @@ def test_pdf_find_answers_one_list_of_places_per_quote(client, monkeypatch, tmp_
     found = [[{"page": 3, "rects": [[1, 2, 3, 4]]}], []]
     monkeypatch.setattr(graph_routes.pdf_passages, "find_quotes", lambda path, quotes: found)
     response = client.post("/api/paper/x/pdf-find", json={"quotes": ["one quote", "another"]})
-    assert response.json == {"found": found}
+    assert response.json == {"found": found, "labelled": []}
+
+
+def test_pdf_find_and_passage_speak_labels(client, monkeypatch, tmp_path):
+    """v8.48.0: the PDF answers by the labels both views share."""
+    monkeypatch.setattr(graph_routes.optional, "available", lambda extra: True)
+    monkeypatch.setattr(graph_routes.pdf_service, "paper_pdf_url", lambda ref, provider: "https://x/p.pdf")
+    monkeypatch.setattr(graph_routes.pdf_service, "fetch_pdf", lambda url: tmp_path / "p.pdf")
+    floats = [{"kind": "figure", "page": 6, "caption": "Figure 1. Curves.", "region": [1, 2, 3, 4]}]
+    monkeypatch.setattr(graph_routes.pdf_service, "get_pdf_floats", lambda url: {"floats": floats})
+    monkeypatch.setattr(graph_routes.pdf_passages, "find_quotes", lambda path, quotes: [[] for _ in quotes])
+    seen = {}
+
+    def fake_label_places(path, given, labels):
+        seen["floats"], seen["labels"] = given, labels
+        return [[{"page": 6, "rects": [[1, 2, 3, 4]]}]]
+
+    monkeypatch.setattr(graph_routes.pdf_passages, "label_places", fake_label_places)
+    response = client.post("/api/paper/x/pdf-find", json={"quotes": ["q"], "labels": ["Figure 1"]})
+    assert response.json == {"found": [[]], "labelled": [[{"page": 6, "rects": [[1, 2, 3, 4]]}]]}
+    assert seen == {"floats": floats, "labels": ["Figure 1"]}
+
+    box = [{"page": 6, "rects": [[1.0, 2.0, 3.0, 4.0]]}]
+    monkeypatch.setattr(graph_routes.pdf_passages, "passage_at", lambda path, places: {"text": "", "places": []})
+    monkeypatch.setattr(
+        graph_routes.pdf_passages, "labels_in", lambda path, given, places: ["Figure 1"] if places == box else []
+    )
+    # A box with no words (a figure) still reaches its label, by its own rectangle.
+    response = client.post("/api/paper/x/pdf-passage", json={"places": box})
+    assert response.json == {"text": "", "places": [], "labels": ["Figure 1"]}

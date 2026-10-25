@@ -23,6 +23,7 @@ import type { ThreadRecord } from '../store/explorations'
 import { passagesCleared, passagesLit } from '../store/highlight'
 import { askReader, documentRef } from './askReader'
 import { answerQuotes, questionPassage } from './passages'
+import { labelsInPassage } from './textBox'
 
 /**
  * Render the Reader's assistant.
@@ -67,10 +68,13 @@ export default function ReaderAssistant({
       const user = asked?.role === 'user' ? asked : null
       const passage = user ? questionPassage(user.text) : null
       const places = user?.places ?? []
+      // A question from before labels were kept reads them off its words.
+      const labels = user?.labels ?? (passage ? labelsInPassage(passage) : [])
       const asHighlighted = !!passage || places.length > 0
       return {
         passage,
         places,
+        labels,
         quotes: asHighlighted ? [] : answerQuotes(chat?.[index]?.text ?? ''),
       }
     }
@@ -86,7 +90,8 @@ export default function ReaderAssistant({
         if (active === index) dispatch(passagesCleared())
         else show(index, about(index), true)
       },
-      onQuote: (quote) => show(null, { passage: null, places: [], quotes: [quote] }, true),
+      onQuote: (quote) =>
+        show(null, { passage: null, places: [], labels: [], quotes: [quote] }, true),
     }
   }, [active, chat, dispatch, thread.id])
   return (
@@ -104,7 +109,7 @@ export default function ReaderAssistant({
         title: 'Reader Assistant',
         hint:
           'Ask about the paper: what a passage means, where a symbol comes from, why a step ' +
-          'follows. Highlight text (or, in the PDF, ⌥-drag a box over an equation or figure) ' +
+          'follows. Highlight text (or ⌥-drag a box over an equation or figure) ' +
           'and choose Explain or Simplify to ask about it here, or ' +
           'Chat to attach it and ask anything.',
         context: `Asking about ${thread.paper?.title ?? thread.title}, from the section you’re reading`,

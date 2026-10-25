@@ -241,6 +241,17 @@ pymupdf's words, which come in reading order with their boxes:
   highlight (the box around that column's rectangles, padded), sent to the model with the question by
   `/api/ask_reader` so it reads an equation from the picture.
 
+- **`label_places(path, floats, labels)` / `labels_in(path, floats, places)`**
+  (v8.48.0): the labels both of the Reader's views share, "Figure 1",
+  "Table 2", "Algorithm 1", "(6)", so a passage asked in one view lights in
+  the other. A float is found by the mined manifest's region, matched by its
+  caption's opening (`float_label`); an equation by its number, a word of
+  its own that closes its line (prose citing "(6)" goes on past it, and the
+  other column, across the gutter, doesn't count), lit as its column's words
+  at that height, the column being the span of the lines that reach the
+  number. Served by `/pdf-find` (`labels` in, `labelled` out) and
+  `/pdf-passage` (the `labels` a passage covers).
+
 Nothing is stored, as with figures (`docs/pdf-mining.md`): the words are
 memoized in process for the last four files (by path and mtime), since one
 answer asks for them more than once. Tested over a real synthetic PDF

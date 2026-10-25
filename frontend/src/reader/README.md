@@ -21,7 +21,8 @@ reader/
   passages.ts     — an answer's passages: read out, found in the text, lit
   usePdfPassages.ts — the same in the PDF, as places: boxes over its pages
   pdfPlaces.ts    — where a PDF highlight began and ended, as points on its pages
-  usePdfBox.ts    — a box drawn over the PDF with ⌥-drag, to ask about
+  useBoxDraw.ts   — a box drawn with ⌥-drag, over the PDF's pages or the text
+  textBox.ts      — what a box over the text takes: whole elements, figures as images
   useAnchoredCard.ts — when a card shows, stays and goes, and where it sits
   selectionText.ts — what a highlight says (formulas as LaTeX) and where it's from
   askReader.ts    — the Reader Assistant's asking: what it sends, the
@@ -42,13 +43,15 @@ Reader Assistant (v8.38.0, below); (3) the PDF view with the same
 AI tools (v8.40.0, below); (4) the citation cards, resolving `[23]` to the
 real cited paper (v8.43.0, below); (5) the Knowledge Graph notes (v8.44.0,
 below); (6) an answer lighting up the passage it's about (v8.45.0, below);
-(7) a box drawn over the PDF to ask about (v8.46.0, below).
+(7) a box drawn over the PDF to ask about (v8.46.0, below); (8) the same
+box in the text view, taking whole elements (v8.48.0, below).
 Read the OnePager entry before extending it.
 
 ## A box over the PDF (v8.46.0)
 
 Hold ⌥ (Alt) and drag over a PDF page to draw a box, for what a text
-selection can't grab: an equation, a figure, a table (`usePdfBox`). The
+selection can't grab: an equation, a figure, a table (`useBoxDraw`, which
+draws in either view's frames: the PDF's pages, the text's article). The
 highlight menu comes up over it (`SelectionMenu`, labelled "Boxed area",
 placed by `pillAnchor`), and it's asked about the way a highlight is,
 because a box is a place (`PdfPlace`, from v8.45.0, below):
@@ -72,7 +75,57 @@ selection (the mousedown is cancelled). A drag smaller than 8px each way is a cl
 plain click elsewhere, Esc or a menu choice lets the box go, and the menu
 follows the page as it scrolls. While drawn and its menu is up the box is a
 dashed outline in the selection's accent (`.reader-pdf-box`); once asked
-about, it lights in gold like any lit passage.
+about, it lights in red like any lit passage.
+
+### In the text view: whole elements (v8.48.0)
+
+The same ⌥-drag and dashed box draw over the text's article, for the same
+hand in both views (Patrick, 2026-10-25: "more importantly, consistent").
+**But not a picture**: the text has nothing to recover, its equations are
+LaTeX and its prose text, and screenshotting HTML is heavy and unreliable
+under KaTeX. Instead the box **takes the whole elements it touches**
+(`textBox.ts`: paragraphs, equations, figures, tables, listings, list items,
+headings; the outermost only, never the notes or cards laid over the text)
+and, let go, snaps to them. Each reads as a selection over it would
+(`readerSelectionText`): an equation as its LaTeX, a figure as its tag and
+caption, a table as its cells. **What a box adds is the figures**: an image
+can't be selected, so the model never saw one asked about from the text.
+Their image sources go with the question (`figures`, kept on the turn as
+`ChatMsg.boxedFigures` for a retry), and the server fetches them, held to
+the figure proxy's allowlist, and sends them as PNGs, an SVG plot rendered
+by pymupdf (`services/reader/figures.py`). The answer lights the passage by
+its words, as any text-view passage.
+
+### Across the views: by label (v8.48.0)
+
+A box or highlight made in one view lights in the other (Patrick: "can one
+box map to the other view?"). Not by position, which means nothing across
+them (the PDF's points against a reflowing column), but by **the labels
+both views share**: "Figure 1", "Table 2", "Algorithm 1", an equation's
+"(6)". The user turn keeps them (`ChatMsg.labels`), beside its words and
+places:
+
+- **Asked in the text**, the labels are the equations and figures the
+  selection or box reaches, even in part (`labelsInRange`, `labelsOf`); in
+  the PDF the server finds each, a float by the mined manifest's region, an
+  equation by its number's line (`/pdf-find` `labels`, `label_places`).
+- **Asked in the PDF**, the server reports which labels the highlight or
+  box covers (`/pdf-passage` `labels`, `labels_in`), and the text lights
+  those elements whole (`labelElements`), its prose by its words as before.
+- **What can't map is said, not silently dropped**: an equation without a
+  number (its LaTeX is nowhere in a PDF), a label one view lacks, words
+  found nowhere. A note over the controls says "Part of this passage isn't
+  in the PDF" (or the text) with **Show in text** / **Show in PDF**
+  (`.reader-lit-note`, `partMissing`), and switching views goes to it there.
+  A passage is only ever "missing" in the view it wasn't asked in.
+- **Questions from before labels were kept** read theirs off their own words
+  (`labelsInPassage`): a whole equation is quoted as `$$…$$ (2)`, a figure's
+  caption as "Figure 1. …". Tried live on a question asked before this
+  change: its equation (2) lit in the PDF.
+- **Arriving in the PDF lands once the pages' scale has settled**
+  (`scrollToPlace`): the pages are sized at once and fit the pane's width a
+  moment later, and PdfView keeps the page in view across a change of scale,
+  so landing before that put the reader back at the top (seen live).
 
 ## An answer lights up its passage (v8.45.0)
 
@@ -85,7 +138,9 @@ stay lit until something else is chosen.
 - **Quotes in the answer.** The assistant wraps the paper's exact words in
   ⟦ and ⟧ (`READING_QUOTES` in the researcher's reading prompt), one to
   three times an answer, prose only. `remarkQuote` turns them into quotes
-  underlined in gold, each a button (a span with the role: a `<button>`
+  underlined in red (`--passage-lit`, the Reader's own `--reader-ink`; gold
+  was the first color, but the Knowledge Graph's notes beside the text are
+  gold, Patrick, v8.48.0), each a button (a span with the role: a `<button>`
   won't flow inline, and the words after a quote broke onto their own line); a stray marker (a quote still
   streaming) never shows. A question asked from a highlight already knows
   its passage ("Explain this passage from …: “…”"), so that's lit too.
@@ -487,7 +542,10 @@ kept, and the PDF's lit places (the passage's at once, the quotes the
 server finds, an older turn's passage found by its words).
 A box drawn with ⌥-drag (only with ⌥, and not as a click) is read, asked
 about by its place and kept on the turn, and a box with no words is quoted
-as its picture.
+as its picture. A box over the text snaps to the equation and figure it
+touched and asks with the LaTeX, the caption and the figure's image, kept on
+the turn; `test/reader/textBox.test.ts` pins what a box takes (the outermost
+element, never a note).
 `test/reader/passages.test.ts` covers reading quotes out, finding them
 however the text differs, and lighting them; `test/reader/pdfPlaces.test.ts`
 a highlight's rectangles as places, kept to the band its drag spans. The

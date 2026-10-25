@@ -66,7 +66,8 @@ import { useAnchoredCard } from './useAnchoredCard'
 import { useMarginNotes } from './useMarginNotes'
 import { boxesOf, findPassage, indexText, scrollToRange, type LitBox } from './passages'
 import { selectionSpan } from './pdfPlaces'
-import { boxOnScreen, boxPlace, usePdfBox } from './usePdfBox'
+import { boxOnScreen, boxPlace, PDF_FRAMES, TEXT_FRAMES, useBoxDraw } from './useBoxDraw'
+import { labelElements, labelsInRange, labelsOf, readBox } from './textBox'
 import { usePdfPassages, type PdfLight } from './usePdfPassages'
 import PdfView, { type PdfMarginNote } from './PdfView'
 import type { PdfOutlineEntry } from './pdf'
@@ -90,8 +91,15 @@ const HEADING_ROOM = 24
  *  its picture. */
 const BOXED_AREA = 'the boxed area, pictured'
 
-/** No lit passages: one array, so the default never changes identity. */
-const NO_PASSAGES: string[] = []
+/**
+ * A box's rectangle as the style that draws it in its frame.
+ *
+ * @param rect `[x0, y0, x1, y1]` in the frame's pixels.
+ * @returns Its position and size.
+ */
+function boxStyle(rect: number[]) {
+  return { left: rect[0], top: rect[1], width: rect[2] - rect[0], height: rect[3] - rect[1] }
+}
 
 /** The PDF view's zoom steps, as multiples of fitting the pane's width. */
 const ZOOMS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
@@ -680,22 +688,33 @@ export default function Reader({
   // reader highlights themselves (Patrick).
   const litPassages = useAppSelector((state) => state.highlight?.passages)
   const lit = litPassages?.threadId === thread.id ? litPassages : null
-  const passages = useMemo(
-    () => (lit ? [...(lit.passage ? [lit.passage] : []), ...lit.quotes] : NO_PASSAGES),
-    [lit],
-  )
   const passageScroll = lit?.scroll ?? 0
   const pdfLight = useMemo<PdfLight | null>(
     () =>
-      lit && (lit.passage || lit.places.length || lit.quotes.length)
-        ? { passage: lit.passage, places: lit.places, quotes: lit.quotes }
+      lit && (lit.passage || lit.places.length || lit.labels.length || lit.quotes.length)
+        ? { passage: lit.passage, places: lit.places, labels: lit.labels, quotes: lit.quotes }
         : null,
     [lit],
   )
   const pdfPaper = useMemo(() => (ref ? { ref, provider } : null), [ref, provider])
-  const pdfLit = usePdfPassages(view === 'pdf' ? pdfPaper : null, pageRef, pdfLight, passageScroll)
+  const { lit: pdfLit, missing: pdfMissing } = usePdfPassages(
+    view === 'pdf' ? pdfPaper : null,
+    pageRef,
+    pdfLight,
+    passageScroll,
+  )
   const seenPassageScroll = useRef(passageScroll)
   const [textLit, setTextLit] = useState<LitBox[]>([])
+  // Part of a passage asked in the PDF that the text has nowhere (v8.48.0):
+  // the reader is told, and offered the PDF (Patrick).
+  const [textMissing, setTextMissing] = useState(false)
+  // The view a missing part can be found in, when there is one to go to.
+  const otherView: ReaderView | null =
+    view === 'text' && textMissing && ref && !pdfFailure
+      ? 'pdf'
+      : view === 'pdf' && pdfMissing && doc?.available
+        ? 'text'
+        : null
   // The view the text's light was last shown in: arriving from the PDF view
   // with something lit goes to it (Patrick).
   const litView = useRef(view)
@@ -704,12 +723,32 @@ export default function Reader({
     const pane = pageRef.current
     const arrived = litView.current !== view
     litView.current = view
-    if (view !== 'text' || !doc?.available || !article || !pane) {
+    setTextMissing(false)
+    if (view !== 'text' || !doc?.available || !article || !pane || !lit) {
       setTextLit([])
       return
     }
-    const index = passages.length ? indexText(article) : null
-    const ranges = index ? passages.flatMap((quote) => findPassage(article, index, quote)) : []
+    // The passage by its labels, whole (v8.48.0: "Figure 1", "(6)", which a
+    // passage asked in the PDF carries too), then by its words; then the
+    // answer's quotes.
+    const index = indexText(article)
+    const labelled = labelElements(article, lit.labels)
+    const labelRanges = labelled.elements.map((element) => {
+      const range = document.createRange()
+      range.selectNodeContents(element)
+      return range
+    })
+    const passageRanges = lit.passage ? findPassage(article, index, lit.passage) : []
+    const ranges = [
+      ...labelRanges,
+      ...passageRanges,
+      ...lit.quotes.flatMap((quote) => findPassage(article, index, quote)),
+    ]
+    // Asked in the PDF (it has places there), and part of it has no place here.
+    setTextMissing(
+      lit.places.length > 0 &&
+        (labelled.missing > 0 || (!passageRanges.length && !labelRanges.length)),
+    )
     // Measured again whenever the column reflows (a resize, the contents
     // folding, the notes moving into the margin).
     const measure = () => setTextLit(ranges.length ? boxesOf(ranges, article) : [])
@@ -721,7 +760,7 @@ export default function Reader({
     const observer = new ResizeObserver(measure)
     observer.observe(article)
     return () => observer.disconnect()
-  }, [view, doc, passages, passageScroll])
+  }, [view, doc, lit, passageScroll])
   const anyPassages = !!pdfLight
   useEffect(() => {
     if (!anyPassages) return
@@ -746,15 +785,23 @@ export default function Reader({
    * @param passage Its words.
    * @param from Where it is from, as a phrase.
    * @param places Where it sits in the PDF, when it's from there.
+   * @param figures Figures boxed in the text, by their images' sources
+   *   (v8.48.0): the model sees them.
+   * @param labels The labels it covers (v8.48.0), for the other view to
+   *   light it by.
    */
   const send = (
     action: (typeof MENU)[number]['action'],
     passage: string,
     from: string,
     places: PdfPlace[] | undefined,
+    figures?: string[],
+    labels?: string[],
   ) => {
+    const pictured = figures?.length ? figures : undefined
+    const labelled = labels?.length ? labels : undefined
     if (action === 'chat') {
-      onAssistant?.({ text: passage, from, places })
+      onAssistant?.({ text: passage, from, places, figures: pictured, labels: labelled })
       return
     }
     onAssistant?.()
@@ -764,41 +811,81 @@ export default function Reader({
         question: readerMessage(action, passage, from),
         provider,
         places,
+        figures: pictured,
+        labels: labelled,
       }),
     )
   }
 
-  // A box drawn over the PDF with ⌥-drag (v8.46.0, `usePdfBox`), for an
-  // equation, a figure or a table: its words are read as soon as it's drawn,
-  // and it's asked about like a highlight, by its place.
+  // A box drawn with ⌥-drag (`useBoxDraw`), for an equation, a figure or a
+  // table. Over the PDF (v8.46.0) it's a place: its words are read as soon
+  // as it's drawn, and it's asked about like a highlight, pictured. Over the
+  // text (v8.48.0) it takes the whole elements it touches, snapping to
+  // them, each read in its best form, a figure sent as its image
+  // (`textBox.ts`).
+  const boxFrames = view === 'pdf' ? PDF_FRAMES : TEXT_FRAMES
   const {
     box,
     moved: boxMoved,
     clear: clearBox,
-  } = usePdfBox(pageRef, view === 'pdf' && !!ref && !pdfFailure)
-  const boxWords = useRef<Promise<string> | null>(null)
+  } = useBoxDraw(
+    pageRef,
+    (view === 'pdf' && !!ref && !pdfFailure) || (view === 'text' && !!doc?.available),
+    boxFrames,
+  )
+  const boxRead = useRef<Promise<{ text: string; labels: string[] }> | null>(null)
   const boxDone = box?.done ? box : null
+  // What a box over the text took; null for one that touched nothing.
+  const textBoxed = useMemo(() => {
+    const article = articleRef.current
+    return boxDone && view === 'text' && article ? readBox(article, boxDone.rect) : null
+  }, [boxDone, view])
   useEffect(() => {
-    boxWords.current =
-      boxDone && ref
-        ? fetchPdfPassage(ref, provider, { places: [boxPlace(boxDone)] }).then((read) => read.text)
+    if (boxDone && view === 'text' && !textBoxed) clearBox()
+  }, [boxDone, view, textBoxed, clearBox])
+  useEffect(() => {
+    boxRead.current =
+      boxDone && view === 'pdf' && ref
+        ? fetchPdfPassage(ref, provider, { places: [boxPlace(boxDone)] })
         : null
     if (boxDone && passagesLitNow.current) dispatch(passagesCleared())
-  }, [boxDone, ref, provider, dispatch])
+  }, [boxDone, view, ref, provider, dispatch])
   const boxMenu = useMemo(() => {
     const pane = pageRef.current
-    const onScreen = boxDone && pane ? boxOnScreen(pane, boxDone) : null
+    const shown = textBoxed && boxDone ? { ...boxDone, rect: textBoxed.rect } : boxDone
+    const onScreen = shown && pane ? boxOnScreen(pane, boxFrames, shown) : null
     return onScreen ? { text: '', ...pillAnchor(onScreen) } : null
     // boxMoved: the page scrolled under the box, so its menu moves too.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [boxDone, boxMoved])
+  }, [boxDone, textBoxed, boxFrames, boxMoved])
   const pickBox = async (action: (typeof MENU)[number]['action']) => {
     if (!boxDone) return
-    const words = (await boxWords.current) ?? ''
+    if (textBoxed) {
+      const holder = textBoxed.elements[0].closest<HTMLElement>('[data-passage-from]')
+      clearBox()
+      if (holder?.dataset.sectionId) setReadingSection(thread.id, holder.dataset.sectionId)
+      send(
+        action,
+        textBoxed.text || BOXED_AREA,
+        holder?.dataset.passageFrom ?? 'the paper',
+        undefined,
+        textBoxed.figures,
+        labelsOf(textBoxed.elements),
+      )
+      return
+    }
+    const read = await boxRead.current
     clearBox()
     setReadingSection(thread.id, `page:${boxDone.page}`)
     // A figure has no words: the picture is the passage.
-    send(action, words || BOXED_AREA, `page ${boxDone.page}`, [boxPlace(boxDone)])
+    send(
+      action,
+      read?.text || BOXED_AREA,
+      `page ${boxDone.page}`,
+      [boxPlace(boxDone)],
+      undefined,
+      read?.labels,
+    )
   }
 
   const pick = async (action: (typeof MENU)[number]['action'], browserPassage: string) => {
@@ -809,6 +896,9 @@ export default function Reader({
     const range = live?.rangeCount ? live.getRangeAt(0) : null
     const pages = pdfRef.current
     const span = view === 'pdf' && range && pages ? selectionSpan(range, pages) : null
+    // In the text, the equations and figures it reaches, by label (v8.48.0).
+    const article = articleRef.current
+    let labels = view === 'text' && range && article ? labelsInRange(range, article) : []
     clearSelection()
     if (source.sectionId) setReadingSection(thread.id, source.sectionId)
     // In the PDF view, the words are the PDF's own from where the drag began
@@ -821,8 +911,9 @@ export default function Reader({
       const read = await fetchPdfPassage(ref, provider, { span })
       if (read.text) passage = read.text
       if (read.places.length) where = read.places
+      labels = read.labels
     }
-    send(action, passage, source.from, where)
+    send(action, passage, source.from, where, undefined, labels)
   }
 
   const paper = thread.paper
@@ -845,7 +936,7 @@ export default function Reader({
         notes={pdfNotes}
         margin={pdfNotes.length ? PDF_NOTES_ROOM : 0}
         zoom={zoom}
-        box={box}
+        box={view === 'pdf' ? box : null}
         lit={pdfLit}
       />
     )
@@ -903,6 +994,15 @@ export default function Reader({
           className={`reader-article${course && notes.size ? ' has-notes' : ''}`}
           ref={articleRef}
         >
+          {view === 'text' && box && (
+            // While drawn, the box as dragged; once let go, snapped to what
+            // it took.
+            <div
+              className="reader-text-box"
+              aria-hidden="true"
+              style={boxStyle(textBoxed?.rect ?? box.rect)}
+            />
+          )}
           {textLit.map((box, index) => (
             <div key={index} className="reader-text-lit" aria-hidden="true" style={box} />
           ))}
@@ -1147,6 +1247,17 @@ export default function Reader({
             when neither the text nor the PDF could be had. */}
         {doc && !(pdfFailure && !doc.available) && (
           <div className="reader-bottom-bar">
+            {/* Part of what an answer lit has no place in this view
+                (v8.48.0): said, with the other view a click away (Patrick).
+                The view switch goes to it there. */}
+            {otherView && (
+              <p className="reader-lit-note" role="status">
+                Part of this passage isn’t in the {view === 'pdf' ? 'PDF' : 'text'}
+                <button type="button" onClick={() => chooseView(otherView)}>
+                  Show in {otherView === 'pdf' ? 'PDF' : 'text'}
+                </button>
+              </p>
+            )}
             <div className="reader-controls" data-tour="reader-view-switch">
               <div
                 className={`reader-view-switch${view === 'pdf' ? ' on-pdf' : ''}`}
@@ -1172,7 +1283,7 @@ export default function Reader({
                   type="button"
                   aria-pressed={view === 'pdf'}
                   onClick={() => chooseView('pdf')}
-                  title="Read the paper as its PDF: the original layout. ⌥-drag (Alt) to box an equation or figure and ask about it"
+                  title="Read the paper as its PDF: the original layout"
                 >
                   PDF
                 </button>
@@ -1227,12 +1338,15 @@ export default function Reader({
                   <>
                     <p>
                       Hold ⌥ (Alt) and drag to draw a box over an equation, a figure or a table, and
-                      ask about it the same way.
+                      ask about it the same way: the assistant sees a picture of it.
                     </p>
                     <p>− and + zoom; the percentage fits the page to the width.</p>
                   </>
                 ) : (
-                  <p>Switch to the PDF to box an equation or figure with ⌥-drag (Alt).</p>
+                  <p>
+                    Hold ⌥ (Alt) and drag a box over equations, figures or tables to ask about them
+                    whole: the assistant gets their LaTeX, and sees the figures.
+                  </p>
                 )}
               </InfoTip>
             </div>

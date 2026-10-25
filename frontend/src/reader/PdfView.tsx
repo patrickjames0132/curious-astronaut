@@ -44,7 +44,7 @@ import {
 } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import type { PdfPlace } from '../api'
-import type { PdfBox } from './usePdfBox'
+import type { DrawnBox } from './useBoxDraw'
 import { PDF_TEXT_DRAWN, pdfPageId } from './links'
 import { outlineOf, pdfjs, type PdfOutlineEntry } from './pdf'
 
@@ -93,7 +93,7 @@ const SETTLE = 200
  * @param props.notes Its margin notes.
  * @param props.lit Rectangles to light on it, in PDF points (v8.45.0).
  * @param props.drawn A box being drawn or drawn on it, in PDF points
- *   (v8.46.0, `usePdfBox`), or null.
+ *   (v8.46.0, `useBoxDraw`), or null.
  * @returns The page.
  */
 function PdfPage({
@@ -280,7 +280,7 @@ export default function PdfView({
   margin?: number
   zoom?: number
   lit?: PdfPlace[]
-  box?: PdfBox | null
+  box?: DrawnBox | null
 }) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
   const [sizes, setSizes] = useState<PageSize[]>([])

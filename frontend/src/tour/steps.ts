@@ -296,9 +296,9 @@ export const READER_TOUR: TourStep[] = [
       'Select a word, a sentence or an equation and a small menu appears over it. ' +
       '“Explain” asks the Reader Assistant what it means, “Simplify” asks for it in plain ' +
       'words, and “Chat” opens the assistant with the passage attached to its bar, so you ' +
-      'can ask anything about it. In the PDF, hold ⌥ (Alt) and drag to draw a box over what ' +
-      'won’t select as text, an equation, a figure or a table: the same menu asks about it, ' +
-      'and the assistant sees a picture of it.',
+      'can ask anything about it. For what won’t select as text, a figure, a whole equation ' +
+      'or a table, hold ⌥ (Alt) and drag a box over it: the same menu asks about it, and the ' +
+      'assistant sees it, a picture of it in the PDF, its LaTeX and images in the text.',
   },
   {
     target: '[data-tour="reader-notes"]',
