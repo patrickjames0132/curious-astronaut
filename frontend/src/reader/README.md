@@ -23,6 +23,7 @@ reader/
   pdfPlaces.ts    — where a PDF highlight began and ended, as points on its pages
   useBoxDraw.ts   — a box drawn with ⌥-drag, over the PDF's pages or the text
   textBox.ts      — what a box over the text takes: whole elements, figures as images
+  glide.ts        — every scroll the Reader makes itself, kept to its target as the page settles
   useAnchoredCard.ts — when a card shows, stays and goes, and where it sits
   selectionText.ts — what a highlight says (formulas as LaTeX) and where it's from
   askReader.ts    — the Reader Assistant's asking: what it sends, the
@@ -46,6 +47,28 @@ below); (6) an answer lighting up the passage it's about (v8.45.0, below);
 (7) a box drawn over the PDF to ask about (v8.46.0, below); (8) the same
 box in the text view, taking whole elements (v8.48.0, below).
 Read the OnePager entry before extending it.
+
+## Scrolling that lands (v8.48.1)
+
+Every scroll the Reader makes itself (a contents entry, a citation's
+**Reference ↓**, a figure or equation number, a lit passage, a place in the
+PDF) goes through `glide`. A smooth scroll fixes its destination when it
+starts, so anything that grew above the target while it glided pushed the
+target down after the fact, and the scroll landed short (Patrick: "the
+scrolling often stops short"). Measured live on Attention: a jump to its
+Conclusion landed **1,000px** short. Two fixes:
+
+- **Figures hold their size before they load** (`reservedSize` in
+  `ReaderBody`). The CSS sizes a figure by its loaded image (`width` and
+  `height: auto`, up to 520px tall), so a lazy one showed as its bare
+  20px mat until scrolled near, then grew by up to 500px. Its declared size
+  now sets the same box up front, with `aspect-ratio` for a narrower column.
+  That alone took the miss to 1px; it also stops the text jumping as you
+  read.
+- **A glide checks where it landed** and goes the rest of the way if its
+  target moved, up to three times, measuring the target afresh each time;
+  the moment the reader scrolls (wheel, touch, a key, a click in the pane),
+  it lets go. A new glide replaces one still going.
 
 ## A box over the PDF (v8.46.0)
 

@@ -88,6 +88,7 @@ vi.mock('../../src/reader/PdfView', () => ({
 beforeEach(() => {
   // jsdom lays nothing out, so it has no scrolling to do.
   Element.prototype.scrollIntoView = vi.fn()
+  Element.prototype.scrollTo = vi.fn() as unknown as typeof Element.prototype.scrollTo
   pdfStub.fail = true
   pdfStub.outline = []
   pdfStub.urls = []
@@ -255,7 +256,7 @@ it('lists sections down to subsubsections in the contents, and jumps', async () 
   )
   expect(entries).toEqual(['1Introduction', '3.2Attention']) // the paragraph heading stays out
   fireEvent.click(screen.getByRole('button', { name: /3\.2/ }))
-  expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+  expect(Element.prototype.scrollTo).toHaveBeenCalled()
 })
 
 /** The paper `[2]` was matched to (`fetchCited`). */
@@ -944,7 +945,7 @@ it('shows the PDF, with its outline as the contents, when there is no HTML rende
   )
   expect(entries).toEqual(['Introduction', 'Experiments'])
   fireEvent.click(screen.getByRole('button', { name: 'Experiments' }))
-  expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+  expect(Element.prototype.scrollTo).toHaveBeenCalled()
   expect(document.getElementById('reader-page:2')?.classList.contains('landed')).toBe(true)
 })
 
