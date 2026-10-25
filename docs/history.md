@@ -3903,6 +3903,32 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
         has and what still sits between them and the paper. The layout above
         is how that assessment gets drawn, not the goal in itself.
 
+- [x] **The Reader card, stage 7: a box over the PDF** *(v8.46.0)* —
+      hold ⌥ (Alt) and drag over a PDF page to draw a box around what a text
+      selection can't grab, an equation, a figure or a table, and ask about
+      it from the same Explain · Simplify · Chat menu. A box is a place
+      (v8.45.0), so it goes the way a highlight does: the server reads the
+      words inside it (`passage_at`) for the question to quote ("the boxed
+      area, pictured" when there are none, a figure), the model gets **a
+      picture of it** (`render_places`), and the answer lights it.
+
+      **⌥-drag only, no button** (Patrick): text selection stays the plain
+      drag with no mode. Holding ⌥ turns the pointer over the pages into a
+      crosshair, and **a ⓘ at the end of the Text/PDF capsule** sums up the
+      controls (`ui/InfoTip`, as the 3D course explains its navigation),
+      saying what fits the view; the tour, the assistant's tip and the PDF
+      button's tooltip teach it too. A drag under 8px is a click; Esc, a
+      click elsewhere or a menu choice lets the box go; its menu follows the
+      page as it scrolls.
+
+      Checked live by dispatching ⌥ mouse events over SAC's equation (1):
+      box and "Boxed area" menu, no stray selection, Chat attaching the
+      equation's glyphs. Along the way: margin notes no longer sit over
+      their heading after the window narrows ([docs/bugs.md](bugs.md)).
+
+      **Next**: the same ⌥-drag in the text view, snapping to whole
+      elements, a figure sent as its image (OnePager).
+
 - [x] **The Reader card, stage 6: an answer lights up its passage** *(v8.45.0)* —
       a Reader Assistant answer lights what it's about in the paper, as the
       Citation Graph's teacher glows the papers an answer cites. Patrick's

@@ -7,7 +7,7 @@
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { configureStore } from '@reduxjs/toolkit'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useEffect, type ReactElement, type ReactNode, type RefObject } from 'react'
 import { Provider, useSelector } from 'react-redux'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -1004,8 +1004,7 @@ it('asks about a PDF highlight in the PDF’s own words, sending and keeping whe
   // Where the drag began and ended: the left of its first box, the right of
   // its last, in points on page 2.
   expect(read).toHaveBeenCalledWith('1706.03762', 's2', {
-    start: { page: 2, left: 50, top: 104 },
-    end: { page: 2, left: 90, top: 104 },
+    span: { start: { page: 2, left: 50, top: 104 }, end: { page: 2, left: 90, top: 104 } },
   })
   expect(ask.mock.calls[0][0]).toMatchObject({
     question: 'Explain this passage from page 2:\n\n“The words, in order”',
@@ -1165,4 +1164,98 @@ it('lights only the highlighted passage for an answer to one, its quotes one at 
   // A quote clicked: just it.
   fireEvent.click(screen.getByRole('button', { name: '“the dominant models”' }))
   expect(passages()).toMatchObject({ passage: null, places: [], quotes: ['the dominant models'] })
+})
+
+it('asks about a box drawn over the PDF with ⌥-drag, by its place', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'no_render' })
+  pdfStub.fail = false
+  const ask = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
+  const read = vi
+    .spyOn(api, 'fetchPdfPassage')
+    .mockResolvedValue({ text: 'J(π) = Σ E[r]', places: [] })
+  // jsdom lays nothing out: page 2 sits at the top left, at scale 1.
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    return this.id === 'reader-page:2' ? new DOMRect(0, 0, 600, 800) : new DOMRect(0, 0, 0, 0)
+  })
+  const { store } = mount(<Harness onAssistant={() => {}} />)
+  await screen.findByTestId('pdf-view')
+  const page = document.getElementById('reader-page:2')!
+  const drag = (altKey: boolean, to: [number, number]) => {
+    fireEvent.mouseDown(page.firstChild!, { altKey, button: 0, clientX: 10, clientY: 20 })
+    fireEvent.mouseMove(window, { clientX: to[0], clientY: to[1] })
+    fireEvent.mouseUp(window, { clientX: to[0], clientY: to[1] })
+  }
+  // A click with ⌥ is too small to be a box; a plain drag is a text selection's.
+  drag(true, [12, 22])
+  drag(false, [110, 70])
+  expect(screen.queryByRole('toolbar', { name: 'Boxed area' })).toBeNull()
+  // ⌥-drag: a box, its words read, its menu up.
+  drag(true, [110, 70])
+  const menu = await screen.findByRole('toolbar', { name: 'Boxed area' })
+  const box = [{ page: 2, rects: [[10, 20, 110, 70]] }]
+  expect(read).toHaveBeenCalledWith('1706.03762', 's2', { places: box })
+  // Esc lets it go; drawn again, Explain asks about it by its place.
+  fireEvent.keyDown(document, { key: 'Escape' })
+  await waitFor(() => expect(screen.queryByRole('toolbar', { name: 'Boxed area' })).toBeNull())
+  drag(true, [110, 70])
+  fireEvent.mouseDown(
+    within(await screen.findByRole('toolbar', { name: 'Boxed area' })).getByRole('button', {
+      name: 'Explain',
+    }),
+  )
+  await waitFor(() => expect(ask).toHaveBeenCalled())
+  expect(ask.mock.calls[0][0]).toMatchObject({
+    question: 'Explain this passage from page 2:\n\n“J(π) = Σ E[r]”',
+    places: box,
+  })
+  expect(store.getState().transcript.byKey['attention:reader'].chat[0].places).toEqual(box)
+  expect(screen.queryByRole('toolbar', { name: 'Boxed area' })).toBeNull()
+  expect(menu.isConnected).toBe(false)
+})
+
+it('shows a crosshair over the PDF while ⌥ is held, and says how in the controls’ ⓘ', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  pdfStub.fail = false
+  mount(<Harness />)
+  await screen.findByRole('heading', { name: '3.2Attention' })
+  const help = screen.getByRole('button', { name: 'How to use the reader' })
+  fireEvent.click(help)
+  expect(screen.getByText(/Switch to the PDF to box/)).toBeTruthy()
+  fireEvent.click(help)
+  fireEvent.click(screen.getByRole('button', { name: 'PDF' }))
+  await screen.findByTestId('pdf-view')
+  const pane = document.querySelector('[data-tour="reader-page"]') as HTMLElement
+  fireEvent.keyDown(document, { key: 'Alt', altKey: true })
+  expect(pane.classList.contains('reader-boxing')).toBe(true)
+  fireEvent.keyUp(document, { key: 'Alt' })
+  expect(pane.classList.contains('reader-boxing')).toBe(false)
+  // Pointing with ⌥ already held shows it too.
+  fireEvent.mouseMove(document.getElementById('reader-page:1')!, { altKey: true })
+  expect(pane.classList.contains('reader-boxing')).toBe(true)
+  fireEvent.click(screen.getByRole('button', { name: 'How to use the reader' }))
+  expect(screen.getByText(/Hold ⌥ \(Alt\) and drag to draw a box/)).toBeTruthy()
+})
+
+it('quotes a box with no words in it as its picture', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'no_render' })
+  pdfStub.fail = false
+  const ask = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
+  vi.spyOn(api, 'fetchPdfPassage').mockResolvedValue({ text: '', places: [] })
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    return this.id === 'reader-page:1' ? new DOMRect(0, 0, 600, 800) : new DOMRect(0, 0, 0, 0)
+  })
+  mount(<Harness onAssistant={() => {}} />)
+  await screen.findByTestId('pdf-view')
+  const page = document.getElementById('reader-page:1')!
+  fireEvent.mouseDown(page.firstChild!, { altKey: true, button: 0, clientX: 100, clientY: 100 })
+  fireEvent.mouseUp(window, { clientX: 300, clientY: 250 })
+  fireEvent.mouseDown(
+    within(await screen.findByRole('toolbar', { name: 'Boxed area' })).getByRole('button', {
+      name: 'Simplify',
+    }),
+  )
+  await waitFor(() => expect(ask).toHaveBeenCalled())
+  expect(ask.mock.calls[0][0].question).toBe(
+    'Simplify, in plain words, this passage from page 1:\n\n“the boxed area, pictured”',
+  )
 })

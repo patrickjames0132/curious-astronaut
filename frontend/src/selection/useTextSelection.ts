@@ -50,7 +50,24 @@ export interface TextSelection {
  * @returns The pill's anchor.
  */
 function anchorOf(range: Range): { left: number; top: number } {
-  const box = range.getBoundingClientRect()
+  return pillAnchor(range.getBoundingClientRect())
+}
+
+/**
+ * Where the pill goes for anything on screen, a range's box or a box drawn
+ * over the PDF (v8.46.0), placed as `anchorOf` places it over a range.
+ *
+ * @param box Its box in viewport pixels.
+ * @param box.left Its left edge.
+ * @param box.top Its top edge.
+ * @param box.width Its width.
+ * @param box.bottom Its bottom edge.
+ * @returns The pill's anchor.
+ */
+export function pillAnchor(box: { left: number; top: number; width: number; bottom: number }): {
+  left: number
+  top: number
+} {
   const above = box.top - GAP - PILL_HEIGHT
   const centre = box.left + box.width / 2
   return {

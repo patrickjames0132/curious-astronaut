@@ -296,7 +296,9 @@ export const READER_TOUR: TourStep[] = [
       'Select a word, a sentence or an equation and a small menu appears over it. ' +
       '“Explain” asks the Reader Assistant what it means, “Simplify” asks for it in plain ' +
       'words, and “Chat” opens the assistant with the passage attached to its bar, so you ' +
-      'can ask anything about it.',
+      'can ask anything about it. In the PDF, hold ⌥ (Alt) and drag to draw a box over what ' +
+      'won’t select as text, an equation, a figure or a table: the same menu asks about it, ' +
+      'and the assistant sees a picture of it.',
   },
   {
     target: '[data-tour="reader-notes"]',
@@ -317,7 +319,8 @@ export const READER_TOUR: TourStep[] = [
       'Switch between the paper’s text (typeset equations, live citations) and its PDF, ' +
       'the original layout. The choice is remembered for this paper. A paper with no ' +
       'text opens as its PDF, and the highlight menu and the assistant work on either. In ' +
-      'the PDF, − and + beside it zoom, and the percentage goes back to fitting the width.',
+      'the PDF, − and + beside it zoom, and the percentage goes back to fitting the width. ' +
+      'The ⓘ at its end sums up the controls.',
   },
   {
     target: '[data-tour="reader-assistant-btn"]',

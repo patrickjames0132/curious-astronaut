@@ -231,7 +231,8 @@ pymupdf's words, which come in reading order with their boxes:
   the browser's.
 - **`passage_at(path, places)`**: the words whose centers sit in some
   rectangles, the same way; what `/api/ask_reader` reads a highlight's
-  places with, and what the box gesture (next) will send.
+  places with, and what a box drawn over the PDF (v8.46.0, ⌥-drag) is read
+  by.
 - **`find_quotes(path, quotes)`**: each quote's places, matched by letters
   and digits only (ligatures spelled out), else by its first and last five
   words, keeping only words in the band between them on the page. Served by

@@ -104,7 +104,8 @@ export default function ReaderAssistant({
         title: 'Reader Assistant',
         hint:
           'Ask about the paper: what a passage means, where a symbol comes from, why a step ' +
-          'follows. Highlight text and choose Explain or Simplify to ask about it here, or ' +
+          'follows. Highlight text (or, in the PDF, ⌥-drag a box over an equation or figure) ' +
+          'and choose Explain or Simplify to ask about it here, or ' +
           'Chat to attach it and ask anything.',
         context: `Asking about ${thread.paper?.title ?? thread.title}, from the section you’re reading`,
         tip:
