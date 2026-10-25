@@ -61,6 +61,28 @@ structure. The graph-as-retrieval-scope binding and the your-library +
 live-graph mix were not found elsewhere. Nothing here depends on that staying
 true.)*
 
+*(Re-swept 2026-10-25, after the Reader's stages 4–7 shipped. Mostly
+third-party sources; nobody has closed the gap. **SpatialRead** is unchanged
+in shape: canvas of Explain/Simplify/Expand nodes, figure screenshots, BYOK
+or Ollama, and experimental "Teaching Assistant / Critical Peer Reviewer /
+Industry Translator" agents. It is free for Ollama, with a $99 lifetime
+license (often $49) for cloud models. Its site claims no citation
+resolution, no citation graph and no prerequisite model, so the Reader's
+`[12]` → real paper and Knowledge Graph margin notes remain ours alone.
+**NotebookLM** was rebranded **Gemini Notebook** on 2026-07-16 (per
+Wikipedia) and added study features (interactive learning overviews,
+quizzes, cinematic video overviews), but it is still grounded in uploaded
+sources, not the literature's citation structure. **Asta** shows no
+graph UI in any official note; a 2026-06 study (arXiv 2606.08301) found its
+cited references unstable across runs. **Google Scholar Labs** (AI search,
+2025-11) is still a limited experiment: summaries under ranked results,
+five questions a session. **ResearchRabbit / Litmaps / Connected Papers** are
+still visualizers (RR's help center says no LLMs in its recommendations;
+paid tiers ~$10/mo). **MyLens's** own site now advertises an MCP inbound
+route, which a rival disputes, so it is still unverified. No product
+combining a citation graph, a prerequisite model and a tutor turned up; the
+nearest is SciSpace Copilot, a reading tutor with no graph.)*
+
 We **leave the storage to the ecosystem** (Semantic Scholar / OpenAlex / arXiv)
 and connect dynamically — no mandatory local corpus, just a thin cache of the AI
 artifacts we generate. (One deliberate exception since v5.4.0: an **optional**
