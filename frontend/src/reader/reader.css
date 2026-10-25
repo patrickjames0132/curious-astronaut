@@ -273,8 +273,10 @@
   display: flex;
 }
 .reader-page {
-  /* The citation card is placed in its scrolled content. */
+  /* The citation card is placed in its scrolled content; the Knowledge
+     Graph notes move to the margin when it's wide enough. */
   position: relative;
+  container: reader-page / inline-size;
   flex: 1;
   min-width: 0;
   overflow-y: auto;
@@ -384,6 +386,169 @@
 .reader-cite[aria-expanded='true'] {
   border-radius: 3px;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+/* The Knowledge Graph notes (v8.44.0): the course's concepts a section
+   builds on. Under the section's heading by default; in the right margin,
+   level with the heading, when the pane has room for a 200px column beside
+   the text, the text then shifting left so the pair stays centred. */
+.reader-section {
+  position: relative;
+}
+.reader-concepts {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+  margin: -4px 0 14px;
+  padding-left: 10px;
+  /* The Knowledge Graph's gold, so the notes read as its own (Patrick). */
+  border-left: 2px solid color-mix(in srgb, var(--knowledge-paper-ink) 70%, transparent);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.reader-concepts-label {
+  color: var(--muted);
+}
+.reader-concept {
+  display: inline-flex;
+  align-items: baseline;
+  max-width: 100%;
+  padding: 1px 7px;
+  border: 1px solid color-mix(in srgb, var(--knowledge-paper-ink) 60%, var(--border));
+  border-radius: 999px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.reader-concept:hover,
+.reader-concept:focus-visible,
+.reader-concept[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--knowledge-paper-ink) 18%, transparent);
+}
+/* One line, an ellipsis when it won't fit; the tooltip has the whole name. */
+.reader-concept-name {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reader-concepts-more {
+  padding: 1px 4px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.reader-concepts-more:hover,
+.reader-concepts-more:focus-visible {
+  color: var(--text-strong);
+}
+/* The curve to the heading (useMarginNotes): faint gold, under the text's
+   own layers, drawn from the note's corner so it can reach left. */
+.reader-concepts-link {
+  position: absolute;
+  top: 0;
+  left: -1px;
+  overflow: visible;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+/* Barely there at rest, in grey; gold and glowing while the note is
+   hovered, so it shows what the note belongs to when asked (Patrick). */
+.reader-concepts-link path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-opacity: 0.18;
+  stroke-width: 1.25;
+  transition:
+    stroke var(--motion-pop) var(--ease-rise),
+    stroke-opacity var(--motion-pop) var(--ease-rise);
+}
+/* Hover, or keyboard focus inside: not a clicked button's lingering focus,
+   which kept it lit after "+N more" (Patrick). */
+.reader-concepts:hover .reader-concepts-link path,
+.reader-concepts:has(:focus-visible) .reader-concepts-link path {
+  stroke: var(--knowledge-paper-ink);
+  stroke-opacity: 0.9;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--knowledge-paper-ink) 70%, transparent));
+}
+.reader-concept.known {
+  border-color: color-mix(in srgb, var(--knowledge-known-ink) 55%, var(--border));
+  color: var(--muted);
+}
+/* The ✓, in the Knowledge Graph's known green (Patrick): always in the DOM,
+   so checking a concept off grows it in with a little overshoot, and taking
+   that back shrinks it away (in a chip and in the card's toggle alike). */
+.reader-concept-check {
+  display: inline-block;
+  overflow: hidden;
+  width: 0;
+  margin-right: 0;
+  color: var(--knowledge-known-ink);
+  font-weight: 700;
+  opacity: 0;
+  scale: 0.3;
+  vertical-align: bottom;
+  transition:
+    width var(--motion-pop) var(--ease-rise),
+    margin-right var(--motion-pop) var(--ease-rise),
+    opacity var(--motion-pop) var(--ease-rise),
+    scale 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.reader-concept.known .reader-concept-check,
+.reader-known-toggle[aria-pressed='true'] .reader-concept-check {
+  width: 0.8em;
+  margin-right: 0.25em;
+  opacity: 1;
+  scale: 1;
+}
+@container reader-page (min-width: 1000px) {
+  .reader-article.has-notes {
+    margin-left: max(0px, calc((100% - 72ch - 232px) / 2));
+  }
+  .reader-article.has-notes .reader-concepts {
+    position: absolute;
+    top: 44px;
+    left: calc(100% + 64px);
+    flex-direction: column;
+    align-items: flex-start;
+    width: 200px;
+    margin: 0;
+  }
+}
+/* In the PDF view, beside the page at the heading's height (PdfView leaves
+   the room: PDF_NOTES_ROOM). */
+.reader-pdf-note {
+  position: absolute;
+  left: calc(100% + 24px);
+  width: 200px;
+}
+.reader-pdf-note .reader-concepts {
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 0;
+}
+.reader-concept-card-lesson {
+  margin: 4px 0 2px;
+  color: var(--text);
+}
+.reader-concept-card-lesson p {
+  margin: 0;
+}
+.reader-cite-card-actions button[aria-pressed='true'] {
+  color: var(--knowledge-known-ink);
+}
+.reader-cite-card.reader-concept-card {
+  border-color: color-mix(in srgb, var(--knowledge-paper-ink) 45%, var(--border));
+}
+.reader-cite-card.reader-concept-card.pinned {
+  border-color: color-mix(in srgb, var(--knowledge-paper-ink) 75%, var(--border));
 }
 
 /* The citation card (v8.43.0): under its citation in the scrolled text (or
@@ -669,7 +834,9 @@
 .reader-pdf {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  /* Safe: a page zoomed wider than the pane scrolls sideways from its left
+     edge instead of overflowing off to the left, out of reach. */
+  align-items: safe center;
   gap: 16px;
   padding: 64px 0 96px;
 }
@@ -728,19 +895,90 @@
 
 /* Text or PDF: a small switch at the foot of the reading pane, only when
    the paper has both. */
-.reader-view-switch {
+/* The switch and, in the PDF view, its zoom (v8.44.0), centred together
+   under the paper. The bar spans the pane and lets clicks through between
+   its pills. */
+.reader-bottom-bar {
   position: absolute;
+  right: 0;
   bottom: 16px;
-  left: 50%;
+  left: 0;
   z-index: 5;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  padding: 3px;
-  translate: -50% 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.reader-bottom-bar > * {
+  pointer-events: auto;
+}
+/* One capsule (Patrick: two pills side by side looked like a pair): the
+   switch, and in the PDF view a thin divider and the zoom. */
+.reader-controls {
+  display: flex;
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--panel-float);
   box-shadow: 0 4px 14px var(--shadow);
+}
+/* The zoom grows out of the switch, left to right, on the way to the PDF,
+   and folds back into it on the way to the text: its column animates from
+   nothing to its own width (the grid `0fr` → `1fr` trick), in step with the
+   switch's thumb. */
+.reader-zoom-fold {
+  display: grid;
+  grid-template-columns: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-columns var(--motion-switch) var(--ease-rise),
+    opacity var(--motion-switch) var(--ease-rise);
+}
+.reader-zoom-fold.open {
+  grid-template-columns: 1fr;
+  opacity: 1;
+}
+.reader-zoom {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  min-width: 0;
+  padding: 0 3px 0 4px;
+  border-left: 1px solid var(--border);
+  white-space: nowrap;
+}
+/* Every button in the capsule is one height, so nothing changes size as
+   the zoom comes and goes (Patrick). */
+.reader-zoom button {
+  height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.reader-zoom button:hover:not(:disabled),
+.reader-zoom button:focus-visible {
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.reader-zoom button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.reader-zoom-level {
+  min-width: 52px;
+}
+.reader-view-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
 }
 /* The pill behind the chosen button, sliding between the two (v8.40.0). */
 .reader-view-thumb {
@@ -758,8 +996,9 @@
 }
 .reader-view-switch button {
   position: relative;
+  height: 28px;
   min-width: 56px;
-  padding: 4px 14px;
+  padding: 0 14px;
   border: 0;
   border-radius: 999px;
   background: none;
@@ -866,6 +1105,11 @@
   }
   .reader-cite-card {
     animation: none;
+  }
+  .reader-concept-check,
+  .reader-concepts-link path,
+  .reader-zoom-fold {
+    transition: none;
   }
   .reader-contents-folded::before,
   .reader-contents-bump,

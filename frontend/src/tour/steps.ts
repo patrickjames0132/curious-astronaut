@@ -265,7 +265,8 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
 
 /**
  * The Reader: the contents, the live parts of the text (citations, refs,
- * footnotes), the highlight menu and the Reader Assistant (v8.38.0). Short,
+ * footnotes), the highlight menu, the Knowledge Graph notes (v8.44.0, only
+ * when there are some) and the Reader Assistant (v8.38.0). Short,
  * like the cards' tour: reading needs no lesson.
  */
 export const READER_TOUR: TourStep[] = [
@@ -298,13 +299,25 @@ export const READER_TOUR: TourStep[] = [
       'can ask anything about it.',
   },
   {
+    target: '[data-tour="reader-notes"]',
+    presentIf: '[data-tour="reader-notes"]',
+    title: 'Notes from your Knowledge Graph',
+    body:
+      'Once you’ve started this paper’s Knowledge Graph course, each section shows the ' +
+      'concepts from it that the section builds on, a ✓ on the ones you know. Click one for ' +
+      'why the paper needs it, the start of its lesson, and a check-off; “Read lesson in ' +
+      'Knowledge Graph” takes you to the whole lesson there, and “Back to reading” there ' +
+      'brings you back to your place in the paper.',
+  },
+  {
     target: '[data-tour="reader-view-switch"]',
     presentIf: '[data-tour="reader-view-switch"]',
     title: 'Text or PDF',
     body:
       'Switch between the paper’s text (typeset equations, live citations) and its PDF, ' +
       'the original layout. The choice is remembered for this paper. A paper with no ' +
-      'text opens as its PDF, and the highlight menu and the assistant work on either.',
+      'text opens as its PDF, and the highlight menu and the assistant work on either. In ' +
+      'the PDF, − and + beside it zoom, and the percentage goes back to fitting the width.',
   },
   {
     target: '[data-tour="reader-assistant-btn"]',
@@ -473,7 +486,16 @@ export const GRAPH_TOUR: TourStep[] = [
       'ask in the chat bar in the assistant panel.',
   },
   {
+    target: '[data-tour="tool-return"]',
+    presentIf: '[data-tour="tool-return"]',
+    title: 'Back to reading',
+    body:
+      'You came here from the Reader to read a lesson. This takes you back to the same ' +
+      'place in the paper; the Reader’s own ↑ leads up to the paper’s cards.',
+  },
+  {
     target: '[data-tour="tool-back"]',
+    presentIf: '[data-tour="tool-back"]',
     title: 'Back up to the paper’s cards',
     body:
       'The ↑ at the top takes you back up to this paper’s cards and its other tools; the ' +

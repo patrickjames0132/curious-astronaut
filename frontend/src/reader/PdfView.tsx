@@ -19,8 +19,15 @@
  * Pages fit the pane's width, but only once it has settled: the contents
  * panel slides in and out, and a drag resizes it, and following every frame
  * of that redrew every drawn page on every frame (the fold was laggy). When
- * the size does change, the reading position is kept: the page at the top of
- * the pane stays there, the same fraction of the way down.
+ * the scale changes for any reason, the reading position is kept: the page at
+ * the top of the pane stays there, the same fraction of the way down.
+ *
+ * The reader can zoom (v8.44.0): the fitted width times `zoom`, wider than
+ * the pane when they like, scrolled sideways then.
+ *
+ * Since v8.44.0 a page can carry notes in the margin beside it (the
+ * Knowledge Graph notes), each at a place on the page; with any, the pages
+ * leave `margin` pixels to their right for them.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -32,11 +39,25 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
   type RefObject,
 } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
-import { pdfPageId } from './links'
+import { PDF_TEXT_DRAWN, pdfPageId } from './links'
 import { outlineOf, pdfjs, type PdfOutlineEntry } from './pdf'
+
+/** Something shown in the margin beside a page (v8.44.0). */
+export interface PdfMarginNote {
+  /** A stable key among the page's notes. */
+  key: string
+  page: number
+  /** How far down the page, in PDF points from its top edge. */
+  top: number
+  /** The heading it belongs to, so its connector can find it in the text
+   *  layer (`useMarginNotes`). */
+  title: string
+  node: ReactNode
+}
 
 /** A page's size at scale 1, in PDF points. */
 interface PageSize {
@@ -48,6 +69,8 @@ interface PageSize {
 const MAX_PAGE_WIDTH = 900
 /** Room left beside a page, each side. */
 const GUTTER = 24
+/** No notes: one array, so the default never changes identity. */
+const NO_NOTES: PdfMarginNote[] = []
 /** How far beyond the visible pane a page starts drawing. */
 const DRAW_AHEAD = '1200px 0px'
 /** How long the pane's width must hold before the pages follow it, in ms:
@@ -63,6 +86,7 @@ const SETTLE = 200
  * @param props.size Its size at scale 1.
  * @param props.scale The scale to draw at.
  * @param props.root The scrolling pane, for drawing ahead of the view.
+ * @param props.notes Its margin notes.
  * @returns The page.
  */
 function PdfPage({
@@ -71,12 +95,14 @@ function PdfPage({
   size,
   scale,
   root,
+  notes,
 }: {
   pdf: PDFDocumentProxy
   page: number
   size: PageSize
   scale: number
   root: RefObject<HTMLElement | null>
+  notes: PdfMarginNote[]
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -128,6 +154,7 @@ function PdfPage({
       })
       textLayer = layer
       await layer.render()
+      if (!cancelled) box.current?.dispatchEvent(new Event(PDF_TEXT_DRAWN, { bubbles: true }))
     }
     draw().catch((error: unknown) => {
       if (!cancelled && !(error instanceof Error && error.name === 'RenderingCancelledException'))
@@ -158,6 +185,16 @@ function PdfPage({
     >
       <canvas ref={canvas} className="reader-pdf-canvas" aria-hidden="true" />
       <div ref={text} className="textLayer" />
+      {notes.map((note) => (
+        <div
+          key={note.key}
+          className="reader-pdf-note"
+          style={{ top: note.top * scale }}
+          data-title={note.title}
+        >
+          {note.node}
+        </div>
+      ))}
     </div>
   )
 }
@@ -172,6 +209,11 @@ function PdfPage({
  *   highlight menu.
  * @param props.onLoaded Told the page count and the PDF's outline once open.
  * @param props.onFailed Told why the PDF couldn't be opened.
+ * @param props.notes Notes for the margin beside the pages (v8.44.0).
+ * @param props.margin The room the notes need to the pages' right, in
+ *   pixels; 0 without notes.
+ * @param props.zoom How much larger than fitting the pane's width to draw
+ *   the pages (v8.44.0); 1 fits.
  * @returns The pages, or a loading line.
  */
 export default function PdfView({
@@ -180,12 +222,18 @@ export default function PdfView({
   textRef,
   onLoaded,
   onFailed,
+  notes = NO_NOTES,
+  margin = 0,
+  zoom = 1,
 }: {
   url: string
   root: RefObject<HTMLElement | null>
   textRef: RefObject<HTMLDivElement | null>
   onLoaded: (info: { pages: number; outline: PdfOutlineEntry[] }) => void
   onFailed: (message: string) => void
+  notes?: PdfMarginNote[]
+  margin?: number
+  zoom?: number
 }) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
   const [sizes, setSizes] = useState<PageSize[]>([])
@@ -230,11 +278,34 @@ export default function PdfView({
     }
   }, [url])
 
-  // Pages fit the pane's width, up to a readable maximum, and follow it once
-  // it settles; where the reader was is noted first, to be put back.
+  // Where the reader is: the page at the top of the pane and how far into
+  // it, kept as they scroll, so any change of scale (the pane settling at a
+  // new width, the zoom, room made for notes) puts them back there.
   const anchor = useRef<{ page: number; fraction: number } | null>(null)
-  const paneWidthRef = useRef(paneWidth)
-  paneWidthRef.current = paneWidth
+  useEffect(() => {
+    const pane = root.current
+    if (!pane) return
+    let frame = 0
+    const track = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const paneTop = pane.getBoundingClientRect().top
+        const pages = Array.from(pane.querySelectorAll<HTMLElement>('.reader-pdf-page'))
+        const index = pages.findIndex((element) => element.getBoundingClientRect().bottom > paneTop)
+        if (index < 0) return
+        const box = pages[index].getBoundingClientRect()
+        anchor.current = { page: index, fraction: (paneTop - box.top) / box.height }
+      })
+    }
+    pane.addEventListener('scroll', track, { passive: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      pane.removeEventListener('scroll', track)
+    }
+  }, [root])
+
+  // Pages fit the pane's width, up to a readable maximum, and follow it once
+  // it settles.
   useEffect(() => {
     const pane = root.current
     if (!pane) return
@@ -243,17 +314,7 @@ export default function PdfView({
     let timer = 0
     const observer = new ResizeObserver(() => {
       window.clearTimeout(timer)
-      timer = window.setTimeout(() => {
-        if (pane.clientWidth === paneWidthRef.current) return
-        const paneTop = pane.getBoundingClientRect().top
-        const pages = Array.from(pane.querySelectorAll<HTMLElement>('.reader-pdf-page'))
-        const index = pages.findIndex((element) => element.getBoundingClientRect().bottom > paneTop)
-        if (index >= 0) {
-          const box = pages[index].getBoundingClientRect()
-          anchor.current = { page: index, fraction: (paneTop - box.top) / box.height }
-        }
-        setPaneWidth(pane.clientWidth)
-      }, SETTLE)
+      timer = window.setTimeout(() => setPaneWidth(pane.clientWidth), SETTLE)
     })
     observer.observe(pane)
     return () => {
@@ -263,12 +324,15 @@ export default function PdfView({
   }, [root])
 
   const widest = sizes.length ? Math.max(...sizes.map((size) => size.width)) : 1
-  const scale = Math.max(0.5, Math.min(MAX_PAGE_WIDTH, paneWidth - GUTTER * 2) / widest)
+  const fit = Math.max(0.5, Math.min(MAX_PAGE_WIDTH, paneWidth - GUTTER * 2 - margin) / widest)
+  const scale = fit * zoom
+  const lastScale = useRef(scale)
   useLayoutEffect(() => {
     const pane = root.current
     const kept = anchor.current
-    anchor.current = null
-    if (!pane || !kept) return
+    const changed = lastScale.current !== scale
+    lastScale.current = scale
+    if (!pane || !kept || !changed) return
     const element = pane.querySelectorAll<HTMLElement>('.reader-pdf-page')[kept.page]
     if (!element) return
     const box = element.getBoundingClientRect()
@@ -283,9 +347,17 @@ export default function PdfView({
     )
   }
   return (
-    <div className="reader-pdf" ref={textRef}>
+    <div className="reader-pdf" ref={textRef} style={margin ? { paddingRight: margin } : undefined}>
       {sizes.map((size, index) => (
-        <PdfPage key={index} pdf={pdf} page={index + 1} size={size} scale={scale} root={root} />
+        <PdfPage
+          key={index}
+          pdf={pdf}
+          page={index + 1}
+          size={size}
+          scale={scale}
+          root={root}
+          notes={notes.filter((note) => note.page === index + 1)}
+        />
       ))}
     </div>
   )

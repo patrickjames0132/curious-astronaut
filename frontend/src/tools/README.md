@@ -9,8 +9,10 @@ gallery of launchers: an icon tile, a title and a one-line description.
 ```
 tools/
   ToolCards.tsx — the home: paper header + cards; fetches a missing paper once
-  tools.css     — the home, the cards, `.tool-back` (the ↑ a tool shows to
-                  get back here, rendered by App.tsx's overlays), and
+  tools.css     — the home, the cards, `.tool-nav` holding `.tool-back` (the
+                  ↑ a tool shows to get back here, rendered by App.tsx's
+                  overlays) or `.tool-return` in its place (back to the
+                  tool this one was opened from), and
                   `.tool-surface`'s scroll between the cards and a tool
 ```
 
@@ -112,3 +114,15 @@ Patrick preferred the ↑ in both rounds (2026-10-23): it matches the cards
 sitting "above" the tools, and the top-left versions looked worse. So every
 tool, the Reader included, keeps the centred ↑. Don't re-propose the ←
 without a new reason.
+
+**In its place, sometimes, "Back to reading"** (v8.44.0): when a concept's
+lesson is opened from the Reader's Knowledge Graph notes, the Knowledge Graph
+shows "Back to reading" where the ↑ would be. It goes straight back to the
+Reader, which reopens where the reader left off (`ThreadRecord.returnTo`,
+`readerPlace`), and the Reader's own ↑ leads on to the cards. Patrick found
+the way round through the cards, then finding the place again, tedious; a
+first version showed the pill beside the ↑, and the two round buttons side
+by side read as a pair. Where the tool's surface is under 480px wide, the
+pill folds to its ↩ (a container query on `.tool-surface`) so it stays clear
+of the corners' buttons. The way back lasts only while the thread stays on
+the Knowledge Graph.

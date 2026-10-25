@@ -157,11 +157,18 @@
    free (controls top-left, the assistant toggle top-right, find and legend
    along the bottom). An arrow rather than the paper's title: titles run
    long, and "up" is where the cards are (the surfaces scroll, below). */
-.tool-back {
+/* The ↑ at the top of a tool, centred; where a lesson was opened from the
+   Reader, the way back to the paper in its place (v8.44.0). */
+.tool-nav {
   position: absolute;
   top: 14px;
   left: 50%;
   z-index: 5;
+  display: flex;
+  gap: 8px;
+  transform: translateX(-50%);
+}
+.tool-back {
   display: grid;
   place-items: center;
   width: 34px;
@@ -173,11 +180,49 @@
   box-shadow: 0 4px 14px var(--shadow);
   color: var(--text);
   cursor: pointer;
-  transform: translateX(-50%);
 }
 .tool-back:hover {
   border-color: var(--accent);
   color: var(--text-strong);
+}
+/* In the ↑'s place: back to the tool this one was opened from (v8.44.0, the
+   Reader after a concept's lesson). */
+.tool-return {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-float);
+  box-shadow: 0 4px 14px var(--shadow);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  animation: pop var(--motion-pop) var(--ease-rise);
+}
+.tool-return:hover {
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
+/* Narrow: just the ↩, a round button like the ↑ (Patrick: the label ran into
+   the assistant's button). The tooltip still says where it goes. */
+@container tool-surface (max-width: 480px) {
+  .tool-return {
+    justify-content: center;
+    width: 34px;
+    padding: 0;
+  }
+  .tool-return-label {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tool-return {
+    animation: none;
+  }
 }
 
 /* A paper thread's surface — its cards or a tool — and the scroll between
@@ -189,6 +234,8 @@
   flex: 1;
   min-width: 0;
   display: flex;
+  /* "Back to reading" folds to its icon when the surface is narrow. */
+  container: tool-surface / inline-size;
 }
 .tool-surface.scroll-up {
   animation: surface-from-above var(--motion-scroll) var(--ease-rise) both;

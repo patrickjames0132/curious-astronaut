@@ -14,7 +14,8 @@ api/
   graph.ts     — graph, expand, links between papers, paper detail, figures,
                  code links, category tags (routes/graph.py)
   knowledge.ts — the knowledge network: expand an item, stream its lesson,
-                 find a written lesson's images (routes/knowledge.py)
+                 find a written lesson's images, and place the course in the
+                 paper for the Reader's notes (routes/knowledge.py)
   reader.ts    — the Reader card's structured document, its PDF's URL and
                  contents, and the papers its citations name (routes/graph.py)
   sessions.ts  — saved workspaces                          (routes/sessions.py)

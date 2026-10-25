@@ -530,6 +530,11 @@ The `knowledge*` reducers take an explicit `threadId`, so an expansion or a
 lesson that finishes after the reader has moved on still lands on its own
 course. This component holds only what is in flight.
 
+**The Reader reads it too** (v8.44.0): its Knowledge Graph notes put the
+course's concepts beside the sections of the paper that build on them, and a
+concept's card there checks it off through the same `knowledgeKnownToggled`
+and opens it here through `knowledgeOpened`. See `reader/README.md`.
+
 ## Lessons
 
 A lesson is written **the first time its item is opened**, shown in the

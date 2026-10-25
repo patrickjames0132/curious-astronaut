@@ -13,7 +13,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import App from '../src/App'
 import workspace, { activateThread, loadGraph, openTool } from '../src/store/workspace'
 import transcript from '../src/store/transcript'
-import explorations from '../src/store/explorations'
+import explorations, { threadReturnSet } from '../src/store/explorations'
 
 vi.mock('../src/graph/GraphExplorer', () => ({
   default: ({ children }: { children: ReactNode }) => (
@@ -217,4 +217,30 @@ it('docks the Reader Assistant beside the Reader alone (v8.38.0)', async () => {
   expect(reader().dataset.collapsed).toBe('false')
   fireEvent.click(screen.getByRole('button', { name: 'Close reader assistant' }))
   expect(reader().dataset.collapsed).toBe('true')
+})
+
+it('puts “Back to reading” in the ↑’s place after a lesson opened from the Reader (v8.44.0)', async () => {
+  const store = configureStore({ reducer: { workspace, transcript, explorations } })
+  render(
+    <Provider store={store}>
+      <App />
+    </Provider>,
+  )
+  await act(async () => {
+    await store.dispatch(loadGraph({ seed: 'paper' }))
+    await store.dispatch(openTool('reader'))
+  })
+  const state = store.getState().explorations
+  const id = state.byId[state.activeId].activeThreadId
+  await act(async () => {
+    store.dispatch(threadReturnSet({ id, returnTo: { tool: 'reader', from: 'knowledge' } }))
+    await store.dispatch(openTool('knowledge'))
+  })
+  // One way out, not two look-alike buttons side by side (Patrick).
+  expect(screen.queryByRole('button', { name: 'Back to this paper’s cards' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Back to reading' }))
+  await screen.findByTestId('reader')
+  // Back in the Reader, the ↑ to the cards again; the way back is spent.
+  expect(screen.getByRole('button', { name: 'Back to this paper’s cards' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Back to reading' })).toBeNull()
 })

@@ -39,7 +39,8 @@ legend, the folding course controls with 2D/3D, the lesson panel and its
 citations) auto-runs on the first course, since v8.14.0; **READER_TOUR**
 (the text's live citations, refs and footnotes, the contents, the highlight
 menu and the Reader Assistant's 🎓 since v8.38.0, the Text/PDF switch since
-v8.40.0, the ↑ back)
+v8.40.0, the Knowledge Graph notes since v8.44.0 (only when a course has
+put some there), the ↑ back)
 auto-runs on the first paper read, since v8.37.0. `App.tsx`
 picks the list by which of the five is on screen —
 the same "?" click tours whatever the user is actually looking at. Swapping the `steps` prop mid-run restarts the walk from the new list's

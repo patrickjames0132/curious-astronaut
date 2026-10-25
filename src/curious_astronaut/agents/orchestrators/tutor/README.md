@@ -12,8 +12,8 @@ tutor/
               SYNTHESIS_NAME_PROMPT and SYNTHESIS_PROMPT, and
               IMAGES_PROMPT, added when a lesson has its image tools), skills
   main.py   — the Agents, their output models, expand(), name_phrase(), lesson(),
-              fit_section(), and a synthesis's name_synthesis() and
-              synthesis_lesson()
+              fit_section(), a synthesis's name_synthesis() and
+              synthesis_lesson(), and place() for the Reader's notes
   images.py — a lesson's image tools (v8.24.0): find_images() and
               show_image() over LessonDeps, the library/paper/web candidate
               gatherers, shrink(), and image_bytes()/web_image_url(), which
@@ -50,6 +50,19 @@ tutor/
   would be a cycle). The frontend hangs it under the lesson's item as a
   breakdown would, so the same name dedup applies, and `existing` lets the
   model reuse a name already in the course.
+
+- **`place(sections, concepts)`** (v8.44.0) finds where in the paper each of
+  the course's concepts is needed, for the Reader's Knowledge Graph notes:
+  one structured call (`PLACE_PROMPT`) over the paper's sections, each cut
+  to its share of 60,000 characters. A section needs a concept when its
+  argument, method or equations rely on it, named or not, not where it is
+  merely mentioned; every concept is placed at least once where the text
+  allows, at most four sections, the most specific first. The prompt said
+  less at first and left layer normalization, residual connections and
+  label smoothing unplaced on Attention while piling five concepts on its
+  Model Variations section; asking for each concept at least once, and
+  ruling out experiments that only vary a thing, fixed both. Names and
+  section ids the model makes up are dropped.
 
 - **A synthesis** (v8.23.0; the reader sees it as a **synthesis**) is an
   optional node made of several concepts the course already holds, or of
@@ -251,8 +264,10 @@ concept children, cycle and repeat dropping, the width cap, the references
 and course list in the expansion prompt, a lesson's prompt carrying no
 references but every item that needs it, its tokens adding up to its text,
 the closing section's rewrite seeing the lesson and what needs it, a synthesis's naming
-prompt and streamed lesson, and a highlighted phrase named as one concept
-(never the item or its path, the passage and the course in its prompt). `test_images.py` covers lesson images: library
+prompt and streamed lesson, a highlighted phrase named as one concept
+(never the item or its path, the passage and the course in its prompt), and
+the course placed in real sections in the paper's order (made-up names and
+ids dropped, the sections and the course in its prompt). `test_images.py` covers lesson images: library
 figures near the matching passage, the course paper's PDF fallback, searched
 papers' best-matching figures (and a failed search giving none), web images
 behind opaque handles and downloaded once, a key reading only what it may, a

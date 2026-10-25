@@ -217,3 +217,50 @@ def test_the_phrase_prompt_carries_the_passage_and_the_course():
     assert "PASSAGE: off-policy updates" in seen["prompt"]
     assert "LESSON SUBJECT: Q-learning (concept)" in seen["prompt"]
     assert "ALREADY IN THE COURSE:\nMDPs" in seen["prompt"]
+
+
+SECTIONS = [
+    tutor.PaperSection(id="S3.SS1", heading="3.1 Encoder and Decoder Stacks", text="A residual connection..."),
+    tutor.PaperSection(id="S3.SS2.SSS1", heading="3.2.1 Scaled Dot-Product Attention", text="softmax(QK^T)V"),
+    tutor.PaperSection(id="S5.SS4", heading="5.4 Regularization", text="Label smoothing..."),
+]
+
+
+def test_concepts_are_placed_in_real_sections_in_the_papers_order():
+    """The Reader's notes (v8.44.0): names matched back to the course's
+    spelling, unknown names and ids dropped, sections in the paper's order."""
+    model = TestModel(
+        custom_output_args={
+            "placements": [
+                {"concept": "softmax function", "sections": ["S3.SS2.SSS1"]},
+                {"concept": "Residual connections", "sections": ["S5.SS4", "S9", "S3.SS1"]},
+                {"concept": "Something invented", "sections": ["S3.SS1"]},
+                {"concept": "Beam search", "sections": []},
+            ]
+        }
+    )
+    with tutor_main.place_agent.override(model=model):
+        placed = tutor.place(SECTIONS, ["Softmax function", "Residual connections", "Beam search"])
+    assert placed == {
+        "Softmax function": ["S3.SS2.SSS1"],
+        "Residual connections": ["S3.SS1", "S5.SS4"],
+    }
+
+
+def test_the_place_prompt_carries_the_sections_and_the_course():
+    seen = {}
+
+    def record(messages, info):
+        seen["prompt"] = messages[0].parts[-1].content
+        raise RuntimeError("stop after recording")
+
+    with tutor_main.place_agent.override(model=FunctionModel(record)):
+        try:
+            tutor.place(SECTIONS, ["Softmax function"])
+        except RuntimeError:
+            pass
+    assert "[S3.SS2.SSS1] 3.2.1 Scaled Dot-Product Attention\nsoftmax(QK^T)V" in seen["prompt"]
+    assert "THE COURSE'S CONCEPTS:\nSoftmax function" in seen["prompt"]
+    # Nothing to place, or nowhere to place it: no call at all.
+    assert tutor.place([], ["Softmax function"]) == {}
+    assert tutor.place(SECTIONS, []) == {}

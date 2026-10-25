@@ -1800,7 +1800,10 @@ than deleted so the plan doesn't get re-proposed.
          preview the paper it cites, click to pin; Open, Read, Show in
          Citation Graph and Reference ↓. The full story is in
          [docs/history.md](docs/history.md).
-      5. Knowledge Graph notes in the margin (when one exists for the paper).
+      5. ✓ **Shipped in v8.44.0**: the Knowledge Graph notes, in the text
+         and the PDF, with a concept card, a way back from the lesson to
+         the paper, and the PDF's zoom. The full story is in
+         [docs/history.md](docs/history.md).
       6. **An answer lights up its passage** (Patrick, 2026-10-24). When a
          Reader Assistant answer finishes, or when it's clicked later, the
          span of the paper it's talking about is highlighted in the text or

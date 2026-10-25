@@ -426,3 +426,124 @@ def test_a_failed_phrase_is_a_502(client, monkeypatch):
 
     monkeypatch.setattr(knowledge.tutor, "name_phrase", name_phrase)
     assert client.post("/api/knowledge/phrase", json=PHRASE).status_code == 502
+
+
+def _section(section_id, level, number, title, text):
+    """A Reader document section with one paragraph."""
+    return {
+        "id": section_id,
+        "level": level,
+        "number": number,
+        "title": [{"kind": "text", "text": title}],
+        "blocks": [{"kind": "paragraph", "inlines": [{"kind": "text", "text": text}]}],
+    }
+
+
+ATTENTION_DOC = {
+    "available": True,
+    "sections": [
+        _section("S3.SS1", 2, "3.1", "Encoder and Decoder Stacks", "Two sub-layers."),
+        # A paragraph heading: its text belongs to 3.1.
+        _section("S3.SS1.SSS0.Px1", 4, "", "Encoder:", "We employ a residual connection, then layer normalization."),
+        _section("S5.SS4", 2, "5.4", "Regularization", "Label smoothing."),
+    ],
+}
+
+
+def test_concepts_are_placed_once_per_course_and_cached(client, monkeypatch):
+    """The Reader's margin notes (v8.44.0)."""
+    calls = []
+    monkeypatch.setattr(knowledge.arxiv, "get_document", lambda paper: ATTENTION_DOC)
+
+    def place(sections, concepts):
+        calls.append(([(section.id, section.text) for section in sections], concepts))
+        return {"Layer normalization": ["S3.SS1"], "Label smoothing": ["S5.SS4"], "Residual connections": ["S3.SS1"]}
+
+    monkeypatch.setattr(knowledge.tutor, "place", place)
+    body = {"paper": "1706.03762v7", "concepts": ["Residual connections", "Layer normalization", "Label smoothing"]}
+    first = client.post("/api/knowledge/place", json=body)
+    # By section, each list in the course's order.
+    assert first.get_json() == {
+        "sections": {"S3.SS1": ["Residual connections", "Layer normalization"], "S5.SS4": ["Label smoothing"]}
+    }
+    assert client.post("/api/knowledge/place", json=body).get_json() == first.get_json()
+    assert len(calls) == 1
+    sections, concepts = calls[0]
+    # The paragraph heading's text folded into its subsection.
+    assert sections[0][0] == "S3.SS1"
+    assert "residual connection, then layer normalization" in sections[0][1]
+    assert [section_id for section_id, _text in sections] == ["S3.SS1", "S5.SS4"]
+    assert concepts == body["concepts"]
+
+
+def test_placing_needs_an_arxiv_paper_and_concepts(client, monkeypatch):
+    monkeypatch.setattr(knowledge.tutor, "place", lambda *_args: {})
+    assert client.post("/api/knowledge/place", json={"paper": "abc123", "concepts": ["x"]}).status_code == 400
+    assert client.post("/api/knowledge/place", json={"paper": "1706.03762"}).status_code == 400
+    assert client.post("/api/knowledge/place", json={"paper": "1706.03762", "concepts": []}).get_json() == {
+        "sections": {}
+    }
+
+
+def test_placing_degrades_without_text_and_fails_loudly_on_the_model(client, monkeypatch):
+    monkeypatch.setattr(knowledge.arxiv, "get_document", lambda paper: {"available": False, "sections": []})
+    body = {"paper": "1412.6980", "concepts": ["Momentum"]}
+    assert client.post("/api/knowledge/place", json=body).get_json() == {"sections": {}}
+
+    monkeypatch.setattr(knowledge.arxiv, "get_document", lambda paper: ATTENTION_DOC)
+
+    def place(*_args):
+        raise RuntimeError("model down")
+
+    monkeypatch.setattr(knowledge.tutor, "place", place)
+    assert client.post("/api/knowledge/place", json=body).status_code == 502
+
+
+def test_a_pdf_only_paper_is_placed_in_its_pdfs_contents(client, monkeypatch):
+    """The PDF view of a paper with no text (v8.44.0): sections are the PDF's
+    contents entries, each with the pages it spans, the reference list left out."""
+    asked = []
+    monkeypatch.setattr(
+        knowledge.pdf_service, "paper_pdf_url", lambda ref, provider: asked.append((ref, provider)) or "https://x/p.pdf"
+    )
+    entries = [
+        {"title": "1 Introduction", "level": 1, "page": 1},
+        {"title": "2 Algorithm", "level": 1, "page": 1},
+        {"title": "3 Bias correction", "level": 1, "page": 2},
+        {"title": "References", "level": 1, "page": 4},
+        {"title": "A Appendix", "level": 1, "page": 5},
+    ]
+    monkeypatch.setattr(knowledge.pdf_service, "get_pdf_contents", lambda url: {"source": "headings", "entries": entries})
+    pages = ["page one", "page two", "page three", "page four", "page five"]
+    monkeypatch.setattr(knowledge.pdf_service, "get_pdf_pages", lambda url: {"available": True, "pages": pages})
+    seen = []
+
+    def place(sections, concepts):
+        seen.extend((section.id, section.heading, section.text) for section in sections)
+        return {"Momentum": ["pdf:1"]}
+
+    monkeypatch.setattr(knowledge.tutor, "place", place)
+    body = {"paper": "abc123", "concepts": ["Momentum"], "source": "pdf", "provider": "openalex"}
+    assert client.post("/api/knowledge/place", json=body).get_json() == {"sections": {"pdf:1": ["Momentum"]}}
+    # A provider id is fine for a PDF; the provider finds its open-access copy.
+    assert asked == [("abc123", "openalex")]
+    assert seen == [
+        # The next entry starts on the same page: this page alone.
+        ("pdf:0", "1 Introduction", "page one"),
+        ("pdf:1", "2 Algorithm", "page one"),
+        # Up to the next entry's page (the reference list's, still a boundary).
+        ("pdf:2", "3 Bias correction", "page two\n\npage three"),
+        # References skipped; the ids still count the contents as listed.
+        ("pdf:4", "A Appendix", "page five"),
+    ]
+
+
+def test_a_pdf_placement_without_the_pdf_extra_is_empty(client, monkeypatch):
+    monkeypatch.setattr(knowledge.pdf_service, "paper_pdf_url", lambda ref, provider: "https://x/p.pdf")
+
+    def missing(url):
+        raise knowledge.optional.MissingExtra("pdf", "fitz")
+
+    monkeypatch.setattr(knowledge.pdf_service, "get_pdf_contents", missing)
+    body = {"paper": "1412.6980", "concepts": ["Momentum"], "source": "pdf"}
+    assert client.post("/api/knowledge/place", json=body).get_json() == {"sections": {}}

@@ -3903,6 +3903,46 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
         has and what still sits between them and the paper. The layout above
         is how that assessment gets drawn, not the goal in itself.
 
+- [x] **The Reader card, stage 5: the Knowledge Graph notes** *(v8.44.0)* —
+      once a paper's Knowledge Graph course exists, each section the course
+      matters in gets a note: **Builds on** and its concepts, a green ✓ on the
+      ones checked off, outlined in the Knowledge Graph's gold. Patrick's
+      picks (2026-10-24): section notes in the margin, placed by one model
+      call, a card in the Reader, and nothing at all without a course.
+
+      **Placed by the tutor** (`POST /api/knowledge/place`, `tutor.place`):
+      it reads the paper's sections to the contents' depth and names the
+      sections each concept matters in, named or not; cached by the paper
+      and the concepts, so only a change to the course asks again. Two fixes
+      found by trying it on Attention: text under paragraph headings
+      ("Encoder:") belongs to its subsection, or layer normalization was
+      invisible; and the prompt asks for every concept at least once and
+      rules out experiments that only vary a thing. After both, softmax and
+      dot products landed in 3.2.1, layer normalization and residual
+      connections in 3.1, label smoothing in 5.4.
+
+      **The concept card**: why the course needs it, the opening of its
+      lesson, **Mark as known** (the course's own check-off, animated), and
+      **Read lesson in Knowledge Graph**. There the ↑ is replaced by **Back
+      to reading**, and the Reader reopens where you left off, in either
+      view, across reloads too (`ThreadRecord.returnTo`, `readerPlace`).
+
+      **In the PDF too**: a paper with a text reuses its placement, each
+      section matched to the PDF heading for it (by number, else title); a
+      paper with only a PDF is placed in the PDF's own contents. Notes sit
+      beside the page at the heading's height.
+
+      **Shaped over six browser rounds** (Patrick): margin notes are stacked
+      so none overlaps, show three concepts and "+N more", and ellipsize
+      long names; each is tied to its heading by a curve, barely there
+      until hovered, when it glows gold, routed in the text view along the
+      heading's line and down the gap beside the column so it never crosses
+      the text; one chip lights at a time; a note's order holds through
+      check-offs (the teaching order prunes what a known item needs, which
+      moved chips around). The PDF view gained **zoom**, − / % / + in one
+      capsule with the Text/PDF switch, growing out of it on the way to the
+      PDF; whatever changes the scale, the page you're reading stays put.
+
 - [x] **The Reader card, stage 4: the citation cards** *(v8.43.0)* — a
       `[2]` in the Reader's text now opens a card on the paper it cites:
       title, authors · year · venue, citations and TL;DR. Hover previews it
