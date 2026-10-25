@@ -14,15 +14,16 @@
 import { createContext } from 'react'
 import type { AnswerFigure, ReaderBibEntry, ReaderInline } from '../api'
 
-/** What a citation does with its card (v8.43.0). */
-interface CiteCard {
-  /** The pointer is on a citation: preview its card after a moment. */
-  hover: (bib: string, anchor: HTMLElement) => void
+/** What a card's trigger does with it (`useAnchoredCard`): a citation with
+ *  its card (v8.43.0), a margin note's concept with its own (v8.44.0). */
+export interface CardControls {
+  /** The pointer is on a trigger: preview its card after a moment. */
+  hover: (id: string, anchor: HTMLElement) => void
   /** The pointer left it: let a preview go after a moment. */
   leave: () => void
   /** A click: open the card and keep it open. */
-  pin: (bib: string, anchor: HTMLElement) => void
-  /** The entry whose card is open, for `aria-expanded`. */
+  pin: (id: string, anchor: HTMLElement) => void
+  /** Whose card is open, for `aria-expanded`. */
   open: string | null
 }
 
@@ -31,7 +32,7 @@ interface ReaderLinks {
   /** Bibliography entries by element id, for a citation's card. */
   bibliography: Map<string, ReaderBibEntry>
   /** The citation card's controls. */
-  cite: CiteCard
+  cite: CardControls
   /** Scroll the page to one of the paper's own element ids. */
   jump: (target: string) => void
   /** Open a figure panel in the shared lightbox. */
@@ -55,6 +56,15 @@ export const ReaderLinksContext = createContext<ReaderLinks>({
 export function readerDomId(id: string): string {
   return `reader-${id}`
 }
+
+/** The event a PDF page fires on itself, bubbling, once its text layer is
+ *  drawn (v8.44.0): the margin notes' curves can then find their headings in
+ *  it (`useMarginNotes`). */
+export const PDF_TEXT_DRAWN = 'reader-pdf-text-drawn'
+
+/** The event a margin note fires on itself, bubbling, when it opens or
+ *  closes its "+N more": the notes below it are moved out of its way. */
+export const NOTES_CHANGED = 'reader-notes-changed'
 
 /**
  * The DOM id of a page in the PDF view (v8.40.0), for jumps.

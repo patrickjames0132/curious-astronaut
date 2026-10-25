@@ -8,9 +8,10 @@
  */
 import { configureStore } from '@reduxjs/toolkit'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { useEffect, type ReactElement, type RefObject } from 'react'
+import { useEffect, type ReactElement, type ReactNode, type RefObject } from 'react'
 import { Provider, useSelector } from 'react-redux'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { createMap, nameKey, withChildren } from '../../src/knowledge/model'
 import Reader from '../../src/reader/Reader'
 import { readerSelectionText } from '../../src/reader/selectionText'
 import explorations, {
@@ -38,11 +39,15 @@ vi.mock('../../src/reader/PdfView', () => ({
     textRef,
     onLoaded,
     onFailed,
+    notes = [],
+    zoom = 1,
   }: {
     url: string
     textRef: RefObject<HTMLDivElement | null>
     onLoaded: (info: { pages: number; outline: typeof pdfStub.outline }) => void
     onFailed: (message: string) => void
+    notes?: { key: string; page: number; top: number; node: ReactNode }[]
+    zoom?: number
   }) {
     useEffect(() => {
       pdfStub.urls.push(url)
@@ -52,7 +57,7 @@ vi.mock('../../src/reader/PdfView', () => ({
       // oxlint-disable-next-line react-hooks/exhaustive-deps
     }, [url])
     return (
-      <div ref={textRef} data-testid="pdf-view">
+      <div ref={textRef} data-testid="pdf-view" data-zoom={zoom}>
         {[1, 2].map((page) => (
           <div
             key={page}
@@ -62,6 +67,13 @@ vi.mock('../../src/reader/PdfView', () => ({
             data-passage-from={`page ${page}`}
           >
             <span>{`Words on page ${page}.`}</span>
+            {notes
+              .filter((note) => note.page === page)
+              .map((note) => (
+                <div key={note.key} className="reader-pdf-note" data-top={note.top}>
+                  {note.node}
+                </div>
+              ))}
           </div>
         ))}
       </div>
@@ -83,6 +95,8 @@ beforeEach(() => {
   vi.spyOn(api, 'fetchPdfContents').mockResolvedValue([])
   // The citation cards' matches: none unless a test says so.
   vi.spyOn(api, 'fetchCited').mockResolvedValue({})
+  // The Knowledge Graph notes' placements: none unless a test says so.
+  vi.spyOn(api, 'placeConcepts').mockResolvedValue({})
 })
 
 afterEach(() => {
@@ -179,10 +193,10 @@ const DOCUMENT: ReaderDocument = {
  * @param ui The element.
  * @returns The store and the render result.
  */
-function mount(ui: ReactElement) {
+function mount(ui: ReactElement, thread: ThreadRecord = THREAD) {
   const store = configureStore({ reducer: { workspace, transcript, explorations } })
   const record = newExploration('saved')
-  record.threads.push(structuredClone(THREAD))
+  record.threads.push(structuredClone(thread))
   record.activeThreadId = THREAD.id
   store.dispatch(explorationOpened(record))
   return { store, ...render(<Provider store={store}>{ui}</Provider>) }
@@ -321,6 +335,218 @@ it('opens the cited paper, or shows it in the Citation Graph', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Open' }))
   // The paper opens as its own thread, by the thread's provider.
   await waitFor(() => expect(detail).toHaveBeenCalledWith('nmt', 's2'))
+})
+
+/** Attention's thread with a course: softmax (with a lesson) and dot
+ *  products (checked off as known). */
+function courseThread(): ThreadRecord {
+  const course = withChildren(
+    createMap({ id: 'ATT', title: 'Attention Is All You Need' }),
+    nameKey('Attention Is All You Need'),
+    [
+      { name: 'Softmax function', why: 'Attention weights are a softmax.' },
+      { name: 'Dot product', why: 'Scores are dot products.' },
+    ],
+  )
+  const softmax = nameKey('Softmax function')
+  course.nodes[softmax] = {
+    ...course.nodes[softmax],
+    lesson: '### Softmax\n\nSoftmax turns *scores* into weights.\n\nMore of the lesson.',
+  }
+  course.known = [nameKey('Dot product')]
+  return { ...THREAD, knowledge: course }
+}
+
+it('notes the course’s concepts beside the sections that build on them', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const place = vi
+    .spyOn(api, 'placeConcepts')
+    .mockResolvedValue({ 'S3.SS2': ['Dot product', 'Softmax function'] })
+  mount(<Harness />, courseThread())
+  const note = await screen.findByRole('complementary', { name: 'From your Knowledge Graph' })
+  expect(place).toHaveBeenCalledWith(
+    { paper: '1706.03762', source: 'text' },
+    expect.arrayContaining(['Softmax function', 'Dot product']),
+    expect.anything(),
+  )
+  // Beside 3.2, in course order, the known one ticked (its ✓ shown by CSS).
+  expect(note.closest('section')?.getAttribute('data-section-id')).toBe('S3.SS2')
+  const chips = Array.from(note.querySelectorAll('button'))
+  expect(chips.map((chip) => chip.getAttribute('title'))).toEqual([
+    'Softmax function',
+    'Dot product: you know this',
+  ])
+  expect(chips.map((chip) => chip.classList.contains('known'))).toEqual([false, true])
+  expect(document.querySelector('.reader-article')?.classList.contains('has-notes')).toBe(true)
+})
+
+it('opens a concept’s card: why, its lesson’s opening, the check-off, the lesson', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  vi.spyOn(api, 'placeConcepts').mockResolvedValue({ 'S3.SS2': ['Softmax function'] })
+  const { store } = mount(<Harness />, courseThread())
+  fireEvent.click(await screen.findByRole('button', { name: 'Softmax function' }))
+  const card = await screen.findByRole('dialog', { name: 'Concept: Softmax function' })
+  expect(card.textContent).toContain('Attention weights are a softmax.')
+  // The lesson's first paragraph of prose, not its heading.
+  expect(card.textContent).toContain('Softmax turns scores into weights.')
+  expect(card.textContent).not.toContain('More of the lesson.')
+  const course = () =>
+    store.getState().explorations.byId.saved.threads.find((item) => item.id === THREAD.id)!
+      .knowledge!
+  // The course's own check-off: the Knowledge Graph shows it too.
+  fireEvent.click(screen.getByRole('button', { name: 'Mark as known' }))
+  expect(course().known).toContain(nameKey('Softmax function'))
+  const toggle = screen.getByRole('button', { name: 'Known' })
+  expect(toggle.getAttribute('aria-pressed')).toBe('true')
+  fireEvent.click(screen.getByRole('button', { name: 'Read lesson in Knowledge Graph' }))
+  expect(course().openId).toBe(nameKey('Softmax function'))
+  // The Knowledge Graph will offer the way back to the paper.
+  const thread = () =>
+    store.getState().explorations.byId.saved.threads.find((item) => item.id === THREAD.id)!
+  expect(thread().returnTo).toEqual({ tool: 'reader', from: 'knowledge' })
+  await waitFor(() =>
+    expect(
+      store.getState().explorations.byId.saved.threads.find((item) => item.id === THREAD.id)!.tool,
+    ).toBe('knowledge'),
+  )
+})
+
+it('keeps a note’s order when a concept is checked off and back', async () => {
+  // MDPs jumped to the front when known and the back when not (Patrick): a
+  // check-off prunes what the item needs from the teaching order.
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const thread = courseThread()
+  const course = withChildren(thread.knowledge!, nameKey('Softmax function'), [
+    { name: 'Vectors', why: 'w' },
+  ])
+  course.known = []
+  vi.spyOn(api, 'placeConcepts').mockResolvedValue({
+    'S3.SS2': ['Softmax function', 'Dot product', 'Vectors'],
+  })
+  mount(<Harness />, { ...thread, knowledge: course })
+  const note = await screen.findByRole('complementary', { name: 'From your Knowledge Graph' })
+  const order = () =>
+    Array.from(note.querySelectorAll('.reader-concept-name')).map((name) => name.textContent)
+  await waitFor(() => expect(order()).toEqual(['Vectors', 'Softmax function', 'Dot product']))
+  fireEvent.click(screen.getByRole('button', { name: 'Softmax function' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Mark as known' }))
+  expect(order()).toEqual(['Vectors', 'Softmax function', 'Dot product'])
+  fireEvent.click(screen.getByRole('button', { name: 'Known' }))
+  expect(order()).toEqual(['Vectors', 'Softmax function', 'Dot product'])
+})
+
+it('shows a long note’s first three concepts and the rest on “+N more”', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const thread = courseThread()
+  // Softmax broken down further: five concepts in all.
+  const course = withChildren(
+    thread.knowledge!,
+    nameKey('Softmax function'),
+    ['Vectors', 'Matrices', 'Scaling'].map((name) => ({ name, why: 'w' })),
+  )
+  vi.spyOn(api, 'placeConcepts').mockResolvedValue({
+    'S3.SS2': ['Softmax function', 'Dot product', 'Vectors', 'Matrices', 'Scaling'],
+  })
+  mount(<Harness />, { ...thread, knowledge: course })
+  const note = await screen.findByRole('complementary', { name: 'From your Knowledge Graph' })
+  await waitFor(() => expect(note.querySelectorAll('.reader-concept')).toHaveLength(3))
+  // Opening it tells the margin's layout, which moves the notes below.
+  const changed = vi.fn()
+  document.addEventListener('reader-notes-changed', changed)
+  fireEvent.click(screen.getByRole('button', { name: '+2 more' }))
+  expect(note.querySelectorAll('.reader-concept')).toHaveLength(5)
+  await waitFor(() => expect(changed).toHaveBeenCalled())
+  document.removeEventListener('reader-notes-changed', changed)
+  fireEvent.click(screen.getByRole('button', { name: 'Show fewer' }))
+  expect(note.querySelectorAll('.reader-concept')).toHaveLength(3)
+})
+
+it('lights only the chip that was clicked when two notes share a concept', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  vi.spyOn(api, 'placeConcepts').mockResolvedValue({
+    S1: ['Softmax function'],
+    'S3.SS2': ['Softmax function'],
+  })
+  mount(<Harness />, courseThread())
+  await waitFor(() =>
+    expect(screen.getAllByRole('button', { name: 'Softmax function' })).toHaveLength(2),
+  )
+  const [first, second] = screen.getAllByRole('button', { name: 'Softmax function' })
+  fireEvent.click(second)
+  expect(await screen.findByRole('dialog', { name: 'Concept: Softmax function' })).toBeTruthy()
+  expect(second.getAttribute('aria-expanded')).toBe('true')
+  expect(first.getAttribute('aria-expanded')).toBe('false')
+})
+
+it('reopens where the reader left off', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const scrolled: number[] = []
+  // jsdom lays nothing out: the section sits 500px below the pane's top.
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.dataset.sectionId === 'S3.SS2'
+      ? new DOMRect(0, 500, 600, 400)
+      : new DOMRect(0, 0, 600, 0)
+  })
+  vi.spyOn(Element.prototype, 'scrollTop', 'set').mockImplementation(function (
+    this: Element,
+    value: number,
+  ) {
+    if (this.classList.contains('reader-page')) scrolled.push(value)
+  })
+  mount(<Harness />, { ...THREAD, readerPlace: { view: 'text', at: 'S3.SS2', fraction: 0.25 } })
+  await screen.findByRole('heading', { name: '3.2Attention' })
+  // The section's top (500) plus a quarter of its height (100).
+  await waitFor(() => expect(scrolled).toEqual([600]))
+})
+
+it('moves the text’s notes to the PDF’s headings in the PDF view', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const place = vi.spyOn(api, 'placeConcepts').mockResolvedValue({ 'S3.SS2': ['Softmax function'] })
+  // The PDF's outline has no numbers (Attention's doesn't): matched by title.
+  vi.spyOn(api, 'fetchPdfContents').mockResolvedValue([
+    { title: 'Introduction', level: 1, page: 1, top: 72 },
+    { title: 'Attention', level: 2, page: 2, top: 300 },
+  ])
+  pdfStub.fail = false
+  mount(<Harness />, { ...courseThread(), readerView: 'pdf' })
+  const note = await screen.findByRole('complementary', { name: 'From your Knowledge Graph' })
+  // Beside page 2, at the heading's place, from the text's placement alone.
+  const holder = note.closest('.reader-pdf-note') as HTMLElement
+  expect(holder.closest('.reader-pdf-page')?.id).toBe('reader-page:2')
+  expect(holder.dataset.top).toBe('300')
+  expect(place).toHaveBeenCalledTimes(1)
+  expect(place.mock.calls[0][0]).toEqual({ paper: '1706.03762', source: 'text' })
+  // Its card opens in the PDF view too.
+  fireEvent.click(screen.getByRole('button', { name: 'Softmax function' }))
+  expect(await screen.findByRole('dialog', { name: 'Concept: Softmax function' })).toBeTruthy()
+})
+
+it('places the course in the PDF’s own contents when there is only a PDF', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'no_render' })
+  vi.spyOn(api, 'fetchPdfContents').mockResolvedValue([
+    { title: '1 Introduction', level: 1, page: 1, top: 90 },
+    { title: '2 Algorithm', level: 1, page: 2, top: 40 },
+  ])
+  const place = vi.spyOn(api, 'placeConcepts').mockResolvedValue({ 'pdf:1': ['Dot product'] })
+  pdfStub.fail = false
+  mount(<Harness />, courseThread())
+  const note = await screen.findByRole('complementary', { name: 'From your Knowledge Graph' })
+  expect(note.closest('.reader-pdf-page')?.id).toBe('reader-page:2')
+  expect(place).toHaveBeenCalledWith(
+    { paper: '1706.03762', source: 'pdf', provider: 's2' },
+    expect.arrayContaining(['Dot product']),
+    expect.anything(),
+  )
+})
+
+it('notes nothing, and asks nothing, without a course', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  mount(<Harness />)
+  await screen.findByRole('heading', { name: '3.2Attention' })
+  expect(api.placeConcepts).not.toHaveBeenCalled()
+  expect(screen.queryByRole('complementary')).toBeNull()
 })
 
 it('opens a footnote in place', async () => {
@@ -659,6 +885,43 @@ it('jumps to a PDF heading’s place on its page, and keeps the clicked one acti
   // Scrolling by hand lets the contents follow the reading again.
   fireEvent.wheel(document.querySelector('.reader-page')!)
   await waitFor(() => expect(second.classList.contains('active')).toBe(true))
+})
+
+it('zooms the PDF in steps around fitting the width, and back to fitting', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'no_render' })
+  pdfStub.fail = false
+  mount(<Harness />)
+  const pdf = await screen.findByTestId('pdf-view')
+  expect(pdf.dataset.zoom).toBe('1')
+  fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+  expect(screen.getByTestId('pdf-view').dataset.zoom).toBe('1.25')
+  expect(screen.getByRole('button', { name: '125%' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: '125%' }))
+  expect(screen.getByTestId('pdf-view').dataset.zoom).toBe('1')
+  // Out to the floor, where the button stops.
+  for (let step = 0; step < 6; step++)
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+  expect(screen.getByTestId('pdf-view').dataset.zoom).toBe('0.5')
+  expect((screen.getByRole('button', { name: 'Zoom out' }) as HTMLButtonElement).disabled).toBe(
+    true,
+  )
+})
+
+it('folds the zoom away in the text view and grows it out for the PDF', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  pdfStub.fail = false
+  mount(<Harness />)
+  await screen.findByRole('heading', { name: '3.2Attention' })
+  expect(screen.queryByRole('group', { name: 'Zoom' })).toBeNull()
+  // Folded into the switch, out of reach, ready to grow out on the way to the PDF.
+  const fold = document.querySelector('.reader-zoom-fold') as HTMLElement
+  expect(fold.classList.contains('open')).toBe(false)
+  expect(fold.hasAttribute('inert')).toBe(true)
+  fireEvent.click(screen.getByRole('button', { name: 'PDF' }))
+  const opened = () => document.querySelector('.reader-zoom-fold') as HTMLElement
+  await waitFor(() => expect(opened().classList.contains('open')).toBe(true))
+  expect(opened().hasAttribute('inert')).toBe(false)
 })
 
 it('slides the arriving view in from its button’s side', async () => {

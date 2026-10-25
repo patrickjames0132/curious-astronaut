@@ -11,7 +11,9 @@ reference list, which informs the paper's expansion; lessons stopped citing
 it in v8.17.0) and the caching.
 
 Since v8.25.0 it also names the concept behind a passage the reader
-highlighted in a lesson (``/api/knowledge/phrase``, the lesson's "Expand").
+highlighted in a lesson (``/api/knowledge/phrase``, the lesson's "Expand"),
+and since v8.44.0 finds where in the paper each of the course's concepts is
+needed (``/api/knowledge/place``), for the Reader's margin notes.
 The course's assistant, which answers over the course, is an ask route and
 lives with the others in ``routes/agents.py``.
 
@@ -40,8 +42,12 @@ from flask import Blueprint, Response, jsonify, request
 from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
 
+from .. import optional
 from ..agents import events, factory, streams, traversal
 from ..agents.orchestrators import tutor
+from ..integrations import arxiv
+from ..integrations.arxiv import document as arxiv_document
+from ..services import pdf as pdf_service
 from ..services.graph import Provider
 from ..storage import cache
 from .sse import sse, sse_response
@@ -565,6 +571,155 @@ def api_synthesis_lesson() -> ResponseReturnValue:
     return sse_response(
         _relay(key, None, tutor.synthesis_lesson(name, members, toward, path, pictures))
     )
+
+
+#: Sections placed in: down to subsubsections, as deep as the contents list.
+PLACE_DEPTH = 3
+#: The most concepts one placement reads (a course rarely nears it).
+PLACE_CONCEPTS = 120
+#: The most pages one PDF contents entry reads (an appendix can run long).
+PLACE_PDF_PAGES = 3
+
+
+def _place_sections(doc: dict[str, Any]) -> list[tutor.PaperSection]:
+    """The paper's sections as the placer reads them.
+
+    Sections down to ``PLACE_DEPTH``, each with the text of the deeper ones
+    under it folded in: a paragraph heading ("Encoder:", "Label Smoothing")
+    is a section of its own in the document, and its text belongs to the
+    subsection it sits in (Attention's layer normalization is only there).
+
+    Args:
+        doc: The paper's structured document.
+
+    Returns:
+        The sections, in order.
+    """
+    sections: list[tutor.PaperSection] = []
+    for section in doc.get("sections", []):
+        if section.get("level", 9) <= PLACE_DEPTH and section.get("title"):
+            sections.append(
+                tutor.PaperSection(
+                    id=str(section["id"]),
+                    heading=arxiv_document.section_heading(section),
+                    text=arxiv_document.section_text(section),
+                )
+            )
+        elif sections and section.get("level", 0) > PLACE_DEPTH:
+            sections[-1].text += "\n\n" + arxiv_document.section_text(section)
+    return sections
+
+
+def _pdf_place_sections(paper: str, provider: Provider) -> list[tutor.PaperSection]:
+    """A PDF's sections as the placer reads them (v8.44.0, the PDF view).
+
+    The PDF's table of contents (its outline, else the headings found in its
+    text: ``services/pdf/headings.py``), each entry with the text of the
+    pages it spans: from its own page up to the next entry's, or its page
+    alone when the next starts on the same one. Page-coarse, but the placer
+    only needs to know what each section is about.
+
+    Args:
+        paper: The paper's arXiv id, or its provider id.
+        provider: Who to ask for a non-arXiv paper's open-access PDF.
+
+    Returns:
+        ``pdf:<n>`` sections, ``n`` the entry's place in the contents (the
+        Reader's ``/pdf-contents`` lists the same, in the same order), the
+        reference list left out; empty
+        when there's no PDF, no contents, or no ``pdf`` extra.
+    """
+    url = pdf_service.paper_pdf_url(paper, provider)
+    if not url:
+        return []
+    try:
+        entries = pdf_service.get_pdf_contents(url).get("entries") or []
+        pages = pdf_service.get_pdf_pages(url).get("pages") or []
+    except optional.MissingExtra:
+        return []
+    sections: list[tutor.PaperSection] = []
+    for index, entry in enumerate(entries):
+        # The reference list is what's cited, not what the reader needs.
+        if str(entry["title"]).lower().strip() in {"references", "bibliography"}:
+            continue
+        first = int(entry["page"])
+        following = next((int(later["page"]) for later in entries[index + 1 :] if int(later["page"]) > first), None)
+        last = min(following - 1 if following else first, first + PLACE_PDF_PAGES - 1, len(pages))
+        sections.append(
+            tutor.PaperSection(
+                id=f"pdf:{index}",
+                heading=str(entry["title"]),
+                text="\n\n".join(pages[first - 1 : max(last, first)]),
+            )
+        )
+    return sections
+
+
+@bp.post("/api/knowledge/place")
+def api_place() -> ResponseReturnValue:
+    """Where in the paper each of the course's concepts is needed (v8.44.0).
+
+    The Reader's Knowledge Graph notes: the tutor reads the paper's sections
+    and names the sections each concept matters in (``tutor.place``). From
+    the paper's cached document (``integrations/arxiv/document.py``) by
+    default; with ``source: "pdf"``, from its PDF's contents and page text,
+    for a paper the Reader can only show as a PDF (the PDF view of a paper
+    with a text reuses the text's placement, matched to the PDF's headings
+    in the browser). Cached permanently, like the lessons, by the paper, the
+    source and the course's concepts: a course that changes asks again; the
+    same course never does.
+
+    Body:
+        ``{paper, concepts: [names], source?: "text" | "pdf", provider?}``.
+        ``paper`` is an arXiv id, or for the PDF a provider id too.
+
+    Returns:
+        ``{sections: {<section id>: [concept names]}}``, each list in the
+        order the concepts were given; section ids are the document's, or
+        ``pdf:<n>`` for the PDF's n-th contents entry. ``{sections: {}}``
+        when there's nothing to place in. HTTP 400 for a malformed body, 502
+        when the model fails.
+    """
+    payload = request.get_json(silent=True) or {}
+    raw_paper = str(payload.get("paper") or "").strip()
+    paper = arxiv.extract_id(raw_paper) or raw_paper
+    source = "pdf" if payload.get("source") == "pdf" else "text"
+    provider: Provider = "openalex" if payload.get("provider") == "openalex" else "s2"
+    raw = payload.get("concepts")
+    if not isinstance(raw, list) or not paper or (source == "text" and not arxiv.looks_arxiv(paper)):
+        return jsonify({"error": "paper and concepts are required"}), 400
+    concepts = list(dict.fromkeys(" ".join(str(name).split()) for name in raw if isinstance(name, str)))
+    concepts = [name for name in concepts if name][:PLACE_CONCEPTS]
+    if not concepts:
+        return jsonify({"sections": {}})
+    shape = [PLACE_DEPTH] if source == "text" else ["pdf", provider, PLACE_PDF_PAGES]
+    key = "tutor:place:v1:" + _digest([paper, sorted(concepts), *shape])
+    cached = cache.get(key)
+    if isinstance(cached, dict) and "sections" in cached:
+        return jsonify(cached)
+    try:
+        if source == "pdf":
+            sections = _pdf_place_sections(paper, provider)
+        else:
+            doc = arxiv.get_document(paper)
+            sections = _place_sections(doc) if doc.get("available") else []
+    except Exception:  # the render or the PDF unreachable: nothing to place in, this time
+        log.warning("place: reading %s's %s failed", paper, source, exc_info=True)
+        return jsonify({"sections": {}})
+    if not sections:
+        return jsonify({"sections": {}})
+    try:
+        placed = tutor.place(sections, concepts)
+    except Exception:
+        log.exception("placing concepts failed for %s", paper)
+        return jsonify({"error": "The tutor couldn't place the course in the paper — try again."}), 502
+    by_section: dict[str, list[str]] = {}
+    for name in concepts:
+        for section_id in placed.get(name, []):
+            by_section.setdefault(section_id, []).append(name)
+    result = {"sections": by_section}
+    cache.set(key, result)
+    return jsonify(result)
 
 
 @bp.get("/api/web_image/<handle>")

@@ -8,7 +8,9 @@ its prerequisites, and teaches each one as a lesson.
   ``name_phrase`` (v8.25.0, a highlighted passage's concept), the
   streamed ``lesson``, and a synthesis's ``name_synthesis`` and streamed
   ``synthesis_lesson`` (v8.23.0), and ``fit_section``, which rewrites
-  only a lesson's closing "How it fits in" section (v8.23.0).
+  only a lesson's closing "How it fits in" section (v8.23.0), and
+  ``place`` (v8.44.0), which finds where in the paper each concept is
+  needed, for the Reader's margin notes.
 * ``images`` — a lesson's image tools (v8.24.0): ``find_images`` and
   ``show_image``, which a lesson written with images carries, and
   ``image_bytes`` / ``web_image_url``, which serve what they found.
@@ -29,6 +31,7 @@ from .main import (
     Lesson,
     LessonEvent,
     Need,
+    PaperSection,
     Pictures,
     Prerequisite,
     Prerequisites,
@@ -39,6 +42,7 @@ from .main import (
     lesson,
     name_phrase,
     name_synthesis,
+    place,
     synthesis_lesson,
 )
 
@@ -47,6 +51,7 @@ __all__ = [
     "Lesson",
     "LessonEvent",
     "Need",
+    "PaperSection",
     "Pictures",
     "Prerequisite",
     "Prerequisites",
@@ -58,5 +63,6 @@ __all__ = [
     "lesson",
     "name_phrase",
     "name_synthesis",
+    "place",
     "synthesis_lesson",
 ]

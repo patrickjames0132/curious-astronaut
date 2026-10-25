@@ -112,6 +112,44 @@ export async function expandPhrase(body: {
   return (data as { child: KnowledgeChild | null }).child
 }
 
+/** What to place a course in (v8.44.0): the paper's text, or its PDF. */
+export interface PlaceTarget {
+  /** The paper's arXiv id; for the PDF, a provider id will do. */
+  paper: string
+  /** The document's sections (`text`), or the PDF's contents entries
+   *  (`pdf`, ids `pdf:<n>`), for a paper the Reader shows only as a PDF. */
+  source: 'text' | 'pdf'
+  /** Who to ask for a non-arXiv paper's open-access PDF. */
+  provider?: Provider
+}
+
+/**
+ * Where in the paper each of the course's concepts is needed (v8.44.0), for
+ * the Reader's Knowledge Graph notes. Cached on the server by the paper, the
+ * source and the concepts, so the same course never asks twice.
+ *
+ * @param target What to place it in.
+ * @param concepts The course's concept names.
+ * @param signal Aborts the request when the paper or the course changes.
+ * @returns The concept names each section needs, by section id.
+ * @throws With the server's message when the tutor fails.
+ */
+export async function placeConcepts(
+  target: PlaceTarget,
+  concepts: string[],
+  signal?: AbortSignal,
+): Promise<Record<string, string[]>> {
+  const res = await fetch('/api/knowledge/place', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...target, concepts }),
+    signal,
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Could not place the course (${res.status})`)
+  return (data as { sections?: Record<string, string[]> }).sections ?? {}
+}
+
 /** An item that needs a lesson's subject, and why (v8.23.0). */
 export interface KnowledgeNeed extends KnowledgeStep {
   why: string

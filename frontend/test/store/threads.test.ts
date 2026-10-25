@@ -27,8 +27,11 @@ import explorations, {
   awaitsTitle,
   explorationOpened,
   newExploration,
+  threadReaderPlaceSet,
   threadRenamed,
+  threadReturnSet,
   threadTool,
+  threadToolSet,
 } from '../../src/store/explorations'
 import { migrateExploration, explorationBody } from '../../src/store/threadPersistence'
 import type { GraphResponse, SavedSession } from '../../src/api'
@@ -505,5 +508,32 @@ describe('more than one General chat (v8.31.0)', () => {
     store.dispatch(threadRenamed({ id: activeThread(store).id, title: 'Replay' }))
     expect(activeThread(store).title).toBe('Replay (2)')
     expect(awaitsTitle(activeThread(store))).toBe(false)
+  })
+})
+
+describe('the Reader’s way back (v8.44.0)', () => {
+  it('offers the way back only while the thread stays where it was set for', async () => {
+    const store = makeStore()
+    store.dispatch(explorationOpened(newExploration('explore')))
+    await store.dispatch(openPaper({ seed: 'DQN' }))
+    const id = activeThread(store).id
+    store.dispatch(threadToolSet('reader'))
+    store.dispatch(threadReturnSet({ id, returnTo: { tool: 'reader', from: 'knowledge' } }))
+    store.dispatch(threadToolSet('knowledge'))
+    expect(activeThread(store).returnTo).toEqual({ tool: 'reader', from: 'knowledge' })
+    // Going back, or anywhere else, spends it.
+    store.dispatch(threadToolSet('reader'))
+    expect(activeThread(store).returnTo).toBeUndefined()
+  })
+
+  it('remembers where the reader was in the paper', async () => {
+    const store = makeStore()
+    store.dispatch(explorationOpened(newExploration('explore')))
+    await store.dispatch(openPaper({ seed: 'DQN' }))
+    const id = activeThread(store).id
+    store.dispatch(
+      threadReaderPlaceSet({ id, place: { view: 'text', at: 'S3.SS2', fraction: 0.4 } }),
+    )
+    expect(activeThread(store).readerPlace).toEqual({ view: 'text', at: 'S3.SS2', fraction: 0.4 })
   })
 })

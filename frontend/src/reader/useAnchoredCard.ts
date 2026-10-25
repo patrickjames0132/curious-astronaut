@@ -2,15 +2,16 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * Which citation card is open, and when (v8.43.0). Hovering a citation
- * previews its card after a moment, so a pointer passing over the text
- * doesn't flash cards; the preview stays while the pointer is on the citation
- * or the card, and goes a moment after it leaves both. A click pins the card
- * (a second click on the same citation unpins it); a pinned card stays until
- * its ×, Esc, or a click elsewhere, and hovering other citations meanwhile
- * leaves it be.
+ * Which of a kind of card is open, and when: the citation cards (v8.43.0)
+ * and the Knowledge Graph notes' concept cards (v8.44.0), one instance each.
+ * Hovering a trigger (a citation, a concept) previews its card after a
+ * moment, so a pointer passing over the text doesn't flash cards; the
+ * preview stays while the pointer is on the trigger or the card, and goes a
+ * moment after it leaves both. A click pins the card (a second click on the
+ * same trigger unpins it); a pinned card stays until its ×, Esc, or a click
+ * elsewhere, and hovering other triggers meanwhile leaves it be.
  *
- * The card sits in the reading pane's scrolled content, under the citation
+ * The card sits in the reading pane's scrolled content, under its trigger
  * (above it when there's no room below), so it scrolls with the text.
  *
  * Authors:
@@ -33,15 +34,16 @@ const MARGIN = 8
 
 /** The open card: whose, where, and whether a click pinned it. */
 export interface OpenCard {
-  bib: string
+  /** The trigger's subject: a bibliography entry's id, a concept's. */
+  id: string
   placement: CardPlacement
   pinned: boolean
 }
 
 /**
- * Where a card for a citation goes in the pane's scrolled content.
+ * Where a card goes in the pane's scrolled content.
  *
- * @param anchor The citation.
+ * @param anchor Its trigger.
  * @param pane The scrolling reading pane.
  * @returns Its placement.
  */
@@ -58,13 +60,15 @@ function place(anchor: HTMLElement, pane: HTMLElement): CardPlacement {
 }
 
 /**
- * The citation card's state and the handlers that drive it.
+ * A card's state and the handlers that drive it.
  *
  * @param paneRef The reading pane the card sits in.
- * @returns The open card (or null), the citations' controls, and the card's
+ * @param triggers A selector for this card's triggers: a click on one is
+ *   its own toggle, not a click elsewhere.
+ * @returns The open card (or null), the triggers' controls, and the card's
  *          own: close it, keep a preview while hovered, let it go.
  */
-export function useCitationCard(paneRef: RefObject<HTMLElement | null>) {
+export function useAnchoredCard(paneRef: RefObject<HTMLElement | null>, triggers: string) {
   const [card, setCard] = useState<OpenCard | null>(null)
   const cardRef = useRef(card)
   cardRef.current = card
@@ -80,21 +84,21 @@ export function useCitationCard(paneRef: RefObject<HTMLElement | null>) {
     setCard(null)
   }, [])
   const open = useCallback(
-    (bib: string, anchor: HTMLElement, pinned: boolean) => {
+    (id: string, anchor: HTMLElement, pinned: boolean) => {
       const pane = paneRef.current
-      if (pane) setCard({ bib, placement: place(anchor, pane), pinned })
+      if (pane) setCard({ id, placement: place(anchor, pane), pinned })
     },
     [paneRef],
   )
 
   const hover = useCallback(
-    (bib: string, anchor: HTMLElement) => {
+    (id: string, anchor: HTMLElement) => {
       clearTimers()
       const current = cardRef.current
-      if (current?.pinned || current?.bib === bib) return
+      if (current?.pinned || current?.id === id) return
       // One preview already showing: the next follows the pointer at once.
-      if (current) open(bib, anchor, false)
-      else showTimer.current = window.setTimeout(() => open(bib, anchor, false), SHOW_DELAY)
+      if (current) open(id, anchor, false)
+      else showTimer.current = window.setTimeout(() => open(id, anchor, false), SHOW_DELAY)
     },
     [open],
   )
@@ -105,15 +109,15 @@ export function useCitationCard(paneRef: RefObject<HTMLElement | null>) {
   }, [])
   const keep = useCallback(() => window.clearTimeout(hideTimer.current), [])
   const pin = useCallback(
-    (bib: string, anchor: HTMLElement) => {
+    (id: string, anchor: HTMLElement) => {
       clearTimers()
-      if (cardRef.current?.pinned && cardRef.current.bib === bib) setCard(null)
-      else open(bib, anchor, true)
+      if (cardRef.current?.pinned && cardRef.current.id === id) setCard(null)
+      else open(id, anchor, true)
     },
     [open],
   )
 
-  // A pinned card goes on Esc or a click elsewhere (a citation's own click
+  // A pinned card goes on Esc or a click elsewhere (a trigger's own click
   // is the toggle above, so it doesn't count as elsewhere).
   useEffect(() => {
     if (!card?.pinned) return
@@ -121,7 +125,7 @@ export function useCitationCard(paneRef: RefObject<HTMLElement | null>) {
       if (event.key === 'Escape') close()
     }
     const onDown = (event: MouseEvent) => {
-      if (!(event.target instanceof Element) || !event.target.closest('.reader-cite')) close()
+      if (!(event.target instanceof Element) || !event.target.closest(triggers)) close()
     }
     document.addEventListener('keydown', onKey)
     document.addEventListener('mousedown', onDown)
@@ -129,12 +133,12 @@ export function useCitationCard(paneRef: RefObject<HTMLElement | null>) {
       document.removeEventListener('keydown', onKey)
       document.removeEventListener('mousedown', onDown)
     }
-  }, [card?.pinned, close])
+  }, [card?.pinned, close, triggers])
   useEffect(() => clearTimers, [])
 
-  const cite = useMemo(
-    () => ({ hover, leave: release, pin, open: card?.bib ?? null }),
-    [hover, release, pin, card?.bib],
+  const controls = useMemo(
+    () => ({ hover, leave: release, pin, open: card?.id ?? null }),
+    [hover, release, pin, card?.id],
   )
-  return { card, cite, close, keep, release }
+  return { card, controls, close, keep, release }
 }

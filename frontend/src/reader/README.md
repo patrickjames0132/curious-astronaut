@@ -14,12 +14,18 @@ reader/
   links.ts        — what runs share with the page: the jump and citation-card
                     context, the DOM-id prefix, plain text
   CitationCard.tsx — the card a citation opens: the paper it cites, and ways on
-  useCitationCard.ts — when the card shows, stays and goes, and where it sits
+  ConceptNote.tsx — a Knowledge Graph note: the course concepts a section builds on
+  ConceptCard.tsx — the card a note's concept opens: why, its lesson, the check-off
+  useConceptNotes.ts — which concepts each section needs (the tutor's placement)
+  useMarginNotes.ts — margin notes stacked apart and tied to their headings
+  useMarginNotes.ts — margin notes stacked apart and tied to their headings
+  useAnchoredCard.ts — when a card shows, stays and goes, and where it sits
   selectionText.ts — what a highlight says (formulas as LaTeX) and where it's from
   askReader.ts    — the Reader Assistant's asking: what it sends, the
                     section in view, how a highlight's action is worded
   ReaderAssistant.tsx — the docked assistant: the shared panel with the Reader's words
-  PdfView.tsx     — the PDF view: pages sized up front, drawn near the view
+  PdfView.tsx     — the PDF view: pages sized up front, drawn near the view,
+                    notes in the margin beside them
   pdf.ts          — pdf.js, loaded on first use, and a PDF's outline as pages
   reader.css      — the layout, the reading column, the PDF's pages, `--reader-ink` accents
 ```
@@ -31,8 +37,8 @@ after the first browser round (2026-10-23): (1) the structured parse, the
 reading view and the contents (v8.37.0); (2) the highlight menu and the
 Reader Assistant (v8.38.0, below); (3) the PDF view with the same
 AI tools (v8.40.0, below); (4) the citation cards, resolving `[23]` to the
-real cited paper (v8.43.0, below); (5) Knowledge Graph notes in the margin;
-(6) an answer lighting up the passage it's about. Read the OnePager entry
+real cited paper (v8.43.0, below); (5) the Knowledge Graph notes (v8.44.0,
+below); (6) an answer lighting up the passage it's about. Read the OnePager entry
 before extending it.
 
 ## The citation cards (v8.43.0)
@@ -42,7 +48,7 @@ before extending it.
   doesn't flash cards, and stays while the pointer is on the citation or the
   card. A click pins it (the citation's second click unpins); a pinned card
   stays through hovering other citations, until its ×, Esc or a click
-  elsewhere (`useCitationCard`). It sits in the pane's scrolled content,
+  elsewhere (`useAnchoredCard`, shared with the concept cards). It sits in the pane's scrolled content,
   under the citation or above it when there's no room, so it scrolls with
   the text.
 - **The paper it cites**, from `GET /api/paper/<id>/cited`
@@ -60,6 +66,94 @@ before extending it.
   **Reference ↓**, the old click, to the entry in the reference list.
 - **Not in the PDF view.** A PDF's citations are drawn text; see
   `services/reader/README.md`.
+
+## The Knowledge Graph notes (v8.44.0)
+
+Once the paper's Knowledge Graph course exists, each section the course
+matters in gets a note: **Builds on** and the concepts it needs, each a
+button, a ✓ on the ones checked off. The shape, the placement and the click
+are Patrick's picks (2026-10-24): section notes in the margin, placed by one
+model call, a card in the Reader.
+
+- **Placed by the tutor** (`/api/knowledge/place`, `routes/knowledge.py`):
+  it reads the paper's sections to the contents' depth, paragraph headings'
+  text folded into the subsection holding them ("Encoder:" holds Attention's
+  layer normalization), and names the sections each concept matters in,
+  named or not, most specific first. Cached on the server by the paper and
+  the concepts, so `useConceptNotes` asks again only when the course's
+  concepts change; check-offs and lessons are read live from the course.
+  On Attention it put softmax and dot products in 3.2.1, layer
+  normalization and residual connections in 3.1, label smoothing in 5.4.
+- **Nothing without a course** (Patrick): no note, no prompt, no request.
+- **In the Knowledge Graph's colours** (Patrick): the notes and their chips
+  are outlined in its gold (`--knowledge-paper-ink`), and a known concept's
+  ✓ is its known green (`--knowledge-known-ink`). The ✓ is always in the
+  DOM, so checking off and taking back both animate (it grows in with a
+  little overshoot, and shrinks away).
+- **Tied to their headings, never piled up** (Patrick, `useMarginNotes`).
+  A curve runs from the middle of a margin note's bar to the end of its
+  heading's text, barely there in grey until the note is hovered (or holds
+  keyboard focus, not a clicked button's lingering focus), when it glows
+  gold. In the text view the note is lifted so "Builds on" sits level
+  with its heading, and the curve runs along the heading's own line (empty
+  past its end) and down the gap beside the column, never across the text:
+  the first version cut straight through the paragraph. In the PDF the
+  heading's words are found in pdf.js's text layer near its height
+  (redrawn when a page's text layer arrives, `PDF_TEXT_DRAWN`) and the
+  curve goes straight there. Notes are
+  stacked so none overlaps the one above (a narrow PDF margin piled them on
+  each other), pushed down just as far as needed; the curve keeps a pushed
+  note tied to its heading. Each pass watches every note there is, since a
+  PDF's notes arrive with its pages, and a note says when its "+N more"
+  opens or closes (`NOTES_CHANGED`): the first version watched only the
+  notes there at the start, so an opened note sat over the next one, its
+  "Show fewer" out of reach. A note shows its first three concepts and
+  "+N more", and a chip's name ends in an ellipsis when it won't fit, the
+  tooltip holding it whole.
+- **Tied to their headings, never piled up** (Patrick, `useMarginNotes`).
+  A faint gold curve runs from the middle of a margin note's bar to the end
+  of its heading's text: the section's own heading in the text view, and in
+  the PDF the heading's words found in pdf.js's text layer near its height
+  (redrawn when a page's text layer arrives, `PDF_TEXT_DRAWN`). Notes are
+  stacked so none overlaps the one above (a narrow PDF margin piled them on
+  each other), pushed down just as far as needed; the curve keeps a pushed
+  note tied to its heading. A note shows its first three concepts and
+  "+N more", and a chip's name ends in an ellipsis when it won't fit, the
+  tooltip holding it whole.
+- **A note's order holds through check-offs.** Chips follow the course's
+  order as if nothing were known: the real teaching order prunes what a
+  known item needs, so ticking one moved chips around (Patrick saw MDPs jump
+  to the front, then the back).
+- **One chip lights at a time.** A concept two sections build on is in both
+  their notes; a chip's card is keyed by its note as well (`chipId`), so only
+  the chip clicked shows as open.
+- **In the margin when there's room** (`reader.css`, a container query on
+  the pane at 1000px): a 200px column level with the section's heading,
+  the text shifting left so the pair stays centred. Narrower, the note sits
+  under the heading.
+- **A concept's card** (`ConceptCard`, timed and placed like the citation
+  card): why the course needs it (`routeWhy`), the first paragraph of its
+  lesson when one is written, **Mark as known** (the course's own
+  check-off, `knowledgeKnownToggled`: the Knowledge Graph shows it too), and
+  **Read lesson in Knowledge Graph** (named for where it goes, since "Builds
+  on" alone doesn't say whose notes these are) or **Open in Knowledge
+  Graph**, which opens the item
+  there (`knowledgeOpened`, `openTool('knowledge')`) with a **Back to
+  reading** pill beside its ↑ (`ThreadRecord.returnTo`, `tools/README.md`).
+- **The Reader reopens where you left off** (v8.44.0), in either view: the
+  section or page at the top of the pane and how far into it, as a fraction
+  of its height (so images loading or pages rescaling don't move it), kept
+  as you scroll and saved on the thread when the Reader closes
+  (`ThreadRecord.readerPlace`), restored once the view is laid out.
+- **In the PDF view too** (Patrick), beside the page at the heading's
+  height (`PdfView`'s margin notes; the pages leave 232px for them). A paper
+  with a text **reuses the text's placement**, each section matched to the
+  PDF's contents entry that heads it (`textNotesInPdf`: by number when both
+  have one, else by title, forward from the last match since an outline can
+  repeat a title), so the views agree and nothing is asked twice. A paper
+  with only its PDF is **placed in the PDF's own contents**
+  (`source: "pdf"`, ids `pdf:<n>`, each entry read with the pages it spans).
+  A section the PDF has no heading for gets no note there.
 
 ## The PDF view (v8.40.0)
 
@@ -89,7 +183,18 @@ the leaving one already gone; the switch's thumb slides between its buttons.
   screen's pixel ratio, and pdf.js's transparent text layer over it) within
   a screen or so of view and is never torn down, so a selection in it can't
   vanish under a redraw (the lesson of the vanishing equation highlight,
-  `docs/bugs.md`). Pages fit the pane's width, up to 900px, **once the
+  `docs/bugs.md`). **Zoom** (v8.44.0, Patrick: a small window shrank pages
+  past reading): − and + in the same capsule as the Text/PDF switch, past a
+  thin divider (two pills side by side looked like a pair). Switching to the
+  PDF grows the zoom out of the switch, left to right, and switching back
+  folds it away (its column animating from nothing to its width; `inert`
+  while folded); every button in the capsule is one height, so nothing
+  resizes as it comes and goes. The steps run through multiples
+  of fitting the width, 50% to 300%, and the percentage goes back to
+  fitting; a page wider than the pane scrolls sideways (`align-items: safe
+  center`). Whatever changes the scale (zoom, the pane's width, room made
+  for notes), the page at the top stays there, the same fraction down: its
+  place is tracked as the reader scrolls. Pages fit the pane's width, up to 900px, **once the
   width settles** (200ms): following every frame of the contents panel's
   slide redrew every drawn page each frame, and the fold lagged. When the
   scale does change, the page at the top of the pane stays there, the same
@@ -245,7 +350,10 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
 `test/reader/Reader.test.tsx` renders the Reader over a stubbed document:
 the text with its math and figure, the contents (paragraph headings left
 out) and its jumps, a citation's card (pinned, previewed on hover, matched
-or not, its actions and its jump to the reference), a footnote opening,
+or not, its actions and its jump to the reference), the Knowledge Graph
+notes (placed beside their sections in course order, none and no request
+without a course) and a concept's card (its lesson's opening, the
+check-off, the way to the lesson), a footnote opening,
 a figure enlarging, an algorithm's numbers and indents, the contents
 resizing and folding by a drag and coming back only by the bump, and each
 unavailable state, including the retry, and the PDF view with pdf.js

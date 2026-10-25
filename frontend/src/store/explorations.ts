@@ -36,6 +36,15 @@ export type ThreadTool = 'cards' | 'graph' | 'knowledge' | 'reader'
 /** How the Reader shows a paper: its HTML render's text, or its PDF. */
 export type ReaderView = 'text' | 'pdf'
 
+/** A place in the Reader (v8.44.0): the section or page at the top of the
+ *  pane (its `data-section-id`) and how far into it, as a fraction of its
+ *  height, so the place holds when images load or pages rescale. */
+export interface ReaderPlace {
+  view: ReaderView
+  at: string
+  fraction: number
+}
+
 export interface ThreadRecord {
   id: string
   title: string
@@ -58,6 +67,14 @@ export interface ThreadRecord {
    *  means the text, when there is one; a paper with no HTML render shows
    *  its PDF regardless. */
   readerView?: ReaderView
+  /** Where the reader was in the Reader (v8.44.0), so it reopens there. */
+  readerPlace?: ReaderPlace
+  /**
+   * A tool to come back to (v8.44.0): set when the Reader opens a concept's
+   * lesson in the Knowledge Graph, so the Knowledge Graph offers the way back
+   * to the paper. It lasts only while the thread stays on `from`.
+   */
+  returnTo?: { tool: ThreadTool; from: ThreadTool }
   /** The knowledge network's course (v8.14.0), once its card has been opened. */
   knowledge?: KnowledgeMap
   /**
@@ -297,7 +314,40 @@ const slice = createSlice({
       const thread = record?.threads.find((item) => item.id === record.activeThreadId)
       if (thread?.identity && thread.tool !== action.payload) {
         thread.tool = action.payload
+        // A way back lasts only while the thread stays where it was set for.
+        if (thread.returnTo && thread.returnTo.from !== action.payload) delete thread.returnTo
         record.revision++
+      }
+    },
+    /** Offer a way back to a tool from the one about to open (v8.44.0).
+     * @param state Exploration state.
+     * @param action The thread, and the way back (null to drop it).
+     */
+    threadReturnSet(
+      state,
+      action: PayloadAction<{
+        id: string
+        returnTo: { tool: ThreadTool; from: ThreadTool } | null
+      }>,
+    ) {
+      for (const record of Object.values(state.byId)) {
+        const thread = record.threads.find((item) => item.id === action.payload.id)
+        if (!thread) continue
+        if (action.payload.returnTo) thread.returnTo = action.payload.returnTo
+        else delete thread.returnTo
+      }
+    },
+    /** Remember where the reader was in the Reader (v8.44.0).
+     * @param state Exploration state.
+     * @param action The thread and its place.
+     */
+    threadReaderPlaceSet(state, action: PayloadAction<{ id: string; place: ReaderPlace }>) {
+      for (const record of Object.values(state.byId)) {
+        const thread = record.threads.find((item) => item.id === action.payload.id)
+        if (thread) {
+          thread.readerPlace = action.payload.place
+          record.revision++
+        }
       }
     },
     /** Rest a paper thread on its card home, whether or not it is active.
@@ -309,15 +359,15 @@ const slice = createSlice({
         const thread = record.threads.find((item) => item.id === action.payload)
         if (thread?.identity && thread.tool !== 'cards') {
           thread.tool = 'cards'
+          delete thread.returnTo
           record.revision++
         }
       }
     },
-    /** Keep the seed's hydrated details for the card home's header.
+    /** The Reader's Text/PDF switch, remembered on the thread (v8.40.0).
      * @param state Exploration state.
-     * @param action Thread and its paper.
+     * @param action The thread and its view.
      */
-    /** The Reader's Text/PDF switch, remembered on the thread (v8.40.0). */
     threadReaderViewSet(state, action: PayloadAction<{ id: string; view: ReaderView }>) {
       for (const record of Object.values(state.byId)) {
         const thread = record.threads.find((item) => item.id === action.payload.id)
@@ -327,6 +377,10 @@ const slice = createSlice({
         }
       }
     },
+    /** Keep the seed's hydrated details for the card home's header.
+     * @param state Exploration state.
+     * @param action Thread and its paper.
+     */
     threadPaperSet(state, action: PayloadAction<{ id: string; paper: PaperDetails }>) {
       for (const record of Object.values(state.byId)) {
         const thread = record.threads.find((item) => item.id === action.payload.id)
@@ -638,6 +692,8 @@ export const {
   threadCardsShown,
   threadPaperSet,
   threadReaderViewSet,
+  threadReaderPlaceSet,
+  threadReturnSet,
   threadRebased,
   knowledgeStarted,
   knowledgeExpanded,

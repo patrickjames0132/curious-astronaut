@@ -35,18 +35,32 @@ import {
 } from '../api'
 import type { PassageQuote } from '../assistant/askAssistant'
 import Lightbox from '../figures/Lightbox'
+import { courseOrder } from '../knowledge/model'
 import SelectionMenu from '../selection/SelectionMenu'
 import { useTextSelection } from '../selection/useTextSelection'
 import { useAppDispatch, useAppSelector } from '../store'
-import { threadReaderViewSet, type ReaderView, type ThreadRecord } from '../store/explorations'
+import {
+  knowledgeKnownToggled,
+  knowledgeOpened,
+  threadReaderPlaceSet,
+  threadReaderViewSet,
+  threadReturnSet,
+  type ReaderPlace,
+  type ReaderView,
+  type ThreadRecord,
+} from '../store/explorations'
 import { graphFocusRequested, openPaper, openTool } from '../store/workspace'
 import AuthorList from '../ui/AuthorList'
 import { usePresence } from '../ui/usePresence'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import { Blocks, Inlines } from './ReaderBody'
 import CitationCard, { type CitationActions } from './CitationCard'
-import { useCitationCard } from './useCitationCard'
-import PdfView from './PdfView'
+import ConceptCard from './ConceptCard'
+import ConceptNote from './ConceptNote'
+import { conceptOf, pdfContentsNotes, textNotesInPdf, useConceptNotes } from './useConceptNotes'
+import { useAnchoredCard } from './useAnchoredCard'
+import { useMarginNotes } from './useMarginNotes'
+import PdfView, { type PdfMarginNote } from './PdfView'
 import type { PdfOutlineEntry } from './pdf'
 import { askReader, documentRef, readerMessage, setReadingSection } from './askReader'
 import { ReaderLinksContext, pdfPageId, plainText, readerDomId } from './links'
@@ -63,6 +77,27 @@ const GLIDE_FALLBACK = 600
 /** Room left above a PDF heading a jump lands on, as the text view's
  *  `scroll-padding-top` leaves above its headings. */
 const HEADING_ROOM = 24
+
+/** The PDF view's zoom steps, as multiples of fitting the pane's width. */
+const ZOOMS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
+
+/**
+ * The next zoom step in or out from a zoom.
+ *
+ * @param zoom The zoom now.
+ * @param direction 1 to zoom in, -1 to zoom out.
+ * @returns The next step that way, or the last one when there's none.
+ */
+function zoomStep(zoom: number, direction: 1 | -1): number {
+  const steps = direction > 0 ? ZOOMS : [...ZOOMS].reverse()
+  return (
+    steps.find((step) => (direction > 0 ? step > zoom : step < zoom)) ?? steps[steps.length - 1]
+  )
+}
+
+/** Room the PDF view leaves beside its pages for the Knowledge Graph notes:
+ *  their 200px column and the gap before it (`reader.css`). */
+const PDF_NOTES_ROOM = 232
 
 /**
  * The scale a PDF page is drawn at (PdfView's `data-scale`).
@@ -183,6 +218,13 @@ export default function Reader({
   const [pdfInfo, setPdfInfo] = useState<{ pages: number; outline: PdfOutlineEntry[] } | null>(null)
   const [pdfFailure, setPdfFailure] = useState<string | null>(null)
   const [pdfPage, setPdfPage] = useState(1)
+  // The PDF view's zoom, a multiple of fitting the width (v8.44.0).
+  const [zoom, setZoom] = useState(1)
+  const [zoomedRef, setZoomedRef] = useState(ref)
+  if (zoomedRef !== ref) {
+    setZoomedRef(ref)
+    setZoom(1)
+  }
   const [attempt, setAttempt] = useState(0)
   const pageRef = useRef<HTMLDivElement>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -359,7 +401,7 @@ export default function Reader({
       })
     return () => controller.abort()
   }, [textAvailable, ref, provider])
-  const citationCard = useCitationCard(pageRef)
+  const citationCard = useAnchoredCard(pageRef, '.reader-cite')
   const closeCard = citationCard.close
   useEffect(() => closeCard(), [view, ref, closeCard])
   const graph = useAppSelector((state) => state.workspace.graph)
@@ -387,12 +429,88 @@ export default function Reader({
     }),
     [closeCard, dispatch, provider, jump],
   )
+  // The Knowledge Graph notes (v8.44.0): the course's concepts beside the
+  // sections that build on them, in course order; nothing without a course.
+  const { notes, map: course } = useConceptNotes(
+    thread.knowledge,
+    textAvailable && ref ? { paper: ref, source: 'text' } : null,
+  )
+  // A paper with only its PDF is placed in the PDF's own contents; the PDF
+  // view of a paper with a text moves the text's notes to the PDF's
+  // headings, so both views say the same and nothing is asked twice.
+  const pdfOnly = !!doc && !doc.available && view === 'pdf' && !!ref
+  const { notes: pdfOwnNotes } = useConceptNotes(
+    thread.knowledge,
+    pdfOnly && ref ? { paper: ref, source: 'pdf', provider } : null,
+  )
+  // The course's order as if nothing were known: a check-off prunes what the
+  // known item needs from the real teaching order, which would move chips
+  // around as they're ticked (Patrick saw MDPs jump to the front and back).
+  const courseRank = useMemo(
+    () =>
+      new Map(
+        (course ? courseOrder({ ...course, known: [] }) : []).map((id, index) => [id, index]),
+      ),
+    [course],
+  )
+  const ranked = (ids: string[]) =>
+    [...ids].sort(
+      (first, second) => (courseRank.get(first) ?? Infinity) - (courseRank.get(second) ?? Infinity),
+    )
+  const conceptCard = useAnchoredCard(pageRef, '.reader-concept')
+  const pdfNotes = useMemo<PdfMarginNote[]>(() => {
+    if (view !== 'pdf' || !course) return []
+    const placed = textAvailable
+      ? textNotesInPdf(notes, sections, outline)
+      : pdfContentsNotes(pdfOwnNotes, pdfContents)
+    return placed.map((note, index) => ({
+      key: `${note.page}:${index}`,
+      page: note.page,
+      top: note.top,
+      title: note.title,
+      node: (
+        <ConceptNote
+          slot={`pdf:${note.page}:${index}`}
+          ids={ranked(note.ids)}
+          map={course}
+          card={conceptCard.controls}
+        />
+      ),
+    }))
+    // `ranked` follows `courseRank`, which follows `course`.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    view,
+    course,
+    textAvailable,
+    notes,
+    sections,
+    outline,
+    pdfOwnNotes,
+    pdfContents,
+    conceptCard.controls,
+  ])
+  const closeConcept = conceptCard.close
+  useEffect(() => closeConcept(), [view, ref, closeConcept])
+  // Stacked so they never overlap, each tied to its heading by a curve.
+  useMarginNotes(
+    pageRef,
+    view === 'pdf'
+      ? pdfNotes.map((note) => note.key).join(',')
+      : view === 'text' && course
+        ? [...notes.keys()].join(',')
+        : '',
+  )
+  const openConcept = conceptCard.card
+  // The card's id is the chip's (its note and its concept): the concept alone.
+  const openConceptId = openConcept ? conceptOf(openConcept.id) : null
+
   const openCard = citationCard.card
-  const cardEntry = openCard ? bibliography.get(openCard.bib) : undefined
-  const cardPaper = openCard ? cited[openCard.bib] : undefined
+  const cardEntry = openCard ? bibliography.get(openCard.id) : undefined
+  const cardPaper = openCard ? cited[openCard.id] : undefined
   const links = useMemo(
-    () => ({ bibliography, cite: citationCard.cite, jump, enlarge: setEnlarged }),
-    [bibliography, citationCard.cite, jump],
+    () => ({ bibliography, cite: citationCard.controls, jump, enlarge: setEnlarged }),
+    [bibliography, citationCard.controls, jump],
   )
 
   // A contents entry clicked stays the active one until the reader scrolls
@@ -464,6 +582,65 @@ export default function Reader({
   }, [view, pdfInfo, outline])
   const shownActiveId = pinnedId ?? (view === 'pdf' ? outlineActive : activeId)
 
+  // Where the reader is (v8.44.0): the section or page at the top of the
+  // pane and how far into it, kept as they scroll and saved on the thread
+  // when the Reader closes, so it reopens there (Patrick: coming back from a
+  // lesson in the Knowledge Graph meant finding the place again by hand).
+  const place = useRef<ReaderPlace | null>(null)
+  useEffect(() => {
+    const pane = pageRef.current
+    if (!pane || !view) return
+    let frame = 0
+    const track = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const top = pane.getBoundingClientRect().top
+        let found: { at: string; fraction: number } | null = null
+        for (const element of Array.from(pane.querySelectorAll<HTMLElement>('[data-section-id]'))) {
+          const box = element.getBoundingClientRect()
+          if (box.top > top + 1) break
+          found = {
+            at: element.dataset.sectionId ?? '',
+            fraction: box.height ? (top - box.top) / box.height : 0,
+          }
+        }
+        place.current = found?.at ? { view, ...found } : null
+      })
+    }
+    pane.addEventListener('scroll', track, { passive: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      pane.removeEventListener('scroll', track)
+    }
+  }, [view])
+  const threadId = thread.id
+  useEffect(
+    () => () => {
+      if (place.current) dispatch(threadReaderPlaceSet({ id: threadId, place: place.current }))
+    },
+    [dispatch, threadId],
+  )
+  // Back to that place once, when its view is laid out: the text once the
+  // document is in, the PDF once its pages are sized.
+  const restored = useRef(false)
+  const saved = thread.readerPlace
+  const laidOut = view === 'text' ? !!doc?.available : view === 'pdf' ? !!pdfInfo : false
+  useEffect(() => {
+    if (restored.current || !laidOut) return
+    restored.current = true
+    const pane = pageRef.current
+    if (!pane || !saved || saved.view !== view) return
+    const frame = requestAnimationFrame(() => {
+      const element = Array.from(pane.querySelectorAll<HTMLElement>('[data-section-id]')).find(
+        (candidate) => candidate.dataset.sectionId === saved.at,
+      )
+      if (!element) return
+      const box = element.getBoundingClientRect()
+      pane.scrollTop += box.top - pane.getBoundingClientRect().top + saved.fraction * box.height
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [laidOut, saved, view])
+
   // The assistant opens on the section in view, or the page in the PDF view
   // (askReader's own note of it).
   useEffect(() => {
@@ -502,6 +679,8 @@ export default function Reader({
   const fallbackTitle = paper?.title ?? thread.data.graph_ref?.seed.title ?? thread.title
   const arxivId = paper?.arxiv_id ?? thread.data.graph_ref?.seed.arxiv_id
 
+  // The zoom shows in the PDF view only (it folds away in the text).
+  const zoomShown = view === 'pdf' && !pdfFailure
   let body: ReactNode
   if (view === 'pdf' && ref && !pdfFailure) {
     body = (
@@ -512,6 +691,9 @@ export default function Reader({
         textRef={pdfRef}
         onLoaded={setPdfInfo}
         onFailed={setPdfFailure}
+        notes={pdfNotes}
+        margin={pdfNotes.length ? PDF_NOTES_ROOM : 0}
+        zoom={zoom}
       />
     )
   } else if (view === 'pdf' && doc?.available) {
@@ -564,7 +746,10 @@ export default function Reader({
   } else {
     body = (
       <ReaderLinksContext.Provider value={links}>
-        <article className="reader-article" ref={articleRef}>
+        <article
+          className={`reader-article${course && notes.size ? ' has-notes' : ''}`}
+          ref={articleRef}
+        >
           <header className="reader-header">
             <h1>{title ? <Inlines inlines={title} /> : fallbackTitle}</h1>
             {paper?.authors && (
@@ -597,6 +782,14 @@ export default function Reader({
                     )}
                     <Inlines inlines={section.title} />
                   </Heading>
+                )}
+                {course && notes.has(section.id) && (
+                  <ConceptNote
+                    slot={section.id}
+                    ids={ranked(notes.get(section.id) ?? [])}
+                    map={course}
+                    card={conceptCard.controls}
+                  />
                 )}
                 <Blocks blocks={section.blocks} />
               </section>
@@ -766,40 +959,108 @@ export default function Reader({
               onPointerLeave={citationCard.release}
             />
           )}
+          {openConcept && openConceptId && course && (
+            <ConceptCard
+              id={openConceptId}
+              map={course}
+              pinned={openConcept.pinned}
+              placement={openConcept.placement}
+              onToggleKnown={() =>
+                dispatch(knowledgeKnownToggled({ threadId: thread.id, nodeId: openConceptId }))
+              }
+              onOpen={() => {
+                closeConcept()
+                dispatch(knowledgeOpened({ threadId: thread.id, nodeId: openConceptId }))
+                // The Knowledge Graph then offers the way back here.
+                dispatch(
+                  threadReturnSet({
+                    id: thread.id,
+                    returnTo: { tool: 'reader', from: 'knowledge' },
+                  }),
+                )
+                void dispatch(openTool('knowledge'))
+              }}
+              onClose={closeConcept}
+              onPointerEnter={conceptCard.keep}
+              onPointerLeave={conceptCard.release}
+            />
+          )}
         </div>
         {/* Text or PDF (v8.40.0), remembered on the thread. Shown even when
             there's no text (Patrick), its Text button saying why; hidden only
             when neither the text nor the PDF could be had. */}
         {doc && !(pdfFailure && !doc.available) && (
-          <div
-            className={`reader-view-switch${view === 'pdf' ? ' on-pdf' : ''}`}
-            role="group"
-            aria-label="Show the paper as"
-            data-tour="reader-view-switch"
-          >
-            <span className="reader-view-thumb" aria-hidden="true" />
-            <button
-              type="button"
-              aria-pressed={view === 'text'}
-              // Not `disabled`: some browsers show no tooltip on a disabled button.
-              aria-disabled={!doc.available}
-              onClick={() => doc.available && chooseView('text')}
-              title={
-                doc.available
-                  ? 'Read the paper’s text: typeset equations, live citations'
-                  : NO_TEXT[doc.reason]
-              }
-            >
-              Text
-            </button>
-            <button
-              type="button"
-              aria-pressed={view === 'pdf'}
-              onClick={() => chooseView('pdf')}
-              title="Read the paper as its PDF: the original layout"
-            >
-              PDF
-            </button>
+          <div className="reader-bottom-bar">
+            <div className="reader-controls" data-tour="reader-view-switch">
+              <div
+                className={`reader-view-switch${view === 'pdf' ? ' on-pdf' : ''}`}
+                role="group"
+                aria-label="Show the paper as"
+              >
+                <span className="reader-view-thumb" aria-hidden="true" />
+                <button
+                  type="button"
+                  aria-pressed={view === 'text'}
+                  // Not `disabled`: some browsers show no tooltip on a disabled button.
+                  aria-disabled={!doc.available}
+                  onClick={() => doc.available && chooseView('text')}
+                  title={
+                    doc.available
+                      ? 'Read the paper’s text: typeset equations, live citations'
+                      : NO_TEXT[doc.reason]
+                  }
+                >
+                  Text
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={view === 'pdf'}
+                  onClick={() => chooseView('pdf')}
+                  title="Read the paper as its PDF: the original layout"
+                >
+                  PDF
+                </button>
+              </div>
+              {/* Zoom (v8.44.0, Patrick): a small window shrank the PDF past
+                  reading. Steps around fitting the width; the percentage goes
+                  back to fitting. Always there, so switching to the PDF can
+                  grow it out from the switch, left to right, and switching
+                  back fold it away; out of reach while folded. */}
+              <div
+                className={`reader-zoom-fold${zoomShown ? ' open' : ''}`}
+                inert={!zoomShown}
+                aria-hidden={!zoomShown}
+              >
+                <div className="reader-zoom" role="group" aria-label="Zoom">
+                  <button
+                    type="button"
+                    onClick={() => setZoom(zoomStep(zoom, -1))}
+                    disabled={zoom <= ZOOMS[0]}
+                    title="Zoom out"
+                    aria-label="Zoom out"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    className="reader-zoom-level"
+                    onClick={() => setZoom(1)}
+                    title="Fit the page to the width"
+                  >
+                    {Math.round(zoom * 100)}%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setZoom(zoomStep(zoom, 1))}
+                    disabled={zoom >= ZOOMS[ZOOMS.length - 1]}
+                    title="Zoom in"
+                    aria-label="Zoom in"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

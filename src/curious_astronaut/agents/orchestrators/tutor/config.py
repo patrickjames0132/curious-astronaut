@@ -6,8 +6,10 @@ breaks the paper or a concept into the concepts it needs, one that teaches a
 single concept as a lesson (no citations since v8.17.0), and since v8.23.0 the
 two for a synthesis: one that names a group of concepts, one that writes how
 they come together; since v8.25.0 ``PHRASE_PROMPT``, which names the concept
-behind a passage highlighted in a lesson; and since v8.24.0 ``IMAGES_PROMPT``, added to either
-lesson prompt when it is written with its image tools. Model choice
+behind a passage highlighted in a lesson; since v8.24.0 ``IMAGES_PROMPT``, added to either
+lesson prompt when it is written with its image tools; and since v8.44.0
+``PLACE_PROMPT``, which finds where in the paper each of the course's
+concepts is needed, for the Reader's margin notes. Model choice
 and the knobs (``children``, ``lesson_words``, ``images``, ``min_images``, …) live in its
 ``config.llm.agents`` entry, validated at load against ``config.TutorExtras``;
 ``main`` reads them per call, so a settings edit applies to the next expansion
@@ -67,6 +69,30 @@ PHRASE_PROMPT = (
     "- why: one plain sentence saying what the lesson's subject needs it "
     "for, in this context."
 )
+
+PLACE_PROMPT = (
+    "You help a reader through a research paper they are learning. They "
+    "have a short course on the paper: the concepts it builds on. You are "
+    "given the paper's sections (an id, a heading and their text) and the "
+    "course's concepts. Return, for each concept, the sections where the "
+    "reader needs it to follow the text:\n"
+    "- concept: the concept's name, exactly as listed.\n"
+    "- sections: the ids of those sections, exactly as given, in the "
+    "paper's order.\n\n"
+    "Every concept is in the course because the paper builds on it, so "
+    "place each one at least once: find where the paper introduces it or "
+    "puts it to work. A section needs a concept when its argument, method "
+    "or equations rely on it, whether or not it is named: softmax inside an "
+    "attention formula counts. A passing mention does not: related work, or "
+    "an experiment that varies or reports on it, is not where the reader "
+    "needs it. Prefer the places where it first matters; most concepts need "
+    "one or two sections, never more than four. Prefer the most specific "
+    "section: a subsection over the section holding it. Only when the given "
+    "text truly never relies on a concept, return it with no sections "
+    "rather than guess."
+)
+"""The placer's prompt (v8.44.0): the Reader's Knowledge Graph notes. A
+structure-only task like the expansion, so it carries no skill."""
 
 # The heading a lesson's closing section carries (v8.23.0). The panel splits
 # the lesson there and shows the section in its own card, so the prompts ask

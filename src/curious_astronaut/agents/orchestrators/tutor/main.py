@@ -68,6 +68,7 @@ from .config import (
     IMAGES_PROMPT,
     LESSON_PROMPT,
     PHRASE_PROMPT,
+    PLACE_PROMPT,
     SKILLS,
     SYNTHESIS_NAME_PROMPT,
     SYNTHESIS_PROMPT,
@@ -132,6 +133,33 @@ class SynthesisName(BaseModel):
     why: str
 
 
+class Placement(BaseModel):
+    """Where one concept is needed in the paper (see ``PLACE_PROMPT``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    concept: str
+    sections: list[str]
+
+
+class Placements(BaseModel):
+    """The placer's structured output (v8.44.0)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    placements: list[Placement]
+
+
+class PaperSection(BaseModel):
+    """One section of the paper as the placer is shown it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    heading: str
+    text: str
+
+
 class Lesson(BaseModel):
     """The lesson's structured output — a typed field so no preamble leaks in."""
 
@@ -144,6 +172,10 @@ class Lesson(BaseModel):
 expand_agent: Agent[None, Prerequisites] = Agent(
     output_type=Prerequisites,
     instructions=[EXPAND_PROMPT],
+)
+place_agent: Agent[None, Placements] = Agent(
+    output_type=Placements,
+    instructions=[PLACE_PROMPT],
 )
 lesson_agent: Agent[None, Lesson] = Agent(
     output_type=Lesson,
@@ -616,3 +648,50 @@ def fit_section(item: Step, body: str, needed_by: list[Need]) -> str:
     )
     result = streams.run(fit_agent.run(prompt, model=factory.model_for(AGENT_ID)))
     return result.output.text.strip()
+
+
+#: The most of the paper's text the placer reads, in characters, shared out
+#: among its sections; a section gets at least ``_PLACE_MIN_CHARS``.
+_PLACE_CHARS = 60000
+_PLACE_MIN_CHARS = 600
+#: The most sections one concept is placed in (the prompt says four).
+_PLACE_MAX_SECTIONS = 4
+
+
+def place(sections: list[PaperSection], concepts: list[str]) -> dict[str, list[str]]:
+    """Find where in the paper each of the course's concepts is needed (v8.44.0).
+
+    The Reader's Knowledge Graph notes: one structured call over the
+    paper's sections, each cut to its share of ``_PLACE_CHARS`` so a long
+    paper still fits. Names and ids the model returns that weren't given are
+    dropped, so a note can only point at a real concept in a real section.
+
+    Args:
+        sections: The paper's sections, in order.
+        concepts: The course's concept names.
+
+    Returns:
+        ``{concept name, as given: [section id, ...]}`` for each concept placed
+        somewhere, in the paper's order, at most ``_PLACE_MAX_SECTIONS`` each.
+
+    Raises:
+        Exception: Model failures propagate; the route answers 502.
+    """
+    if not sections or not concepts:
+        return {}
+    share = max(_PLACE_MIN_CHARS, _PLACE_CHARS // len(sections))
+    parts = ["THE PAPER'S SECTIONS:\n"]
+    for section in sections:
+        text = section.text[:share] + (" …" if len(section.text) > share else "")
+        parts.append(f"\n[{section.id}] {section.heading}\n{text}\n")
+    parts.append("\nTHE COURSE'S CONCEPTS:\n" + "\n".join(concepts) + "\n")
+    result = streams.run(place_agent.run("".join(parts), model=factory.model_for(AGENT_ID)))
+    by_key = {_key(name): name for name in concepts}
+    order = {section.id: index for index, section in enumerate(sections)}
+    placed: dict[str, list[str]] = {}
+    for placement in result.output.placements:
+        name = by_key.get(_key(placement.concept))
+        ids = sorted({sid for sid in placement.sections if sid in order}, key=order.__getitem__)
+        if name and ids:
+            placed[name] = ids[:_PLACE_MAX_SECTIONS]
+    return placed

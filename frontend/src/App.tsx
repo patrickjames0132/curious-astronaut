@@ -316,6 +316,8 @@ export default function App() {
   // progress, the error. Built once here rather than inline so the graph and
   // landing branches below can't drift apart. (The old "Search for a paper…"
   // hint is gone: the landing chat says what to do by being a chat.)
+  // The way back to the tool a lesson was opened from (v8.44.0).
+  const returnTo = activeThread?.returnTo
   const overlays = (
     <>
       {/* Reopening the assistant once it's collapsed. It used to be a header
@@ -365,24 +367,52 @@ export default function App() {
       {/* The way back from a tool to its paper's cards. Rendered for the tool
           rather than the graph, so a build that failed still has an exit. */}
       {paperThread && tool !== 'cards' && (
-        <button
-          type="button"
-          className="tool-back"
-          data-tour="tool-back"
-          onClick={() => void dispatch(openTool('cards'))}
-          title={`Back up to the cards for ${activeThread?.title ?? 'this paper'}`}
-          aria-label="Back to this paper’s cards"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path
-              d="M8 13V3M3.5 7.5 8 3l4.5 4.5"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+        <div className="tool-nav">
+          {/* Where a concept's lesson was opened from the Reader, the way back
+              to the paper takes the ↑'s place (v8.44.0, Patrick: the two side
+              by side looked like a pair): one click to the same place in the
+              paper, which the Reader keeps, and its own ↑ leads to the cards. */}
+          {returnTo && tool === returnTo.from ? (
+            <button
+              type="button"
+              className="tool-return"
+              data-tour="tool-return"
+              onClick={() => void dispatch(openTool(returnTo.tool))}
+              title="Back to where you were in the paper"
+              aria-label="Back to reading"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M6 4 2.5 7.5 6 11M3 7.5h6.5a4 4 0 0 1 0 8H8"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="tool-return-label">Back to reading</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="tool-back"
+              data-tour="tool-back"
+              onClick={() => void dispatch(openTool('cards'))}
+              title={`Back up to the cards for ${activeThread?.title ?? 'this paper'}`}
+              aria-label="Back to this paper’s cards"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M8 13V3M3.5 7.5 8 3l4.5 4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
       )}
       {(loading || openRequestId || error) && <div className="canvas-scrim" />}
       {openRequestId && !loading && (
