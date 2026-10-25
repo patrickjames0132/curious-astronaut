@@ -5034,6 +5034,15 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **A thicker upward chevron for Send** *(v8.48.1)* — the chat composers
+      use one shared SVG arrowhead instead of a thin text arrow with a stem.
+      The 20px icon has a 3-unit rounded stroke and inherits the button's
+      colour. General/Citation Graph and the shared Knowledge Graph/Reader
+      assistant use the same glyph. The button's accessible name and its
+      working/stop behavior are unchanged. This ships the send portion of
+      the chat-bar icon-sizing item; reviewing the clear and stop glyphs
+      remains in the Backlog. Approved by Patrick, 2026-10-25.
+
 - [x] **Settings header, agent tabs and clearer controls** *(v8.47.0)* —
       the settings pane now has a fixed header for its section title and
       sub-page breadcrumb, with a divider beneath and space reserved for the
