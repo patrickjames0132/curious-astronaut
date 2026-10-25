@@ -88,6 +88,7 @@ import { useConversation } from './useConversation'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import { useTheme } from '../ui/theme'
 import { usePresence } from '../ui/usePresence'
+import SendGlyph from '../ui/SendGlyph'
 import './teacher.css'
 
 /**
@@ -1056,7 +1057,7 @@ export default function Teacher({
               // keeping, so it shows progress without offering a stop.
               <HopDots />
             ) : (
-              '↑'
+              <SendGlyph />
             )}
           </button>
         </form>

@@ -56,6 +56,7 @@ import { useSourceScope } from '../teacher/useSourceScope'
 import { conversationHistory } from '../teacher/history'
 import ChatMessage from '../teacher/transcript/ChatMessage'
 import { usePresence } from '../ui/usePresence'
+import SendGlyph from '../ui/SendGlyph'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import {
   clearAssistantChat,
@@ -515,7 +516,7 @@ export default function DockedAssistant({
                 <span className="stop-glyph" aria-hidden="true" />
               </>
             ) : (
-              '↑'
+              <SendGlyph />
             )}
           </button>
         </form>
