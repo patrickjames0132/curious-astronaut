@@ -92,6 +92,33 @@ const HEADING_ROOM = 24
  *  its picture. */
 const BOXED_AREA = 'the boxed area, pictured'
 
+/** Where the last jump landed, marked until the reader moves on. */
+let landed: { element: Element; release: () => void } | null = null
+
+/**
+ * Mark where a jump landed (`.landed`), until the reader presses anywhere
+ * or hits Esc, or the next jump lands.
+ *
+ * @param element The jump's target.
+ */
+function markLanded(element: Element) {
+  landed?.release()
+  element.classList.add('landed')
+  const release = () => {
+    element.classList.remove('landed')
+    document.removeEventListener('pointerdown', release, true)
+    document.removeEventListener('keydown', onKey, true)
+    if (landed?.element === element) landed = null
+  }
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') release()
+  }
+  // The press that made the jump is over by now: the next one releases it.
+  document.addEventListener('pointerdown', release, true)
+  document.addEventListener('keydown', onKey, true)
+  landed = { element, release }
+}
+
 /**
  * A box's rectangle as the style that draws it in its frame.
  *
@@ -402,9 +429,10 @@ export default function Reader({
       return pane.scrollTop + offset + within - HEADING_ROOM
     })
     if (place?.top !== undefined) return
-    // Mark where a jump landed, so a reference in a long list is easy to find.
-    element.classList.add('landed')
-    window.setTimeout(() => element.classList.remove('landed'), 1600)
+    // Mark where a jump landed, so a reference in a long list is easy to
+    // find; it stays until the reader presses anywhere or hits Esc (Patrick:
+    // it faded before the eye found it).
+    markLanded(element)
   }, [])
 
   // The citation cards (v8.43.0): the bibliography matched to the papers it
@@ -444,6 +472,9 @@ export default function Reader({
       showInGraph: (paper) => {
         closeCard()
         dispatch(graphFocusRequested(paper.id))
+        // The Citation Graph then offers the way back here, as a lesson
+        // opened from a concept card does (Patrick).
+        dispatch(threadReturnSet({ id: thread.id, returnTo: { tool: 'reader', from: 'graph' } }))
         void dispatch(openTool('graph'))
       },
       goToReference: (entryId) => {

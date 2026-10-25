@@ -166,7 +166,7 @@ const FIGURE_MAT = 20
 const FIGURE_MAX_HEIGHT = 520
 
 /**
- * The size a figure image will show at, held before it loads (v8.48.1). A
+ * The size a figure image will show at, held before it loads (v8.49.0). A
  * lazy image has no size until it arrives, so it showed as its bare mat
  * (20px square) and grew by up to 500px when scrolled near: every smooth
  * scroll past figures landed short, by as much as 1,000px (Patrick: "the

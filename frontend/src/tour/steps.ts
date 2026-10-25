@@ -495,8 +495,9 @@ export const GRAPH_TOUR: TourStep[] = [
     presentIf: '[data-tour="tool-return"]',
     title: 'Back to reading',
     body:
-      'You came here from the Reader to read a lesson. This takes you back to the same ' +
-      'place in the paper; the Reader’s own ↑ leads up to the paper’s cards.',
+      'You came here from the Reader, to read a lesson or to see a cited paper on the ' +
+      'graph. This takes you back to the same place in the paper; the Reader’s own ↑ ' +
+      'leads up to the paper’s cards.',
   },
   {
     target: '[data-tour="tool-back"]',

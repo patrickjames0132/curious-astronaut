@@ -117,7 +117,9 @@ without a new reason.
 
 **In its place, sometimes, "Back to reading"** (v8.44.0): when a concept's
 lesson is opened from the Reader's Knowledge Graph notes, the Knowledge Graph
-shows "Back to reading" where the ↑ would be. It goes straight back to the
+shows "Back to reading" where the ↑ would be; and since v8.49.0, when a
+citation card's **Show in Citation Graph** opens the graph, the graph does
+too. It goes straight back to the
 Reader, which reopens where the reader left off (`ThreadRecord.returnTo`,
 `readerPlace`), and the Reader's own ↑ leads on to the cards. Patrick found
 the way round through the cards, then finding the place again, tedious; a

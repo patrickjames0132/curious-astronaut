@@ -22,6 +22,29 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The Reader's scrolls stopped short, by up to 1,000px (v8.49.0)
+
+- **Symptom.** Jumps in the Reader's text (a contents entry, a citation's
+  Reference ↓, a lit passage) "often stop short" (Patrick). On Attention, a
+  jump from the top to the Conclusion left its heading 1,024px down the
+  pane instead of 24.
+- **Root cause.** Figure images load lazily, and the CSS sized each by its
+  loaded image (`width`/`height: auto`, up to 520px tall), overriding the
+  width and height the document declares. Until loaded, a figure was its
+  bare 20px mat. A smooth scroll fixes its destination when it starts;
+  each figure it passed then loaded and grew, pushing the target down
+  after the destination was fixed.
+- **Fix.** `reservedSize` (`ReaderBody`) sets each figure's final box from
+  its declared size, with `aspect-ratio` for a narrower column; and every
+  Reader scroll goes through `glide` (`reader/glide.ts`), which measures
+  the target again once the scroll settles and corrects up to three times,
+  letting go if the reader scrolls.
+- **Lesson / guard.** A lazy image must reserve its space, or everything
+  computed from positions below it is wrong until it loads; and a scroll
+  aimed at content that can move should check where it landed.
+  `test/reader/glide.test.ts` moves a target mid-glide; the size fix was
+  measured live (jsdom lays nothing out).
+
 ### Arriving in the PDF lit the passage but left the reader at the top (v8.48.0, pre-release)
 
 - **Symptom.** With a passage lit, switching from the text to the PDF lit

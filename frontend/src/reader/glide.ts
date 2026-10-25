@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * Every scroll the Reader makes itself (v8.48.1): to a heading, a
+ * Every scroll the Reader makes itself (v8.49.0): to a heading, a
  * reference, a figure or equation number, a lit passage, a place in the PDF.
  *
  * A smooth scroll fixes its destination when it starts. Whatever grows

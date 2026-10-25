@@ -304,8 +304,20 @@ it('goes to the reference from the card, which closes', async () => {
   )
   expect(screen.queryByRole('button', { name: 'Open' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Reference ↓' }))
-  expect(document.getElementById('reader-bib.bib2')?.classList.contains('landed')).toBe(true)
+  const entry = document.getElementById('reader-bib.bib2')!
+  expect(entry.classList.contains('landed')).toBe(true)
   expect(screen.queryByRole('dialog')).toBeNull()
+  // It stays marked until the reader moves on (Patrick): a press anywhere,
+  await new Promise((resolve) => setTimeout(resolve, 1800))
+  expect(entry.classList.contains('landed')).toBe(true)
+  fireEvent.pointerDown(document.body)
+  expect(entry.classList.contains('landed')).toBe(false)
+  // or Esc.
+  fireEvent.click(await screen.findByText('2', { selector: 'a.reader-cite' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Reference ↓' }))
+  expect(entry.classList.contains('landed')).toBe(true)
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect(entry.classList.contains('landed')).toBe(false)
 })
 
 it('previews a card on hover and lets it go when the pointer leaves', async () => {
@@ -338,6 +350,11 @@ it('opens the cited paper, or shows it in the Citation Graph', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Show in Citation Graph' }))
   expect(store.getState().workspace.focusRequest).toBe('nmt')
   expect(screen.queryByRole('dialog')).toBeNull()
+  // The Citation Graph offers the way back here (Patrick).
+  const saved = store
+    .getState()
+    .explorations.byId.saved.threads.find((item) => item.id === THREAD.id)
+  expect(saved?.returnTo).toEqual({ tool: 'reader', from: 'graph' })
   fireEvent.click(cite)
   fireEvent.click(await screen.findByRole('button', { name: 'Open' }))
   // The paper opens as its own thread, by the thread's provider.

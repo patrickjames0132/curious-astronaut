@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The Reader's own scrolls (v8.48.1): a glide goes the rest of the way when
+ * The Reader's own scrolls (v8.49.0): a glide goes the rest of the way when
  * its target moved while it glided, and lets go when the reader scrolls.
  *
  * Authors:

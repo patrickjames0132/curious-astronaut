@@ -48,7 +48,7 @@ below); (6) an answer lighting up the passage it's about (v8.45.0, below);
 box in the text view, taking whole elements (v8.48.0, below).
 Read the OnePager entry before extending it.
 
-## Scrolling that lands (v8.48.1)
+## Scrolling that lands (v8.49.0)
 
 Every scroll the Reader makes itself (a contents entry, a citation's
 **Reference ↓**, a figure or equation number, a lit passage, a place in the
@@ -263,6 +263,12 @@ stay lit until something else is chosen.
   (`workspace.focusRequest`, acted on by `GraphExplorer`; greyed out when
   the graph is built and hasn't got it, and building it when it isn't);
   **Reference ↓**, the old click, to the entry in the reference list.
+  **Show in Citation Graph** leaves the way back: the graph shows **Back to
+  reading** where its ↑ would be, as a lesson opened from a concept card
+  does (`ThreadRecord.returnTo`, v8.49.0). **Reference ↓** marks the entry it
+  lands on in the Reader's red (`.landed`), and the mark stays until the
+  reader presses anywhere or hits Esc (`markLanded`, v8.49.0; it used to
+  fade after 1.6s, before the eye found it).
 - **Not in the PDF view.** A PDF's citations are drawn text; see
   `services/reader/README.md`.
 
