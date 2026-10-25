@@ -1822,8 +1822,14 @@ than deleted so the plan doesn't get re-proposed.
          note when part of one can't. The full story is in
          [docs/history.md](docs/history.md).
 
-      **Later:** a margin teacher you can ask about the selection, then the
-      guided read.
+      **Later:** the guided read. ~~A margin teacher you can ask about the
+      selection~~ is crossed off (Patrick, 2026-10-25): both halves of its
+      sketch shipped under other names, "before this section you need…" as
+      the Knowledge Graph notes (v8.44.0) and "ask about the selection" as
+      the highlight menu and the Reader Assistant (v8.38.0), with boxes and
+      lit passages since (v8.45.0–v8.49.0). Still unbuilt, and not planned: a
+      teacher that speaks unprompted, glossing the hard passages in the
+      margin as you read.
 
       **Links run both ways.** v1 links the text out to the graphs; the
       reverse is "show me where the paper uses this": from a Knowledge Graph
