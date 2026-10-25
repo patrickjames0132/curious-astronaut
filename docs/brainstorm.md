@@ -104,7 +104,7 @@ A suggested order, not a commitment:
 2. **Reader card.** Filed to the OnePager 2026-10-23; shipping in stages since v8.37.0.
 3. **Shareable snapshot.** The biggest reach win.
 4. **Lectures in the reader's language.** Cheap and wide.
-5. **Criticism card** (ex "Reviews"). Filed to the OnePager 2026-10-24.
+5. **Criticism card** (ex "Reviews"). Filed to the OnePager 2026-10-24; named **Peer Reviews** 2026-10-25.
 6. **Lab card.** The most ambitious.
 
 To decide before filing:

@@ -1872,14 +1872,21 @@ than deleted so the plan doesn't get re-proposed.
       screens; how it behaves on narrow windows; whether the icon's position
       is remembered.
 
-- [ ] **Criticism card — what did the field object to?** — a fourth card on
+- [ ] **Peer Reviews card — what did the field object to?** *(ex
+      "Criticism")* — a fourth card on
       the thread's card home, beside Citation Graph, Knowledge Graph and Reader:
       the paper's known weaknesses, each quoted from the later paper that
       raised it. Workshopped 2026-10-22 as a "Reviews" card built on
       OpenReview; prototyped and filed from `docs/brainstorm.md` 2026-10-24,
       when two findings flipped it to lead with the literature and keep
-      OpenReview as an add-on. Decisions below are **proposed, not yet
-      settled with Patrick**.
+      OpenReview as an add-on.
+
+      **Settled with Patrick 2026-10-25:** the name is **Peer Reviews** (the
+      field reviewing the paper; v2's OpenReview reviews join under the same
+      name, so the card's help text says where v1's critiques come from).
+      v1 is as proposed below. The card **always shows**, with an honest
+      empty state. The "review it yourself first" exercise is **not in v1**.
+      The rest of this entry was written before those decisions.
 
       **Why not OpenReview first.** Public reviews exist mostly for recent
       ML: ICLR and TMLR publish them for every submission, NeurIPS for
@@ -1980,13 +1987,6 @@ than deleted so the plan doesn't get re-proposed.
       was caused by scraping the API.
 
       **Open:**
-      - Does the card always show, or only when there are enough critiques?
-      - The workshop's "review it yourself first" exercise (ask *what would
-        you criticise?*, then compare with the field's answer): appealing,
-        or friction? It works as well with literature critiques as with
-        reviews.
-      - The name: "Criticism", "Known limitations", or something less
-        clinical? Per the naming preference, evocative beats definitional.
       - Test whether a logged-in OpenReview account passes the challenge
         (one login + one forum request), to decide whether v2 exists.
 - [ ] **Phase 6 — Slides from the lecture** — a deck built by the existing
