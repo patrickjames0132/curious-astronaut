@@ -388,6 +388,24 @@
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
+/* An answer's passages, lit in the text (v8.45.0): a box a line at a time
+   (`boxesOf` in `reader/passages.ts`), drawn behind the text so an
+   equation lights as one box, not KaTeX's spans one by one. The article is
+   their frame; `isolation` keeps the boxes, at z-index -1, above its
+   background and under its words. In the gold the answer's quotes are
+   underlined in. */
+.reader-article {
+  position: relative;
+  isolation: isolate;
+}
+.reader-text-lit {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--seed-ref) 40%, transparent);
+}
+
 /* The Knowledge Graph notes (v8.44.0): the course's concepts a section
    builds on. Under the section's heading by default; in the right margin,
    level with the heading, when the pane has room for a 200px column beside
@@ -851,6 +869,17 @@
   width: 100%;
   height: 100%;
 }
+/* An answer's passages in the PDF (v8.45.0): boxes at the places
+   `usePdfPassages` lights, under the text layer so selecting still works,
+   in the gold of `.reader-text-lit`. Multiplied into the page, so
+   the ink stays black under the gold. */
+.reader-pdf-lit {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--seed-ref) 40%, transparent);
+  mix-blend-mode: multiply;
+}
 .reader-pdf-page.landed {
   outline: 3px solid color-mix(in srgb, var(--reader-ink) 60%, transparent);
   outline-offset: 2px;
@@ -867,6 +896,7 @@
   text-align: initial;
   transform-origin: 0 0;
   forced-color-adjust: none;
+  z-index: 0;
   --min-font-size: 1;
   --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
   --min-font-size-inv: calc(1 / var(--min-font-size));
@@ -877,9 +907,11 @@
   white-space: pre;
   cursor: text;
   transform-origin: 0% 0%;
+  user-select: text;
 }
 .reader-pdf .textLayer > :not(.markedContent),
 .reader-pdf .textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
   --font-height: 0;
   --scale-x: 1;
   --rotate: 0deg;
@@ -891,6 +923,25 @@
 }
 .reader-pdf .textLayer ::selection {
   background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+/* What keeps a drag's selection where the pointer is (v8.45.0), from
+   pdf.js's own viewer (`TextLayerBuilder`): while a drag is on, an
+   unselectable sheet covers the page under the words, so the pointer over a
+   gap between them lands on it, not on the text layer itself. Without it
+   Chrome ended a selection at the layer, at a child in the middle of
+   another column, and selected the wrong stretch (Patrick's "noisy"
+   highlights, reproduced 2026-10-25). The spans sit above it (`z-index:
+   1`). PdfView adds the sheet and the `selecting` class. */
+.reader-pdf .textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  cursor: default;
+  user-select: none;
+}
+.reader-pdf .textLayer.selecting .endOfContent {
+  top: 0;
 }
 
 /* Text or PDF: a small switch at the foot of the reading pane, only when

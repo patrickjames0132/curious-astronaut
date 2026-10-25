@@ -254,3 +254,26 @@ describe('AnswerMarkdown dollars', () => {
     expect(container.querySelector('.katex')).toBeTruthy()
   })
 })
+
+describe('AnswerMarkdown quotes of the paper (v8.45.0)', () => {
+  it('makes a ⟦quote⟧ a button that lights it in the paper', () => {
+    const onQuote = vi.fn()
+    render(
+      <AnswerMarkdown
+        text="It says ⟦we scale the dot products⟧, to keep them small."
+        onQuote={onQuote}
+      />,
+    )
+    const quote = screen.getByRole('button', { name: '“we scale the dot products”' })
+    fireEvent.click(quote)
+    expect(onQuote).toHaveBeenCalledWith('we scale the dot products')
+    expect(screen.queryByText(/⟦|⟧/)).toBeNull()
+  })
+
+  it('shows a plain quote without a paper to light, and drops a stray marker', () => {
+    const { container } = render(<AnswerMarkdown text="See ⟦the words⟧ and ⟦more still coming" />)
+    expect(container.querySelector('q.paper-quote-plain')?.textContent).toBe('the words')
+    expect(container.textContent).not.toMatch(/⟦|⟧/)
+    expect(container.textContent).toContain('more still coming')
+  })
+})

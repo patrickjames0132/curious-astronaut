@@ -11,6 +11,9 @@ The package's public surface, re-exported from its submodules:
   mining API (``mine.py``).
 * ``PdfError`` — the package's one exception (``errors.py``).
 
+``passages.py`` (v8.45.0, a PDF's passages by where they sit) is imported as
+a submodule by the routes that use it.
+
 See this package's README for the design story, and ``docs/pdf-mining.md``
 for the storage rationale (why the PDF is the cache, everything else derived).
 

@@ -14,10 +14,15 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import DockedAssistant from '../assistant/DockedAssistant'
+import { useMemo } from 'react'
+import DockedAssistant, { type AnswerPassages } from '../assistant/DockedAssistant'
 import type { PassageQuote } from '../assistant/askAssistant'
+import { useAppDispatch, useAppSelector } from '../store'
+import { chatKey } from '../store/chats'
 import type { ThreadRecord } from '../store/explorations'
+import { passagesCleared, passagesLit } from '../store/highlight'
 import { askReader, documentRef } from './askReader'
+import { answerQuotes, questionPassage } from './passages'
 
 /**
  * Render the Reader's assistant.
@@ -44,8 +49,49 @@ export default function ReaderAssistant({
   quote?: (PassageQuote & { seq: number }) | null
   onQuoteClear?: () => void
 }) {
+  // An answer lights what it's about in the paper (v8.45.0): the passage its
+  // question was asked about, else its ⟦quotes⟧; a quote clicked lights just
+  // it. On finishing, in place; on a click, there too, and the Reader goes
+  // to it (Patrick).
+  const dispatch = useAppDispatch()
+  const chat = useAppSelector((state) => state.transcript.byKey[chatKey(thread.id, 'reader')]?.chat)
+  const lit = useAppSelector((state) => state.highlight?.passages)
+  const active = lit?.threadId === thread.id ? lit.answer : null
+  const passages = useMemo<AnswerPassages>(() => {
+    // The whole answer stands for the passage it was asked about, exactly as
+    // highlighted; its quotes light one at a time, clicked (Patrick,
+    // 2026-10-25). An answer to a typed question has no passage: its quotes
+    // stand in.
+    const about = (index: number) => {
+      const asked = chat?.[index - 1]
+      const user = asked?.role === 'user' ? asked : null
+      const passage = user ? questionPassage(user.text) : null
+      const places = user?.places ?? []
+      const asHighlighted = !!passage || places.length > 0
+      return {
+        passage,
+        places,
+        quotes: asHighlighted ? [] : answerQuotes(chat?.[index]?.text ?? ''),
+      }
+    }
+    const show = (answer: number | null, lit: ReturnType<typeof about>, scroll: boolean) =>
+      dispatch(passagesLit({ threadId: thread.id, answer, ...lit, scroll }))
+    return {
+      active,
+      onFinished: (index) => {
+        const lit = about(index)
+        if (lit.passage || lit.places.length || lit.quotes.length) show(index, lit, false)
+      },
+      onActivate: (index) => {
+        if (active === index) dispatch(passagesCleared())
+        else show(index, about(index), true)
+      },
+      onQuote: (quote) => show(null, { passage: null, places: [], quotes: [quote] }, true),
+    }
+  }, [active, chat, dispatch, thread.id])
   return (
     <DockedAssistant
+      passages={passages}
       thread={thread}
       tool="reader"
       available={!!documentRef(thread)}
@@ -63,8 +109,9 @@ export default function ReaderAssistant({
         context: `Asking about ${thread.paper?.title ?? thread.title}, from the section you’re reading`,
         tip:
           'It reads the paper, starting with the section you’re in, and searches your library ' +
-          'and the web only when a question reaches past the paper. Type @ to bring in another ' +
-          'chat, such as this paper’s Knowledge Graph conversation.',
+          'and the web only when a question reaches past the paper. The paper’s words it quotes ' +
+          'light up in the paper: click an answer or a quote to go there. Type @ to bring in ' +
+          'another chat, such as this paper’s Knowledge Graph conversation.',
         placeholder: 'Ask about this paper, or @ another chat…',
         className: 'reader-assistant',
         widthKey: 'ca.readerAssistantWidth',

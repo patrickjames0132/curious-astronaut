@@ -244,6 +244,7 @@ export default function ChatMessage({
   onThreadOpen,
   provider,
   onEnlarge,
+  onQuote,
   activeBeat,
   onBeatClick,
   onReroute,
@@ -273,6 +274,8 @@ export default function ChatMessage({
   /** The selected backend, so a citation from the other one says so. */
   provider?: Provider
   onEnlarge: (figure: AnswerFigure) => void
+  /** Light a ⟦quote⟧ of the paper being read (the Reader's, v8.45.0). */
+  onQuote?: (quote: string) => void
   /** Which of this turn's beats is lit, when its answer is a lecture. */
   activeBeat?: number | null
   /** Light one of this turn's beats (undefined = beats render unclickable). */
@@ -529,6 +532,7 @@ export default function ChatMessage({
                     onRefClick={onRefClick}
                     onPaperSeed={onPaperSeed}
                     provider={provider}
+                    onQuote={onQuote}
                   />
                 ) : (
                   // The user's own question — plain text, math typeset, no Markdown.

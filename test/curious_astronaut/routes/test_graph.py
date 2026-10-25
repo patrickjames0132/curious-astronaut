@@ -636,3 +636,69 @@ def test_cited_papers_are_a_nicety_that_never_errors(client, monkeypatch):
     response = client.get("/api/paper/1706.03762/cited")
     assert response.status_code == 200
     assert response.json == {"papers": {}}
+
+
+def test_pdf_passage_reads_a_highlight_from_where_it_sits(client, monkeypatch, tmp_path):
+    """v8.45.0: the Reader sends a PDF highlight's rectangles; the words come
+    back in reading order, snapped to their lines."""
+    seen = {}
+    monkeypatch.setattr(graph_routes.optional, "available", lambda extra: True)
+    monkeypatch.setattr(graph_routes.pdf_service, "paper_pdf_url", lambda ref, provider: "https://x/p.pdf")
+    monkeypatch.setattr(graph_routes.pdf_service, "fetch_pdf", lambda url: tmp_path / "p.pdf")
+
+    def fake_passage(path, places):
+        seen["places"] = places
+        return {"text": "the words", "places": places}
+
+    monkeypatch.setattr(graph_routes.pdf_passages, "passage_at", fake_passage)
+    places = [{"page": 2, "rects": [[1, 2, 3, 4]]}]
+    response = client.post("/api/paper/1412.6980/pdf-passage", json={"places": places + ["junk"]})
+    assert response.json == {"text": "the words", "places": [{"page": 2, "rects": [[1.0, 2.0, 3.0, 4.0]]}]}
+    assert seen["places"] == [{"page": 2, "rects": [[1.0, 2.0, 3.0, 4.0]]}]
+
+
+def test_pdf_passage_reads_a_drag_from_its_two_ends(client, monkeypatch, tmp_path):
+    """v8.45.0: the Reader sends where the drag began and ended; the words
+    between come back in reading order."""
+    seen = {}
+    monkeypatch.setattr(graph_routes.optional, "available", lambda extra: True)
+    monkeypatch.setattr(graph_routes.pdf_service, "paper_pdf_url", lambda ref, provider: "https://x/p.pdf")
+    monkeypatch.setattr(graph_routes.pdf_service, "fetch_pdf", lambda url: tmp_path / "p.pdf")
+
+    def fake_between(path, start, end):
+        seen["ends"] = (start, end)
+        return {"text": "every word between", "places": []}
+
+    monkeypatch.setattr(graph_routes.pdf_passages, "passage_between", fake_between)
+    span = {"start": {"page": 3, "left": 55, "top": 670}, "end": {"page": 3, "left": 445, "top": 453}}
+    response = client.post("/api/paper/1801.01290/pdf-passage", json={"span": span})
+    assert response.json == {"text": "every word between", "places": []}
+    assert seen["ends"] == ({"page": 3, "left": 55.0, "top": 670.0}, {"page": 3, "left": 445.0, "top": 453.0})
+
+
+def test_pdf_passage_and_find_are_niceties_that_never_error(client, monkeypatch):
+    monkeypatch.setattr(graph_routes.optional, "available", lambda extra: False)
+    places = [{"page": 1, "rects": [[1, 2, 3, 4]]}]
+    assert client.post("/api/paper/x/pdf-passage", json={"places": places}).json == {"text": "", "places": []}
+    assert client.post("/api/paper/x/pdf-find", json={"quotes": ["a b c d"]}).json == {"found": [[]]}
+
+    monkeypatch.setattr(graph_routes.optional, "available", lambda extra: True)
+    monkeypatch.setattr(graph_routes.pdf_service, "paper_pdf_url", lambda ref, provider: "https://x/p.pdf")
+
+    def refuse(url):
+        raise graph_routes.pdf_service.PdfError("blocked")
+
+    monkeypatch.setattr(graph_routes.pdf_service, "fetch_pdf", refuse)
+    assert client.post("/api/paper/x/pdf-passage", json={"places": places}).json == {"text": "", "places": []}
+    assert client.post("/api/paper/x/pdf-find", json={"quotes": ["a", 3]}).json == {"found": [[]]}
+    assert client.post("/api/paper/x/pdf-find", json={}).json == {"found": []}
+
+
+def test_pdf_find_answers_one_list_of_places_per_quote(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(graph_routes.optional, "available", lambda extra: True)
+    monkeypatch.setattr(graph_routes.pdf_service, "paper_pdf_url", lambda ref, provider: "https://x/p.pdf")
+    monkeypatch.setattr(graph_routes.pdf_service, "fetch_pdf", lambda url: tmp_path / "p.pdf")
+    found = [[{"page": 3, "rects": [[1, 2, 3, 4]]}], []]
+    monkeypatch.setattr(graph_routes.pdf_passages, "find_quotes", lambda path, quotes: found)
+    response = client.post("/api/paper/x/pdf-find", json={"quotes": ["one quote", "another"]})
+    assert response.json == {"found": found}

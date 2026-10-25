@@ -15,6 +15,8 @@ GET /api/paper/<arxiv_id>/document -> the paper as a structured document (Reader
 GET /api/paper/<arxiv_id>/cited    -> its bibliography matched to papers (Reader's citation cards)
 GET /api/paper/<ref>/pdf           -> the paper's PDF, from the local cache (Reader's PDF view)
 GET /api/paper/<ref>/pdf-contents  -> its table of contents: outline, else found headings
+POST /api/paper/<ref>/pdf-passage -> a PDF highlight's words, from where its drag began to where it ended
+POST /api/paper/<ref>/pdf-find    -> where an answer's quotes are in the PDF
 GET /api/paper/<arxiv_id>/code     -> code & artifact links (Hugging Face Papers)
 GET /api/paper/<arxiv_id>/categories -> the paper's own arXiv category tags
 GET /api/pdf_figure/<token>/<n>    -> one mined PDF float, rendered to PNG
@@ -36,11 +38,13 @@ import logging
 import queue
 import threading
 import urllib.parse
+from pathlib import Path
 from typing import Iterator
 
 from flask import Blueprint, Response, current_app, jsonify, request, send_file
 from flask.typing import ResponseReturnValue
 
+from .. import optional
 from ..agents.orchestrators import summarizer
 from ..integrations import arxiv, caps, huggingface, openalex, semantic_scholar
 from ..services import graph as graph_service
@@ -48,6 +52,7 @@ from ..services import pdf as pdf_service
 from ..services import reader as reader_service
 from ..services.graph import Provider, growth, surveys
 from ..services.graph.shape import BuildShape
+from ..services.pdf import passages as pdf_passages
 from ..storage import cache
 from .sse import sse, sse_response
 
@@ -697,6 +702,98 @@ def api_paper_pdf_contents(paper_ref: str) -> Response:
     except Exception:  # no pdf extra, or an unreadable file: no contents
         current_app.logger.warning("PDF contents failed for %s", ref, exc_info=True)
         return jsonify(none)
+
+
+def _cached_pdf(paper_ref: str) -> Path | None:
+    """The file of a paper's PDF for the passage routes, or None.
+
+    Args:
+        paper_ref: The paper's arXiv id, or its provider node id.
+
+    Returns:
+        The PDF on disk (downloaded if the cache let it go), or None when the
+        paper has none, the download fails, or the ``pdf`` extra is missing.
+    """
+    if not optional.available("pdf"):
+        return None
+    url = pdf_service.paper_pdf_url(normalize_arxiv_id(paper_ref), _requested_provider())
+    if not url:
+        return None
+    try:
+        return pdf_service.fetch_pdf(url)
+    except pdf_service.PdfError:
+        current_app.logger.warning("PDF download failed for %s", paper_ref, exc_info=True)
+        return None
+
+
+@bp.post("/api/paper/<path:paper_ref>/pdf-passage")
+def api_paper_pdf_passage(paper_ref: str) -> Response:
+    """What a highlight in the Reader's PDF view covers (v8.45.0).
+
+    The browser knows where the drag began and ended but reads the words
+    between out of order; this reads them from the PDF in reading order,
+    across columns and pages (``services/pdf/passages.py``).
+
+    Args:
+        paper_ref: The paper's arXiv id, or its provider node id.
+
+    Body:
+        ``{span: {start: {page, left, top}, end: {page, left, top}}}``, the drag's two
+        ends in PDF points; or ``{places}``, rectangles to read inside.
+
+    Query args:
+        provider: Who to ask for a non-arXiv paper's open-access PDF.
+
+    Returns:
+        JSON ``{text, places}``: the words, and their lines' rectangles. A
+        nicety: anything that goes wrong comes back empty, and the Reader
+        keeps the browser's own reading.
+    """
+    none = {"text": "", "places": []}
+    payload = request.get_json(silent=True) or {}
+    span = pdf_passages.clean_span(payload.get("span"))
+    places = pdf_passages.clean_places(payload.get("places"))
+    path = _cached_pdf(paper_ref) if span or places else None
+    if path is None:
+        return jsonify(none)
+    try:
+        if span:
+            return jsonify(pdf_passages.passage_between(path, *span))
+        return jsonify(pdf_passages.passage_at(path, places))
+    except pdf_service.PdfError:
+        current_app.logger.warning("PDF passage failed for %s", paper_ref, exc_info=True)
+        return jsonify(none)
+
+
+@bp.post("/api/paper/<path:paper_ref>/pdf-find")
+def api_paper_pdf_find(paper_ref: str) -> Response:
+    """Where an answer's quotes are in a paper's PDF (v8.45.0).
+
+    Args:
+        paper_ref: The paper's arXiv id, or its provider node id.
+
+    Body:
+        ``{quotes: [str]}``, at most 40.
+
+    Query args:
+        provider: Who to ask for a non-arXiv paper's open-access PDF.
+
+    Returns:
+        JSON ``{found: [[{page, rects}]]}``, one list of places per quote, in
+        order (empty for one not found). A nicety: anything that goes wrong
+        finds nothing.
+    """
+    payload = request.get_json(silent=True) or {}
+    raw = payload.get("quotes")
+    quotes = [quote for quote in raw[:40] if isinstance(quote, str)] if isinstance(raw, list) else []
+    path = _cached_pdf(paper_ref) if quotes else None
+    if path is None:
+        return jsonify({"found": [[] for _ in quotes]})
+    try:
+        return jsonify({"found": pdf_passages.find_quotes(path, quotes)})
+    except pdf_service.PdfError:
+        current_app.logger.warning("PDF quote search failed for %s", paper_ref, exc_info=True)
+        return jsonify({"found": [[] for _ in quotes]})
 
 
 @bp.get("/api/paper/<path:paper_ref>/code")

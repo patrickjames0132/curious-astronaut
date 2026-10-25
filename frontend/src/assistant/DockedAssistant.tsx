@@ -89,6 +89,22 @@ export interface AssistantCopy {
 }
 
 /**
+ * What an assistant's answers can light in the tool beside it (v8.45.0): the
+ * Reader's passages. Only the Reader's assistant passes it; the others' answers
+ * stay unclickable here.
+ */
+export interface AnswerPassages {
+  /** The answer whose passages are lit, by its index in the chat. */
+  active: number | null
+  /** An answer finished: light what it's about, without moving the page. */
+  onFinished: (index: number) => void
+  /** An answer clicked: light what it's about and go there (again: unlight). */
+  onActivate: (index: number) => void
+  /** One of an answer's quotes clicked: light it and go there. */
+  onQuote: (quote: string) => void
+}
+
+/**
  * Render a tool's docked assistant.
  *
  * @param props Component props.
@@ -103,6 +119,8 @@ export interface AssistantCopy {
  * @param props.quote A passage a highlight's Chat attached to the bar, with a
  *   `seq` that changes each time one is attached.
  * @param props.onQuoteClear Let go of the attached passage (its ✕, or sent).
+ * @param props.passages What its answers light in the tool beside it (the
+ *   Reader's passages, v8.45.0); without it, answers aren't clickable.
  * @returns The docked panel.
  */
 export default function DockedAssistant({
@@ -115,6 +133,7 @@ export default function DockedAssistant({
   onClose,
   quote = null,
   onQuoteClear,
+  passages,
 }: {
   thread: ThreadRecord
   tool: AssistantTool
@@ -127,11 +146,22 @@ export default function DockedAssistant({
   onClose: () => void
   quote?: (PassageQuote & { seq: number }) | null
   onQuoteClear?: () => void
+  passages?: AnswerPassages
 }) {
   const dispatch = useAppDispatch()
   const key = chatKey(thread.id, tool)
   const chat = useAppSelector((state) => state.transcript.byKey[key]?.chat ?? NO_TURNS)
   const asking = useAppSelector((state) => !!state.transcript.byKey[key]?.running.length)
+  // An answer finishing (v8.45.0): tell whoever lights what it's about.
+  const wasAsking = useRef(asking)
+  const onFinished = passages?.onFinished
+  useEffect(() => {
+    const finished = wasAsking.current && !asking
+    wasAsking.current = asking
+    const last = chat.at(-1)
+    if (finished && onFinished && last?.role === 'assistant' && !last.failed)
+      onFinished(chat.length - 1)
+  }, [asking, chat, onFinished])
   const provider = thread.data.provider ?? 's2'
 
   // The exploration's other chats, for the `@` list.
@@ -222,7 +252,15 @@ export default function DockedAssistant({
     setInput('')
     mentions.reset()
     onQuoteClear?.()
-    void dispatch(ask({ threadId: thread.id, question, provider, sourceIds: sources.scope }))
+    void dispatch(
+      ask({
+        threadId: thread.id,
+        question,
+        provider,
+        sourceIds: sources.scope,
+        places: quote?.places,
+      }),
+    )
   }
   const onAsk = (event: FormEvent) => {
     event.preventDefault()
@@ -298,6 +336,7 @@ export default function DockedAssistant({
         sourceIds: sources.scope,
         quick,
         startedAt: quick ? chat[index]?.startedAt : undefined,
+        places: question.places,
       }),
     )
   }
@@ -332,7 +371,13 @@ export default function DockedAssistant({
           <ChatMessage
             key={`c${index}`}
             message={message}
-            active={false}
+            active={passages?.active === index}
+            onActivate={
+              passages && message.role === 'assistant' && !message.failed
+                ? () => passages.onActivate(index)
+                : undefined
+            }
+            onQuote={passages?.onQuote}
             streaming={asking}
             working={asking && index === chat.length - 1}
             onRetry={message.failed ? () => retry(index) : undefined}

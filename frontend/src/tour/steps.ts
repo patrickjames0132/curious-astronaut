@@ -327,7 +327,9 @@ export const READER_TOUR: TourStep[] = [
       'The 🎓 opens an assistant beside the paper. It reads the paper, starting with the ' +
       'section you’re in, and searches your library and the web only when a question reaches ' +
       'past it. It keeps its own chat, apart from this paper’s graphs’; type @ to bring one of ' +
-      'those into a question. The 📚 in its bar picks which of your sources it may search.',
+      'those into a question. The 📚 in its bar picks which of your sources it may search. ' +
+      'The paper’s words it quotes light up in the paper; click an answer, or one of its ' +
+      'quotes, to go there, and Esc to put the light out.',
   },
   {
     target: '[data-tour="tool-back"]',

@@ -64,7 +64,13 @@ passage, an equation or part of one included, and choose **Explain**,
 **Simplify** or **Chat**: the **Reader Assistant** (🎓, docked on the right)
 answers from the paper itself, starting with the section you're in, and
 searches your library and the web only when a question reaches past it. It
-keeps its own chat, listed in `@` as "Paper › Reader".
+keeps its own chat, listed in `@` as "Paper › Reader". An answer lights up
+what it's about: the passage you highlighted (in the PDF, exactly where you
+dragged, across columns and pages), and any of the paper's words it quotes,
+underlined in gold, one at a time when you click them. Clicking the answer
+goes back to its passage, in either view, and switching views keeps it in
+sight. In the PDF the assistant also gets a picture of what you highlighted,
+so it reads an equation as typeset.
 
 An enlarged figure covers the middle of the app, never the sidebar or a
 docked assistant, so an assistant explaining a figure stays readable beside it.

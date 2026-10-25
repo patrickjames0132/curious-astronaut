@@ -26,7 +26,7 @@
  */
 
 import { nanoid } from '@reduxjs/toolkit'
-import type { AskSourcesHandlers, HistoryTurn, Provider, ThreadContext } from '../api'
+import type { AskSourcesHandlers, HistoryTurn, PdfPlace, Provider, ThreadContext } from '../api'
 import type { AppDispatch, RootState } from '../store'
 import { chatKey, type SIDE_CHAT_FIELDS } from '../store/chats'
 import type { ThreadRecord } from '../store/explorations'
@@ -61,6 +61,8 @@ export interface AssistantBody {
   thread_context: ThreadContext[]
   quick?: boolean
   model?: string
+  /** Where a highlighted passage is in the paper's PDF (the Reader's, v8.45.0). */
+  places?: PdfPlace[]
 }
 
 /**
@@ -87,6 +89,9 @@ export interface AssistantQuestion {
   quick?: boolean
   /** Original start time when Quick response continues the same wait. */
   startedAt?: number
+  /** Where the passage it asks about is in the paper's PDF (v8.45.0): kept
+   *  on the user turn and sent along. */
+  places?: PdfPlace[]
 }
 
 /** The question in flight in each side chat, by its key. */
@@ -148,7 +153,13 @@ export function askAssistant(tool: AssistantTool, request: AssistantQuestion, pr
     const history =
       request.history ?? conversationHistory(getState().transcript.byKey[key]?.chat ?? [])
     dispatch(
-      turnStarted(question, key, request.quick ? request.startedAt : undefined, request.quick),
+      turnStarted(
+        question,
+        key,
+        request.quick ? request.startedAt : undefined,
+        request.quick,
+        request.places,
+      ),
     )
     dispatch(turnContextSet(borrowedChats(getState(), question, key), key))
     let failed = false
@@ -163,6 +174,7 @@ export function askAssistant(tool: AssistantTool, request: AssistantQuestion, pr
           history,
           thread_context: siblingContext(getState(), question, key),
           ...(request.quick && { quick: true }),
+          ...(request.places?.length && { places: request.places }),
           model: getState().transcript.byKey[key]?.model,
         },
         {
@@ -207,6 +219,9 @@ export interface PassageQuote {
   /** Where it is from, as a phrase: "the lesson on Q-learning", "section 3.2,
    *  Attention". */
   from: string
+  /** Where it sits in the paper's PDF, when highlighted in the Reader's PDF
+   *  view (v8.45.0). */
+  places?: PdfPlace[]
 }
 
 /**

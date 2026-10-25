@@ -45,6 +45,7 @@ from ..integrations.arxiv import document as arxiv_document
 from ..services import pdf as pdf_service
 from ..services import search as search_service
 from ..services.graph import Node, Provider, resolve_provider
+from ..services.pdf import passages as pdf_passages
 from .sse import sse, sse_response
 
 bp = Blueprint("agents", __name__)
@@ -412,6 +413,47 @@ def _pdf_context(paper: str, section: object, provider: Provider, title: object)
     return block[:READING_CHARS], ""
 
 
+def _highlight_context(paper: object, provider: Provider, raw: object) -> tuple[str, list[bytes]]:
+    """A passage highlighted in the Reader's PDF view, read and pictured (v8.45.0).
+
+    The browser reads a PDF highlight out of order, and an equation's glyphs
+    spell nothing, so the Reader sends where the highlight is and the
+    question carries the PDF's own words there and a picture of it
+    (``services/pdf/passages.py``).
+
+    Args:
+        paper: The paper's arXiv id or provider node id.
+        provider: Who to ask for a non-arXiv paper's open-access PDF.
+        raw: The request's ``places``.
+
+    Returns:
+        ``(block, images)``: a prompt block saying what was highlighted and
+        that it's pictured, and the PNGs; ``("", [])`` without places, or
+        when the PDF can't be read (the question still quotes the passage).
+    """
+    places = pdf_passages.clean_places(raw)
+    if not places or not isinstance(paper, str) or not optional.available("pdf"):
+        return "", []
+    url = pdf_service.paper_pdf_url(arxiv.extract_id(paper) or paper.strip(), provider)
+    if not url:
+        return "", []
+    try:
+        path = pdf_service.fetch_pdf(url)
+        words = pdf_passages.passage_at(path, places)["text"]
+        images = pdf_passages.render_places(path, places)
+    except pdf_service.PdfError:
+        log.warning("highlight context failed for %s", paper, exc_info=True)
+        return "", []
+    pages = ", ".join(str(place["page"]) for place in places)
+    block = (
+        f"\n\nTHE PASSAGE THEY HIGHLIGHTED, on page {pages} of the PDF, is pictured in the "
+        f"image{'s' if len(images) > 1 else ''} sent with their question. Read it from the "
+        "picture: a PDF's text spells an equation as loose glyphs. Its words, as the PDF "
+        f"holds them: {words or '(none: it is a figure or an equation)'}"
+    )
+    return (block, images) if images else ("", [])
+
+
 def _document_context(paper: str, section: object) -> str:
     """The paper laid out from its structured document (v8.38.0).
 
@@ -743,11 +785,13 @@ def api_ask_reader() -> ResponseReturnValue:
     chat's job, and the paper's Citation Graph is one card away.
 
     Body:
-        ``{question, paper, section?, title?, history?, thread_context?,
-        provider?, source_ids?, quick?, model?}`` — ``paper`` the arXiv id
-        (or provider id) the Reader read, ``section`` the section in view or
-        ``page:<n>`` in the PDF view (v8.40.0), ``title`` the paper's title
-        for a PDF; the rest as for ``/api/ask_sources``.
+        ``{question, paper, section?, title?, places?, history?,
+        thread_context?, provider?, source_ids?, quick?, model?}`` —
+        ``paper`` the arXiv id (or provider id) the Reader read, ``section``
+        the section in view or ``page:<n>`` in the PDF view (v8.40.0),
+        ``title`` the paper's title for a PDF, ``places`` where a passage
+        highlighted in the PDF view is (v8.45.0, ``_highlight_context``);
+        the rest as for ``/api/ask_sources``.
 
     Returns:
         An SSE stream as for ``/api/ask_sources``. HTTP 400 when the question
@@ -763,6 +807,7 @@ def api_ask_reader() -> ResponseReturnValue:
     )
     if not reading:
         return jsonify({"error": error}), 400
+    highlight, images = _highlight_context(payload.get("paper"), provider, payload.get("places"))
 
     return sse_response(
         _relay(
@@ -773,10 +818,11 @@ def api_ask_reader() -> ResponseReturnValue:
                     sibling_context=_sibling_context(payload),
                     source_ids=_opt_source_ids(payload),
                     provider=provider,
-                    reading=reading,
+                    reading=reading + highlight,
                     paper_search=False,
                     quick=_opt_quick(payload),
                     model=_opt_model(payload),
+                    images=images,
                 )
             ),
         )

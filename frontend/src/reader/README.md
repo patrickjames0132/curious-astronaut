@@ -18,7 +18,9 @@ reader/
   ConceptCard.tsx — the card a note's concept opens: why, its lesson, the check-off
   useConceptNotes.ts — which concepts each section needs (the tutor's placement)
   useMarginNotes.ts — margin notes stacked apart and tied to their headings
-  useMarginNotes.ts — margin notes stacked apart and tied to their headings
+  passages.ts     — an answer's passages: read out, found in the text, lit
+  usePdfPassages.ts — the same in the PDF, as places: boxes over its pages
+  pdfPlaces.ts    — where a PDF highlight began and ended, as points on its pages
   useAnchoredCard.ts — when a card shows, stays and goes, and where it sits
   selectionText.ts — what a highlight says (formulas as LaTeX) and where it's from
   askReader.ts    — the Reader Assistant's asking: what it sends, the
@@ -38,8 +40,96 @@ reading view and the contents (v8.37.0); (2) the highlight menu and the
 Reader Assistant (v8.38.0, below); (3) the PDF view with the same
 AI tools (v8.40.0, below); (4) the citation cards, resolving `[23]` to the
 real cited paper (v8.43.0, below); (5) the Knowledge Graph notes (v8.44.0,
-below); (6) an answer lighting up the passage it's about. Read the OnePager entry
-before extending it.
+below); (6) an answer lighting up the passage it's about (v8.45.0, below).
+Read the OnePager entry before extending it.
+
+## An answer lights up its passage (v8.45.0)
+
+The Reader Assistant's answers light the paper's words they're about, as the
+Citation Graph's teacher glows the papers an answer cites. Patrick's picks
+(2026-10-24): the passages are quotes in the answer, an answer finishing
+lights them in place without moving the page, a click goes there, and they
+stay lit until something else is chosen.
+
+- **Quotes in the answer.** The assistant wraps the paper's exact words in
+  ⟦ and ⟧ (`READING_QUOTES` in the researcher's reading prompt), one to
+  three times an answer, prose only. `remarkQuote` turns them into quotes
+  underlined in gold, each a button (a span with the role: a `<button>`
+  won't flow inline, and the words after a quote broke onto their own line); a stray marker (a quote still
+  streaming) never shows. A question asked from a highlight already knows
+  its passage ("Explain this passage from …: “…”"), so that's lit too.
+- **What lights it, and when** (`ReaderAssistant`, `store/highlight`'s
+  `passages`): **an answer stands for the passage its question was asked
+  about**, exactly as highlighted, and an answer to a typed question for its
+  quotes (Patrick, 2026-10-25: clicking the answer lit bits of its quotes,
+  not the passage he'd highlighted). An answer finishing lights that where
+  it is; a click on the answer lights it and goes there (again: puts it
+  out); a click on a quote lights just that quote and goes there. Switching
+  between the text and the PDF with something lit goes to it in the view
+  arrived in (in the PDF once its page is laid out, `scrollToPlace`), and
+  clearing the Reader's chat puts it out (`store/highlight`). Esc, or a passage
+  the reader highlights themselves, puts them out. The lit answer is marked
+  active in the chat.
+- **Found in the rendered text** (`passages.ts`) by comparing letters and
+  digits only, so case, punctuation, spacing and ligatures don't matter, and
+  by its first and last five words when the middle slips (a PDF's hyphenated
+  line break). KaTeX's hidden MathML copy isn't read, so a formula counts
+  once. **A formula is found by its LaTeX**: a highlighted one is quoted as
+  LaTeX (`$…$`, or `glyphs (part of $…$)`), which the page's glyphs never
+  match, so the first version lit only the sentence above Patrick's
+  equation. Now a passage's formulas are matched to the source KaTeX keeps
+  beside each one and lit whole, its prose by its words (`passageParts`,
+  `findFormula`).
+- **Lit as boxes, a line at a time** (`boxesOf`, `.reader-text-lit`): each
+  range's glyph boxes, joined where they share a line (`joinLines`), drawn
+  behind the text in the article. The first build lit ranges with the CSS
+  Custom Highlight API, which paints every glyph's own box: an equation lit
+  as a patchwork of KaTeX's spans, tall and short (Patrick, 2026-10-25). The
+  boxes touch no element of KaTeX's or React's, as the Highlight API didn't
+  (the vanishing equation highlight, `docs/bugs.md`), and are measured again
+  when the column reflows. **Ranges are one per text node, each just its
+  matched words**, never one from the quote's start to its end, so what lies
+  between two matched words in the DOM isn't lit.
+- **The PDF works in places, not text** (Patrick, 2026-10-25: "very
+  noisy"). The first build lit the PDF the way it lights the text view, by
+  finding words in pdf.js's text layer, and read a highlight out of that
+  layer too. But the layer is in the order the PDF was *written*, not read:
+  a drag across an equation selected glyphs set elsewhere on the page, and
+  quotes lit stray bars. So the PDF view speaks **places** instead, a page
+  and rectangles on it in PDF points (`PdfPlace`), the space pdf.js draws a
+  page in at scale 1 and pymupdf reads it in on the server
+  (`services/pdf/passages.py`):
+  - **A highlight is sent as where the drag began and ended**
+    (`pdfPlaces.ts`): the left of the selection's first box and the right
+    of its last, as points on their pages. The server takes every word
+    between them in the PDF's reading order (`/pdf-passage`), across a
+    column or a page as it was read, and returns them with their lines'
+    rectangles; those words, not the browser's, are the passage the
+    question quotes. A first try sent the selection's rectangles and kept
+    those between the drag's two heights, which across two columns kept only
+    the first and last lines (Patrick: "bits and pieces"). The question
+    carries the places too, and the server sends the model **a picture of
+    them** with the question, a column at a time, since a PDF's text spells
+    an equation as loose glyphs. The user turn keeps them
+    (`ChatMsg.places`), so its answer relights them and a retry sends them
+    again.
+  - **The selection itself stays where the pointer is** (`.endOfContent`,
+    from pdf.js's own viewer): while a drag is on, an unselectable sheet
+    spreads under the page's words, so letting go over a gap between them
+    doesn't end the selection on the text layer itself, at a child in the
+    middle of another column. Without it Chrome selected the wrong stretch
+    (reproduced in the browser, 2026-10-25); our copy of pdf.js's CSS had
+    left it out, with the spans' `z-index: 1` and `user-select: text` it
+    needs.
+  - **Lit as boxes** (`usePdfPassages`, drawn by `PdfView` under the text
+    layer, `.reader-pdf-lit`): the asked-about passage at its places, at
+    once; an answer's quotes where the server finds them in its words
+    (`/pdf-find`: by letters and digits, else by their first and last five
+    words, keeping to the band between). A passage with no places (asked in
+    the text view, or before places were kept) is found the same way, by its
+    prose and a part-formula's glyphs, which match the PDF's own; its LaTeX
+    never could. Places need no page drawn, so going
+    to one is a plain scroll.
 
 ## The citation cards (v8.43.0)
 
@@ -353,10 +443,20 @@ out) and its jumps, a citation's card (pinned, previewed on hover, matched
 or not, its actions and its jump to the reference), the Knowledge Graph
 notes (placed beside their sections in course order, none and no request
 without a course) and a concept's card (its lesson's opening, the
-check-off, the way to the lesson), a footnote opening,
+check-off, the way to the lesson), an answer's passages (lit in the text,
+gone to only when asked, put out by Esc; set by the Reader Assistant as an
+answer finishes, by a click on the answer and on a quote), a footnote opening,
 a figure enlarging, an algorithm's numbers and indents, the contents
 resizing and folding by a drag and coming back only by the bump, and each
 unavailable state, including the retry, and the PDF view with pdf.js
 stubbed: the fallback with its outline as the contents, the switch and its
-remembered choice, a chosen PDF that won't open, and a highlight's page. The parse itself is
+remembered choice, a chosen PDF that won't open, a highlight's page, a
+PDF highlight asked about in the PDF's own words with its places sent and
+kept, and the PDF's lit places (the passage's at once, the quotes the
+server finds, an older turn's passage found by its words).
+`test/reader/passages.test.ts` covers reading quotes out, finding them
+however the text differs, and lighting them; `test/reader/pdfPlaces.test.ts`
+a highlight's rectangles as places, kept to the band its drag spans. The
+server's half is `test/curious_astronaut/services/pdf/test_passages.py`
+(over a real PDF). The parse itself is
 covered by `test/curious_astronaut/integrations/arxiv/test_document.py`.

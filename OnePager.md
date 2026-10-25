@@ -1804,15 +1804,17 @@ than deleted so the plan doesn't get re-proposed.
          and the PDF, with a concept card, a way back from the lesson to
          the paper, and the PDF's zoom. The full story is in
          [docs/history.md](docs/history.md).
-      6. **An answer lights up its passage** (Patrick, 2026-10-24). When a
-         Reader Assistant answer finishes, or when it's clicked later, the
-         span of the paper it's talking about is highlighted in the text or
-         the PDF and scrolled into view, the way the Citation Graph's
-         teacher glows the papers an answer cites (`store/highlight`). A
-         question asked from a highlight already knows its passage; for the
-         rest, the answer has to say which passage it means: say a quoted
-         phrase the client finds in the text, or the section and page it
-         came from. In the PDF the span is found in pdf.js's text layer.
+      6. ✓ **Shipped in v8.45.0**: an answer lights up its passage, in the
+         text and the PDF; in the PDF by where the highlight was, read and
+         pictured by the server. The full story is in
+         [docs/history.md](docs/history.md).
+      7. **Draw a box to ask** (Patrick, 2026-10-25). In the PDF view, drag
+         a rectangle over an equation, a figure or a table and ask about
+         it, for what text selection can't grab. It's another way into
+         v8.45.0's places: the box is a place, which the server reads
+         (`passage_at`) and pictures for the model (`render_places`), and
+         the answer lights it like a highlight. Needs a gesture that doesn't
+         fight text selection.
 
       **Later:** a margin teacher you can ask about the selection, then the
       guided read.

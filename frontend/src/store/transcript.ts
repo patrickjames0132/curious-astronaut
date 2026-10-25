@@ -40,6 +40,7 @@ import type {
   GraphEdge,
   GraphNode,
   PaperRef,
+  PdfPlace,
   ProvenanceEvent,
   RetrieveEvent,
   SourceRef,
@@ -147,7 +148,7 @@ function target(state: TranscriptState, key: string | undefined): Conversation |
 type Keyed = { key?: string }
 
 /** A keyed action stamped with when it was dispatched (`Date.now()`). */
-type Timed = Keyed & { at: number; quick?: boolean }
+type Timed = Keyed & { at: number; quick?: boolean; places?: PdfPlace[] }
 
 /**
  * Build the `prepare` half of a keyed action: payload first, key second.
@@ -428,7 +429,8 @@ const transcriptSlice = createSlice({
       reducer(state, action: PayloadAction<string, string, Timed>) {
         const conversation = target(state, action.meta.key)
         if (!conversation) return
-        conversation.chat.push({ role: 'user', text: action.payload })
+        const places = action.meta.places
+        conversation.chat.push({ role: 'user', text: action.payload, ...(places && { places }) })
         // The answer's clock starts with its turn (v8.33.0, `ResponseTimer`).
         conversation.chat.push({
           role: 'assistant',
@@ -439,9 +441,15 @@ const transcriptSlice = createSlice({
         })
       },
       // Quick response replaces the exchange, but continues its original clock.
-      prepare: (question: string, key?: string, startedAt?: number, quick = false) => ({
+      prepare: (
+        question: string,
+        key?: string,
+        startedAt?: number,
+        quick = false,
+        places?: PdfPlace[],
+      ) => ({
         payload: question,
-        meta: { key, at: startedAt ?? Date.now(), quick },
+        meta: { key, at: startedAt ?? Date.now(), quick, places },
       }),
     },
     /**

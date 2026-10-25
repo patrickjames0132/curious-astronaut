@@ -1,0 +1,170 @@
+"""Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
+
+Description:
+Passages by place (v8.45.0): a highlight's words read from where it sits,
+an answer's quotes found as rectangles, and either pictured for the model.
+
+A real synthetic PDF, so pymupdf's words, boxes and renders are the real ones.
+
+Authors:
+Charles Patrick James <charles.patrick.james@gmail.com>
+"""
+
+from __future__ import annotations
+
+import fitz
+
+from curious_astronaut.services.pdf import passages
+
+LINES = [
+    "Attention lets every position look at every other position",
+    "in one step, which is why the model trains so quickly on",
+    "long sequences of words without any recurrent connections.",
+]
+
+
+def _paper(tmp_path):
+    """A two-page PDF: three lines of prose on page 1, a line on page 2."""
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)
+    for row, line in enumerate(LINES):
+        page.insert_text((72, 100 + row * 14), line, fontsize=10)
+    page.insert_text((72, 400), "An efficient method stands apart.", fontsize=10)
+    doc.new_page(width=612, height=792).insert_text((72, 100), "The second page says hello.", fontsize=10)
+    path = tmp_path / "paper.pdf"
+    doc.save(path)
+    doc.close()
+    return path
+
+
+def test_comparable_keeps_letters_and_digits_and_spells_ligatures():
+    assert passages.comparable("Eﬃcient, Model-2!") == "efficientmodel2"
+
+
+def test_clean_places_drops_what_isnt_a_place():
+    raw = [
+        {"page": 1, "rects": [[1, 2, 3, 4], [5, 5, 4, 6], [1, 2, 3], "x", [1, True, 3, 4]]},
+        {"page": 0, "rects": [[1, 2, 3, 4]]},
+        {"page": True, "rects": [[1, 2, 3, 4]]},
+        {"page": 2, "rects": []},
+        "nonsense",
+    ]
+    assert passages.clean_places(raw) == [{"page": 1, "rects": [[1.0, 2.0, 3.0, 4.0]]}]
+    assert passages.clean_places("nope") == []
+
+
+def test_a_highlight_reads_its_words_in_order_and_snaps_to_their_lines(tmp_path):
+    path = _paper(tmp_path)
+    # A loose box over the first two lines.
+    found = passages.passage_at(path, [{"page": 1, "rects": [[60, 85, 400, 118]]}])
+    assert found["text"].startswith("Attention lets every position")
+    assert found["text"].endswith("trains so quickly on")
+    assert [place["page"] for place in found["places"]] == [1]
+    rects = found["places"][0]["rects"]
+    assert len(rects) == 2  # one per line
+    assert all(rect[0] >= 71 and rect[1] > 85 for rect in rects)
+
+
+def test_a_drag_reads_every_word_between_its_ends_in_reading_order(tmp_path):
+    """v8.45.0: the drag's two ends are trusted, not the browser's rectangles
+    between them, so a passage across a page (or a column) reads whole."""
+    path = _paper(tmp_path)
+    words = list(passages._words(path))
+    lets = next(word for word in words if word.text == "lets")
+    second = next(word for word in words if word.text == "second")
+    found = passages.passage_between(
+        path,
+        {"page": 1, "left": lets.x0, "top": (lets.y0 + lets.y1) / 2},
+        # Just past the word's end, as a caret after its last letter sits.
+        {"page": 2, "left": second.x1 + 1, "top": (second.y0 + second.y1) / 2},
+    )
+    assert found["text"].startswith("lets every position")
+    assert "without any recurrent connections. An efficient method stands apart. The second" in found["text"]
+    assert found["text"].endswith("The second")
+    assert [place["page"] for place in found["places"]] == [1, 2]
+    assert len(found["places"][0]["rects"]) == 4  # three lines, and the one below
+
+
+def test_a_drag_dragged_backwards_reads_the_same(tmp_path):
+    path = _paper(tmp_path)
+    start = {"page": 1, "left": 300.0, "top": 125.0}
+    end = {"page": 1, "left": 73.0, "top": 96.0}
+    assert passages.passage_between(path, start, end) == passages.passage_between(path, end, start)
+
+
+def test_a_drag_on_a_page_with_no_words_reads_nothing(tmp_path):
+    path = _paper(tmp_path)
+    nowhere = {"page": 9, "left": 1.0, "top": 1.0}
+    assert passages.passage_between(path, nowhere, nowhere) == {"text": "", "places": []}
+
+
+def test_clean_span_checks_both_ends():
+    good = {"start": {"page": 1, "left": 1, "top": 2}, "end": {"page": 2, "left": 3.5, "top": 4}}
+    assert passages.clean_span(good) == ({"page": 1, "left": 1.0, "top": 2.0}, {"page": 2, "left": 3.5, "top": 4.0})
+    assert passages.clean_span({"start": good["start"]}) is None
+    assert passages.clean_span({**good, "end": {"page": 0, "left": 1, "top": 1}}) is None
+    assert passages.clean_span({**good, "end": {"page": 1, "left": True, "top": 1}}) is None
+    assert passages.clean_span("nope") is None
+
+
+def test_a_passage_across_columns_is_pictured_a_column_at_a_time(tmp_path):
+    path = _paper(tmp_path)
+    left_and_right = [{"page": 1, "rects": [[72, 90, 280, 104], [320, 90, 540, 104], [72, 104, 280, 118]]}]
+    assert passages._columns(left_and_right[0]["rects"]) == [
+        [[72, 90, 280, 104], [72, 104, 280, 118]],
+        [[320, 90, 540, 104]],
+    ]
+    assert len(passages.render_places(path, left_and_right)) == 2
+
+
+def test_a_highlight_over_nothing_reads_nothing(tmp_path):
+    path = _paper(tmp_path)
+    assert passages.passage_at(path, [{"page": 1, "rects": [[300, 600, 400, 700]]}]) == {
+        "text": "",
+        "places": [],
+    }
+
+
+def test_quotes_are_found_across_lines_and_pages_or_not_at_all(tmp_path):
+    path = _paper(tmp_path)
+    whole, by_ends, elsewhere, missing, short = passages.find_quotes(
+        path,
+        [
+            "which is why the model trains so quickly",
+            # A slip in the middle: found by its first and last five words.
+            "every position look at every other spot in one step, which is why the model",
+            "The second page says hello",
+            "nothing like this is anywhere in the paper",
+            "in",
+        ],
+    )
+    assert [place["page"] for place in whole] == [1] and len(whole[0]["rects"]) == 1
+    assert len(by_ends[0]["rects"]) == 2
+    assert elsewhere[0]["page"] == 2
+    assert missing == [] and short == []
+
+
+def test_a_quote_found_by_its_ends_keeps_to_the_band_between_them(tmp_path):
+    """Words the PDF wrote between a quote's ends but set elsewhere on the
+    page (an equation's glyphs, say) aren't lit."""
+    path = _paper(tmp_path)
+    words = list(passages._words(path))
+    head = next(word for word in words if word.text == "Attention")
+    tail = next(word for word in words if word.text == "quickly")
+    stray = next(word for word in words if word.text == "efficient")
+    kept = passages._between([head, stray, tail], head, tail)
+    assert kept == [head, tail]
+
+
+def test_places_are_pictured_one_png_per_page(tmp_path):
+    path = _paper(tmp_path)
+    images = passages.render_places(
+        path,
+        [
+            {"page": 1, "rects": [[72, 90, 300, 104]]},
+            {"page": 2, "rects": [[72, 90, 300, 104]]},
+            {"page": 9, "rects": [[72, 90, 300, 104]]},
+        ],
+    )
+    assert len(images) == 2
+    assert all(image.startswith(b"\x89PNG") for image in images)

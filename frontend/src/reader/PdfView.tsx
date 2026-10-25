@@ -43,6 +43,7 @@ import {
   type RefObject,
 } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
+import type { PdfPlace } from '../api'
 import { PDF_TEXT_DRAWN, pdfPageId } from './links'
 import { outlineOf, pdfjs, type PdfOutlineEntry } from './pdf'
 
@@ -71,6 +72,8 @@ const MAX_PAGE_WIDTH = 900
 const GUTTER = 24
 /** No notes: one array, so the default never changes identity. */
 const NO_NOTES: PdfMarginNote[] = []
+/** Nothing lit, likewise. */
+const NO_PLACES: PdfPlace[] = []
 /** How far beyond the visible pane a page starts drawing. */
 const DRAW_AHEAD = '1200px 0px'
 /** How long the pane's width must hold before the pages follow it, in ms:
@@ -87,6 +90,7 @@ const SETTLE = 200
  * @param props.scale The scale to draw at.
  * @param props.root The scrolling pane, for drawing ahead of the view.
  * @param props.notes Its margin notes.
+ * @param props.lit Rectangles to light on it, in PDF points (v8.45.0).
  * @returns The page.
  */
 function PdfPage({
@@ -96,6 +100,7 @@ function PdfPage({
   scale,
   root,
   notes,
+  lit,
 }: {
   pdf: PDFDocumentProxy
   page: number
@@ -103,6 +108,7 @@ function PdfPage({
   scale: number
   root: RefObject<HTMLElement | null>
   notes: PdfMarginNote[]
+  lit: number[][]
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -154,6 +160,10 @@ function PdfPage({
       })
       textLayer = layer
       await layer.render()
+      // The sheet a drag lands on between words (`.endOfContent` in reader.css).
+      const sheet = document.createElement('div')
+      sheet.className = 'endOfContent'
+      text.current?.append(sheet)
       if (!cancelled) box.current?.dispatchEvent(new Event(PDF_TEXT_DRAWN, { bubbles: true }))
     }
     draw().catch((error: unknown) => {
@@ -184,6 +194,19 @@ function PdfPage({
       }
     >
       <canvas ref={canvas} className="reader-pdf-canvas" aria-hidden="true" />
+      {lit.map(([left, top, right, bottom], index) => (
+        <div
+          key={index}
+          className="reader-pdf-lit"
+          aria-hidden="true"
+          style={{
+            left: left * scale,
+            top: top * scale,
+            width: (right - left) * scale,
+            height: (bottom - top) * scale,
+          }}
+        />
+      ))}
       <div ref={text} className="textLayer" />
       {notes.map((note) => (
         <div
@@ -214,6 +237,8 @@ function PdfPage({
  *   pixels; 0 without notes.
  * @param props.zoom How much larger than fitting the pane's width to draw
  *   the pages (v8.44.0); 1 fits.
+ * @param props.lit What a Reader Assistant answer is about, to light as
+ *   boxes over the pages (v8.45.0, `usePdfPassages`).
  * @returns The pages, or a loading line.
  */
 export default function PdfView({
@@ -225,6 +250,7 @@ export default function PdfView({
   notes = NO_NOTES,
   margin = 0,
   zoom = 1,
+  lit = NO_PLACES,
 }: {
   url: string
   root: RefObject<HTMLElement | null>
@@ -234,6 +260,7 @@ export default function PdfView({
   notes?: PdfMarginNote[]
   margin?: number
   zoom?: number
+  lit?: PdfPlace[]
 }) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
   const [sizes, setSizes] = useState<PageSize[]>([])
@@ -323,6 +350,29 @@ export default function PdfView({
     }
   }, [root])
 
+  // A drag in a page's text spreads that page's `.endOfContent` sheet under
+  // its words until the pointer lets go, as pdf.js's viewer does (v8.45.0).
+  useEffect(() => {
+    const pane = root.current
+    if (!pane) return
+    const start = (event: MouseEvent) => {
+      const layer = (event.target as Element | null)?.closest?.('.textLayer')
+      layer?.classList.add('selecting')
+    }
+    const end = () => {
+      for (const layer of Array.from(pane.querySelectorAll('.textLayer.selecting')))
+        layer.classList.remove('selecting')
+    }
+    pane.addEventListener('mousedown', start)
+    document.addEventListener('pointerup', end)
+    window.addEventListener('blur', end)
+    return () => {
+      pane.removeEventListener('mousedown', start)
+      document.removeEventListener('pointerup', end)
+      window.removeEventListener('blur', end)
+    }
+  }, [root])
+
   const widest = sizes.length ? Math.max(...sizes.map((size) => size.width)) : 1
   const fit = Math.max(0.5, Math.min(MAX_PAGE_WIDTH, paneWidth - GUTTER * 2 - margin) / widest)
   const scale = fit * zoom
@@ -357,6 +407,7 @@ export default function PdfView({
           scale={scale}
           root={root}
           notes={notes.filter((note) => note.page === index + 1)}
+          lit={lit.filter((place) => place.page === index + 1).flatMap((place) => place.rects)}
         />
       ))}
     </div>

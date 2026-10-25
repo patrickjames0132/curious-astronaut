@@ -14,7 +14,10 @@
  *     and, with no graph to glow, resolved through `paperRefs` into a button
  *     that maps that paper instead,
  *   • `[Sn, p.N]` markers, rendered as the library source's real title and
- *     page from the answer's `sourceRefs` map.
+ *     page from the answer's `sourceRefs` map,
+ *   • ⟦quotes⟧ of the paper being read (the Reader Assistant's, v8.45.0) via
+ *     `remarkQuote`, as quotes that light their place in the paper when
+ *     clicked (`onQuote`), or plain quotes without it.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -32,6 +35,7 @@ import type { PaperRef, Provider, SourceRef } from '../../api'
 import { PROVIDER_LABEL } from '../../api'
 import { prepareMath } from '../../notation/prepareMath'
 import { remarkCite } from './remarkCite'
+import { remarkQuote } from './remarkQuote'
 
 /**
  * One node, lit — the companion to `GraphGlyph`, marking the chips that
@@ -80,7 +84,7 @@ function GraphGlyph() {
   )
 }
 
-const REMARK_PLUGINS = [remarkGfm, remarkMath, remarkCite]
+const REMARK_PLUGINS = [remarkGfm, remarkMath, remarkCite, remarkQuote]
 const REHYPE_PLUGINS = [rehypeKatex]
 
 /**
@@ -96,6 +100,7 @@ export default function AnswerMarkdown({
   onRefClick,
   onPaperSeed,
   provider,
+  onQuote,
 }: {
   text: string
   /** `[n]` → node-id map for this answer (undefined on old saves / none). */
@@ -112,6 +117,8 @@ export default function AnswerMarkdown({
   onPaperSeed?: (nodeId: string, refProvider?: Provider) => void
   /** Current backend, used to explain a citation's source in its tooltip. */
   provider?: Provider
+  /** Light a quoted passage in the paper being read (the Reader's, v8.45.0). */
+  onQuote?: (quote: string) => void
 }) {
   const components = useMemo<Components>(
     () => ({
@@ -207,8 +214,35 @@ export default function AnswerMarkdown({
           </span>
         )
       },
+      // The paper's words, quoted (remarkQuote): a click lights them in it.
+      paperquote: ({ quote, children }: { quote?: string; children?: ReactNode }) =>
+        quote && onQuote ? (
+          // A span acting as a button, not a <button>: a button won't flow
+          // inline like text, and the words after a quote broke onto a line
+          // of their own.
+          <span
+            role="button"
+            tabIndex={0}
+            className="paper-quote"
+            title="Show these words in the paper"
+            onClick={(event) => {
+              event.stopPropagation()
+              onQuote(quote)
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return
+              event.preventDefault()
+              event.stopPropagation()
+              onQuote(quote)
+            }}
+          >
+            “{children}”
+          </span>
+        ) : (
+          <q className="paper-quote-plain">{children}</q>
+        ),
     }),
-    [graphRefs, sourceRefs, paperRefs, onRefClick, onPaperSeed, provider],
+    [graphRefs, sourceRefs, paperRefs, onRefClick, onPaperSeed, provider, onQuote],
   )
 
   // Dollars sorted out before remark-math ever sees them — money in prose is

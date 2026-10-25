@@ -717,3 +717,51 @@ def test_ask_reader_says_when_the_pdf_extra_is_missing(client, monkeypatch):
     )
     assert response.status_code == 400
     assert "uv sync --extra pdf" in response.json["error"]
+
+
+def test_ask_reader_pictures_a_pdf_highlight_for_the_model(client, monkeypatch, tmp_path):
+    """v8.45.0: a highlight in the PDF view comes as places; the question
+    carries the PDF's own words there, and a picture of it."""
+    seen: dict = {}
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        yield events.Token(text="ok")
+
+    _pdf_pages(monkeypatch, ["Page one text.", "Page two text."])
+    monkeypatch.setattr(agents_routes.pdf_service, "fetch_pdf", lambda url: tmp_path / "p.pdf")
+    monkeypatch.setattr(
+        agents_routes.pdf_passages, "passage_at", lambda path, places: {"text": "x = y + 1", "places": places}
+    )
+    monkeypatch.setattr(agents_routes.pdf_passages, "render_places", lambda path, places: [b"\x89PNG one"])
+    patch_agents(monkeypatch, fake_run)
+    places = [{"page": 2, "rects": [[10, 20, 30, 40]]}]
+    response = client.post(
+        "/api/ask_reader",
+        json={"question": "explain", "paper": "1412.6980", "section": "page:2", "places": places},
+    )
+    assert frames(response)[-1] == ("done", {})
+    assert seen["images"] == [b"\x89PNG one"]
+    assert "THE PASSAGE THEY HIGHLIGHTED, on page 2 of the PDF, is pictured in the image sent" in seen["reading"]
+    assert seen["reading"].endswith("Its words, as the PDF holds them: x = y + 1")
+
+
+def test_ask_reader_asks_in_words_alone_without_places_or_a_picture(client, monkeypatch, tmp_path):
+    seen: dict = {}
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        yield events.Token(text="ok")
+
+    _pdf_pages(monkeypatch, ["Page one text."])
+    patch_agents(monkeypatch, fake_run)
+    body = {"question": "q", "paper": "1412.6980", "section": "page:1"}
+    frames(client.post("/api/ask_reader", json=body))
+    assert seen["images"] == [] and "HIGHLIGHTED" not in seen["reading"]
+
+    def refuse(url):
+        raise agents_routes.pdf_service.PdfError("gone")
+
+    monkeypatch.setattr(agents_routes.pdf_service, "fetch_pdf", refuse)
+    frames(client.post("/api/ask_reader", json={**body, "places": [{"page": 1, "rects": [[1, 2, 3, 4]]}]}))
+    assert seen["images"] == [] and "HIGHLIGHTED" not in seen["reading"]
