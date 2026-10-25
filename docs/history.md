@@ -3903,6 +3903,45 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
         has and what still sits between them and the paper. The layout above
         is how that assessment gets drawn, not the goal in itself.
 
+- [x] **The Reader card, stage 6: an answer lights up its passage** *(v8.45.0)* —
+      a Reader Assistant answer lights what it's about in the paper, as the
+      Citation Graph's teacher glows the papers an answer cites. Patrick's
+      picks (2026-10-24/25): **the answer stands for the passage it was asked
+      about**, exactly as highlighted; the paper's words it quotes are
+      underlined in gold in the answer, each lit on its own when clicked; an
+      answer finishing lights in place, a click goes there, Esc or a new
+      highlight puts it out, and so does clearing the chat; switching between
+      the text and the PDF goes to what's lit.
+
+      **Quotes**: the assistant wraps the paper's exact words in ⟦ ⟧
+      (`READING_QUOTES`), rendered by `remarkQuote` as gold-underlined
+      buttons. An answer to a typed question lights its quotes.
+
+      **The text view** finds a passage by letters and digits (so spacing,
+      case and punctuation don't matter), by its first and last five words
+      when the middle slips, and a formula by the LaTeX KaTeX keeps beside
+      it. It's lit as **boxes a line at a time** drawn behind the text
+      (`boxesOf`): the CSS Custom Highlight API, the first build, painted
+      each of KaTeX's spans on its own, and an equation lit as a patchwork.
+
+      **The PDF view works in places, not text** (Patrick, 2026-10-25: "very
+      noisy"). pdf.js's text layer is in the order the PDF was written, not
+      read, so matching words in it lit stray bars. Now a highlight is sent
+      as **where the drag began and ended**; the server takes every word
+      between them in reading order from pymupdf (`services/pdf/passages.py`,
+      `/pdf-passage`), across columns and pages, and returns them with their
+      lines' rectangles. Those words are what the question quotes, the
+      rectangles (`ChatMsg.places`) are what its answer lights as boxes, and
+      the model gets **a picture of each column** of the passage with the
+      question, so it reads an equation as typeset. Quotes, and passages
+      asked in the text view, are found by the server in the PDF's words
+      (`/pdf-find`), a part-formula by its glyphs. Debugged in the browser:
+      the drag's own selection jumped because our copy of pdf.js's text-layer
+      CSS lacked its `endOfContent` guard ([docs/bugs.md](bugs.md)).
+
+      **Next**: drawing a box over an equation or figure to ask about it, on
+      the same places (OnePager).
+
 - [x] **The Reader card, stage 5: the Knowledge Graph notes** *(v8.44.0)* —
       once a paper's Knowledge Graph course exists, each section the course
       matters in gets a note: **Builds on** and its concepts, a green ✓ on the

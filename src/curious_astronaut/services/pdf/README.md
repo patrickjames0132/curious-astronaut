@@ -13,6 +13,7 @@ fetch.py   — the download + on-disk cache (data_dir/pdf_cache, LRU-pruned)
 text.py    — readable body text from the file (the ar5iv fulltext's PDF twin)
 floats.py  — caption-anchored float mining: figures, tables, algorithms
 mine.py    — the cached high-level API the app calls; token → URL registry
+passages.py — passages by where they sit: a highlight's words, quotes' boxes, crops
 errors.py  — PdfError, the package's one exception
 ```
 
@@ -206,3 +207,40 @@ reader chooses to. Two additions serve it, both on the same cache:
   view". `extract_text` is now the pages joined. Needs the `pdf` extra; a
   missing extra raises `MissingExtra` and isn't cached, so installing it takes
   effect at once.
+
+## Passages by place (v8.45.0)
+
+The Reader's stage 6 lights the passages an answer is about. In the PDF view
+it first found them by matching words in pdf.js's text layer, and read a
+highlight out of that layer too; but the layer is in the order the PDF was
+written, not read, so a highlight across an equation picked up glyphs set
+elsewhere, and quotes lit stray bars (Patrick, 2026-10-25: "very noisy").
+`passages.py` answers by **place** instead: a 1-based page and rectangles on
+it in points from the page's top-left, which is how pdf.js lays a page out at
+scale 1, so the browser and pymupdf point at the same spot. It works from
+pymupdf's words, which come in reading order with their boxes:
+
+- **`passage_between(path, start, end)`**: a highlight as the reader
+  dragged it, every word from the one nearest where the drag began to the
+  one nearest where it ended, in reading order, read out as text (a hyphen
+  broken across lines rejoined), with their lines' rectangles. So a passage
+  across a column or a page reads whole: a first try read the words inside
+  the browser's rectangles kept between the drag's two heights, which in
+  two columns kept only the first and last lines. Served by
+  `POST /api/paper/<ref>/pdf-passage`; the Reader quotes these words, not
+  the browser's.
+- **`passage_at(path, places)`**: the words whose centers sit in some
+  rectangles, the same way; what `/api/ask_reader` reads a highlight's
+  places with, and what the box gesture (next) will send.
+- **`find_quotes(path, quotes)`**: each quote's places, matched by letters
+  and digits only (ligatures spelled out), else by its first and last five
+  words, keeping only words in the band between them on the page. Served by
+  `POST /api/paper/<ref>/pdf-find`.
+- **`render_places(path, places)`**: a PNG per page and column of a
+  highlight (the box around that column's rectangles, padded), sent to the model with the question by
+  `/api/ask_reader` so it reads an equation from the picture.
+
+Nothing is stored, as with figures (`docs/pdf-mining.md`): the words are
+memoized in process for the last four files (by path and mtime), since one
+answer asks for them more than once. Tested over a real synthetic PDF
+(`test/curious_astronaut/services/pdf/test_passages.py`).

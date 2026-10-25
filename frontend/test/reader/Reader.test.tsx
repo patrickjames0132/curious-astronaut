@@ -21,6 +21,8 @@ import explorations, {
 } from '../../src/store/explorations'
 import transcript from '../../src/store/transcript'
 import workspace from '../../src/store/workspace'
+import library from '../../src/store/library'
+import highlightReducer, { passagesLit } from '../../src/store/highlight'
 import * as api from '../../src/api'
 import type { ReaderDocument } from '../../src/api'
 
@@ -41,6 +43,7 @@ vi.mock('../../src/reader/PdfView', () => ({
     onFailed,
     notes = [],
     zoom = 1,
+    lit = [],
   }: {
     url: string
     textRef: RefObject<HTMLDivElement | null>
@@ -48,6 +51,7 @@ vi.mock('../../src/reader/PdfView', () => ({
     onFailed: (message: string) => void
     notes?: { key: string; page: number; top: number; node: ReactNode }[]
     zoom?: number
+    lit?: { page: number; rects: number[][] }[]
   }) {
     useEffect(() => {
       pdfStub.urls.push(url)
@@ -57,7 +61,7 @@ vi.mock('../../src/reader/PdfView', () => ({
       // oxlint-disable-next-line react-hooks/exhaustive-deps
     }, [url])
     return (
-      <div ref={textRef} data-testid="pdf-view" data-zoom={zoom}>
+      <div ref={textRef} data-testid="pdf-view" data-zoom={zoom} data-lit={JSON.stringify(lit)}>
         {[1, 2].map((page) => (
           <div
             key={page}
@@ -194,7 +198,9 @@ const DOCUMENT: ReaderDocument = {
  * @returns The store and the render result.
  */
 function mount(ui: ReactElement, thread: ThreadRecord = THREAD) {
-  const store = configureStore({ reducer: { workspace, transcript, explorations } })
+  const store = configureStore({
+    reducer: { workspace, transcript, explorations, highlight: highlightReducer, library },
+  })
   const record = newExploration('saved')
   record.threads.push(structuredClone(thread))
   record.activeThreadId = THREAD.id
@@ -549,6 +555,138 @@ it('notes nothing, and asks nothing, without a course', async () => {
   expect(screen.queryByRole('complementary')).toBeNull()
 })
 
+it('lights an answer’s passages in the text, going there only when asked', async () => {
+  // jsdom measures no range: each lit text node measures as one line here,
+  // its own row, so the boxes count the lines lit.
+  let row = 0
+  Range.prototype.getClientRects = function () {
+    row += 40
+    return [new DOMRect(0, row, 120, 16)] as unknown as DOMRectList
+  }
+  const scrollTo = vi.fn()
+  Element.prototype.scrollTo = scrollTo as unknown as typeof Element.prototype.scrollTo
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const { store } = mount(<Harness />)
+  await screen.findByRole('heading', { name: '3.2Attention' })
+  const lit = () => document.querySelectorAll('.reader-text-lit').length
+  // An answer finished: lit where it is, the page left alone.
+  act(() => {
+    store.dispatch(
+      passagesLit({
+        threadId: THREAD.id,
+        answer: 1,
+        passage: null,
+        places: [],
+        quotes: ['recurrent networks'],
+        scroll: false,
+      }),
+    )
+  })
+  await waitFor(() => expect(lit()).toBe(1))
+  expect(scrollTo).not.toHaveBeenCalled()
+  // Clicked: lit, and gone to.
+  act(() => {
+    store.dispatch(
+      passagesLit({
+        threadId: THREAD.id,
+        answer: 1,
+        passage: null,
+        places: [],
+        quotes: ['the dominant models'],
+        scroll: true,
+      }),
+    )
+  })
+  await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1))
+  expect(lit()).toBe(1)
+  // Another thread's passages light nothing here; Esc puts these out.
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect(store.getState().highlight.passages).toBeNull()
+  await waitFor(() => expect(lit()).toBe(0))
+  // @ts-expect-error -- jsdom's Range has none; this test gave it one.
+  delete Range.prototype.getClientRects
+})
+
+it('lights places in the PDF: the passage where it was highlighted, the quotes where the server finds them', async () => {
+  const scrollTo = vi.fn()
+  Element.prototype.scrollTo = scrollTo as unknown as typeof Element.prototype.scrollTo
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'no_render' })
+  const quoted = { page: 1, rects: [[10, 20, 30, 40]] }
+  const find = vi.spyOn(api, 'findPdfQuotes').mockResolvedValue([[quoted]])
+  pdfStub.fail = false
+  const { store } = mount(<Harness />)
+  const view = await screen.findByTestId('pdf-view')
+  const lit = () => JSON.parse(view.getAttribute('data-lit') ?? '[]')
+  const highlighted = { page: 2, rects: [[50, 60, 70, 80]] }
+  act(() => {
+    store.dispatch(
+      passagesLit({
+        threadId: THREAD.id,
+        answer: 1,
+        passage: 'the words as asked',
+        places: [highlighted],
+        quotes: ['a quote'],
+        scroll: true,
+      }),
+    )
+  })
+  await waitFor(() => expect(lit()).toEqual([highlighted, quoted]))
+  // Only the quotes are searched for: the passage has its places.
+  expect(find).toHaveBeenCalledWith('1706.03762', 's2', ['a quote'], expect.anything())
+  expect(scrollTo).toHaveBeenCalledTimes(1)
+  // A passage with no places (asked in the text view) is searched for by its
+  // words and a part-formula's glyphs, never its LaTeX.
+  act(() => {
+    store.dispatch(
+      passagesLit({
+        threadId: THREAD.id,
+        answer: 3,
+        passage: 'Vψ(st) − Qθ (part of $$V_\\psi(s_t) - Q_\\theta$$)',
+        places: [],
+        quotes: [],
+        scroll: false,
+      }),
+    )
+  })
+  await waitFor(() =>
+    expect(find).toHaveBeenLastCalledWith('1706.03762', 's2', ['Vψ(st) − Qθ'], expect.anything()),
+  )
+  await waitFor(() => expect(lit()).toEqual([quoted]))
+  expect(scrollTo).toHaveBeenCalledTimes(1)
+  fireEvent.keyDown(document, { key: 'Escape' })
+  await waitFor(() => expect(lit()).toEqual([]))
+})
+
+it('goes to what is lit on switching between the text and the PDF', async () => {
+  const scrollTo = vi.fn()
+  Element.prototype.scrollTo = scrollTo as unknown as typeof Element.prototype.scrollTo
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  vi.spyOn(api, 'findPdfQuotes').mockResolvedValue([])
+  pdfStub.fail = false
+  const { store } = mount(<Harness />)
+  await screen.findByRole('heading', { name: '3.2Attention' })
+  // Lit in place (an answer finishing): nothing moves.
+  act(() => {
+    store.dispatch(
+      passagesLit({
+        threadId: THREAD.id,
+        answer: 1,
+        passage: 'Recurrent networks',
+        places: [{ page: 2, rects: [[10, 20, 30, 40]] }],
+        quotes: [],
+        scroll: false,
+      }),
+    )
+  })
+  expect(scrollTo).not.toHaveBeenCalled()
+  // To the PDF: it goes there, once its page is laid out.
+  fireEvent.click(screen.getByRole('button', { name: 'PDF' }))
+  await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1))
+  // Back to the text: there too.
+  fireEvent.click(screen.getByRole('button', { name: 'Text' }))
+  await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(2))
+})
+
 it('opens a footnote in place', async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
   mount(<Reader thread={THREAD} />)
@@ -842,6 +980,43 @@ it('explains a passage highlighted in the PDF, from its page', async () => {
   })
 })
 
+it('asks about a PDF highlight in the PDF’s own words, sending and keeping where it is', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'no_render' })
+  pdfStub.fail = false
+  const ask = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
+  const snapped = [{ page: 2, rects: [[50, 100, 90, 108]] }]
+  const read = vi
+    .spyOn(api, 'fetchPdfPassage')
+    .mockResolvedValue({ text: 'The words, in order', places: snapped })
+  // jsdom lays nothing out: page 2 sits at the top left, at scale 2, and the
+  // highlight is one line on it.
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    return this.id === 'reader-page:2' ? new DOMRect(0, 0, 600, 800) : new DOMRect(0, 0, 0, 0)
+  })
+  Range.prototype.getClientRects = function () {
+    return [new DOMRect(100, 200, 80, 16)] as unknown as DOMRectList
+  }
+  const { store } = mount(<Harness onAssistant={() => {}} />)
+  await highlight(/^Words on page 2/, 'Words on page 2')
+  document.getElementById('reader-page:2')!.dataset.scale = '2'
+  fireEvent.mouseDown(screen.getByRole('button', { name: 'Explain' }))
+  await waitFor(() => expect(ask).toHaveBeenCalled())
+  // Where the drag began and ended: the left of its first box, the right of
+  // its last, in points on page 2.
+  expect(read).toHaveBeenCalledWith('1706.03762', 's2', {
+    start: { page: 2, left: 50, top: 104 },
+    end: { page: 2, left: 90, top: 104 },
+  })
+  expect(ask.mock.calls[0][0]).toMatchObject({
+    question: 'Explain this passage from page 2:\n\n“The words, in order”',
+    places: snapped,
+  })
+  // The turn keeps them: its answer lights them, a retry sends them again.
+  expect(store.getState().transcript.byKey['attention:reader'].chat[0].places).toEqual(snapped)
+  // @ts-expect-error -- jsdom's Range has none; this test gave it one.
+  delete Range.prototype.getClientRects
+})
+
 it('lists the headings the server found when the PDF has no outline, numbers apart', async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'no_render' })
   vi.spyOn(api, 'fetchPdfContents').mockResolvedValue([
@@ -938,4 +1113,56 @@ it('slides the arriving view in from its button’s side', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Text' }))
   await screen.findByRole('heading', { name: 'Attention Is All You Need' })
   expect(document.querySelector('.reader-page')?.classList.contains('from-left')).toBe(true)
+})
+
+it('lights what an answer is about when it finishes, and goes there when clicked', async () => {
+  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  vi.spyOn(api, 'streamAskReader').mockImplementation(async (_body, handlers) => {
+    handlers.onToken('As it says, ⟦the dominant models⟧ are recurrent.')
+  })
+  const { store } = mount(<ReaderAssistant thread={THREAD} collapsed={false} onClose={() => {}} />)
+  const box = screen.getByPlaceholderText('Ask about this paper, or @ another chat…')
+  fireEvent.change(box, { target: { value: 'What came before?' } })
+  fireEvent.submit(box.closest('form')!)
+  const passages = () => store.getState().highlight.passages
+  // Finished: lit, not gone to.
+  await waitFor(() => expect(passages()?.quotes).toEqual(['the dominant models']))
+  expect(passages()).toMatchObject({ threadId: THREAD.id, answer: 1, scroll: 0 })
+  // The answer clicked: gone to; clicked again: put out.
+  const answer = (await screen.findByText(/are recurrent/)).closest('.chat') as HTMLElement
+  expect(answer.classList.contains('active')).toBe(true)
+  fireEvent.click(answer)
+  expect(passages()).toBeNull()
+  fireEvent.click(answer)
+  expect(passages()).toMatchObject({ answer: 1, scroll: 1 })
+  // A quote clicked: just it, gone to.
+  fireEvent.click(screen.getByRole('button', { name: '“the dominant models”' }))
+  expect(passages()).toMatchObject({ quotes: ['the dominant models'], answer: null, scroll: 2 })
+})
+
+it('lights only the highlighted passage for an answer to one, its quotes one at a time', async () => {
+  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  vi.spyOn(api, 'streamAskReader').mockImplementation(async (_body, handlers) => {
+    handlers.onToken('It says ⟦the dominant models⟧ are recurrent.')
+  })
+  const places = [{ page: 3, rects: [[10, 20, 30, 40]] }]
+  const { store } = mount(
+    <ReaderAssistant
+      thread={THREAD}
+      collapsed={false}
+      onClose={() => {}}
+      quote={{ text: 'Recurrent networks', from: 'page 3', places, seq: 1 }}
+    />,
+  )
+  const box = screen.getByRole('textbox')
+  fireEvent.change(box, { target: { value: 'Why?' } })
+  fireEvent.submit(box.closest('form')!)
+  const passages = () => store.getState().highlight.passages
+  // The answer stands for the passage exactly as highlighted (Patrick).
+  await waitFor(() =>
+    expect(passages()).toMatchObject({ passage: 'Recurrent networks', places, quotes: [] }),
+  )
+  // A quote clicked: just it.
+  fireEvent.click(screen.getByRole('button', { name: '“the dominant models”' }))
+  expect(passages()).toMatchObject({ passage: null, places: [], quotes: ['the dominant models'] })
 })

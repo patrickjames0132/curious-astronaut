@@ -177,3 +177,87 @@ export async function fetchCited(
   const data = (await res.json()) as { papers?: Record<string, PaperDetails> }
   return data.papers ?? {}
 }
+
+/**
+ * Where a passage is in a PDF (v8.45.0): a 1-based page and rectangles on
+ * it, `[x0, y0, x1, y1]` in PDF points from the page's top-left, the space
+ * pdf.js draws a page in at scale 1 (and pymupdf reads it in, server-side).
+ */
+export interface PdfPlace {
+  page: number
+  rects: number[][]
+}
+
+/** A point on a PDF's page, in points from its left and top edges (v8.45.0). */
+export interface PdfPoint {
+  page: number
+  left: number
+  top: number
+}
+
+/**
+ * What a highlight in the PDF view covers (v8.45.0): the PDF's own words
+ * from where the drag began to where it ended, in reading order, across
+ * columns and pages, which the browser's reading of pdf.js's text layer
+ * isn't, and their lines' rectangles.
+ *
+ * @param ref The paper's arXiv id, or its provider id.
+ * @param provider Who to ask for a non-arXiv paper's open-access PDF.
+ * @param span Where the drag began and ended.
+ * @param span.start Where it began.
+ * @param span.end Where it ended.
+ * @returns The words and places; empty on any failure.
+ */
+export async function fetchPdfPassage(
+  ref: string,
+  provider: string,
+  span: { start: PdfPoint; end: PdfPoint },
+): Promise<{ text: string; places: PdfPlace[] }> {
+  const none = { text: '', places: [] }
+  try {
+    const res = await fetch(
+      `/api/paper/${encodeURIComponent(ref)}/pdf-passage?provider=${encodeURIComponent(provider)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ span }),
+      },
+    )
+    if (!res.ok) return none
+    const data = (await res.json()) as { text?: string; places?: PdfPlace[] }
+    return { text: data.text ?? '', places: data.places ?? [] }
+  } catch {
+    return none
+  }
+}
+
+/**
+ * Where an answer's quotes are in a paper's PDF (v8.45.0).
+ *
+ * @param ref The paper's arXiv id, or its provider id.
+ * @param provider Who to ask for a non-arXiv paper's open-access PDF.
+ * @param quotes The quotes.
+ * @param signal Aborts the request when the lit passages change.
+ * @returns One list of places per quote, in order (empty for one not found,
+ *          and for all of them on any failure).
+ */
+export async function findPdfQuotes(
+  ref: string,
+  provider: string,
+  quotes: string[],
+  signal?: AbortSignal,
+): Promise<PdfPlace[][]> {
+  const none = quotes.map((): PdfPlace[] => [])
+  const res = await fetch(
+    `/api/paper/${encodeURIComponent(ref)}/pdf-find?provider=${encodeURIComponent(provider)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quotes }),
+      signal,
+    },
+  )
+  if (!res.ok) return none
+  const data = (await res.json()) as { found?: PdfPlace[][] }
+  return data.found ?? none
+}

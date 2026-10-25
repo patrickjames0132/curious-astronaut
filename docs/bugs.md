@@ -22,6 +22,47 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### A drag in the PDF view selected the wrong stretch of the page (v8.45.0)
+
+- **Symptom.** Highlighting in the PDF view often selected something other
+  than what was dragged over: a stretch higher up the column, or part of the
+  other column. Patrick: "very noisy". Worst when letting go between words
+  or at a line's end.
+- **Root cause.** Over a gap between pdf.js's text spans, the pointer is on
+  the text layer itself, and Chrome ends the selection there, at a *child
+  index* of the layer, which in the PDF's written order sits mid-column.
+  Reproduced in the browser: the selection's focus was the `.textLayer` at
+  child 53. pdf.js's own viewer guards against this (`TextLayerBuilder`'s
+  `endOfContent`: an unselectable sheet spread under the words while a drag
+  is on), but we use the bare `TextLayer` and had copied only the CSS
+  "selection needs", leaving out the sheet and the spans' `z-index: 1` and
+  `user-select: text` it relies on.
+- **Fix.** `reader.css` has the guard's CSS; `PdfView` adds the sheet once a
+  page's text is drawn and the `selecting` class from mousedown to pointerup.
+  The passage itself no longer trusts the browser's selection either: only
+  where the drag began and ended is sent, and the server reads the words
+  between in reading order (`services/pdf/passages.py`).
+- **Lesson / guard.** When taking part of a library's component, read what
+  its full version does around it, not just its stylesheet. And test a
+  drag by hand: the browser extension's synthetic drag selected differently
+  from a real one, so it couldn't confirm the fix, only a Range built in
+  code could.
+
+### A highlight across two columns reached the assistant as two lines (v8.45.0, pre-release)
+
+- **Symptom.** A passage highlighted from the foot of one PDF column into the
+  next went to the assistant as its first line and its last, and its answer
+  lit only those ("bits and pieces").
+- **Root cause.** The first places build sent the selection's rectangles and
+  kept those between the heights the drag began and ended at, to drop stray
+  glyphs. In one column that's the passage; across two, everything between
+  those heights in the *other* column is outside the band.
+- **Fix.** Send the drag's two ends and take the words between them in the
+  PDF's reading order (`passage_between`), so columns and pages follow as
+  they're read. `test_passages.py` reads a drag across a page whole.
+- **Lesson / guard.** A filter on screen geometry assumes a layout; reading
+  order is the thing a PDF actually knows.
+
 ### The Reader's contents fold lagged, worst in the PDF view (v8.40.0)
 
 - **Symptom.** Folding or unfolding the Reader's contents panel stuttered,

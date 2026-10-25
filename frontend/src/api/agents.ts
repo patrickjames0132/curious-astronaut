@@ -15,6 +15,7 @@
 
 import { readSSE } from './sse'
 import type { GraphNode, GraphEdge, Provider } from './graph'
+import type { PdfPlace } from './reader'
 
 /**
  * One beat of a lecture: a paragraph of narration bound to the graph nodes
@@ -666,6 +667,9 @@ export async function streamAskReader(
     section?: string | null
     /** The paper's title, for a PDF, which carries no reliable one. */
     title?: string
+    /** Where a passage highlighted in the PDF view is (v8.45.0): the server
+     *  sends the model a picture of it. */
+    places?: PdfPlace[]
     provider: Provider
     source_ids?: string[]
     history?: HistoryTurn[]

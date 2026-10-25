@@ -51,6 +51,20 @@ The OnePager's "One assistant across the tools" item (2026-10-24) plans to
 fold these panels into a single floating assistant; this package is the
 groundwork for it.
 
+## What an answer can light (v8.45.0)
+
+`DockedAssistant` takes an optional `passages` (`AnswerPassages`): told when
+an answer finishes, when one is clicked, and when one of its quotes is, and
+which answer is lit. Only the Reader's assistant passes it, to light the
+paper's words an answer is about (`reader/README.md`); without it answers
+stay unclickable, as the Knowledge Graph's are.
+
+A passage highlighted in the Reader's PDF view carries **places** too
+(`PassageQuote.places`, `AssistantQuestion.places`): where it sits on the
+page. `askAssistant` keeps them on the user turn (`ChatMsg.places`) and
+sends them with the question, so the server can picture the passage for
+the model; a retry sends the turn's places again.
+
 ## Verified by
 
 The tools' own tests drive it end to end: `test/knowledge/KnowledgeNetwork.test.tsx`

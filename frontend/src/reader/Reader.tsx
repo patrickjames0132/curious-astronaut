@@ -26,8 +26,10 @@ import {
   fetchCited,
   fetchDocument,
   fetchPdfContents,
+  fetchPdfPassage,
   pdfUrl,
   type AnswerFigure,
+  type PdfPlace,
   type PaperDetails,
   type ReaderDocument,
   type ReaderSection,
@@ -39,6 +41,7 @@ import { courseOrder } from '../knowledge/model'
 import SelectionMenu from '../selection/SelectionMenu'
 import { useTextSelection } from '../selection/useTextSelection'
 import { useAppDispatch, useAppSelector } from '../store'
+import { passagesCleared } from '../store/highlight'
 import {
   knowledgeKnownToggled,
   knowledgeOpened,
@@ -60,6 +63,9 @@ import ConceptNote from './ConceptNote'
 import { conceptOf, pdfContentsNotes, textNotesInPdf, useConceptNotes } from './useConceptNotes'
 import { useAnchoredCard } from './useAnchoredCard'
 import { useMarginNotes } from './useMarginNotes'
+import { boxesOf, findPassage, indexText, scrollToRange, type LitBox } from './passages'
+import { selectionSpan } from './pdfPlaces'
+import { usePdfPassages, type PdfLight } from './usePdfPassages'
 import PdfView, { type PdfMarginNote } from './PdfView'
 import type { PdfOutlineEntry } from './pdf'
 import { askReader, documentRef, readerMessage, setReadingSection } from './askReader'
@@ -77,6 +83,9 @@ const GLIDE_FALLBACK = 600
 /** Room left above a PDF heading a jump lands on, as the text view's
  *  `scroll-padding-top` leaves above its headings. */
 const HEADING_ROOM = 24
+
+/** No lit passages: one array, so the default never changes identity. */
+const NO_PASSAGES: string[] = []
 
 /** The PDF view's zoom steps, as multiples of fitting the pane's width. */
 const ZOOMS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
@@ -655,13 +664,97 @@ export default function Reader({
     view === 'pdf' ? !!pdfInfo : !!doc?.available,
     readerSelectionText,
   )
-  const pick = (action: (typeof MENU)[number]['action'], passage: string) => {
-    // Where it's from must be read while the text is still selected.
+
+  // An answer's passages, lit (v8.45.0, stage 6): the Reader Assistant sets
+  // them (an answer finishing, an answer or a quote clicked); here they're
+  // found in the text and lit, and gone to when asked. The PDF view lights
+  // places instead, where the passage was highlighted and where the server
+  // finds the quotes (`usePdfPassages`). They stay lit until something else
+  // is chosen: another answer, the same one again, Esc, or a passage the
+  // reader highlights themselves (Patrick).
+  const litPassages = useAppSelector((state) => state.highlight?.passages)
+  const lit = litPassages?.threadId === thread.id ? litPassages : null
+  const passages = useMemo(
+    () => (lit ? [...(lit.passage ? [lit.passage] : []), ...lit.quotes] : NO_PASSAGES),
+    [lit],
+  )
+  const passageScroll = lit?.scroll ?? 0
+  const pdfLight = useMemo<PdfLight | null>(
+    () =>
+      lit && (lit.passage || lit.places.length || lit.quotes.length)
+        ? { passage: lit.passage, places: lit.places, quotes: lit.quotes }
+        : null,
+    [lit],
+  )
+  const pdfPaper = useMemo(() => (ref ? { ref, provider } : null), [ref, provider])
+  const pdfLit = usePdfPassages(view === 'pdf' ? pdfPaper : null, pageRef, pdfLight, passageScroll)
+  const seenPassageScroll = useRef(passageScroll)
+  const [textLit, setTextLit] = useState<LitBox[]>([])
+  // The view the text's light was last shown in: arriving from the PDF view
+  // with something lit goes to it (Patrick).
+  const litView = useRef(view)
+  useEffect(() => {
+    const article = articleRef.current
+    const pane = pageRef.current
+    const arrived = litView.current !== view
+    litView.current = view
+    if (view !== 'text' || !doc?.available || !article || !pane) {
+      setTextLit([])
+      return
+    }
+    const index = passages.length ? indexText(article) : null
+    const ranges = index ? passages.flatMap((quote) => findPassage(article, index, quote)) : []
+    // Measured again whenever the column reflows (a resize, the contents
+    // folding, the notes moving into the margin).
+    const measure = () => setTextLit(ranges.length ? boxesOf(ranges, article) : [])
+    measure()
+    const asked = passageScroll !== seenPassageScroll.current
+    seenPassageScroll.current = passageScroll
+    if ((asked || arrived) && ranges[0]) scrollToRange(pane, ranges[0])
+    if (!ranges.length || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(article)
+    return () => observer.disconnect()
+  }, [view, doc, passages, passageScroll])
+  const anyPassages = !!pdfLight
+  useEffect(() => {
+    if (!anyPassages) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') dispatch(passagesCleared())
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [anyPassages, dispatch])
+  // Only a new selection lets them go: one still standing when an answer to
+  // it finishes (Explain, say) mustn't put out what that answer lit.
+  const passagesLitNow = useRef(anyPassages)
+  passagesLitNow.current = anyPassages
+  useEffect(() => {
+    if (selection && passagesLitNow.current) dispatch(passagesCleared())
+  }, [selection, dispatch])
+  const pick = async (action: (typeof MENU)[number]['action'], browserPassage: string) => {
+    // Where it's from, and where it sits on the page, must be read while the
+    // text is still selected.
     const source = selectionSource()
+    const live = window.getSelection()
+    const range = live?.rangeCount ? live.getRangeAt(0) : null
+    const pages = pdfRef.current
+    const span = view === 'pdf' && range && pages ? selectionSpan(range, pages) : null
     clearSelection()
     if (source.sectionId) setReadingSection(thread.id, source.sectionId)
+    // In the PDF view, the words are the PDF's own from where the drag began
+    // to where it ended, in reading order (v8.45.0), and their places are
+    // what the answer lights again; the browser's reading of pdf.js's text
+    // layer only stands in when that read fails.
+    let passage = browserPassage
+    let where: PdfPlace[] | undefined
+    if (span && ref) {
+      const read = await fetchPdfPassage(ref, provider, span)
+      if (read.text) passage = read.text
+      if (read.places.length) where = read.places
+    }
     if (action === 'chat') {
-      onAssistant?.({ text: passage, from: source.from })
+      onAssistant?.({ text: passage, from: source.from, places: where })
       return
     }
     onAssistant?.()
@@ -670,6 +763,7 @@ export default function Reader({
         threadId: thread.id,
         question: readerMessage(action, passage, source.from),
         provider,
+        places: where,
       }),
     )
   }
@@ -694,6 +788,7 @@ export default function Reader({
         notes={pdfNotes}
         margin={pdfNotes.length ? PDF_NOTES_ROOM : 0}
         zoom={zoom}
+        lit={pdfLit}
       />
     )
   } else if (view === 'pdf' && doc?.available) {
@@ -750,6 +845,9 @@ export default function Reader({
           className={`reader-article${course && notes.size ? ' has-notes' : ''}`}
           ref={articleRef}
         >
+          {textLit.map((box, index) => (
+            <div key={index} className="reader-text-lit" aria-hidden="true" style={box} />
+          ))}
           <header className="reader-header">
             <h1>{title ? <Inlines inlines={title} /> : fallbackTitle}</h1>
             {paper?.authors && (
@@ -1070,7 +1168,7 @@ export default function Reader({
           actions={MENU.map((item) => ({
             label: item.label,
             title: item.title,
-            onPick: (passage) => pick(item.action, passage),
+            onPick: (passage) => void pick(item.action, passage),
           }))}
         />
       )}

@@ -10,6 +10,7 @@
  */
 
 import type { GraphNode, GraphEdge, Provider } from './graph'
+import type { PdfPlace } from './reader'
 import type {
   AnswerFigure,
   Beat,
@@ -33,6 +34,12 @@ export interface ChatMsg {
   borrowedThreads?: { id: string; title: string }[]
   role: 'user' | 'assistant'
   text: string
+  /**
+   * Where the passage a user turn asks about sits in the paper's PDF, when
+   * it was highlighted in the Reader's PDF view (v8.45.0): what its answer
+   * lights there, and what a retry sends again. User turns only.
+   */
+  places?: PdfPlace[]
   /** Ids of the papers this answer cited (assistant turns only). */
   cited?: string[]
   /**

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 
+from pydantic_ai import BinaryContent
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 from curious_astronaut.agents import events
@@ -1197,10 +1198,25 @@ def test_the_paper_being_read_stands_where_the_graph_would(monkeypatch):
         )
     prompt = seen["turns"][0][-1].parts[-1].content
     assert "reading a research paper in the Reader" in prompt
+    # Its quotes are what the Reader lights in the paper (v8.45.0).
+    assert "\u27e6the exact words\u27e7" in prompt
     assert "THE PAPER BEING READ: 'Attention Is All You Need'" in prompt
     assert "No citation graph is open" not in prompt
     assert "find_papers" not in seen["tools"]
 
+
+def test_a_pictured_highlight_goes_with_the_question(monkeypatch):
+    """v8.45.0: a passage highlighted in the Reader's PDF view is sent as a
+    picture beside the prompt, so the model reads an equation off the page."""
+    seen: dict = {}
+    monkeypatch.setattr(researcher.main.store, "list_sources", lambda: [])
+    model = scripted([final("ok", [], kind="conversational")], seen=seen)
+    with researcher.agent.override(model=model):
+        list(researcher.answer("explain this", reading="THE PAPER", paper_search=False, images=[b"\x89PNG"]))
+    content = seen["turns"][0][-1].parts[-1].content
+    assert isinstance(content, list) and "THE PAPER" in content[0]
+    assert isinstance(content[1], BinaryContent) and content[1].data == b"\x89PNG"
+    assert content[1].media_type == "image/png"
 
 def test_a_course_stands_where_the_graph_would(monkeypatch):
     """The Knowledge Graph's assistant (v8.25.0): graph-free, with the course

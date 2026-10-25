@@ -13,6 +13,7 @@ transcript/
                        or a lecture's beats + the route line
   AnswerMarkdown.tsx — Markdown + KaTeX + citation rendering for answers
   remarkCite.ts      — the remark plugin that turns [n]/[Sn] markers into chips
+  remarkQuote.ts     — the Reader Assistant's ⟦quotes⟧ of the paper, as buttons
   provenance.ts      — the counts under an answer -> the one grounding line
                        (a lecture's comes from its scope instead — see below)
 ```

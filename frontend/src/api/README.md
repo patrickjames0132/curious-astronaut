@@ -17,7 +17,9 @@ api/
                  find a written lesson's images, and place the course in the
                  paper for the Reader's notes (routes/knowledge.py)
   reader.ts    — the Reader card's structured document, its PDF's URL and
-                 contents, and the papers its citations name (routes/graph.py)
+                 contents, where its passages are (a highlight's words and
+                 places, an answer's quotes), and the papers its citations
+                 name                                       (routes/graph.py)
   sessions.ts  — saved workspaces                          (routes/sessions.py)
   settings.ts  — the settings modal's config read/write     (routes/settings.py)
   sources.ts   — the local semantic library                (routes/sources.py)

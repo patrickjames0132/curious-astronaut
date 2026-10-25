@@ -310,7 +310,11 @@ reading them too.
   since v8.38.0 `POST /api/ask_reader` for the Reader's assistant: graph-free
   likewise, with `reading` (the paper laid out by the route from its cached
   document) in the same place, framed as a reading companion that points to
-  the paper's sections, equations and figures by number. Each
+  the paper's sections, equations and figures by number, and since v8.45.0
+  quotes the paper's exact words in ⟦ and ⟧ (`READING_QUOTES`), which the
+  Reader lights in the paper; a passage highlighted in the PDF view also
+  comes pictured (`images`, sent as `BinaryContent` beside the prompt), since
+  a PDF's text spells an equation as loose glyphs. Each
   wraps the stream in `streams.terminated` for the `Done`/`Error` contract
   and serializes it as SSE. There is no router in between — the `orchestrator`
   that used to own that dispatch was deleted in v7.0.0 (see
