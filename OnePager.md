@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.41.0 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.47.0 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -60,6 +60,28 @@ NotebookLM maps your uploaded sources, never the literature's citation
 structure. The graph-as-retrieval-scope binding and the your-library +
 live-graph mix were not found elsewhere. Nothing here depends on that staying
 true.)*
+
+*(Re-swept 2026-10-25, after the Reader's stages 4–7 shipped. Mostly
+third-party sources; nobody has closed the gap. **SpatialRead** is unchanged
+in shape: canvas of Explain/Simplify/Expand nodes, figure screenshots, BYOK
+or Ollama, and experimental "Teaching Assistant / Critical Peer Reviewer /
+Industry Translator" agents. It is free for Ollama, with a $99 lifetime
+license (often $49) for cloud models. Its site claims no citation
+resolution, no citation graph and no prerequisite model, so the Reader's
+`[12]` → real paper and Knowledge Graph margin notes remain ours alone.
+**NotebookLM** was rebranded **Gemini Notebook** on 2026-07-16 (per
+Wikipedia) and added study features (interactive learning overviews,
+quizzes, cinematic video overviews), but it is still grounded in uploaded
+sources, not the literature's citation structure. **Asta** shows no
+graph UI in any official note; a 2026-06 study (arXiv 2606.08301) found its
+cited references unstable across runs. **Google Scholar Labs** (AI search,
+2025-11) is still a limited experiment: summaries under ranked results,
+five questions a session. **ResearchRabbit / Litmaps / Connected Papers** are
+still visualizers (RR's help center says no LLMs in its recommendations;
+paid tiers ~$10/mo). **MyLens's** own site now advertises an MCP inbound
+route, which a rival disputes, so it is still unverified. No product
+combining a citation graph, a prerequisite model and a tutor turned up; the
+nearest is SciSpace Copilot, a reading tutor with no graph.)*
 
 We **leave the storage to the ecosystem** (Semantic Scholar / OpenAlex / arXiv)
 and connect dynamically — no mandatory local corpus, just a thin cache of the AI
@@ -1183,17 +1205,6 @@ than deleted so the plan doesn't get re-proposed.
       settings today, and the Knowledge Graph's knobs live under Agents →
       Tutor. Patrick expects more Knowledge Graph settings to arrive as it
       grows, so the split waits until there's enough to fill its sub-page.
-
-- [ ] **Turn the Tutor's lesson length and images per lesson back into
-      number fields** — two Tutor rows under Agents → Agent Settings.
-      **Lesson length** (`lesson_words`) is an `ExtrasSlider` (100–1500,
-      step 50): make it an incremental number field again, as it was before
-      the slider. **Images per lesson** is an `ExtrasRange` over two knobs, a
-      floor (`min_images`, default 2) and a cap (`images`, default 3): drop
-      the min/max pair for one incremental number field. That means deciding
-      what happens to the floor in the tutor's backend, which today sends a
-      lesson back when it has fewer images than `min_images`. Bring the row
-      hints and the Tutor's README along. *(Patrick, 2026-10-21.)*
 
 - [ ] **Auto-correct spelling in the chat bars** — typos in a question go
       to the agent as typed. Correct them as the reader types, in every chat

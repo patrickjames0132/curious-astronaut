@@ -2,7 +2,10 @@
 
 A config-file editor in the style of Claude Desktop's settings window: a left
 sidebar (search field + grouped nav items) and a right content pane of
-label-left / control-right rows separated by hairline dividers. Opened from
+label-left / control-right rows. A fixed header above the scrolling content
+shows the current section (and sub-page breadcrumb), with the tour and close
+buttons on its right. A hairline divider keeps the fields out of the controls’
+space even when a long section is scrolled. Opened from
 the header's ⚙ button (`App.tsx` holds the visibility state, like the other
 overlays).
 
@@ -84,16 +87,15 @@ overlays).
 - **Agent knobs edit `llm.agents` extras**: a blank input shows the code
   default as a placeholder; typing writes an override into the entry's
   `extras`; clearing deletes the override.
-- **Bounded knobs with a natural range are sliders** (v8.32.0, Patrick):
-  the tutor's lesson length (`ExtrasSlider`, 100–1500 words in steps of 50)
-  and its images per lesson (`ExtrasRange`, one track with two thumbs for
-  `min_images` and `images`, 0–6). Each reads its value out beside it, and
-  unset sits at the code default. A slider can't be cleared like a number
-  box, so a ↺ shows while it's overridden and deletes the override. The two
-  thumbs are one control so the fewest can never stand above the most: the
-  floor's thumb stops at the cap's, and dragging the cap below the floor
-  pulls the floor down with it, so the saved config never holds one above
-  the other.
+- **Lesson length is a number field** (100–1500 words, default 350), like
+  the other numeric agent knobs: typing sets an override and clearing uses
+  the code default. **Images per lesson stays a two-thumb slider**
+  (`ExtrasRange`, `min_images` and `images`, 0–6). Its readout shows the range,
+  and ↺ clears both overrides. The floor's thumb stops at the cap; dragging
+  the cap below the floor pulls the floor down too, so the saved config never
+  holds a minimum above its maximum. The lecturer uses the same range control
+  for minimum/maximum beats (default 7–12). Its track spans 1–30, expanding to
+  preserve a larger configured maximum. Reset clears both beat overrides.
 - **Every section carries a one-paragraph `blurb`** saying what it is for.
 - **Library is a section of four sub-pages** (since v7.29.0; the config
   block is `sources`, the app calls the feature the Library): *General*
@@ -143,7 +145,7 @@ overlays).
   auto-runs once ever on the first open (`TOUR_KEYS.settings`), like the app's
   two phases, then only from the button; Done, Skip, ✕ and Esc all mark it
   seen.
-- **The Agents section is two nav sub-pages of foldable groups** (since
+- **The Agents section is two nav sub-pages** (since
   v7.13.0): *Model Providers* and *Agent Settings*, reached from the sidebar
   tree rather than a tab strip inside the pane. Sub-pages show only while their
   section is selected — the nav is somewhere to navigate, not an outline of
@@ -166,9 +168,14 @@ overlays).
   model suits (small and fast for the scouts, quality for the lecturer and
   researcher, a cloud vendor for the web scout). The description is the
   group's because the whole group *is* the agent.
-- **Group headings fold their own rows.** Both sub-pages keep the modal's
-  ordinary label-hint-control row; what folds is the heading, so the layout
-  matches every other section and long pages can still be tidied. Groups are
+- **Agent Settings uses one tab per agent.** Tabs stay above the scrolling
+  fields, with the selected agent's description, model and tuning knobs together.
+  Arrow keys, Home and End switch tabs; changes remain in the shared draft when
+  switching. Search bypasses tabs and shows every matching row. The tour selects
+  the Lecturer tab before explaining its model.
+- **Model Provider group headings fold their own rows.** Both sub-pages keep
+  the modal's ordinary label-hint-control row; provider headings fold so long
+  credential pages can still be tidied. Groups are
   **open on arrival** — folding is for putting away a section you are done
   with, not a wall to dismantle first — so state is tracked as the set of
   *folded* names. The heading is a `<button>` and therefore needs an explicit
@@ -202,7 +209,7 @@ overlays).
   it: a `<datalist>` is filtered by whatever text the box already holds, so a
   field set to `claude-haiku-4-5` offered the two ids containing that string
   and hid the other eight. A dropdown shows everything, which is the job.
-- **Search ignores sub-pages and folding both.** A query has to reach every
+- **Search ignores sub-pages, tabs and folding.** A query has to reach every
   matching row, and an unselected sub-page or a fold hiding one is the thing
   search exists to avoid.
 

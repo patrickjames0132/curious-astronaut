@@ -445,7 +445,7 @@ export default function SideBar({
           onClick={onOpenSettings}
           title="Settings — the app's configuration, editable in place"
         >
-          <span className="rail-glyph" aria-hidden="true">
+          <span className="rail-glyph settings-glyph" aria-hidden="true">
             ⚙
           </span>
           {open && <span className="rail-label">Settings</span>}

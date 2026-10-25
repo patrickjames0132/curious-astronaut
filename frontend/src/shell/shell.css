@@ -106,6 +106,9 @@
   font-size: 15px;
   line-height: 1;
 }
+.rail-glyph.settings-glyph {
+  font-size: 18px;
+}
 .rail-glyph svg {
   width: 16px;
   height: 16px;

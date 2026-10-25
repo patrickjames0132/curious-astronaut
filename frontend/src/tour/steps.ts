@@ -705,7 +705,7 @@ export const SETTINGS_TOUR: TourStep[] = [
     target: '[data-tour="settings-agent-model"]',
     title: 'One model per agent',
     body:
-      'Agent Settings is where each agent picks its own vendor and model, plus its ' +
+      'Agent Settings has a tab for each agent. Pick a tab to change its vendor, model and ' +
       'tuning knobs. Mixing is normal — a free local model for the lecturer while the web ' +
       'scout stays on a cloud one that can actually search the web.',
     stage: 'agents/agents',

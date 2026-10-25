@@ -190,15 +190,16 @@ describe('SettingsModal', () => {
     })
     // The nav narrows to Agents (the only section with a matching row) and
     // the pane auto-switches to it, showing only the matching rows.
-    expect(await screen.findByText('Minimum beats')).toBeTruthy()
-    expect(screen.getByText('Maximum beats')).toBeTruthy()
+    expect(await screen.findByText('Lecture length')).toBeTruthy()
+    expect(screen.getByLabelText('Minimum lecture beats')).toBeTruthy()
+    expect(screen.getByLabelText('Maximum lecture beats')).toBeTruthy()
     expect(screen.queryByText('Default data source')).toBeNull()
     expect(screen.queryByText('Citations corpus')).toBeNull()
   })
 
   it('agent extras edit into llm.agents, and clearing removes the override', async () => {
     await renderOpen()
-    openAgentTuning()
+    openAgentTuning('Researcher')
     const stepBudget = await screen.findByDisplayValue('20') // researcher max_steps override
     fireEvent.change(stepBudget, { target: { value: '8' } })
     fireEvent.click(await screen.findByText('Save'))
@@ -217,7 +218,7 @@ describe('SettingsModal', () => {
 
   it("the images slider's fewest can't stand above its most", async () => {
     await renderOpen()
-    openAgentTuning()
+    openAgentTuning('Tutor')
     const fewest = (await screen.findByLabelText('Fewest images per lesson')) as HTMLInputElement
     const most = screen.getByLabelText('Most images per lesson') as HTMLInputElement
     // Unset, the thumbs sit at the code defaults.
@@ -241,18 +242,56 @@ describe('SettingsModal', () => {
     expect(screen.getByText('2 – 3')).toBeTruthy()
   })
 
-  it('the lesson length slider writes the override and ↺ clears it', async () => {
+  it('the lecturer beat range stays ordered, saves both bounds and resets them', async () => {
     await renderOpen()
-    openAgentTuning()
-    const length = (await screen.findByLabelText('350 words')) as HTMLInputElement
+    openAgentTuning('Lecturer')
+    const minimum = screen.getByLabelText('Minimum lecture beats') as HTMLInputElement
+    const maximum = screen.getByLabelText('Maximum lecture beats') as HTMLInputElement
+    expect([minimum.value, maximum.value]).toEqual(['7', '12'])
+    fireEvent.change(minimum, { target: { value: '15' } })
+    expect(minimum.value).toBe('12')
+    fireEvent.change(maximum, { target: { value: '5' } })
+    expect([minimum.value, maximum.value]).toEqual(['5', '5'])
+    fireEvent.click(screen.getByText('Save'))
+    await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
+    const saved = fetchState.lastPutBody as { config: AppConfig }
+    expect(saved.config.llm.agents.find((agent) => agent.id === 'lecturer')?.extras).toMatchObject({
+      min_beats: 5,
+      max_beats: 5,
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the default' }))
+    expect([minimum.value, maximum.value]).toEqual(['7', '12'])
+    fireEvent.click(screen.getByText('Save'))
+    await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
+    const reset = fetchState.lastPutBody as { config: AppConfig }
+    const extras = reset.config.llm.agents.find((agent) => agent.id === 'lecturer')?.extras
+    expect(extras?.min_beats).toBeUndefined()
+    expect(extras?.max_beats).toBeUndefined()
+  })
+
+  it('the lesson length number field saves an override, bounds it and clears to the default', async () => {
+    await renderOpen()
+    openAgentTuning('Tutor')
+    const length = (await screen.findByPlaceholderText('350')) as HTMLInputElement
+    expect(length.type).toBe('number')
     fireEvent.change(length, { target: { value: '600' } })
-    expect(screen.getByText('600 words')).toBeTruthy()
-    const reset = screen
-      .getByText('600 words')
-      .closest('.settings-slider')!
-      .querySelector('.settings-slider-reset') as HTMLButtonElement
-    fireEvent.click(reset)
-    expect(screen.getByText('350 words')).toBeTruthy()
+    fireEvent.click(screen.getByText('Save'))
+    await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
+    const body = fetchState.lastPutBody as { config: AppConfig }
+    expect(body.config.llm.agents.find((agent) => agent.id === 'tutor')?.extras?.lesson_words).toBe(
+      600,
+    )
+    fireEvent.change(length, { target: { value: '2000' } })
+    expect(length.value).toBe('1500')
+    fireEvent.change(length, { target: { value: '10' } })
+    expect(length.value).toBe('100')
+    fireEvent.change(length, { target: { value: '' } })
+    fireEvent.click(screen.getByText('Save'))
+    await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
+    const clearedBody = fetchState.lastPutBody as { config: AppConfig }
+    expect(
+      clearedBody.config.llm.agents.find((agent) => agent.id === 'tutor')?.extras?.lesson_words,
+    ).toBeUndefined()
   })
 
   it('the 📁 button picks a file natively and switches to it', async () => {
@@ -283,9 +322,10 @@ describe('SettingsModal', () => {
    *  The section opens on Model providers, so anything about an agent's model
    *  or knobs is one nav click away.
    */
-  function openAgentTuning() {
+  function openAgentTuning(agent = 'Summarizer') {
     fireEvent.click(screen.getByText('Agents'))
     openSubPage('Agent Settings')
+    fireEvent.click(screen.getByRole('tab', { name: agent }))
   }
 
   /** Click a sub-page by name, from the nav rather than the landing page.
@@ -311,7 +351,7 @@ describe('SettingsModal', () => {
 
   it("the model dropdown lists the agent's own vendor plus its current value", async () => {
     await renderOpen()
-    openAgentTuning()
+    openAgentTuning('Lecturer')
     // The model select is scoped to the vendor chosen beside it, so it offers
     // Anthropic's models only — picking Ollama is the vendor select's job.
     const [lecturerModel] = await screen.findAllByDisplayValue('claude-sonnet-4-6')
@@ -365,7 +405,7 @@ describe('SettingsModal', () => {
 
   it('picking a model from the dropdown edits llm.agents', async () => {
     await renderOpen()
-    openAgentTuning()
+    openAgentTuning('Lecturer')
     const [lecturerModel] = await screen.findAllByDisplayValue('claude-sonnet-4-6')
     fireEvent.change(lecturerModel, { target: { value: 'claude-opus-4-8' } })
     fireEvent.click(await screen.findByText('Save'))
@@ -388,7 +428,7 @@ describe('SettingsModal', () => {
 
   it('a positive-only agent knob cannot be driven below 1', async () => {
     await renderOpen()
-    openAgentTuning()
+    openAgentTuning('Researcher')
     const stepBudget = await screen.findByDisplayValue('20') // researcher max_steps
     expect(stepBudget.getAttribute('min')).toBe('1')
     fireEvent.change(stepBudget, { target: { value: '-3' } })
@@ -422,17 +462,27 @@ describe('SettingsModal', () => {
     }
   })
 
-  it('folding an agent hides its model and knobs together', async () => {
+  it('switches agent tabs with the keyboard and keeps edits while search reaches every agent', async () => {
     await renderOpen()
-    openAgentTuning()
-    // Every configured agent shows a vendor select without any unfolding.
-    expect((await screen.findAllByLabelText('Vendor')).length).toBe(6)
-    expect(screen.getByDisplayValue('20')).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: /Researcher/ }))
-    expect(screen.queryByDisplayValue('20')).toBeNull()
-    // The other agents are untouched — folding is per group.
-    expect(screen.getAllByLabelText('Vendor').length).toBe(5)
+    openAgentTuning('Researcher')
+    expect(screen.getAllByLabelText('Vendor')).toHaveLength(1)
+    fireEvent.change(screen.getByDisplayValue('20'), { target: { value: '8' } })
+    const researcherTab = screen.getByRole('tab', { name: 'Researcher' })
+    fireEvent.keyDown(researcherTab, { key: 'ArrowRight' })
+    expect(screen.getByRole('tab', { name: 'Paper scout' }).getAttribute('aria-selected')).toBe(
+      'true',
+    )
+    expect(screen.getByRole('tabpanel', { name: 'Paper scout' })).toBeTruthy()
+    expect(screen.queryByDisplayValue('8')).toBeNull()
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Paper scout' }), { key: 'Home' })
+    expect(screen.getByRole('tab', { name: 'Summarizer' }).getAttribute('aria-selected')).toBe(
+      'true',
+    )
+    fireEvent.click(researcherTab)
+    expect(screen.getByDisplayValue('8')).toBeTruthy()
+    fireEvent.change(screen.getByPlaceholderText('Search settings'), { target: { value: 'Model' } })
+    expect(screen.queryByRole('tablist')).toBeNull()
+    expect(screen.getAllByLabelText('Vendor')).toHaveLength(6)
   })
 
   it('the Anthropic key edits llm.providers', async () => {
@@ -484,9 +534,9 @@ describe('SettingsModal', () => {
     )
     fireEvent.click(buttons[3]) // Ollama's — the groups follow VENDOR_LABELS order
     // The modal moves to Agent Settings — the per-agent Vendor selects only
-    // render there — where every agent now shows the new vendor.
+    // render there — the selected agent immediately shows the new vendor.
     const vendors = (await screen.findAllByLabelText('Vendor')) as HTMLSelectElement[]
-    expect(vendors.length).toBe(6)
+    expect(vendors.length).toBe(1)
     expect(new Set(vendors.map((select) => select.value))).toEqual(new Set(['ollama']))
     fireEvent.click(await screen.findByText('Save'))
     await waitFor(() => expect(screen.queryByText('Unsaved changes')).toBeNull())
