@@ -436,7 +436,7 @@ The Vite dev server proxies `/api/*` to Flask.
      no pattern tells those apart. Every turn it guessed on says which
      assistant answered and offers the other in a click, so a wrong guess
      costs one line rather than a re-typed question.
-   - **Ask** — the research agent answers grounded in what it actually
+   - **Ask** — the upward chevron in each chat bar sends your question. The research agent answers grounded in what it actually
      reads, streaming its tool steps live (read / expand / search the
      literature / search the web / search your sources / show a figure). It
      consults **every source it has** before it commits to an answer — it

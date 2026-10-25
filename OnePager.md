@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.47.0 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.48.1 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -987,18 +987,12 @@ than deleted so the plan doesn't get re-proposed.
       living in this one. Check the other three modes before deciding which.
       *(From the `todos.md` inbox, 2026-08-15.)*
 
-- [ ] **The chat bar's two icons sit small inside their circles** — both
-      buttons are the same 34px disc (`.teacher-ask > button` and its
-      `.ask-clear` variant, `teacher.css`), which was the point; what's off is
-      the *glyph inside* each. The send arrow is a 16px text character in a
-      34px circle and the bin is a 19px SVG, and both read as undersized for
-      the disc around them. Scale each up — the arrow via `font-size`, the bin
-      via its `svg` width/height — and check the pair together rather than one
-      at a time: they sit side by side, so what matters is that they look like
-      the same weight of control, not that either hits a particular number.
-      Watch the stop square (`.stop-glyph`, 9px) too — it shares the send
-      button and has to grow with it or the hover swap will jump.
-      *(From the `todos.md` inbox, 2026-08-14.)*
+- [ ] **Balance the chat bar's clear and stop glyphs** — the send icon
+      shipped as a heavier upward chevron in v8.48.1. Review the bin
+      (`.ask-clear svg`, 19px) and stop square (`.stop-glyph`, 9px) alongside
+      it, so the controls feel balanced inside their 34px circles and the
+      send/stop swap stays steady. The remaining half of the icon-sizing
+      item from the `todos.md` inbox, 2026-08-14.
 
 - [ ] **Animate the arrival of the graph** — the sibling of the chat-motion
       work that shipped in v6.15.0 (see [docs/history.md](docs/history.md)),

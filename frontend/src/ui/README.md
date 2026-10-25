@@ -15,6 +15,8 @@ ui/
                          animation (below)
   Fold.tsx             — a section that opens and closes by animating its
                          height (below)
+  SendGlyph.tsx        — bold upward send chevron, shared by the General,
+                         Citation Graph, Knowledge Graph and Reader composers
   MarkIcon.tsx         — a button's leading mark (+, −, ✓, ✕) drawn as one
                          family on a 12-unit grid, for `.btn-marked` buttons
   SlidersGlyph.tsx     — the folded-controls icon, shared by the citation
