@@ -332,32 +332,6 @@ than deleted so the plan doesn't get re-proposed.
       whatever next touches the reroute. *(From Patrick, 2026-09-15, while
       handing off v7.23.0: "that's okay for now".)*
 
-- [ ] **Click a library citation to open the source at that page** — Part 2 of
-      the citation ticket whose Part 1 shipped in **v6.6.0** (see
-      [docs/history.md](docs/history.md)). Citations now *resolve*: the model
-      writes `[S1, p.243]`, the server hands the frontend a real source id, and
-      the reader sees *"(Reinforcement Learning: An Introduction, p.460)"*. What's
-      missing is the click — it renders as quiet grey text, not a control.
-      **The blocker is that there is no page viewer, which the original ticket
-      wrongly assumed existed:** the only source-image route is
-      `/api/sources/<id>/figure/<n>`, which serves one *mined manifest entry*,
-      and nothing in the frontend displays an arbitrary page. Two halves:
-      **(a) backend, small** — `pdf/floats.py`'s `render_float` already
-      rasterizes a clipped page region via PyMuPDF, so a whole-page render is
-      the same call without the clip; add `/api/sources/<id>/page/<n>`.
-      **(b) frontend, a new surface** — decide how a page is shown (a lightbox
-      like `FigCard`'s? a docked reader?), which is the real design work here.
-      Then make `.source-ref` a button. Note the page-render path has no
-      caption-anchoring dependency, so unlike figure mining it works on any
-      PDF-backed source — but URL sources have no stored PDF and must degrade
-      to nothing clickable — but should still get the link-blue treatment, so
-      a library citation reads like a paper citation either way. **Supersedes**
-      the frontend prose-highlight bandaid, built and then removed 2026-07-24 —
-      that highlight could never be clickable without the structured reference
-      v6.6.0 added. (Also absorbed, 2026-10-02, the UI theme's highlight-only
-      "Highlight inline library-source references like paper links" ticket of
-      2026-07-19, which predated both.)
-      *(From #2 of the 2026-07-24 front-end quick-wins pass.)*
 - [ ] **The guard is gated on a field the model writes** — a known weakness in
       `_must_have_looked`, kept here because the guard itself is core: it only
       fires on an `answered` turn, and `kind` is self-reported, so labelling a
@@ -1116,9 +1090,9 @@ than deleted so the plan doesn't get re-proposed.
       a web page. Give the library an **alias** — an editable display name set
       after upload — and render *that* wherever the source is named to the user
       (the `[Sn]` marker's resolved title, the trace chips, the library list).
-      Pairs naturally with "Click a library citation to open the source at
-      that page" (Teacher & agent reach): no point making a citation a
-      control while the text inside it is a hash.
+      Matters more since v8.51.0 made a library citation a link that opens
+      its PDF at the page (see [docs/history.md](docs/history.md)): a
+      control whose text is a hash is a poor control.
       **Design notes:** the alias is presentation-only — retrieval, embeddings,
       and the stored source id must not key on it, or renaming would invalidate
       the index. Keep the original name visible somewhere (tooltip, or beneath
@@ -1207,15 +1181,6 @@ than deleted so the plan doesn't get re-proposed.
       textarea: underlines only, no correction) and a real auto-correct, and
       keep it away from what must not change: `@` mentions, arXiv ids, paper
       titles and math. *(From the `todos.md` inbox, 2026-10-22.)*
-
-- [ ] **Make library source references clickable in every chat** — in a chat
-      answer a `[Sn, p.N]` citation renders as plain text, "(title, p.N)"
-      (`teacher/transcript/AnswerMarkdown.tsx`, a `.source-ref` span), with
-      nothing to click; Patrick believes the Knowledge Graph's lesson images
-      already link to their library source. Make the chat references open
-      the source at that page too, in all three chats, and check the lesson
-      images to reuse whatever they do. *(From the `todos.md` inbox,
-      2026-10-22.)*
 
 ### Enhancements & tech debt
 
@@ -1769,7 +1734,9 @@ than deleted so the plan doesn't get re-proposed.
          for arXiv papers. A pdf.js viewer covers every open-access paper but
          can't practically link citations or terms. The fallback viewer is
          also what blocks "Click a library citation to open the source at
-         that page", so building it unblocks that item too. Constraints from
+         that page", so building it unblocks that item too. (That item
+         shipped in v8.51.0 without it, as a link opening the PDF in a new
+         tab, the way a lesson image's credit does.) Constraints from
          [docs/pdf-mining.md](docs/pdf-mining.md): whole PDFs already sit on
          disk under `services/pdf`, PyMuPDF is the optional `pdf` extra (the
          card must degrade without it), and only open-access papers have a
@@ -1798,9 +1765,10 @@ than deleted so the plan doesn't get re-proposed.
       3. ✓ **Shipped in v8.40.0**: the PDF view, with a Text / PDF switch,
          a table of contents (the PDF's bookmarks, else headings found in
          its text), and the highlight menu and Reader Assistant working on
-         it. The full story is in [docs/history.md](docs/history.md). Still
-         open from it: "Click a library citation to open the source at that
-         page" can now be built on the PDF view.
+         it. The full story is in [docs/history.md](docs/history.md). It
+         also unblocked "Click a library citation to open the source at that
+         page", which shipped in v8.51.0 as a new-tab link to the stored PDF
+         rather than a page in this view.
       4. ✓ **Shipped in v8.43.0**: the citation cards. Hover a citation to
          preview the paper it cites, click to pin; Open, Read, Show in
          Citation Graph and Reference ↓. The full story is in

@@ -529,10 +529,13 @@ export async function streamAsk(
  * resolved server-side (the model only ever writes the index).
  */
 export interface SourceRef {
-  /** The real source id — what a click will open once the viewer lands. */
+  /** The real source id — what a click opens (`/api/sources/<id>/pdf`). */
   source_id: string
   /** The source's stored title, rendered in place of the marker. */
   title: string
+  /** It has a stored PDF, so the marker opens it at its page. Absent on
+   *  saves from before the flag, which stay plain text. */
+  pdf?: boolean
 }
 
 /**

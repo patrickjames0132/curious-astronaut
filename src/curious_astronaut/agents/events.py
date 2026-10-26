@@ -171,12 +171,16 @@ class SourceRef(BaseModel):
     The model only ever writes an index (``[S3, p.243]``); this is what that
     index means. ``title`` rides along so the frontend can render the marker
     as the human-readable *"(Deep Learning, p.243)"* without a second fetch.
+    ``pdf`` says whether the source has a stored PDF, so the frontend can make
+    the marker a link that opens it at the cited page; a URL source (or a
+    pre-v5.28 upload) has none and stays plain text.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     source_id: str
     title: str
+    pdf: bool = False
 
 
 class SourceRefs(BaseModel):

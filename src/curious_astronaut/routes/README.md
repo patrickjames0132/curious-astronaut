@@ -356,7 +356,7 @@ failure is a canned 500 with details in the log.
 | `POST /api/sources` | ingest a PDF upload or a `{url}`, streaming SSE progress |
 | `DELETE /api/sources/<id>` | remove a source — `{deleted: bool}`, idempotent |
 | `GET /api/sources/<id>/figure/<n>` | one figure mined from the source's stored PDF, as PNG |
-| `GET /api/sources/<id>/pdf` | the source's stored PDF itself, so a lesson image's credit opens the book at its page (`#page=N`, v8.24.0); 404 for an unknown source or one with no stored file |
+| `GET /api/sources/<id>/pdf` | the source's stored PDF itself, so a lesson image's credit, or a chat's `[Sn, p.N]` citation, opens the book at its page (`#page=N`, v8.24.0); 404 for an unknown source or one with no stored file |
 
 Thin wrappers over `services/sources`. Points worth knowing:
 

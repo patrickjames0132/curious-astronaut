@@ -17,6 +17,7 @@ from pydantic_ai.messages import ModelRequest, ModelResponse
 
 from curious_astronaut.agents import prompts
 from curious_astronaut.services.graph import Node
+from curious_astronaut.services.sources import store as sources_store
 
 
 def test_skill_loads_prompt_ready_markdown():
@@ -188,9 +189,17 @@ def test_source_refs_resolves_only_the_markers_used():
     # (it rides on the marker, not the map).
     refs = prompts.source_refs(sources, "As shown [S1, p.243] and [S9, p.1] — also [S2].")
     assert refs == {
-        "1": {"source_id": "src-dl", "title": "Deep Learning"},
-        "2": {"source_id": "src-web", "title": "A Web Page"},
+        "1": {"source_id": "src-dl", "title": "Deep Learning", "pdf": False},
+        "2": {"source_id": "src-web", "title": "A Web Page", "pdf": False},
     }
+
+
+def test_source_refs_flags_a_source_with_a_stored_pdf():
+    # A stored PDF makes the marker a link to it; a URL source has none.
+    sources_store.pdf_path("src-dl").write_bytes(b"%PDF-1.4")
+    refs = prompts.source_refs(prompts.source_order(_library_hits()), "")
+    assert refs["1"]["pdf"] is True
+    assert refs["2"]["pdf"] is False
 
 
 def test_source_refs_with_no_text_maps_the_whole_library():

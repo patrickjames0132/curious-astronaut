@@ -468,7 +468,8 @@ The Vite dev server proxies `/api/*` to Flask.
      nodes wired together** builds that paper's own graph. Answers also cite their whole grounding set — click the bubble
      to re-light them all. A claim drawn from **your own uploaded sources** is
      attributed with its real title and page, resolved server-side rather than
-     written out by the model.
+     written out by the model; when it's a PDF you uploaded, clicking the
+     citation opens it at that page in a new tab.
      Underneath each answer, a line says what actually grounded it — which of
      your sources, which papers, how much of the web — computed from what the
      agent did, not from what it claims. When nothing grounded it, it says that too: Curious Astronaut grounds

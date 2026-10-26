@@ -1001,8 +1001,10 @@
   vertical-align: -0.04em;
 }
 /* A library citation ([Sn, p.N]) rendered as its source's real title and page.
-   Not a button yet — opening the source at that page is the follow-up ticket;
-   until then it reads as a quiet attribution rather than a dead control.
+   One with a stored PDF is a `.cite-ref` link (`.source-ref-link`) that opens
+   the book at the page, in the accent like a paper citation. This plain form
+   is for one with no file to open (a URL source), and for a paper citation
+   with nowhere to go: a quiet attribution rather than a dead control.
 
    It WRAPS, and that is load-bearing (v7.10.0). This element holds a real
    book/paper title — "(Deep Learning, p.460)", or a whole paper title on the
@@ -1014,6 +1016,10 @@
 .source-ref {
   color: var(--muted);
   font-size: 0.94em;
+}
+.source-ref-link {
+  font-size: 0.94em;
+  text-decoration: none;
 }
 /* Figures the agent pulled into its answer (show_figure). */
 .chat-figs {

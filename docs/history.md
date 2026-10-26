@@ -2562,6 +2562,74 @@ now lives in the parent exploration; switching graphs resumes its own transcript
 
 ### Bring-your-own sources
 
+- [x] **Library citations open their source at the page** *(v8.51.0)* —
+      a `[Sn, p.N]` citation in any chat answer (General, the Citation Graph,
+      Knowledge Graph and Reader assistants, and lectures) now opens the
+      source's stored PDF at that page in a new tab, the same
+      `/api/sources/<id>/pdf#page=N` route a lesson image's credit has used
+      since v8.24.0. It closes two Backlog items at once, kept verbatim
+      below: the older Part 2 of the v6.6.0 citation ticket, and the
+      `todos.md` one that rediscovered it.
+
+      **The one fact the frontend lacked.** The `SourceRefs` map carried only
+      `{source_id, title}`, which can't tell a book from a web page. Each ref
+      now carries `pdf`, set server-side in `prompts.source_refs` from
+      `sources_store.pdf_path(id).exists()`, the same check the `/pdf` route
+      makes, so a link is only drawn where the route will serve a file. Every
+      chat streams its refs through that one function (the researcher behind
+      all four chats, and the lecturer), so there was nothing per-chat to do.
+
+      **Decisions worth keeping.** (1) **A new tab, not the Reader** (Patrick,
+      2026-10-25): the Reader's PDF view (v8.40.0) removed the "no page
+      viewer" blocker, but it is built around papers, and teaching it to open
+      a library book is its own piece of work; the browser's viewer at
+      `#page=N` was already proven by the lesson images. (2) **A source with
+      no PDF stays quiet grey text**, not link blue. The older ticket asked
+      for blue on URL sources too, but blue that does nothing on click reads
+      as broken, the thing the `.source-ref` comment existed to avoid; the
+      linked form takes `.cite-ref`'s accent and hover instead. A URL
+      source's citation could open the web page itself, a possible follow-up.
+      (3) **Old saves stay plain**: a ref saved before the flag has no `pdf`,
+      and the frontend links only on `pdf: true`.
+
+      *The two Backlog items it closes:*
+
+      - [x] **Click a library citation to open the source at that page** — Part 2 of
+            the citation ticket whose Part 1 shipped in **v6.6.0** (see
+            [docs/history.md](docs/history.md)). Citations now *resolve*: the model
+            writes `[S1, p.243]`, the server hands the frontend a real source id, and
+            the reader sees *"(Reinforcement Learning: An Introduction, p.460)"*. What's
+            missing is the click — it renders as quiet grey text, not a control.
+            **The blocker is that there is no page viewer, which the original ticket
+            wrongly assumed existed:** the only source-image route is
+            `/api/sources/<id>/figure/<n>`, which serves one *mined manifest entry*,
+            and nothing in the frontend displays an arbitrary page. Two halves:
+            **(a) backend, small** — `pdf/floats.py`'s `render_float` already
+            rasterizes a clipped page region via PyMuPDF, so a whole-page render is
+            the same call without the clip; add `/api/sources/<id>/page/<n>`.
+            **(b) frontend, a new surface** — decide how a page is shown (a lightbox
+            like `FigCard`'s? a docked reader?), which is the real design work here.
+            Then make `.source-ref` a button. Note the page-render path has no
+            caption-anchoring dependency, so unlike figure mining it works on any
+            PDF-backed source — but URL sources have no stored PDF and must degrade
+            to nothing clickable — but should still get the link-blue treatment, so
+            a library citation reads like a paper citation either way. **Supersedes**
+            the frontend prose-highlight bandaid, built and then removed 2026-07-24 —
+            that highlight could never be clickable without the structured reference
+            v6.6.0 added. (Also absorbed, 2026-10-02, the UI theme's highlight-only
+            "Highlight inline library-source references like paper links" ticket of
+            2026-07-19, which predated both.)
+            *(From #2 of the 2026-07-24 front-end quick-wins pass.)*
+
+      - [x] **Make library source references clickable in every chat** — in a chat
+            answer a `[Sn, p.N]` citation renders as plain text, "(title, p.N)"
+            (`teacher/transcript/AnswerMarkdown.tsx`, a `.source-ref` span), with
+            nothing to click; Patrick believes the Knowledge Graph's lesson images
+            already link to their library source. Make the chat references open
+            the source at that page too, in all three chats, and check the lesson
+            images to reuse whatever they do. *(From the `todos.md` inbox,
+            2026-10-22.)*
+
 - [x] **Structured library citations — the model cites an index, the reader
       sees a title** *(v6.6.0)* — Part 1 of the "make inline library-source
       citations first-class" ticket (Part 2, clickable-to-page, stayed in the

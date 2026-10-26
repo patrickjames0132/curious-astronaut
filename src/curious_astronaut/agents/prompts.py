@@ -32,6 +32,7 @@ from pydantic_ai.messages import (
 )
 
 from ..services.graph import Node, Provider
+from ..services.sources import store as sources_store
 
 SKILLS_DIR = Path(__file__).parent / "skills"
 
@@ -318,8 +319,9 @@ def source_refs(sources: Sequence[dict], text: str) -> dict[str, dict]:
             emit, before any prose exists).
 
     Returns:
-        ``{"3": {"source_id": ..., "title": ...}, ...}`` — keyed by the
-        marker's index as a string. Out-of-range indices are dropped: a
+        ``{"3": {"source_id": ..., "title": ..., "pdf": ...}, ...}`` — keyed
+        by the marker's index as a string, ``pdf`` true when the source has a
+        stored PDF a click can open. Out-of-range indices are dropped: a
         hallucinated marker degrades to plain text, it never raises.
     """
     if text:
@@ -327,7 +329,11 @@ def source_refs(sources: Sequence[dict], text: str) -> dict[str, dict]:
     else:
         wanted = set(range(1, len(sources) + 1))
     return {
-        str(index): {"source_id": sources[index - 1]["id"], "title": sources[index - 1]["title"]}
+        str(index): {
+            "source_id": sources[index - 1]["id"],
+            "title": sources[index - 1]["title"],
+            "pdf": sources_store.pdf_path(sources[index - 1]["id"]).exists(),
+        }
         for index in sorted(wanted)
         if 1 <= index <= len(sources)
     }

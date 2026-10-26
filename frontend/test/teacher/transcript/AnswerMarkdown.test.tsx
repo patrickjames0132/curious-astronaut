@@ -84,6 +84,28 @@ describe('AnswerMarkdown library citations', () => {
     expect(onRefClick).toHaveBeenCalledWith('node-fourteen')
     expect(screen.getByText('(Reinforcement Learning: An Introduction, p.460)')).toBeTruthy()
   })
+
+  it('links a source with a stored PDF to that page, in a new tab', () => {
+    const withPdf = { '2': { ...SOURCE_REFS['2'], pdf: true } }
+    render(<AnswerMarkdown text="Defined recursively [S2, p.460]." sourceRefs={withPdf} />)
+    const link = screen.getByRole('link', {
+      name: '(Reinforcement Learning: An Introduction, p.460)',
+    })
+    expect(link.getAttribute('href')).toBe('/api/sources/src-rl/pdf#page=460')
+    expect(link.getAttribute('target')).toBe('_blank')
+  })
+
+  it('links a page-less citation to the start of the PDF', () => {
+    const withPdf = { '2': { ...SOURCE_REFS['2'], pdf: true } }
+    render(<AnswerMarkdown text="A note [S2]." sourceRefs={withPdf} />)
+    expect(screen.getByRole('link').getAttribute('href')).toBe('/api/sources/src-rl/pdf')
+  })
+
+  it('leaves a source with no stored PDF as plain text', () => {
+    // A URL source, or a save from before the flag: nothing to open.
+    render(<AnswerMarkdown text="Defined recursively [S2, p.460]." sourceRefs={SOURCE_REFS} />)
+    expect(screen.queryByRole('link')).toBeNull()
+  })
 })
 
 describe('AnswerMarkdown paper citations with no graph', () => {

@@ -14,7 +14,8 @@
  *     and, with no graph to glow, resolved through `paperRefs` into a button
  *     that maps that paper instead,
  *   • `[Sn, p.N]` markers, rendered as the library source's real title and
- *     page from the answer's `sourceRefs` map,
+ *     page from the answer's `sourceRefs` map — a link that opens the
+ *     source's stored PDF at that page in a new tab when it has one,
  *   • ⟦quotes⟧ of the paper being read (the Reader Assistant's, v8.45.0) via
  *     `remarkQuote`, as quotes that light their place in the paper when
  *     clicked (`onQuote`), or plain quotes without it.
@@ -193,9 +194,12 @@ export default function AnswerMarkdown({
         )
       },
       // A library citation from remarkCite. The model wrote `[S2, p.460]`; the
-      // reader gets the source's real title and page. Unresolved (a
-      // hallucinated index, or an old save with no map) degrades to the raw
-      // marker, same as an unresolved `[n]`.
+      // reader gets the source's real title and page, and a source with a
+      // stored PDF opens it at that page in a new tab, the way a lesson
+      // image's credit does. One with none (a URL source, an old upload, or a
+      // save from before the flag) stays the quiet attribution it was.
+      // Unresolved (a hallucinated index, or an old save with no map)
+      // degrades to the raw marker, same as an unresolved `[n]`.
       sourceref: ({
         index,
         page,
@@ -207,11 +211,25 @@ export default function AnswerMarkdown({
       }) => {
         const source = index && sourceRefs ? sourceRefs[index] : undefined
         if (!source) return <>{children}</>
+        const label = `(${source.title}${page ? `, p.${page}` : ''})`
+        if (!source.pdf) {
+          return (
+            <span className="source-ref" title={source.title}>
+              {label}
+            </span>
+          )
+        }
         return (
-          <span className="source-ref" title={source.title}>
-            ({source.title}
-            {page ? `, p.${page}` : ''})
-          </span>
+          <a
+            className="cite-ref source-ref-link"
+            href={`/api/sources/${encodeURIComponent(source.source_id)}/pdf${page ? `#page=${page}` : ''}`}
+            target="_blank"
+            rel="noreferrer"
+            title={page ? `Open ${source.title} at page ${page}` : `Open ${source.title}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {label}
+          </a>
         )
       },
       // The paper's words, quoted (remarkQuote): a click lights them in it.
