@@ -185,7 +185,8 @@ def api_source_pdf(source_id: str) -> ResponseReturnValue:
     """Serve a source's stored PDF, so a credit can open the book (v8.24.0).
 
     A lesson image from a library figure links its credit here with
-    ``#page=N``, which the browser's own PDF viewer opens at the page.
+    ``#page=N``, which the browser's own PDF viewer opens at the page, and
+    so does a chat's ``[Sn, p.N]`` citation of a source with a stored PDF.
 
     Args:
         source_id: The source's id. Only a source the library holds is

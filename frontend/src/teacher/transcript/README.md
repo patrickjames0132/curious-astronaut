@@ -97,7 +97,11 @@ transcript/
   *shape*; whether a marker resolves is decided at render time — `[n]` from
   the answer's `graphRefs` map (highlight a paper on the current graph) or
   `paperRefs` map (graph icon opens that paper's graph thread directly), and
-  `[Sn]` from `sourceRefs` (the real source title and page). The spotlight and
+  `[Sn]` from `sourceRefs` (the real source title and page). A source with a
+  stored PDF (`pdf` on its ref) is a link that opens it at that page in a new
+  tab, `/api/sources/<id>/pdf#page=N`, the way a lesson image's credit opens
+  its book; one without (a URL source, or a save from before the flag) stays
+  quiet grey text. The spotlight and
   graph glyphs distinguish these actions; neither opens a paper modal.
   Unresolved markers retain their text. Whole-answer and beat clicks can still
   spotlight the associated papers.

@@ -273,7 +273,11 @@ the backend knows which of the user's sources a turn retrieved. The map is
 keyed by index alone and carries no page — the page is already in the marker
 — which is what lets it be emitted *before* the prose, so a marker renders as
 a real title the moment it streams instead of showing raw until the answer
-lands. Both agents that show library passages use this: the researcher
+lands. Each entry also carries `pdf`, whether the source has a stored PDF
+(`sources_store.pdf_path`), so the frontend can make the marker a link that
+opens it at the cited page (`/api/sources/<id>/pdf#page=N`, the route a
+lesson image's credit uses); a URL source has none and stays plain text.
+Both agents that show library passages use this: the researcher
 (`search_sources`) and the lecturer (intuition mode). `history(turns)`
 converts the routes layer's `[{role, content}]` turns into PydanticAI
 message history.
