@@ -91,6 +91,11 @@ CITATIONS_COLUMNS = (
 #: Progress callback: ``(dataset, shard_filename, shard_index, shard_total)``.
 ProgressFn = Callable[[str, str, int, int], None]
 
+#: What an ingest builds, in order: the two downloaded datasets, then the
+#: citing sentences (``contexts.py``), which are read from the same raw
+#: citations shards and need the papers' counts to pick which citers to keep.
+INGEST_DATASETS: tuple[str, ...] = ("papers", "citations", "contexts")
+
 #: How many citations shards one worker process ingests before being replaced.
 #: The partitioned write slows down **per process**, not per connection or per
 #: directory: repeating the same shard-sized COPY in one process degraded
@@ -487,7 +492,7 @@ def build_arxiv_index(connection: duckdb.DuckDBPyConnection, paths: ReleasePaths
 def ingest_release(
     release_id: str,
     *,
-    datasets_wanted: tuple[str, ...] = ("papers", "citations"),
+    datasets_wanted: tuple[str, ...] = INGEST_DATASETS,
     on_progress: ProgressFn | None = None,
 ) -> None:
     """Ingest a downloaded release's shards into queryable Parquet.
@@ -501,9 +506,9 @@ def ingest_release(
 
     Args:
         release_id: The release to ingest (must already be downloaded).
-        datasets_wanted: Which datasets to ingest — defaults to both. ``papers``
-            is ingested before ``citations`` when both are present, so the arXiv
-            index is ready.
+        datasets_wanted: What to build — defaults to :data:`INGEST_DATASETS`.
+            ``papers`` is ingested first, so the arXiv index is ready, and
+            ``contexts`` last, since it ranks citers by the papers' counts.
         on_progress: Optional per-shard callback (see :data:`ProgressFn`).
 
     Raises:
@@ -521,7 +526,8 @@ def ingest_release(
 
     # papers first (citations don't depend on it, but the arXiv index does, and
     # ordering keeps a combined run's index fresh before anything queries it).
-    for dataset in sorted(datasets_wanted, key=lambda name: name != "papers"):
+    downloaded = [name for name in datasets_wanted if name != "contexts"]
+    for dataset in sorted(downloaded, key=lambda name: name != "papers"):
         raw_dir = paths.raw_dataset(dataset)
         shards = sorted(raw_dir.glob("*.gz"))
         if not shards:
@@ -555,6 +561,22 @@ def ingest_release(
                 build_arxiv_index(connection, paths)
 
     connection.close()
+    if "contexts" in datasets_wanted:
+        from . import contexts  # imports this module, so not at the top
+
+        def on_overall(unit: str, done: int, total: int) -> None:
+            """Report the sentences' build through the per-shard callback.
+
+            Args:
+                unit: What's being counted.
+                done: How many are finished.
+                total: How many there are.
+            """
+            # A dataset name per stage, so a bar keyed on it restarts between them.
+            if on_progress and done < total:
+                on_progress(f"contexts ({unit})", "", done + 1, total)
+
+        contexts.build_from_raw(paths, on_overall=on_overall)
 
 
 def compact_release(release_id: str) -> bool:

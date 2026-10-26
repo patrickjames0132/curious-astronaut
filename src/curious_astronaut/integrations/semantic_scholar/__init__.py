@@ -46,6 +46,7 @@ from .search import match_title, search_papers
 from .traversal import (
     citation_relations,
     citations,
+    citing_sentences,
     get_paper,
     get_papers,
     recommendations,
@@ -57,6 +58,7 @@ __all__ = [
     "S2Error",
     "citation_relations",
     "citations",
+    "citing_sentences",
     "corpus",
     "get_paper",
     "get_papers",

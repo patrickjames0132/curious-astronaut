@@ -50,6 +50,7 @@ from typing import TYPE_CHECKING, Callable, Protocol
 
 from .... import optional
 from ...caps import LATEST_NODES_PER_BAND, LATEST_NUMBER_OF_BANDS, UNBOUNDED_LANDMARK_CAP
+from . import contexts
 from . import paths as corpus_paths
 from .ingest import NBUCKETS
 from .paths import ReleasePaths, read_current_release
@@ -519,6 +520,54 @@ class DuckDBCitationSource:
         entries.sort(key=lambda entry: entry["node"]["pub_date"] or "", reverse=True)
         return entries
 
+    def citing_sentences(self, corpus_id: int, *, limit: int) -> list[dict] | None:
+        """A paper's most-cited citers and the sentences in which they cite it.
+
+        Reads the contexts table (``contexts.py``), which holds only citers with
+        at least ``contexts.MIN_CITER_CITATIONS`` citations, so this is the
+        top of the citer ranking by construction. Two-phase like the
+        landmarks: rank narrow, hydrate the winners wide.
+
+        The table is deduplicated by ``citationid``, but a refreshed bucket or
+        a citer with two edge records can still hold a sentence twice, so the
+        sentences are grouped per citer and deduplicated here, in order.
+
+        Args:
+            corpus_id: The cited paper's ``corpusid``.
+            limit: How many citers to return.
+
+        Returns:
+            ``{"node", "sentences"}`` entries, most-cited citer first; ``[]``
+            when the paper has no kept sentences; None when this release has no
+            complete contexts table (the caller falls back to the live API).
+        """
+        if not contexts.is_complete(self._paths):
+            return None
+        bucket = corpus_id % NBUCKETS
+        contexts_glob = (
+            self._paths.parquet_dataset(contexts.DATASET) / f"bucket={bucket}" / "*.parquet"
+        ).as_posix()
+        query = (
+            "SELECT p.corpusid, c.sentences FROM ("
+            "  SELECT citingcorpusid, flatten(list(contexts ORDER BY citationid)) AS sentences "
+            f"  FROM read_parquet('{contexts_glob}', hive_partitioning=false) "
+            "  WHERE citedcorpusid = ? GROUP BY citingcorpusid"
+            ") c "
+            f"JOIN read_parquet('{self._papers_glob}') p ON p.corpusid = c.citingcorpusid "
+            "ORDER BY p.citationcount DESC NULLS LAST, p.corpusid "
+            f"LIMIT {int(limit)}"
+        )
+        ranked = self._run(query, [corpus_id])
+        hydrated = self._hydrate_citers([int(row[0]) for row in ranked])
+        entries = []
+        for citer_id, sentences in ranked:
+            paper_row = hydrated.get(int(citer_id))
+            if paper_row is None:
+                continue
+            unique = list(dict.fromkeys(" ".join(text.split()) for text in sentences if text))
+            entries.append({"node": _row_to_entry((*paper_row, False))["node"], "sentences": unique})
+        return entries
+
 
 def active_source() -> DuckDBCitationSource | None:
     """The corpus source for the active release, or None when unavailable.
@@ -661,3 +710,29 @@ def citation_relations(
     # toward the present.
     latest.reverse()
     return landmark, latest
+
+
+def citing_sentences(seed_paper: dict, seed_ref: str, *, limit: int) -> list[dict] | None:
+    """A paper's most-cited citers with their citing sentences — or None to fall back.
+
+    The Peer Reviews card's corpus path: the citation-count ranking only the
+    corpus can serve, restricted to citers whose sentences the contexts table
+    keeps. Resolves the seed exactly as :func:`citation_relations` does.
+
+    Args:
+        seed_paper: The normalized paper node (its ``arxiv_id`` drives resolution).
+        seed_ref: The raw reference (a ``CorpusId:`` fallback for resolution).
+        limit: How many citers to return.
+
+    Returns:
+        ``{"node", "sentences"}`` entries, most-cited first; None when the
+        corpus is off, can't resolve the paper, or has no complete contexts
+        table, signalling the caller to use the live API.
+    """
+    source = active_source()
+    if source is None:
+        return None
+    corpus_id = source.resolve_corpus_id(seed_paper.get("arxiv_id"), seed_ref)
+    if corpus_id is None:
+        return None
+    return source.citing_sentences(corpus_id, limit=limit)

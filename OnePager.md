@@ -1858,123 +1858,19 @@ than deleted so the plan doesn't get re-proposed.
       screens; how it behaves on narrow windows; whether the icon's position
       is remembered.
 
-- [ ] **Peer Reviews card — what did the field object to?** *(ex
-      "Criticism")* — a fourth card on
-      the thread's card home, beside Citation Graph, Knowledge Graph and Reader:
-      the paper's known weaknesses, each quoted from the later paper that
-      raised it. Workshopped 2026-10-22 as a "Reviews" card built on
-      OpenReview; prototyped and filed from `docs/brainstorm.md` 2026-10-24,
-      when two findings flipped it to lead with the literature and keep
-      OpenReview as an add-on.
-
-      **Settled with Patrick 2026-10-25:** the name is **Peer Reviews** (the
-      field reviewing the paper; v2's OpenReview reviews join under the same
-      name, so the card's help text says where v1's critiques come from).
-      v1 is as proposed below. The card **always shows**, with an honest
-      empty state. The "review it yourself first" exercise is **not in v1**.
-      The rest of this entry was written before those decisions.
-
-      **Why not OpenReview first.** Public reviews exist mostly for recent
-      ML: ICLR and TMLR publish them for every submission, NeurIPS for
-      accepted papers only, ICML and ACL mostly not. Attention (NeurIPS 2017)
-      and DQN predate it, and most journal papers have nothing. And as of
-      2026-10-24 **guest reads are blocked**: title search (`notes/search`)
-      still answers without login, but fetching a forum's reviews, or even
-      one note by id, returns `403 ChallengeRequiredError` on both
-      `api.openreview.net` and `api2.openreview.net`, presumably hardening
-      after the November 2025 reviewer-identity leak. Whether a logged-in
-      account gets past the challenge is **untested**; if it does, every user
-      needs their own OpenReview login, the first required account for a core
-      feature. Search hits can also be DBLP-imported records rather than the
-      real review forum, so matching needs care. *(Sources:
-      [NeurIPS 2021 policy](https://blog.neurips.cc/2021/04/09/neurips-2021-changes-to-the-review-process/),
-      still in the
-      [2025 reviewer guidelines](https://neurips.cc/Conferences/2025/ReviewerGuidelines);
-      ~17 public accepted reviews per rejected one at NeurIPS 2024,
-      [arXiv 2511.23439](https://arxiv.org/pdf/2511.23439); scores not
-      comparable across areas, [arXiv 2607.27209](https://arxiv.org/pdf/2607.27209);
-      ICLR's score reset, [response](https://blog.iclr.cc/?p=1063) and
-      [retrospective](https://blog.iclr.cc/2026/03/31/a-retrospective-on-the);
-      [OpenReview's incident analysis](https://openreview.net/forum/user%7Cinitial_analysis_of_openreview_api_security_incident).)*
-
-      **The source: S2 citation contexts.** S2 returns the sentence in which
-      a citing paper cites this one (`contexts`, plus `intents` labels that
-      have no "disagrees" value and are often null). Nothing in `src/` reads
-      them today. Measured 2026-10-24:
-      - **Coverage is good for ML papers:** 54–84% of citers carry a
-        sentence (Attention 54%, ResNet 62%, Adam 71%, BERT 72%, DDPM 73%,
-        DQN 84%; first 1,000 citers each), against 29% across the whole
-        corpus. Open access doesn't explain the gaps: closed-access citers
-        had sentences *more* often. Cause unknown.
-      - **Critique is rare:** about 4% of sentences, after a model judges
-        them. Most citations are background ("we use Adam [23]").
-      - **Which citers matters more than how many.** S2's citations
-        endpoint returns **newest first** and can't sort; 99% of the 2–4k
-        citers it would page through were from 2026, mostly uncited, and the
-        card they produced was this month's passing mentions. Taking the
-        **top 200 citers by their own citation count** instead (via the
-        corpus) produced the field's real responses: Attention's quadratic
-        cost quoted from *Linformer*, *FlashAttention-2* and *Code Llama*;
-        better positional encodings from *Swin V2*, *BLOOM* and *BERT4Rec*;
-        data hunger from *ViViT*. DDPM's slow sampling from *Latent
-        Diffusion* and *Improved DDPM*; uncompetitive likelihoods; poor
-        few-step sampling from *Diffusion Models Beat GANs*; the fixed
-        variance from *Point-E*; 64-bit precision from *Variational
-        Diffusion Models*.
-      - **The critic is usually the fixer.** Linformer, FlashAttention,
-        Improved DDPM and Latent Diffusion each name the weakness *and are
-        its fix*. So the workshop's hardest part, "what happened next" (did
-        later work fix, confirm or dismiss each concern?), mostly falls out
-        of the quote's own source, which is already a Citation Graph node.
-
-      **Proposed pipeline** (the prototype's, ~20–30s per paper): rank the
-      citers by citation count → take the top ~200 with a sentence → a cheap
-      model (`summarizer`) judges each sentence "critique of *this* paper or
-      not" → a strong model (`researcher`) groups critiques into ≤8 themes,
-      citing sentence ids → **code verifies every id** against the real
-      sentences and drops any that don't match (none needed dropping in the
-      prototype). A live-API run with a keyword pre-filter works as a
-      fallback for papers outside the corpus, with the recency caveat shown.
-      Known prompt weakness: critiques of a whole family ("autoregressive
-      models are slow (Vaswani et al.; …)") slip through as critiques of the
-      paper, and Attention's tail had single-paper themes that were barely
-      critiques (an implementation note from *Sparse Transformers*).
-
-      **The corpus needs the sentences.** Ranking citers needs the corpus
-      (`_citers` already orders by citation count), but ingest keeps only 4
-      of the raw citations dataset's 6 columns (`corpus/ingest.py:87`) and
-      drops `contexts` and `intents`. The weekly diffs carry all 6, so the
-      v8.36.0 refresh could keep a contexts table current. Sizes: all
-      contexts are roughly 250 GB of text, an estimated 60–90 GB as Parquet
-      (unmeasured), next to today's 34 GB citations table. Since the card
-      only reads highly cited citers, a **contexts table restricted to
-      edges whose citer has ≥ N citations** should be a small fraction of
-      that; measuring it is the first build step. Until then **keep
-      `releases/2026-10-06/raw/citations` (371 GB)**: it's the only local
-      copy of the sentences. (Grepping it for two papers took 41 minutes,
-      the argument for ingesting sentences rather than scanning on demand.
-      Write one output per shard: 12 parallel `grep`s into one file spliced
-      19% of lines.)
-
-      **v1 (proposed):** the restricted contexts table at ingest and
-      refresh; the pipeline above; the card showing themes, each with its
-      best-cited quotes linking to the citing paper's node; an honest empty
-      state for papers with too few cited citers (new papers: they have
-      reviews but no literature yet).
-
-      **v2:** OpenReview reviews and rebuttals on top, *if* a login gets past
-      the challenge: the workshop's header (venue, decision, forum link),
-      grouped reviewer concerns with quotes, the authors' answers. Scores
-      low-key: they aren't comparable across areas, and ICLR 2026's public
-      scores were reset to pre-rebuttal values after the leak. Journals that
-      publish reviews (eLife, F1000, PeerJ, Nature's transparent peer
-      review) after that. **Never** try to identify an anonymous reviewer;
-      read only public notes, slowly, and cache them, since the 2025 incident
-      was caused by scraping the API.
-
-      **Open:**
-      - Test whether a logged-in OpenReview account passes the challenge
-        (one login + one forum request), to decide whether v2 exists.
+- [ ] **Peer Reviews: v2 and polish** — follow-ups to the card shipped in
+      v8.52.0 (its full record is in `docs/history.md`).
+      - **OpenReview (v2).** Test whether a logged-in OpenReview account
+        passes the `ChallengeRequiredError` (one login + one forum request);
+        if it does, add reviews and rebuttals on top, as planned in the
+        shipped entry. Never identify an anonymous reviewer.
+      - **The thin tail.** Attention's card ends in single-paper themes that
+        criticise a whole model family ("accuracy on MATH remains low") or
+        aren't critiques of the paper at all (BLEU reporting). Options weighed
+        at ship: hide one-paper themes (would also drop DDPM's genuine
+        fixed-variance theme) or a stricter judge prompt. Patrick's call.
+      - **Extraction artifacts** in quotes: "(cid:15)" for ε, ligatures
+        ("ﬁ"). The ligatures are a cheap normalisation; the cid codes aren't.
 - [ ] **Phase 6 — Slides from the lecture** — a deck built by the existing
       agent crew from lecture beats + already-mined paper figures.
       *(Renumbered from the retired audio phase, 2026-08-16. Patrick,

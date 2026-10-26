@@ -92,11 +92,17 @@
 .tool-card:nth-child(3) {
   animation-delay: 140ms;
 }
+.tool-card:nth-child(4) {
+  animation-delay: 180ms;
+}
 .tool-card-knowledge {
   --card-accent: var(--seed-ref);
 }
 .tool-card-reader {
   --card-accent: var(--reader-ink);
+}
+.tool-card-reviews {
+  --card-accent: var(--reviews-ink);
 }
 /* Individual transforms compose with the entrance animation's transform;
    its forwards fill must not pin the hover lift back at translateY(0). */
@@ -324,4 +330,22 @@
   position: relative;
   flex: 1;
   min-width: 0;
+}
+
+/* Back to top (`ScrollNav`, the Reader's and Peer Reviews'): words alone
+   (Patrick), until the window is narrow enough that the tool-return pill
+   shrinks to its icon, which is all it shows. */
+.tool-return.tool-to-top {
+  padding: 0 14px;
+}
+.tool-return.tool-to-top svg {
+  display: none;
+}
+@container tool-surface (max-width: 480px) {
+  .tool-return.tool-to-top {
+    padding: 0;
+  }
+  .tool-return.tool-to-top svg {
+    display: block;
+  }
 }

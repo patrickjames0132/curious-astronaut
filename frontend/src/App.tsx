@@ -33,7 +33,7 @@ import { getBuildShape, sameBuild, useBuildShape } from './graph/buildShape'
 import { applyConfiguredDefault, setTheme, useTheme } from './ui/theme'
 import { useAppDispatch, useAppSelector } from './store'
 import { errorSet, loadGraph, openTool, providerSet, switchProvider } from './store/workspace'
-import { threadTool } from './store/explorations'
+import { threadTool, type ThreadTool } from './store/explorations'
 import SideBar from './shell/SideBar'
 import { useExplorations } from './shell/useExplorations'
 import './shell/shell.css'
@@ -46,6 +46,13 @@ const ASSISTANT_KEY = 'ca.assistantOpen'
 const COURSE_ASSISTANT_KEY = 'ca.courseAssistantOpen'
 /** The Reader's assistant's open/closed state (v8.38.0). */
 const READER_ASSISTANT_KEY = 'ca.readerAssistantOpen'
+/** The way-back pill's words, by the tool it returns to: the Reader (from a
+ *  lesson its notes opened, v8.44.0) or Peer Reviews (from a citing paper it
+ *  showed in the Citation Graph). Both reopen where the reader left off. */
+const RETURN_PILLS: Partial<Record<ThreadTool, { label: string; title: string }>> = {
+  reader: { label: 'Back to reading', title: 'Back to where you were in the paper' },
+  reviews: { label: 'Back to Peer Reviews', title: 'Back to where you were in the Peer Reviews' },
+}
 import GraphExplorer from './graph/GraphExplorer'
 import Teacher from './teacher/Teacher'
 import Sources from './library/Sources'
@@ -57,10 +64,12 @@ import {
   HOME_TOUR,
   KNOWLEDGE_TOUR,
   READER_TOUR,
+  REVIEWS_TOUR,
   TOUR_KEYS,
 } from './tour/steps'
 import ToolCards from './tools/ToolCards'
 import Reader from './reader/Reader'
+import PeerReviews from './reviews/PeerReviews'
 import KnowledgeNetwork from './knowledge/KnowledgeNetwork'
 import CourseAssistant from './knowledge/assistant/CourseAssistant'
 import { FigureLayerContext } from './figures/figureLayer'
@@ -231,11 +240,11 @@ export default function App() {
   // collapsed panel, so clicking a thread in the rail kept popping it back
   // open (Patrick, 2026-10-09). It opens only on its own button or a tour stop.
 
-  // The guided tour, in five phases keyed by what's on screen: the HOME
+  // The guided tour, in six phases keyed by what's on screen: the HOME
   // tour (the search surface) auto-runs once on first launch, the CARDS tour
   // on the first card home, the GRAPH tour (the graph tools) on the first
   // graph, the KNOWLEDGE tour on the first course, the READER tour on the
-  // first paper read. Each phase auto-runs once ever (its own localStorage flag); the
+  // first paper read, the REVIEWS tour on the first Peer Reviews. Each phase auto-runs once ever (its own localStorage flag); the
   // header's "?" re-runs the current phase any time.
   const hasGraph = showGraph && graph.nodes.length > 0
   const tourPhase = hasGraph
@@ -246,12 +255,15 @@ export default function App() {
         ? 'knowledge'
         : tool === 'reader'
           ? 'reader'
-          : 'home'
+          : tool === 'reviews'
+            ? 'reviews'
+            : 'home'
   const tourSteps = {
     graph: GRAPH_TOUR,
     cards: CARDS_TOUR,
     knowledge: KNOWLEDGE_TOUR,
     reader: READER_TOUR,
+    reviews: REVIEWS_TOUR,
     home: HOME_TOUR,
   }[tourPhase]
   const [tourOpen, setTourOpen] = useState(false)
@@ -366,22 +378,26 @@ export default function App() {
           over live content it has to push that content back to read at all. */}
       {/* The way back from a tool to its paper's cards. Rendered for the tool
           rather than the graph, so a build that failed still has an exit. */}
-      {/* Not over the Reader: its ↑ is at the top of the paper and scrolls
-          away with it (Patrick: floating, it read as "back to the top"). */}
-      {paperThread && tool !== 'cards' && tool !== 'reader' && (
+      {/* Not over the Reader or Peer Reviews: their pages scroll, so they
+          draw their own (`tools/ScrollNav`), the ↑ at the top and Back to
+          top below it (Patrick: a lone ↑ floating over a scrolled page read
+          as "back to the top"). */}
+      {paperThread && tool !== 'cards' && tool !== 'reader' && tool !== 'reviews' && (
         <div className="tool-nav">
-          {/* Where a concept's lesson was opened from the Reader, the way back
-              to the paper takes the ↑'s place (v8.44.0, Patrick: the two side
-              by side looked like a pair): one click to the same place in the
-              paper, which the Reader keeps, and its own ↑ leads to the cards. */}
+          {/* Where a tool was opened from another for one thing (a concept's
+              lesson from the Reader, a citing paper from Peer Reviews), the
+              way back takes the ↑'s place (v8.44.0, Patrick: the two side by
+              side looked like a pair): one click to the same place, which
+              that tool keeps, and its own ↑ leads to the cards. */}
           {returnTo && tool === returnTo.from ? (
             <button
               type="button"
               className="tool-return"
               data-tour="tool-return"
+              data-return={returnTo.tool}
               onClick={() => void dispatch(openTool(returnTo.tool))}
-              title="Back to where you were in the paper"
-              aria-label="Back to reading"
+              title={RETURN_PILLS[returnTo.tool]?.title ?? 'Back to where you were'}
+              aria-label={RETURN_PILLS[returnTo.tool]?.label ?? 'Back'}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path
@@ -392,7 +408,9 @@ export default function App() {
                   strokeLinejoin="round"
                 />
               </svg>
-              <span className="tool-return-label">Back to reading</span>
+              <span className="tool-return-label">
+                {RETURN_PILLS[returnTo.tool]?.label ?? 'Back'}
+              </span>
             </button>
           ) : (
             <button
@@ -560,6 +578,10 @@ export default function App() {
                   >
                     {overlays}
                   </Reader>
+                ) : tool === 'reviews' && activeThread ? (
+                  <PeerReviews key={`reviews:${epoch}`} thread={activeThread}>
+                    {overlays}
+                  </PeerReviews>
                 ) : (
                   <div className="tool-pending">{overlays}</div>
                 )}

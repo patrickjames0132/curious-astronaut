@@ -53,11 +53,12 @@ import json
 import logging
 import shutil
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from .... import optional
-from . import datasets, download
+from . import contexts, datasets, download
 from .datasets import CorpusError, DiffStep
 from .ingest import (
     CITATIONS_COLUMNS,
@@ -94,7 +95,41 @@ _CITATION_COLUMNS = "citationid, citingcorpusid, citedcorpusid, isinfluential"
 _CLUSTERED_PREFIX = "clustered_"
 
 
-def _load_state(paths: ReleasePaths) -> dict:
+@dataclass(frozen=True)
+class _EdgeTable:
+    """A bucketed, ``citationid``-keyed table the citation diffs are applied to.
+
+    ``citations`` and ``contexts`` are both read from the same diff files and
+    bucketed the same way, so one staging and one bucket rewrite serve both;
+    this says what differs.
+
+    Attributes:
+        dataset: The table's directory under ``parquet/``.
+        columns: Its stored columns, in order.
+        raw_columns: The read schema for the diffs' update rows.
+        projection: Turns raw update rows into stored columns plus ``bucket``.
+        keep: A WHERE condition on an update worth storing (every update is
+            still an *event*, so a dropped one retires the row it replaces).
+    """
+
+    dataset: str
+    columns: str
+    raw_columns: str
+    projection: Callable[[str], str]
+    keep: str = "true"
+
+
+_CITATIONS = _EdgeTable("citations", _CITATION_COLUMNS, CITATIONS_COLUMNS, citations_projection)
+_CONTEXTS = _EdgeTable(
+    contexts.DATASET,
+    contexts.STORED_COLUMNS,
+    contexts.CONTEXTS_COLUMNS,
+    contexts.contexts_projection,
+    keep=contexts.kept_sql(),
+)
+
+
+def load_state(paths: ReleasePaths) -> dict:
     """The refresh checkpoint, or an empty one.
 
     Args:
@@ -405,31 +440,33 @@ def _build_papers(
     staging.replace(papers_dir)
 
 
-def _build_citations_inputs(
+def _build_edge_inputs(
     connection: duckdb.DuckDBPyConnection,
     base: ReleasePaths,
-    target: ReleasePaths,
-    chain: list[DiffStep],
+    sources: tuple[list[tuple[int, str]], list[tuple[int, str]]],
     scratch: Path,
+    table: _EdgeTable = _CITATIONS,
 ) -> None:
     """Stage the per-bucket inputs: surviving updates and the base's tombstones.
 
     Args:
         connection: The DuckDB connection.
         base: The release refreshed from.
-        target: The release being built.
-        chain: The citations diff chain.
+        sources: The citation diffs' ``(update, delete)`` files, as
+            :func:`_event_sources` lists them.
         scratch: Where the staged inputs go (``updates/`` and ``tombstones/``,
             each partitioned by bucket).
+        table: The table the diffs are applied to.
     """
     shutil.rmtree(scratch, ignore_errors=True)
     scratch.mkdir(parents=True)
+    updates, deletes = sources
     latest = _latest_events_sql(
-        _event_sources(target, "citations", chain, "update"),
-        _event_sources(target, "citations", chain, "delete"),
+        updates,
+        deletes,
         key="citationid",
-        columns=CITATIONS_COLUMNS,
-        projection=citations_projection,
+        columns=table.raw_columns,
+        projection=table.projection,
     )
     events = scratch / "events.parquet"
     connection.execute(f"COPY ({latest}) TO '{events.as_posix()}' (FORMAT parquet)")
@@ -437,15 +474,17 @@ def _build_citations_inputs(
         connection.execute(
             f"""
             COPY (
-                SELECT {_CITATION_COLUMNS}, bucket FROM read_parquet('{events.as_posix()}')
-                WHERE NOT deleted
+                SELECT {table.columns}, bucket FROM read_parquet('{events.as_posix()}')
+                WHERE NOT deleted AND ({table.keep})
             ) TO '{(scratch / "updates").as_posix()}'
             (FORMAT parquet, PARTITION_BY (bucket), OVERWRITE_OR_IGNORE)
             """
         )
     # Every base row whose citationid has a newer event — replaced or deleted —
     # found in one scan, since a delete doesn't say which bucket its row is in.
-    base_glob = (base.parquet_dataset("citations") / "bucket=*" / "*.parquet").as_posix()
+    base_glob = (base.parquet_dataset(table.dataset) / "bucket=*" / "*.parquet").as_posix()
+    if not any(base.parquet_dataset(table.dataset).glob("bucket=*/*.parquet")):
+        return  # an empty base (a sample ingest's contexts) has nothing to retire
     connection.execute(
         f"""
         COPY (
@@ -464,6 +503,7 @@ def _rewrite_bucket(
     target: ReleasePaths,
     scratch: Path,
     bucket: int,
+    table: _EdgeTable = _CITATIONS,
 ) -> None:
     """Write one bucket of the target: base rows minus tombstones plus updates, sorted.
 
@@ -471,15 +511,16 @@ def _rewrite_bucket(
         connection: The DuckDB connection.
         base: The release refreshed from.
         target: The release being built.
-        scratch: The staged inputs (see :func:`_build_citations_inputs`).
+        scratch: The staged inputs (see :func:`_build_edge_inputs`).
         bucket: The bucket.
+        table: The table being rewritten.
     """
-    base_dir = base.parquet_dataset("citations") / f"bucket={bucket}"
+    base_dir = base.parquet_dataset(table.dataset) / f"bucket={bucket}"
     tombstone_dir = scratch / "tombstones" / f"bucket={bucket}"
     update_dir = scratch / "updates" / f"bucket={bucket}"
     parts = []
     if any(base_dir.glob("*.parquet")):
-        survivors = f"SELECT {_CITATION_COLUMNS} FROM read_parquet('{(base_dir / '*.parquet').as_posix()}', hive_partitioning=false) base"
+        survivors = f"SELECT {table.columns} FROM read_parquet('{(base_dir / '*.parquet').as_posix()}', hive_partitioning=false) base"
         if any(tombstone_dir.glob("*.parquet")):
             survivors += (
                 f" ANTI JOIN read_parquet('{(tombstone_dir / '*.parquet').as_posix()}', "
@@ -488,10 +529,10 @@ def _rewrite_bucket(
         parts.append(survivors)
     if any(update_dir.glob("*.parquet")):
         parts.append(
-            f"SELECT {_CITATION_COLUMNS} FROM read_parquet('{(update_dir / '*.parquet').as_posix()}', "
+            f"SELECT {table.columns} FROM read_parquet('{(update_dir / '*.parquet').as_posix()}', "
             "hive_partitioning=false)"
         )
-    out_dir = target.parquet_dataset("citations") / f"bucket={bucket}"
+    out_dir = target.parquet_dataset(table.dataset) / f"bucket={bucket}"
     shutil.rmtree(out_dir, ignore_errors=True)
     if not parts:
         return  # an empty bucket stays absent, as ingest leaves it
@@ -560,7 +601,7 @@ def refresh_release(
     connection = connect()
     try:
         _require_refreshable(connection, base)
-        state = _load_state(target)
+        state = load_state(target)
         if state.get("base", base_release) != base_release:
             raise CorpusError(
                 f"release {target_release} is mid-refresh from {state['base']}, not "
@@ -588,7 +629,11 @@ def refresh_release(
         scratch = target.parquet / "_citations_staging"
         if not state.get("citations_inputs"):
             stage("citations: staging updates and finding replaced or deleted rows")
-            _build_citations_inputs(connection, base, target, chains["citations"], scratch)
+            sources = (
+                _event_sources(target, "citations", chains["citations"], "update"),
+                _event_sources(target, "citations", chains["citations"], "delete"),
+            )
+            _build_edge_inputs(connection, base, sources, scratch)
             state["citations_inputs"] = True
             state["buckets_done"] = []
             _save_state(target, state)
@@ -610,6 +655,105 @@ def refresh_release(
         shutil.rmtree(spill, ignore_errors=True)
         state["complete"] = True
         _save_state(target, state)
-        stage("done")
+    finally:
+        connection.close()
+    if contexts.is_complete(base):
+        stage("contexts: applying the citation diffs to the citing sentences")
+        refresh_contexts(base_release, target_release, on_overall=on_overall)
+    else:
+        log.info("refresh %s: the base has no contexts table, so neither will this", target_release)
+    stage("done")
+
+
+def _event_sources_on_disk(target: ReleasePaths, kind: str) -> list[tuple[int, str]]:
+    """The downloaded citation diffs of one kind, read from ``diffs/`` alone.
+
+    The same ``(step, glob)`` pairs :func:`_event_sources` builds from a
+    listed chain, but without the Datasets API: the step directories are
+    zero-padded, so their order is the chain's. That lets the contexts stage
+    rerun (or backfill) offline, after the refresh itself is done.
+
+    Args:
+        target: The refreshed release.
+        kind: ``update`` or ``delete``.
+
+    Returns:
+        The steps that have files of that kind, with a glob over them.
+    """
+    sources = []
+    for index, step_dir in enumerate(sorted((target.diffs / "citations").glob("*_*"))):
+        directory = step_dir / kind
+        if any(directory.glob("*.gz")):
+            sources.append((index, (directory / "*.gz").as_posix()))
+    return sources
+
+
+def refresh_contexts(
+    base_release: str, target_release: str, *, on_overall: download.OverallFn | None = None
+) -> None:
+    """Build a refreshed release's contexts table: the base's plus the citation diffs.
+
+    The same latest-event rule and tombstones as the citations stage, applied
+    to the sentences: an update with a sentence from an eligible citer (see
+    ``contexts.MIN_CITER_CITATIONS``, judged by the *target's* counts) is
+    stored, and any newer event retires the base's row. Base rows aren't
+    re-judged against the new counts, so a citer that crossed the threshold
+    this week keeps its new sentences but not its old ones until a full
+    ingest. Runs at the end of :func:`refresh_release`, and on its own for a
+    release refreshed before the table existed (``contexts.build_contexts``),
+    which is why it reads the diffs from disk rather than the API.
+
+    Args:
+        base_release: The release refreshed from; its contexts table must be whole.
+        target_release: The refreshed release; its citation diffs must still be
+            in ``diffs/``.
+        on_overall: Optional whole-job callback, counting buckets rewritten.
+
+    Raises:
+        CorpusError: When the base has no complete contexts table, the target
+            wasn't refreshed from it, or the target's diffs are gone.
+    """
+    base = release_paths(base_release)
+    target = release_paths(target_release)
+    if not contexts.is_complete(base):
+        raise CorpusError(f"release {base_release} has no complete contexts table to refresh from")
+    state = load_state(target)
+    if state.get("base") != base_release or not state.get("complete"):
+        raise CorpusError(f"release {target_release} isn't a finished refresh of {base_release}")
+    updates = _event_sources_on_disk(target, "update")
+    deletes = _event_sources_on_disk(target, "delete")
+    if not updates and not deletes:
+        raise CorpusError(
+            f"release {target_release}'s citation diffs are gone from {target.diffs}, so its "
+            "sentences can't be rebuilt; ingest a full release instead"
+        )
+    connection = connect()
+    try:
+        spill = target.parquet / "_spill"
+        spill.mkdir(parents=True, exist_ok=True)
+        connection.execute(f"SET temp_directory='{spill.as_posix()}'")
+        contexts.load_eligible_citers(connection, target)
+        scratch = target.parquet / "_contexts_refresh_staging"
+        if not state.get("contexts_inputs"):
+            (target.parquet_dataset(contexts.DATASET) / contexts.COMPLETE_MARKER).unlink(missing_ok=True)
+            _build_edge_inputs(connection, base, (updates, deletes), scratch, _CONTEXTS)
+            state["contexts_inputs"] = True
+            state["contexts_buckets_done"] = []
+            _save_state(target, state)
+        done = set(state.get("contexts_buckets_done", []))
+        if on_overall:
+            on_overall("context buckets", len(done), NBUCKETS)
+        for bucket in range(NBUCKETS):
+            if bucket in done:
+                continue
+            _rewrite_bucket(connection, base, target, scratch, bucket, _CONTEXTS)
+            done.add(bucket)
+            state["contexts_buckets_done"] = sorted(done)
+            _save_state(target, state)
+            if on_overall:
+                on_overall("context buckets", len(done), NBUCKETS)
+        contexts.mark_complete(target, "refresh")
+        shutil.rmtree(scratch, ignore_errors=True)
+        shutil.rmtree(spill, ignore_errors=True)
     finally:
         connection.close()

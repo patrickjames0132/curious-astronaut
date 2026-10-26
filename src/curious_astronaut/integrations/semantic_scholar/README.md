@@ -57,7 +57,10 @@ A package (not a flat module) split by concern, four files instead of one
   **landmark** green nodes and **latest** light-green nodes — the citation path
   **when the S2 provider is selected**, see the citations section below),
   `citations()` (the single-relation landmark view for on-demand graph
-  expansion), `recommendations()` (SPECTER2 embedding similarity — now used
+  expansion), `citing_sentences()` (one page of the newest ~1,000 citers with
+  the sentences in which they cite the paper, ranked by citation count: the
+  Peer Reviews card's live fallback when the corpus can't serve the paper),
+  `recommendations()` (SPECTER2 embedding similarity — now used
   **only** by the researcher's `expand_node`; the seed-graph *Similar* relation
   was retired in v5.0.0), plus `get_papers()`/`get_paper()` to hydrate full
   details for known ids. `reference_ids()` (v8.18.0) returns many papers'
@@ -294,6 +297,9 @@ citers arrive with `is_survey` None.
   tools `expand_node` and `search_papers`.
 - **`services/graph/growth.py`** — `links_between` calls `reference_ids()`
   for the Citation Graph's "Links between papers" switch (v8.18.0).
+- **`services/reviews`** — calls `citing_sentences()` for the Peer Reviews
+  card when the corpus's contexts table can't serve the paper, and the
+  corpus's own `source.citing_sentences` when it can.
 - **`teacher/tools.py`** — calls `get_paper()` to lazily hydrate a neighbor
   node's abstract/tldr on demand, only when the agent's `read_paper` tool
   needs detail that a light-field neighbor node doesn't carry.

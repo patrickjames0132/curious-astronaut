@@ -52,6 +52,8 @@ download.py  — resumable, checkpointed shard downloader (URL-expiry-aware)
      ↓
 ingest.py    — DuckDB: JSONL.gz → Parquet (papers + arXiv index; citations bucketed)
      ↓
+contexts.py  — the citing sentences of well-cited citers (the Peer Reviews card)
+     ↓
 refresh.py   — the next release from the current one + S2's weekly diffs
      ↓
 source.py    — the query side: CitationSource seam, DuckDBCitationSource, citation_relations
@@ -73,6 +75,8 @@ one drive held both in practice):
     parquet/papers/_done/<shard>.ok    <- per-shard markers (shard files fold away on compaction)
     parquet/arxiv_index/*.parquet      <- arxiv_id → corpusid (small, sorted)
     parquet/citations/bucket=<N>/…     <- edges, hash-partitioned on citedcorpusid
+    parquet/contexts/bucket=<N>/…      <- citing sentences, bucketed the same way
+    parquet/contexts/_COMPLETE.json    <- written last; the table serves only once it's there
     diffs/<dataset>/<NN>_<to>/…/*.gz   <- a refreshed release's weekly diff files (deletable)
     refresh.json                       <- a refreshed release's base + progress
 ```
@@ -201,6 +205,61 @@ copies. Ingest stores upstream's rows verbatim; the query collapses them.
 remove the grouping — the fixture ships an overlapping batch precisely so the
 landmark tests fail if you do. See **Upstream** in `docs/bugs.md`.
 
+### The citing sentences (`contexts.py`, the Peer Reviews card)
+
+The raw `citations` dataset carries a fourth thing per edge that ingest used
+to drop: **`contexts`**, the sentence(s) in which the citing paper cites the
+cited one. The Peer Reviews card reads them for a paper's *most-cited*
+citers, the ranking only the corpus can serve, so since the card shipped
+they're kept in a table of their own, bucketed on `citedcorpusid` like
+`citations` (`citationid`, `citingcorpusid`, `citedcorpusid`, `contexts`;
+`intents` is left behind, since it has no "disagrees" value and is mostly
+null).
+
+**Only citers with at least `MIN_CITER_CITATIONS` = 50 citations are kept.**
+All the sentences would be ~258 GB of Parquet, ~140 GB deduplicated. Measured
+2026-10-25 on four random raw shards plus the real corpus:
+
+| N | sentence rows | as shipped | deduplicated | top-200 citers kept, papers cited 500–2,000 |
+|--:|--:|--:|--:|--:|
+| 0 | 1.62 B | 258 GB | ~140 GB | 100% |
+| 25 | 445 M | 73 GB | ~40 GB | 98% |
+| **50** | 248 M | 42 GB | **~23 GB** | **85%** |
+| 100 | 116 M | 20 GB | ~11 GB | 59% |
+
+Every landmark measured keeps 100% at any of these (DQN's 200th citer has
+376 citations; Attention's 2,590). Below ~500 citations a paper has too few
+critiques to fill a card at any N, and the card says so. Keeping each paper's
+own top 200 citers instead, which sounds exact, keeps 81% of all edges: most
+papers have fewer than 200 citers.
+
+**The build is two stages, both resumable:**
+
+1. **Stage** each raw shard: the kept rows (a sentence, an eligible citer),
+   sorted by bucket, one file per shard under `parquet/_contexts_staging/`,
+   renamed into place when whole. A plain single-file COPY rather than a
+   1024-way `PARTITION_BY`, which slows as its process ages (see "Ingest
+   layout" above).
+2. **Finalize** 64 buckets per pass from all the staged files, **keeping one
+   row per `citationid`**. S2's overlapping export batches ship each edge
+   about twice, sharing a `citationid` but in different shards, so only a
+   pass over every staged shard can collapse them. `citations` leaves that to
+   the query; here it halves the table, so it's done once.
+
+`_COMPLETE.json` (the threshold and how it was built) is written last, and
+the query side reads the table only once it's there: a half-built table is
+"no contexts", and the card falls back to the live API rather than reading
+part of one. Eligibility uses the citation counts of the release being
+built; a citer that crosses 50 later gains its old sentences only at the
+next full ingest.
+
+`ingest` builds it after `citations` by default. For a release that predates
+it, **`astronaut corpus contexts`** builds it from the release's raw shards,
+or, for a refreshed release whose raw shards are gone, from its base
+release's table (built first from the base's raw shards if needed) plus the
+citation diffs still in its `diffs/`. So delete a refreshed release's diffs
+only once its contexts are complete.
+
 ### The query seam (`source.py`)
 
 `CitationSource` is a tiny `Protocol` — `landmark_citers(corpus_id, limit, *,
@@ -230,6 +289,12 @@ rather than a workaround.
 The edge's `isinfluential` rides through phase 1 and is stitched back on in
 Python; `latest_bands` re-sorts its hydrated winners by date in Python to keep
 the one-phase query's `publicationdate DESC NULLS LAST` order.
+
+`citing_sentences(seed_paper, seed_ref, limit=…)` is the Peer Reviews card's
+entry point: the paper's most-cited citers that have a kept sentence, with
+their sentences (grouped per citer, whitespace-normalised, deduplicated),
+two-phase like the landmarks. It returns **None** when the release has no
+complete contexts table, so the card falls back to S2 live.
 
 `citation_relations(seed_paper, seed_ref, …)` is the module-level entry point
 `services/graph/build.py` calls. It:
@@ -333,6 +398,13 @@ one step a delete outranks an update). Then:
    bucket, so they're all rewritten; ~0.1s each on the real corpus, a few
    minutes for all 1024.
 
+3. **Contexts** (when the base has a complete table): the same latest-event
+   rule and tombstones, applied to the citing sentences by `citationid`,
+   with eligibility judged by the *new* release's citation counts. Base rows
+   aren't re-judged. It reads the diffs from `diffs/`, not the API, so it
+   also serves `astronaut corpus contexts` as a backfill. A base without a
+   table refreshes without one.
+
 About 20 minutes plus the download, measured in pieces on the real corpus
 (the first end-to-end run waits on a base release that carries `citationid`).
 Every downloaded file and finished stage is checkpointed in `refresh.json`,
@@ -354,6 +426,7 @@ astronaut corpus verify                       # audit shards against the sizes S
 astronaut corpus verify --deep --repair       # …also decompress each, and re-pull anything bad
 astronaut corpus ingest                       # JSONL.gz → Parquet (incl. clustering), flip CURRENT
 astronaut corpus refresh                      # catch up to the latest release from weekly diffs
+astronaut corpus contexts                     # build the citing-sentences table a release predates
 astronaut corpus compact                      # cluster a release ingested before v5.12.0
 astronaut corpus activate                     # (re)point CURRENT at a finished release
 ```
@@ -465,6 +538,16 @@ untouched, that a crash mid-buckets resumes without re-downloading or
 redoing a bucket, and the three refusals: a base without `citationid`, a
 target that's already an ingested release, and a chain that doesn't reach the
 target. Plus the `astronaut corpus refresh` command itself.
+
+`test_contexts.py` covers the citing sentences over the same fixture, whose
+edges carry sentences (one from a citer under the threshold, one shipped
+twice): only eligible citers kept, a `citationid` in two shards kept once,
+a complete table not rebuilt, an interrupted build resuming from its staged
+shards, the query's ranking and per-citer dedup, and its None when the table
+isn't complete. `test_refresh.py` adds the diffs' side: sentences updated,
+added and deleted through the chain, a base without a table refreshing
+without one, and the backfill of a refreshed release from its `diffs/`
+(refusing once they're gone).
 
 `test_download.py` covers the downloader against a fake `urlopen` that can hang
 up mid-body on demand — the one behaviour that matters, since a dropped socket

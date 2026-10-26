@@ -460,6 +460,45 @@ def citations(paper_id: str, limit: int) -> list[dict]:
     return _select_by_influence(page, limit)
 
 
+def citing_sentences(paper_id: str, *, limit: int) -> list[dict]:
+    """The sentences in which this paper's newest ~1,000 citers cite it, most-cited citer first.
+
+    The Peer Reviews card's **live fallback**, for a paper the corpus can't
+    serve. One page of :data:`_RANK_POOL` citers with their ``contexts``, then
+    ranked locally by the citers' citation counts, as :func:`citations` does.
+    The page is S2's newest citers, not its most cited, so for a busy paper
+    this is the recent conversation, not the field's verdict: the card says
+    so. A citer with no sentence is dropped.
+
+    Args:
+        paper_id: An S2 paperId or prefixed id.
+        limit: Maximum citers to return.
+
+    Returns:
+        ``{"node", "sentences"}`` entries, most-cited first, each sentence
+        whitespace-normalised and deduplicated in order.
+
+    Raises:
+        client.S2Error: When the request fails after retries.
+    """
+    fields = "contexts," + nodes.NEIGHBOR_FIELDS
+    url = (
+        f"{config.providers.s2.graph_url}/paper/{client.quote(paper_id)}/citations"
+        f"?fields={urllib.parse.quote(fields)}&limit={_RANK_POOL}"
+    )
+    data = client.request(url)
+    items = (data.get("data") or []) if isinstance(data, dict) else []
+    entries: list[dict] = []
+    for item in items:
+        node = nodes.node(item.get("citingPaper"))
+        texts = [" ".join(text.split()) for text in item.get("contexts") or [] if isinstance(text, str)]
+        sentences = list(dict.fromkeys(text for text in texts if text))
+        if node and sentences:
+            entries.append({"node": node, "sentences": sentences})
+    entries.sort(key=lambda entry: entry["node"].get("citation_count") or 0, reverse=True)
+    return entries[:limit]
+
+
 #: Injected landmark selector: ``(ranked citer years) -> indices to ship | None``.
 #: ``services/graph`` passes ``budget.select_landmarks``, which bands the ranking
 #: by year; None falls back to the flat payload guard. It takes years and

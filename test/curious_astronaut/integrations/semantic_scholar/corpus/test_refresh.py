@@ -27,7 +27,7 @@ import shutil
 import duckdb
 import pytest
 
-from curious_astronaut.integrations.semantic_scholar.corpus import refresh, source
+from curious_astronaut.integrations.semantic_scholar.corpus import contexts, refresh, source
 from curious_astronaut.integrations.semantic_scholar.corpus.datasets import CorpusError, DiffStep
 from curious_astronaut.integrations.semantic_scholar.corpus.ingest import NBUCKETS
 from curious_astronaut.integrations.semantic_scholar.corpus.paths import release_paths
@@ -58,8 +58,10 @@ FILES = {
     "https://s2/1/papers/update/p1.gz": [paper(3, "A recent applied paper", 7)],
     "https://s2/1/papers/delete/p1d.gz": [{"corpusid": 7}],
     "https://s2/0/citations/update/c0.gz": [
-        {"citationid": 301, "citingcorpusid": 6, "citedcorpusid": 1, "isinfluential": True},
-        {"citationid": 101, "citingcorpusid": 2, "citedcorpusid": 1, "isinfluential": False},
+        {"citationid": 301, "citingcorpusid": 6, "citedcorpusid": 1, "isinfluential": True,
+         "contexts": ["Unlike [1], sparse attention scales linearly."]},
+        {"citationid": 101, "citingcorpusid": 2, "citedcorpusid": 1, "isinfluential": False,
+         "contexts": ["Self-attention's cost grows quadratically [12]."]},
     ],
     "https://s2/0/citations/delete/c0d.gz": [{"citationid": 202}],
     "https://s2/1/citations/delete/c1d.gz": [{"citationid": 102}],
@@ -169,11 +171,11 @@ def test_an_interrupted_refresh_resumes_without_redoing_work(synthetic_corpus, f
     real_rewrite = refresh._rewrite_bucket
     calls = {"count": 0}
 
-    def crash_once(connection, base, target, scratch, bucket):
+    def crash_once(connection, base, target, scratch, bucket, *table):
         if bucket == 1 and calls["count"] == 0:
             calls["count"] += 1
             raise RuntimeError("power cut")
-        real_rewrite(connection, base, target, scratch, bucket)
+        real_rewrite(connection, base, target, scratch, bucket, *table)
 
     monkeypatch.setattr(refresh, "_rewrite_bucket", crash_once)
     with pytest.raises(RuntimeError):
@@ -269,3 +271,55 @@ def test_cli_refresh_is_a_no_op_when_current(synthetic_corpus, monkeypatch):
     monkeypatch.setattr(datasets, "latest_release_id", lambda: RELEASE_ID)
     result = CliRunner().invoke(cli, ["corpus", "refresh"])
     assert result.exit_code == 0 and "Already up to date" in result.output
+
+
+# --- the citing sentences (contexts.py), carried through the diffs -----------
+
+
+def context_rows(release_id: str) -> dict[int, list[str]]:
+    """A release's contexts rows in the seed's bucket, by citationid."""
+    bucket_glob = release_paths(release_id).parquet_dataset("contexts") / "bucket=1" / "*.parquet"
+    rows = duckdb.sql(
+        f"SELECT citationid, contexts FROM read_parquet('{bucket_glob.as_posix()}', hive_partitioning=false)"
+    ).fetchall()
+    return {row[0]: row[1] for row in rows}
+
+
+def test_contexts_take_the_diffs_updates_and_deletes(synthetic_corpus, fake_s2):
+    refresh.refresh_release(RELEASE_ID, TARGET)
+    assert contexts.is_complete(release_paths(TARGET))
+    # 301 arrives (its survey has 900 citations), 101's sentence is replaced,
+    # 102 is deleted in step 1; 201 is untouched.
+    assert context_rows(TARGET) == {
+        101: ["Self-attention's cost grows quadratically [12]."],
+        201: ["However, self-attention is quadratic in the sequence length [12]."],
+        301: ["Unlike [1], sparse attention scales linearly."],
+    }
+    assert set(context_rows(RELEASE_ID)) == {101, 102, 201}  # the base is untouched
+
+
+def test_a_base_without_contexts_refreshes_without_them(synthetic_corpus, fake_s2):
+    shutil.rmtree(release_paths(RELEASE_ID).parquet_dataset("contexts"))
+    refresh.refresh_release(RELEASE_ID, TARGET)
+    assert not contexts.is_complete(release_paths(TARGET))
+    # The card falls back to the live API rather than reading a missing table.
+    assert source.citing_sentences({"arxiv_id": "1706.03762"}, "", limit=5) is None
+
+
+def test_build_contexts_backfills_a_refreshed_release_from_its_diffs(synthetic_corpus, fake_s2):
+    base_contexts = release_paths(RELEASE_ID).parquet_dataset("contexts")
+    shutil.rmtree(base_contexts)
+    refresh.refresh_release(RELEASE_ID, TARGET)  # a refresh from before the table existed
+    downloads = len(fake_s2)
+    assert contexts.build_contexts(TARGET) == "refresh"
+    assert len(fake_s2) == downloads  # read from diffs/, not re-fetched
+    assert contexts.is_complete(release_paths(RELEASE_ID))  # the base's was built first
+    assert set(context_rows(TARGET)) == {101, 201, 301}
+
+
+def test_backfill_refuses_when_the_diffs_are_gone(synthetic_corpus, fake_s2):
+    shutil.rmtree(release_paths(RELEASE_ID).parquet_dataset("contexts"))
+    refresh.refresh_release(RELEASE_ID, TARGET)
+    shutil.rmtree(release_paths(TARGET).diffs)
+    with pytest.raises(CorpusError, match="diffs are gone"):
+        contexts.build_contexts(TARGET)

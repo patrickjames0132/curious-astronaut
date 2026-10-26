@@ -41,7 +41,9 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 remounts it — see teacher/README.md.
    ├─ card home (paper threads)    tools/ToolCards.tsx — the paper, then a
    │                                 card per tool (Citation Graph, Knowledge
-   │                                 Graph, Reader)
+   │                                 Graph, Reader, Peer Reviews)
+   ├─ Peer Reviews                 reviews/PeerReviews.tsx — what the field
+   │                                 objected to, quoted from its citers
    ├─ Reader                       reader/Reader.tsx — the paper itself from
    │  │                              its ar5iv render (v8.37.0)
    │  ├─ contents rail             (in Reader.tsx; follows the reading)

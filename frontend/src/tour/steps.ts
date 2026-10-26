@@ -8,14 +8,15 @@
  * `graph/controls/GraphControls.tsx`, `detail/DetailPanel.tsx`,
  * `teacher/Teacher.tsx`).
  *
- * Five phases, because the app has five first-times: {@link HOME_TOUR}
+ * Six phases, because the app has six first-times: {@link HOME_TOUR}
  * covers the search surface and auto-runs on first launch, before any paper
  * is open; {@link CARDS_TOUR} covers a paper thread's card home and auto-runs
  * on the first one; {@link GRAPH_TOUR} covers the graph tools and auto-runs
  * on the first graph; {@link KNOWLEDGE_TOUR} covers the knowledge network and
  * auto-runs on the first course; {@link READER_TOUR} covers the Reader and
- * auto-runs on the first paper read. `App.tsx` picks the list (and the
- * seen-flag) by which of the five is on screen.
+ * auto-runs on the first paper read; {@link REVIEWS_TOUR} covers the Peer
+ * Reviews card and auto-runs on the first one opened. `App.tsx` picks the
+ * list (and the seen-flag) by which of the six is on screen.
  * One more list, {@link SETTINGS_TOUR}, belongs to the settings modal, which
  * mounts it itself (the ? beside its ✕): its steps *stage* the section or
  * sub-page they point at, so the walk drives the modal's own nav.
@@ -40,6 +41,8 @@ export const TOUR_KEYS = {
   knowledge: 'curious_astronaut.tour.knowledge',
   /** The Reader — the first paper read. */
   reader: 'curious_astronaut.tour.reader',
+  /** The Peer Reviews card — the first one opened. */
+  reviews: 'curious_astronaut.tour.reviews',
   /** The graph-tools tour — first graph. */
   graph: 'curious_astronaut.tour.graph',
   /** The settings modal's tour — first time it is opened. */
@@ -168,8 +171,48 @@ export const CARDS_TOUR: TourStep[] = [
     body:
       'The Citation Graph maps the papers this one built on and the ones it spawned. The ' +
       'Knowledge Graph is a short course on the ideas you need to ' +
-      'know first. The Reader is the paper itself. Clicking the thread in the sidebar ' +
+      'know first. The Reader is the paper itself. Peer Reviews gathers what later papers ' +
+      'objected to in it. Clicking the thread in the sidebar ' +
       'always brings you back to these cards, and so does the ↑ at the top of each tool.',
+  },
+]
+
+/**
+ * The Peer Reviews card: where its critiques come from, the themes and their
+ * quotes, and the way back to the cards.
+ */
+export const REVIEWS_TOUR: TourStep[] = [
+  {
+    target: '[data-tour="reviews"]',
+    title: 'What the field objected to',
+    body:
+      'Not conference reviews: the weaknesses later papers found in this one, gathered from ' +
+      'the sentences in which they cite it. Each concern is a heading, with how many papers ' +
+      'raise it and a short summary.',
+  },
+  {
+    target: '[data-tour="reviews-source"]',
+    title: 'Where they come from',
+    body:
+      'This line says what was read. Usually that’s the most-cited papers that cite this ' +
+      'one, which is where the field’s real answers are; for a paper outside the offline ' +
+      'corpus, it’s the most recent citers instead, and the line says so.',
+  },
+  {
+    target: '[data-tour="reviews-themes"]',
+    title: 'Every quote is real',
+    body:
+      'Each quote is the citing paper’s own sentence, word for word. Open a citing paper as ' +
+      'its own thread, or show it in this paper’s Citation Graph. Often the paper that names ' +
+      'a weakness is also the one that fixed it.',
+  },
+  {
+    target: '[data-tour="tool-back"]',
+    presentIf: '[data-tour="tool-back"]',
+    title: 'Back up to the paper’s cards',
+    body:
+      'At the top of the reviews, the ↑ over them takes you back up to this paper’s cards ' +
+      'and its other tools. Scrolled down, it becomes “Back to top”.',
   },
 ]
 
@@ -260,6 +303,14 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
       'concept means, how two connect, or what to study next. It keeps its own chat, apart from ' +
       'the Citation Graph’s; type @ to bring that one, or any other in this exploration, into ' +
       'a question. The 📚 in its bar picks which of your sources it may search.',
+  },
+  {
+    target: '[data-tour="tool-return"][data-return="reader"]',
+    presentIf: '[data-tour="tool-return"][data-return="reader"]',
+    title: 'Back to reading',
+    body:
+      'You came here from the Reader to read a lesson. This takes you back to the same ' +
+      'place in the paper; the Reader’s own ↑ leads up to the paper’s cards.',
   },
 ]
 
@@ -505,13 +556,21 @@ export const GRAPH_TOUR: TourStep[] = [
       'ask in the chat bar in the assistant panel.',
   },
   {
-    target: '[data-tour="tool-return"]',
-    presentIf: '[data-tour="tool-return"]',
+    target: '[data-tour="tool-return"][data-return="reader"]',
+    presentIf: '[data-tour="tool-return"][data-return="reader"]',
     title: 'Back to reading',
     body:
       'You came here from the Reader, to read a lesson or to see a cited paper on the ' +
       'graph. This takes you back to the same place in the paper; the Reader’s own ↑ ' +
       'leads up to the paper’s cards.',
+  },
+  {
+    target: '[data-tour="tool-return"][data-return="reviews"]',
+    presentIf: '[data-tour="tool-return"][data-return="reviews"]',
+    title: 'Back to Peer Reviews',
+    body:
+      'You came here from Peer Reviews to see a citing paper. This takes you back to the ' +
+      'same place in the reviews; their own ↑ leads up to the paper’s cards.',
   },
   {
     target: '[data-tour="tool-back"]',

@@ -652,3 +652,24 @@ def test_reference_ids_name_references_by_corpus_id(monkeypatch):
 
     monkeypatch.setattr(client, "request", fake_request)
     assert traversal.reference_ids(["CorpusId:1"]) == {"CorpusId:1": ["CorpusId:42", "c"]}
+
+
+def test_citing_sentences_ranks_one_page_and_keeps_only_citers_with_a_sentence(monkeypatch):
+    urls = []
+
+    def fake_request(url, method="GET", body=None, tries=4):
+        urls.append(url)
+        return {"data": [
+            {"contexts": ["We  use [1].", "We use [1].", ""], "citingPaper": {
+                "paperId": "a", "title": "Small", "citationCount": 3}},
+            {"contexts": None, "citingPaper": {"paperId": "b", "title": "Silent", "citationCount": 900}},
+            {"contexts": ["[1] is slow."], "citingPaper": {
+                "paperId": "c", "title": "Big", "citationCount": 500}},
+        ]}
+
+    monkeypatch.setattr(client, "request", fake_request)
+    entries = traversal.citing_sentences("arXiv:1706.03762", limit=5)
+    assert [entry["node"]["title"] for entry in entries] == ["Big", "Small"]
+    assert entries[1]["sentences"] == ["We use [1]."]  # normalised, deduplicated, blanks dropped
+    assert "fields=contexts%2C" in urls[0] and "limit=1000" in urls[0]
+    assert len(traversal.citing_sentences("arXiv:1706.03762", limit=1)) == 1
