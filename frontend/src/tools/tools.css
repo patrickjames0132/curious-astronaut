@@ -6,7 +6,6 @@
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  animation: fade var(--motion-switch) ease-out both;
 }
 .tool-home-inner {
   max-width: 960px;
@@ -15,6 +14,13 @@
   box-sizing: border-box;
 }
 
+/* Match the front door: movement settles before the slower fade resolves.
+   Keep the curves separate so opacity has no mid-keyframe hitch. */
+.tool-home-paper {
+  animation:
+    rise 0.45s var(--ease-rise) both,
+    fade 0.45s var(--ease-fade) both;
+}
 .tool-home-paper h1 {
   margin: 0 0 10px;
   color: var(--text-strong);
@@ -76,13 +82,15 @@
     translate var(--motion-pop) var(--ease-rise),
     scale var(--motion-pop) var(--ease-rise),
     box-shadow var(--motion-pop) var(--ease-rise);
-  animation: rise var(--motion-switch) var(--ease-rise) both;
+  animation:
+    rise 0.45s var(--ease-rise) 60ms both,
+    fade 0.45s var(--ease-fade) 60ms both;
 }
 .tool-card:nth-child(2) {
-  animation-delay: 60ms;
+  animation-delay: 100ms;
 }
 .tool-card:nth-child(3) {
-  animation-delay: 120ms;
+  animation-delay: 140ms;
 }
 .tool-card-knowledge {
   --card-accent: var(--seed-ref);
@@ -295,6 +303,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .tool-home,
+  .tool-home-paper,
   .tool-card,
   .tool-surface.scroll-up,
   .tool-surface.scroll-down {
