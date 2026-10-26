@@ -45,6 +45,9 @@ vi.mock('../src/knowledge/assistant/CourseAssistant', () => ({
 vi.mock('../src/reader/Reader', () => ({
   default: ({ children }: { children: ReactNode }) => <main data-testid="reader">{children}</main>,
 }))
+vi.mock('../src/reviews/PeerReviews', () => ({
+  default: ({ children }: { children: ReactNode }) => <main data-testid="reviews">{children}</main>,
+}))
 vi.mock('../src/reader/ReaderAssistant', () => ({
   default: ({ collapsed, onClose }: { collapsed: boolean; onClose: () => void }) => (
     <aside data-testid="reader-assistant" data-collapsed={String(collapsed)}>
@@ -245,4 +248,31 @@ it('puts “Back to reading” in the ↑’s place after a lesson opened from t
   expect(screen.queryByRole('button', { name: 'Back to reading' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Back to this paper’s cards' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Back to reading' })).toBeNull()
+})
+
+it('puts “Back to Peer Reviews” in the ↑’s place after a citing paper shown from them', async () => {
+  const store = configureStore({ reducer: { workspace, transcript, explorations } })
+  render(
+    <Provider store={store}>
+      <App />
+    </Provider>,
+  )
+  await act(async () => {
+    await store.dispatch(loadGraph({ seed: 'paper' }))
+    await store.dispatch(openTool('reviews'))
+  })
+  const state = store.getState().explorations
+  const id = state.byId[state.activeId].activeThreadId
+  await act(async () => {
+    store.dispatch(threadReturnSet({ id, returnTo: { tool: 'reviews', from: 'graph' } }))
+    await store.dispatch(openTool('graph'))
+  })
+  expect(screen.queryByRole('button', { name: 'Back to this paper’s cards' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Back to reading' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Back to Peer Reviews' }))
+  await screen.findByTestId('reviews')
+  // Back on Peer Reviews the way back is spent, and the app draws no ↑ of its
+  // own: the card draws it (with Back to top), as the Reader does.
+  expect(screen.queryByRole('button', { name: 'Back to Peer Reviews' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Back to this paper’s cards' })).toBeNull()
 })

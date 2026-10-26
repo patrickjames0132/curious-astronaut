@@ -17,6 +17,7 @@ import {
   ID_RE,
   betweenLinkType,
   citationThreshold,
+  citationWindow,
   cleanNode,
   countRels,
   findMatches,
@@ -170,6 +171,20 @@ describe('nodeRadius', () => {
 
   it('caps megahit papers so they cannot swallow the canvas', () => {
     expect(nodeRadius(makeNode({ citation_count: 1_000_000 }))).toBe(18)
+  })
+})
+
+describe('citationWindow', () => {
+  it('bounds nothing while both knobs rest at their ends', () => {
+    // A citer added after the build with fewer citations than any neighbour
+    // (Peer Reviews' 4-citation paper on SAC's graph) must still be drawn.
+    expect(citationWindow(0, CITE_SLIDER_STEPS, 8, 5000)).toEqual([0, Infinity])
+  })
+
+  it('bounds by the scale once a knob moves', () => {
+    const [floor, ceiling] = citationWindow(CITE_SLIDER_STEPS / 2, CITE_SLIDER_STEPS - 1, 8, 5000)
+    expect(floor).toBe(citationThreshold(CITE_SLIDER_STEPS / 2, 8, 5000))
+    expect(ceiling).toBe(citationThreshold(CITE_SLIDER_STEPS - 1, 8, 5000))
   })
 })
 

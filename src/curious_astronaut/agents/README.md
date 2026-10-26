@@ -345,6 +345,7 @@ agents/
   orchestrators/     ← tier 1: agents that own an outcome (README.md)
     lecturer/          ← an agent: main.py, config.py, README.md
     researcher/        ← an agent: main.py, tools.py, config.py, README.md
+    reviewer/          ← two agents: main.py, config.py, README.md
     summarizer/        ← an agent: main.py, config.py, README.md
     tutor/             ← an agent: main.py, config.py, README.md
   workers/           ← tier 2: one source each, one question each

@@ -9,6 +9,9 @@ gallery of launchers: an icon tile, a title and a one-line description.
 ```
 tools/
   ToolCards.tsx — the home: paper header + cards; fetches a missing paper once
+  ScrollNav.tsx — the button over a scrolling tool's page (the Reader, Peer
+                  Reviews): the ↑ at the top, Back to top below, and
+                  `useAtTop`, which says which
   tools.css     — the home, the cards, `.tool-nav` holding `.tool-back` (the
                   ↑ a tool shows to get back here, rendered by App.tsx's
                   overlays) or `.tool-return` in its place (back to the
@@ -43,9 +46,13 @@ keeps its internal names (the `'graph'` tool id, `GraphExplorer`,
 - **Reader** opens `reader/Reader`, the paper itself from its HTML render (arXiv's own, else ar5iv's)
   (v8.37.0). Its tool id is `'reader'`; it has no assistant yet (the
   margin teacher is a later Reader stage).
+- **Peer Reviews** opens `reviews/PeerReviews`, what the field objected to
+  in the paper, quoted from the later papers that raised it. Its tool id is
+  `'reviews'`; it has no assistant.
 
 The cards use their icon's accent (glass blue for citations, gold for
-knowledge, coral `--reader-ink` for the Reader)
+knowledge, coral `--reader-ink` for the Reader, sage `--reviews-ink` for
+Peer Reviews)
 for a brighter border, tinted surface and soft glow on hover or keyboard focus.
 They lift 4px and grow 2.5%, with a smaller pressed state. The icon and its
 rounded square grow together by another 8% (4% while pressed), using the
@@ -99,11 +106,14 @@ mounted through the move would cost more than the effect is worth.
 
 ## Verified by
 
-`test/tools/ToolCards.test.tsx` covers the header, the three cards and the
+`test/tools/ToolCards.test.tsx` covers the header, the four cards and the
 one-time fetch. `test/store/threads.test.ts` ("card home") covers the
 navigation underneath: opening onto cards without a build, building in place
 without a twin thread, resuming on the last tool, opening from the rail onto
-the cards without a rebuild, and saving `tool`/`paper`.
+the cards without a rebuild, and saving `tool`/`paper`. `ScrollNav` is
+covered through its two users: `test/reader/Reader.test.tsx` and
+`test/reviews/PeerReviews.test.tsx` ("trades the ↑ to the cards for Back to
+top").
 
 Author lists longer than 160 characters use the shared `ui/AuthorList` disclosure:
 a preview ending at a comma or word boundary with an ellipsis, then “Show all
@@ -126,6 +136,15 @@ sitting "above" the tools, and the top-left versions looked worse. So every
 tool, the Reader included, keeps the centred ↑. Don't re-propose the ←
 without a new reason.
 
+**Over a scrolling page, the ↑ becomes Back to top** (v8.50.0, the Reader;
+Peer Reviews since it shipped): within 120px of the top (`AT_TOP`) the ↑
+to the cards, below that a **Back to top** pill, words alone until the
+surface is narrow and then its icon (`.tool-to-top`). The tools whose page
+scrolls draw it themselves (`ScrollNav`), inside a frame that doesn't
+scroll, and the app leaves its own ↑ out for them; the graphs keep the
+app's. It was the Reader's own code until Peer Reviews wanted it too
+(Patrick).
+
 **In its place, sometimes, "Back to reading"** (v8.44.0): when a concept's
 lesson is opened from the Reader's Knowledge Graph notes, the Knowledge Graph
 shows "Back to reading" where the ↑ would be; and since v8.49.0, when a
@@ -139,3 +158,11 @@ by side read as a pair. Where the tool's surface is under 480px wide, the
 pill folds to its ↩ (a container query on `.tool-surface`) so it stays clear
 of the corners' buttons. The way back lasts only while the thread stays on
 the Knowledge Graph.
+
+**And "Back to Peer Reviews"**, the same pill (Patrick, at the Peer Reviews
+card's review): a citing paper shown in the Citation Graph from Peer Reviews
+puts it on the graph, and it returns to the same place in the reviews, which
+keep how far down you were and which themes showed all their quotes. The
+pill's words follow the tool it returns to (`RETURN_PILLS` in `App.tsx`), and
+it carries `data-return` so each tour targets its own: the Knowledge Graph's
+tour explains "Back to reading", the Citation Graph's "Back to Peer Reviews".

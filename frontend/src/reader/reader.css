@@ -1334,20 +1334,3 @@
   stroke: var(--passage-lit);
   stroke-opacity: 0.85;
 }
-
-/* Back to top: words alone (Patrick), until the window is narrow enough
-   that the tool-return pill shrinks to its icon, which is all it shows. */
-.tool-return.reader-to-top {
-  padding: 0 14px;
-}
-.tool-return.reader-to-top svg {
-  display: none;
-}
-@container tool-surface (max-width: 480px) {
-  .tool-return.reader-to-top {
-    padding: 0;
-  }
-  .tool-return.reader-to-top svg {
-    display: block;
-  }
-}

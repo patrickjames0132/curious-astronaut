@@ -22,6 +22,42 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The citation slider hid papers added after the build (v8.52.0)
+
+- **Symptom.** "Show in Citation Graph" from Peer Reviews opened a citing
+  paper's detail panel on SAC's graph, but the paper was nowhere on the
+  canvas, though it had been added to the graph and selected.
+- **Root cause.** The citation slider's resting position wasn't "off". At
+  rest, `citationThreshold(0, …)` returns the *built* graph's least-cited
+  neighbour, so the floor sat wherever the build's cut (the budget and tau
+  rules) left it, well above that 4-citation citer. Anything added after the
+  build with fewer citations than every neighbour was filtered by a slider
+  nobody had touched; the detail panel opened because selection doesn't go
+  through the filter. Low-cited papers from an Expand hid the same way.
+- **Fix.** `citationWindow` (`graph/model.ts`): a knob resting at its end
+  bounds nothing, `[0, Infinity]`; a moved knob still bounds by the scale.
+  The labels on the control keep showing the graph's own range.
+- **Lesson / guard.** A filter's resting state must mean "no filter", not
+  "the extremes of what was there when it was built": the data grows after
+  the build. `test/graph/model.test.ts` pins the resting window.
+
+### A Peer Reviews card from the wrong source, cached for a month (v8.52.0)
+
+- **Symptom.** SAC's card quoted papers with 0–5 citations, though the
+  corpus only keeps sentences from citers with 50+.
+- **Root cause.** The card was first opened at 20:34, while the contexts
+  table was still being built (complete at 20:48). The corpus path
+  correctly declined a half-built table and the card fell back to S2 live,
+  the newest ~1,000 citers. That's right for the moment, but the result was
+  cached like any card, for a month, so the stopgap outlived the gap.
+- **Fix.** `services/reviews`: a cached `live` card lasts a day at most
+  (`LIVE_CACHE_SECONDS`), and is gathered again as soon as the corpus can
+  answer for the paper (a ~1s check, on opening a cached live card only).
+- **Lesson / guard.** Cache a fallback for as long as the fallback is the
+  best answer, not as long as the real answer would be good for.
+  `test_a_cached_live_card_gives_way_once_the_corpus_can_answer` and
+  `test_a_live_card_is_kept_a_day_at_most`.
+
 ### The Reader's box tests failed only under a loaded machine (v8.50.0)
 
 - **Symptom.** Reader tests that open the box's menu failed now and then in

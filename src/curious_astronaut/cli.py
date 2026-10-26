@@ -298,6 +298,7 @@ def _require_corpus_root() -> Path:
 def corpus_status() -> None:
     """Print the corpus root, its releases, and which one is active."""
     from curious_astronaut.config import config
+    from curious_astronaut.integrations.semantic_scholar.corpus import contexts
     from curious_astronaut.integrations.semantic_scholar.corpus import paths as corpus_paths
 
     root = config.storage.s2_corpus
@@ -320,6 +321,7 @@ def corpus_status() -> None:
         paths = corpus_paths.release_paths(release)
         papers_done = paths.parquet_dataset("papers").exists()
         cites_done = paths.parquet_dataset("citations").exists()
+        contexts_done = contexts.is_complete(paths)
         shards = paths.raw.exists()
         # A refreshed release says where it came from, and whether it's whole.
         origin = ""
@@ -329,7 +331,7 @@ def corpus_status() -> None:
             origin = f" refreshed-from={refresh_state.get('base')} ({finished})"
         click.echo(
             f"  {release}: shards={shards} papers-parquet={papers_done} "
-            f"citations-parquet={cites_done}{origin}"
+            f"citations-parquet={cites_done} contexts={contexts_done}{origin}"
         )
 
 
@@ -470,9 +472,10 @@ def corpus_verify(
 @click.option(
     "--dataset",
     "datasets_opt",
-    type=click.Choice(["papers", "citations"]),
+    type=click.Choice(["papers", "citations", "contexts"]),
     multiple=True,
-    help="Restrict to one dataset (repeatable). Default: both.",
+    help="Restrict to one dataset (repeatable). Default: all three; contexts are "
+         "the citing sentences, read from the raw citations shards.",
 )
 @click.option(
     "--activate/--no-activate",
@@ -484,7 +487,7 @@ def corpus_ingest(release_id: str | None, datasets_opt: tuple[str, ...], activat
 
     Args:
         release_id: The release to ingest; defaults to the latest release.
-        datasets_opt: Datasets to ingest; both by default.
+        datasets_opt: Datasets to ingest; all of ``ingest.INGEST_DATASETS`` by default.
         activate: Flip ``CURRENT`` to this release when the ingest succeeds.
 
     Raises:
@@ -499,7 +502,7 @@ def corpus_ingest(release_id: str | None, datasets_opt: tuple[str, ...], activat
     )
 
     release_id = release_id or datasets.latest_release_id()
-    wanted = datasets_opt or DATASETS
+    wanted = datasets_opt or ingest.INGEST_DATASETS
     click.echo(f"Ingesting release {release_id} ({', '.join(wanted)})…")
 
     def on_progress(dataset: str, filename: str, index: int, total: int) -> None:
@@ -592,6 +595,46 @@ def corpus_refresh(release_id: str | None, base_id: str | None, activate: bool) 
         f"To reclaim space: the old release ({old.parquet.parent}) and the new one's "
         f"diff files ({corpus_paths.release_paths(release_id).diffs}) can be deleted."
     )
+
+
+@corpus.command("contexts", help="Build a release's citing-sentences table (Peer Reviews).")
+@click.option("--release", "release_id", default=None,
+              help="Release id (default: the active CURRENT release).")
+def corpus_contexts(release_id: str | None) -> None:
+    """Build the contexts table for a release that predates it.
+
+    New ingests and refreshes build it themselves; this is the backfill. It
+    reads the release's raw citations shards when they're on disk, or else,
+    for a refreshed release, the base release's table (built first from the
+    base's raw shards if needed) plus the citation diffs still in ``diffs/``.
+    Resumable, and a no-op once the table is complete.
+
+    Args:
+        release_id: The release; defaults to the active one.
+
+    Raises:
+        click.ClickException: When the corpus root is unset, there's no
+            release, or neither route to the sentences is open.
+    """
+    corpus_root = _require_corpus_root()
+    from curious_astronaut.integrations.semantic_scholar.corpus import contexts
+    from curious_astronaut.integrations.semantic_scholar.corpus import paths as corpus_paths
+    from curious_astronaut.integrations.semantic_scholar.corpus.datasets import CorpusError
+
+    release_id = release_id or corpus_paths.read_current_release(corpus_root)
+    if not release_id:
+        raise click.ClickException("no active release — pass --release")
+    click.echo(f"Building the contexts table for {release_id}…")
+    try:
+        route = contexts.build_contexts(release_id, on_overall=_PROGRESS.overall)
+    except CorpusError as exc:
+        raise click.ClickException(str(exc)) from exc
+    finally:
+        _PROGRESS.close()
+    if route == "complete":
+        click.echo("Already complete.")
+    else:
+        click.echo(f"Contexts complete (built from {'raw shards' if route == 'raw' else 'the refresh diffs'}).")
 
 
 @corpus.command("compact", help="Cluster an ingested release's papers by corpusid.")

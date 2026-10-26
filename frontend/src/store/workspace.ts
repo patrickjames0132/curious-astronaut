@@ -438,6 +438,38 @@ export const openTool = createAsyncThunk<void, ThreadTool, { state: NavigationSt
   },
 )
 
+/**
+ * Show a paper that cites this one in its Citation Graph, selected and
+ * centred, building the graph first when it isn't yet. Peer Reviews quotes a
+ * paper's most-cited citers, and the graph keeps only a cut of them (on
+ * Attention, 6 of a card's 13), so a citer it lacks is added, with the
+ * citation edge to the seed it has by construction, the way an expansion
+ * adds a paper. Matched by id or arXiv id, so a citer already drawn under a
+ * provider's other id isn't drawn twice.
+ *
+ * @param paper The citing paper, as a graph node (`rels: ['citation']`).
+ */
+export const showCiterInGraph = createAsyncThunk<void, GraphNode, { state: NavigationState }>(
+  'workspace/showCiterInGraph',
+  async (paper, { dispatch, getState }) => {
+    await dispatch(openTool('graph'))
+    const { graph, discoveredNodes } = getState().workspace
+    if (!graph) return // the build failed; its own error shows
+    const known = [...graph.nodes, ...discoveredNodes].find(
+      (node) => node.id === paper.id || (!!paper.arxiv_id && node.arxiv_id === paper.arxiv_id),
+    )
+    if (!known) {
+      dispatch(
+        discoveryMerged({
+          nodes: [paper],
+          edges: [{ source: paper.id, target: graph.seed.id, type: 'citation' }],
+        }),
+      )
+    }
+    dispatch(graphFocusRequested(known?.id ?? paper.id))
+  },
+)
+
 /** Delete a graph thread after moving its active canvas back to General.
  * @param threadId Thread to delete.
  */

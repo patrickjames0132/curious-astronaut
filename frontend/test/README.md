@@ -87,8 +87,12 @@ test/
                                 highlight menu's Explain, Simplify and Chat
                                 into the Reader Assistant (v8.38.0), and the
                                 PDF view with pdf.js stubbed (v8.40.0)
+  reviews/
+    PeerReviews.test.tsx      — the Peer Reviews card: the request for the
+                                thread's paper, themes and their quotes, the
+                                retry, honest empty states, and Open
   tools/
-    ToolCards.test.tsx        — the card home's paper header, its three
+    ToolCards.test.tsx        — the card home's paper header, its four
                                 cards, and the one-time paper fetch
   tour/
     Tour.test.tsx             — step walking, absent-target skipping, the

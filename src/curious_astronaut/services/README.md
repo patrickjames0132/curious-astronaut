@@ -15,11 +15,10 @@ Each feature is its own package; see each package's README:
   Scholar plus an instant search over the local snapshot cache (`discovery`),
   and the composer's `@`-mention lookup — its merge/rank helpers in
   `discovery`, and in `naming` the resolution of an informal paper name
-  ("DQN") to the paper itself. **`naming` is the one module here that reaches
-  into `agents/`**, and it does so through a function-local import for that
-  reason: nothing else in `services/` depends on the agent tier, and a
-  top-level import would make every consumer of the search service construct
-  an agent. It is there because the mapping from a nickname to a title is
+  ("DQN") to the paper itself. **`naming` reaches into `agents/`**, and
+  through a function-local import: a top-level one would make every consumer
+  of the search service construct an agent. (`reviews/` is the only other
+  service that depends on the agent tier.) It is there because the mapping from a nickname to a title is
   world knowledge that no text match can supply — see its own docstring for
   the measurements.
 - **`sources/`** — the bring-your-own-sources subsystem: local ingestion,
@@ -28,6 +27,11 @@ Each feature is its own package; see each package's README:
 - **`reader/`** — the Reader card's joins to the rest of the app: its
   bibliography matched to the papers it names (`citations`), for the
   citation cards.
+- **`reviews/`** — the Peer Reviews card: a paper's most-cited citers'
+  citing sentences (the corpus's, else S2's live), judged and grouped by
+  the `reviewer` agent into what the field objected to. **The other service
+  that depends on `agents/`**, and at the top: building the card is the
+  reviewer's job, and its only consumer is the route that needs it.
 - **`pdf/`** — open-access PDF mining for papers ar5iv can't serve: resolve
   a paper's OA-PDF URL (either provider), download/cache the file, and
   extract full text plus caption-anchored figures/tables/algorithms for the

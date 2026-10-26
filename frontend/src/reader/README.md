@@ -398,7 +398,7 @@ model call, a card in the Reader.
   on" alone doesn't say whose notes these are) or **Open in Knowledge
   Graph**, which opens the item
   there (`knowledgeOpened`, `openTool('knowledge')`) with a **Back to
-  reading** pill beside its ↑ (`ThreadRecord.returnTo`, `tools/README.md`).
+  reading** pill in its ↑'s place (`ThreadRecord.returnTo`, `tools/README.md`).
 - **The Reader reopens where you left off** (v8.44.0), in either view: the
   section or page at the top of the pane and how far into it, as a fraction
   of its height (so images loading or pages rescaling don't move it), kept
@@ -587,7 +587,7 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
   the whole Reader, so the ↑ back to the cards centres over the text, not
   over text and contents together, and stays put as the text scrolls. Since
   v8.50.0 the Reader draws that button itself (the app leaves it out for
-  the Reader): the ↑ within 120px of the top (`AT_TOP`), and below that a
+  the Reader; the shared `tools/ScrollNav` since Peer Reviews wanted it too): the ↑ within 120px of the top (`AT_TOP`), and below that a
   **Back to top** pill, words alone until the pane is narrow and then just
   its icon, gliding back to the top. It replaced the contents panel's own
   Back to top. (A ←

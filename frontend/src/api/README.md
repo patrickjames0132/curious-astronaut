@@ -20,6 +20,8 @@ api/
                  contents, where its passages are (a highlight's words and
                  places, an answer's quotes), and the papers its citations
                  name                                       (routes/graph.py)
+  reviews.ts   — the Peer Reviews card: what the field objected to
+                                                            (routes/reviews.py)
   sessions.ts  — saved workspaces                          (routes/sessions.py)
   settings.ts  — the settings modal's config read/write     (routes/settings.py)
   sources.ts   — the local semantic library                (routes/sources.py)

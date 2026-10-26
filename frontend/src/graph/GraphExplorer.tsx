@@ -68,7 +68,7 @@ import { useTimeline } from './hooks/useTimeline'
 import {
   CITE_SLIDER_STEPS,
   betweenLinkType,
-  citationThreshold,
+  citationWindow,
   findMatches,
   focusAnchor,
   focusOf,
@@ -359,21 +359,28 @@ export default function GraphExplorer({
     if (tourStage === 'details' && !selectedId && graph) setSelectedId(graph.seed.id)
   }, [tourStage, selectedId, graph, setSelectedId])
 
-  // "Show in Citation Graph" from the Reader's citation card (v8.43.0):
-  // select the paper and centre it once the layout has placed it (a graph
-  // just built hasn't yet). Cleared either way, so it acts once.
+  // "Show in Citation Graph" from the Reader's citation card (v8.43.0) and
+  // Peer Reviews: select the paper and centre it once the layout has placed
+  // it (a graph just built hasn't yet). Cleared either way, so it acts once.
+  // The paper may not be on the canvas yet either: Peer Reviews adds a citer
+  // the graph lacks as a discovery, which the discovery effect below pushes
+  // into `base` after this one runs, so the node is looked for until placed.
   const focusRequest = useAppSelector((state) => state.workspace.focusRequest)
   useEffect(() => {
     if (!focusRequest || !base) return
     dispatch(graphFocusRequested(null))
-    const node = base.nodes.find((candidate) => candidate.id === focusRequest)
-    if (!node) return
-    if (node.id !== selectedId) onNodeClick(node)
     // Not cancelled when the request clears (that's this effect's own
     // dispatch); it gives up after two seconds, and a gone canvas is a no-op.
     const started = performance.now()
+    let selected = false
     const centre = () => {
-      if (node.x !== undefined && node.y !== undefined) fgRef.current?.centerAt(node.x, node.y, 600)
+      const node = base.nodes.find((candidate) => candidate.id === focusRequest)
+      if (node && !selected) {
+        selected = true
+        if (node.id !== selectedId) onNodeClick(node)
+      }
+      if (node?.x !== undefined && node.y !== undefined)
+        fgRef.current?.centerAt(node.x, node.y, 600)
       else if (performance.now() - started < 2000) requestAnimationFrame(centre)
     }
     centre()
@@ -605,8 +612,8 @@ export default function GraphExplorer({
     // The citation window a neighbor must fall inside (0…maxCitations = filter
     // off). The backend already ranks by citations and caps the pool; this is a
     // live display trim on top of it.
-    const citeMin = citationThreshold(citeLo, base.minCitations, base.maxCitations)
-    const citeMax = citationThreshold(citeHi, base.minCitations, base.maxCitations)
+    // A knob at rest bounds nothing (see `citationWindow`).
+    const [citeMin, citeMax] = citationWindow(citeLo, citeHi, base.minCitations, base.maxCitations)
     // An edge is allowed when its relation chip is toggled on. Node-type
     // filtering lives entirely in the chips; the citation slider trims by
     // magnitude on the node side below.

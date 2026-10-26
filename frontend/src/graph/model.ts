@@ -126,6 +126,31 @@ export function citationThreshold(
   return Math.round(Math.expm1(low + frac * (high - low)))
 }
 
+/**
+ * The citation counts a neighbour must fall inside to be drawn, for the
+ * slider's two knobs. A knob resting at its end is no bound at all, not the
+ * built graph's own least- or most-cited paper: a paper added after the build
+ * (an Expand, a citer shown from Peer Reviews) can lie outside that range,
+ * and was hidden by a slider nobody had touched.
+ *
+ * @param low The lower knob's position (0…CITE_SLIDER_STEPS).
+ * @param high The upper knob's position.
+ * @param minCitations The built graph's least-cited neighbour.
+ * @param maxCitations Its most-cited neighbour.
+ * @returns The inclusive `[floor, ceiling]` window.
+ */
+export function citationWindow(
+  low: number,
+  high: number,
+  minCitations: number,
+  maxCitations: number,
+): [number, number] {
+  return [
+    low <= 0 ? 0 : citationThreshold(low, minCitations, maxCitations),
+    high >= CITE_SLIDER_STEPS ? Infinity : citationThreshold(high, minCitations, maxCitations),
+  ]
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /**

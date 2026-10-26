@@ -56,10 +56,17 @@ PAPERS = [
 ]
 #: Edges: BERT, GPT-3, and the recent paper all cite the seed (corpus id 1).
 #: Each carries the ``citationid`` a weekly diff's deletes name it by.
+#:
+#: Each also carries the citing sentences the contexts table keeps
+#: (``contexts.py``): BERT's and GPT-3's are kept, the recent paper's is not,
+#: since its 5 citations are under ``contexts.MIN_CITER_CITATIONS``.
 CITATIONS = [
-    {"citationid": 101, "citingcorpusid": 2, "citedcorpusid": 1, "isinfluential": True},
-    {"citationid": 102, "citingcorpusid": 4, "citedcorpusid": 1, "isinfluential": False},
-    {"citationid": 103, "citingcorpusid": 3, "citedcorpusid": 1, "isinfluential": False},
+    {"citationid": 101, "citingcorpusid": 2, "citedcorpusid": 1, "isinfluential": True,
+     "contexts": ["However, self-attention is quadratic in the sequence length [12]."]},
+    {"citationid": 102, "citingcorpusid": 4, "citedcorpusid": 1, "isinfluential": False,
+     "contexts": ["We use the Transformer [7].", "Its  decoder is  autoregressive [7]."]},
+    {"citationid": 103, "citingcorpusid": 3, "citedcorpusid": 1, "isinfluential": False,
+     "contexts": ["Transformers are slow [3]."]},
 ]
 #: A SECOND citations shard that re-ships edges already in the first — because
 #: that's what S2 actually does. A release's `citations` dataset comes as more
@@ -70,8 +77,10 @@ CITATIONS = [
 #: per-shard dedupe at ingest could never catch it. Keeping this in the fixture
 #: means the ordinary landmark assertions fail if the query stops deduping.
 CITATIONS_SECOND_BATCH = [
-    {"citationid": 201, "citingcorpusid": 2, "citedcorpusid": 1, "isinfluential": False},
-    {"citationid": 202, "citingcorpusid": 4, "citedcorpusid": 1, "isinfluential": False},
+    {"citationid": 201, "citingcorpusid": 2, "citedcorpusid": 1, "isinfluential": False,
+     "contexts": ["However, self-attention is quadratic in the sequence length [12]."]},
+    {"citationid": 202, "citingcorpusid": 4, "citedcorpusid": 1, "isinfluential": False,
+     "contexts": None},
 ]
 
 

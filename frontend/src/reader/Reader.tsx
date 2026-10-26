@@ -67,6 +67,7 @@ import { useAnchoredCard } from './useAnchoredCard'
 import { useMarginNotes } from './useMarginNotes'
 import { boxesOf, findPassage, indexText, scrollToRange, type LitBox } from './passages'
 import { glide as glideTo } from './glide'
+import ScrollNav, { useAtTop } from '../tools/ScrollNav'
 import { selectionSpan } from './pdfPlaces'
 import { boxOnScreen, boxPlace, PDF_FRAMES, TEXT_FRAMES, useBoxDraw } from './useBoxDraw'
 import { labelElements, labelsInRange, labelsOf, readBox } from './textBox'
@@ -129,9 +130,6 @@ function markLanded(element: Element) {
 function boxStyle(rect: number[]) {
   return { left: rect[0], top: rect[1], width: rect[2] - rect[0], height: rect[3] - rect[1] }
 }
-
-/** How far down the pane still counts as the top of the paper, in pixels. */
-const AT_TOP = 120
 
 /** The PDF view's zoom steps, as multiples of fitting the pane's width. */
 const ZOOMS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
@@ -663,15 +661,7 @@ export default function Reader({
   const [pinnedId, setPinnedId] = useState<string | null>(null)
   // Whether the pane is at the top of the paper: the button over it is the
   // ↑ to the cards there, and Back to top anywhere below.
-  const [atTop, setAtTop] = useState(true)
-  useEffect(() => {
-    const pane = pageRef.current
-    if (!pane) return
-    const update = () => setAtTop(pane.scrollTop < AT_TOP)
-    update()
-    pane.addEventListener('scroll', update, { passive: true })
-    return () => pane.removeEventListener('scroll', update)
-  }, [view])
+  const atTop = useAtTop(pageRef, view)
   useEffect(() => {
     const pane = pageRef.current
     if (!pane || !pinnedId) return
@@ -1325,54 +1315,18 @@ export default function Reader({
         }}
       >
         {children}
-        {/* One button over the paper, two jobs (Patrick): scrolled down, it
-            takes you back to the top; at the top, up to the paper's cards.
-            The other tools' ↑ alone, floating over a scrolled page, read as
-            "back to the top". */}
-        <div className="tool-nav">
-          {atTop ? (
-            <button
-              type="button"
-              className="tool-back"
-              data-tour="tool-back"
-              onClick={() => void dispatch(openTool('cards'))}
-              title={`Back up to the cards for ${thread.title}`}
-              aria-label="Back to this paper’s cards"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path
-                  d="M8 13V3M3.5 7.5 8 3l4.5 4.5"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="tool-return reader-to-top"
-              onClick={() => {
-                setPinnedId(null)
-                const pane = pageRef.current
-                if (pane) glideTo(pane, () => 0)
-              }}
-              title="Back to the top of the paper"
-            >
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path
-                  d="M3 2.5h10M8 14V6M4.5 9.5 8 6l3.5 3.5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span className="tool-return-label">Back to top</span>
-            </button>
-          )}
-        </div>
+        {/* One button over the paper, two jobs: Back to top scrolled down,
+            the ↑ to the cards at the top (`tools/ScrollNav`). */}
+        <ScrollNav
+          atTop={atTop}
+          paperTitle={thread.title}
+          topTitle="Back to the top of the paper"
+          onTop={() => {
+            setPinnedId(null)
+            const pane = pageRef.current
+            if (pane) glideTo(pane, () => 0)
+          }}
+        />
         <div
           key={view ?? 'loading'}
           className={`reader-page${view === 'pdf' ? ' reader-page-pdf' : ''}${slide ? ` ${slide}` : ''}`}

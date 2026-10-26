@@ -301,6 +301,20 @@ same synthesis and never paid for twice; a synthesis needs two or more members
   addresses (and the lessons), after which a saved lesson's web image is a
   404.
 
+## `reviews.py` — the Peer Reviews card
+
+- **`POST /api/reviews`** takes the thread's paper (`id`, plus `arxiv_id`,
+  `title`, `authors`, `year`, `url` when known; anything else is dropped)
+  and returns the card from `services/reviews`: `{source, citers,
+  sentences, critiques, themes}`. `fresh` replaces the cached card.
+- **One JSON response, not a stream.** The card has nothing to show until
+  the themes are grouped (~20–30s on a first open), and a cached card
+  (a month) answers at once.
+- **No themes is a 200.** A paper S2 can't find, one no widely cited paper
+  cites yet, and one whose citers only use it are all answers the card
+  words honestly. 400 is a body without `paper.id`; 502 is S2 or the model
+  failing, with S2's failure named so the reader knows to wait.
+
 ## `sessions.py` — explorations
 
 | Endpoint | Job |

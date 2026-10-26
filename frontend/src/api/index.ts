@@ -9,6 +9,7 @@
  *   search   — live (S2) + local seed search, and the field-picker vocabulary
  *   graph    — the paper neighborhood graph, detail hydration, figures
  *   reader   — a paper's ar5iv render as a structured document (Reader card)
+ *   reviews  — what the field objected to in a paper (Peer Reviews card)
  *   agents   — streaming lecture, Q&A, and offline library chat (SSE)
  *   sources  — the user's local semantic library (bring-your-own sources)
  *   mentions — the composer's `@` paper lookup
@@ -25,6 +26,7 @@ export * from './mentions'
 export * from './graph'
 export * from './knowledge'
 export * from './reader'
+export * from './reviews'
 export * from './agents'
 export * from './sources'
 export * from './sessions'

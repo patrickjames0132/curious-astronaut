@@ -18,6 +18,7 @@ from flask import Flask
 from .agents import bp as agents_bp
 from .graph import bp as graph_bp
 from .knowledge import bp as knowledge_bp
+from .reviews import bp as reviews_bp
 from .search import bp as search_bp
 from .sessions import bp as sessions_bp
 from .settings import bp as settings_bp
@@ -30,6 +31,7 @@ ALL_BLUEPRINTS = [
     search_bp,
     agents_bp,
     knowledge_bp,
+    reviews_bp,
     sessions_bp,
     sources_bp,
     settings_bp,

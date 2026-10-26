@@ -27,11 +27,15 @@ import reducer, {
   providerSet,
   selectScope,
   restoreSession,
+  showCiterInGraph,
   switchProvider,
   visibleNodesSet,
   workspaceCleared,
 } from '../../src/store/workspace'
 import type { WorkspaceState } from '../../src/store/workspace'
+import transcript from '../../src/store/transcript'
+import explorations from '../../src/store/explorations'
+import { configureStore } from '@reduxjs/toolkit'
 import type { TranscriptState } from '../../src/store/transcript'
 
 /** A minimal valid GraphNode; override per test. */
@@ -86,6 +90,45 @@ describe('node-selection reducers', () => {
     let state = reducer(initial(), nodeSelectionSet(['a', 'b']))
     state = reducer(state, nodeSelectionCleared())
     expect(state.selectedNodeIds).toEqual([])
+  })
+})
+
+describe('showCiterInGraph', () => {
+  /** A store whose built graph holds the seed and, optionally, more papers.
+   * @param papers Papers besides the seed.
+   * @returns The store.
+   */
+  function storeWith(papers: GraphNode[]) {
+    const store = configureStore({ reducer: { workspace: reducer, transcript, explorations } })
+    store.dispatch({
+      type: loadGraph.fulfilled.type,
+      payload: makeGraph([makeNode('seed', { is_seed: true, rels: ['seed'] }), ...papers]),
+      meta: { arg: { seed: 'seed' } },
+    })
+    return store
+  }
+
+  it('adds a citer the graph lacks, with its citation edge, and focuses it', async () => {
+    // Peer Reviews quotes the most-cited citers; the graph keeps only a cut.
+    const store = storeWith([makeNode('other')])
+    const citer = makeNode('CorpusId:2', { rels: ['citation'] })
+    await store.dispatch(showCiterInGraph(citer))
+    const { workspace } = store.getState()
+    expect(workspace.discoveredNodes.map((node) => node.id)).toEqual(['CorpusId:2'])
+    expect(workspace.discoveredEdges).toEqual([
+      { source: 'CorpusId:2', target: 'seed', type: 'citation' },
+    ])
+    expect(workspace.focusRequest).toBe('CorpusId:2')
+  })
+
+  it('focuses a citer already drawn, matched by arXiv id, without adding a twin', async () => {
+    const store = storeWith([makeNode('W123', { arxiv_id: '2006.04768' })])
+    await store.dispatch(
+      showCiterInGraph(makeNode('CorpusId:2', { arxiv_id: '2006.04768', rels: ['citation'] })),
+    )
+    const { workspace } = store.getState()
+    expect(workspace.discoveredNodes).toEqual([])
+    expect(workspace.focusRequest).toBe('W123')
   })
 })
 

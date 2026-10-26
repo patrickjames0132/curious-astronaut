@@ -4,7 +4,8 @@
  * Description:
  * A paper thread's card home: the paper at the top, then one card per tool
  * that works on it — the citation graph, (Phase 5b) the knowledge network,
- * and the Reader (the paper itself). Opening a card switches the thread to that tool; clicking the
+ * the Reader (the paper itself), and Peer Reviews (what the field objected
+ * to). Opening a card switches the thread to that tool; clicking the
  * thread in the rail always comes back here (`openThread`).
  *
  * Authors:
@@ -79,6 +80,20 @@ function BookIcon() {
   )
 }
 
+/** Two quotation marks: what later papers said about it.
+ * @returns The icon.
+ */
+function QuoteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <g fill="currentColor">
+        <path d="M4 17.5c0-4.6 1.6-8 5.6-10.5l1 1.5C8.4 10.2 7.5 12 7.4 13H10v4.5H4Z" />
+        <path d="M13.5 17.5c0-4.6 1.6-8 5.6-10.5l1 1.5c-2.2 1.7-3.1 3.5-3.2 4.5h2.6v4.5h-6Z" />
+      </g>
+    </svg>
+  )
+}
+
 const CARDS: ToolCard[] = [
   {
     tool: 'graph',
@@ -103,6 +118,14 @@ const CARDS: ToolCard[] = [
       'The paper itself, section by section, with its equations typeset and every ' +
       'citation one click from its reference.',
     icon: <BookIcon />,
+  },
+  {
+    tool: 'reviews',
+    title: 'Peer Reviews',
+    blurb:
+      'What the field objected to: the weaknesses later papers found, each quoted from ' +
+      'the paper that raised it.',
+    icon: <QuoteIcon />,
   },
 ]
 

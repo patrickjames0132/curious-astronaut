@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
- * Description: A paper thread's card home — header, its three cards, and the one-time paper fetch.
+ * Description: A paper thread's card home — header, its four cards, and the one-time paper fetch.
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { configureStore } from '@reduxjs/toolkit'
@@ -96,6 +96,12 @@ it('opens the Reader card', () => {
   const { onOpen } = mount(paperThread(true))
   fireEvent.click(screen.getByRole('button', { name: /Reader/ }))
   expect(onOpen).toHaveBeenCalledWith('reader')
+})
+
+it('opens the Peer Reviews card', () => {
+  const { onOpen } = mount(paperThread(true))
+  fireEvent.click(screen.getByRole('button', { name: /Peer Reviews/ }))
+  expect(onOpen).toHaveBeenCalledWith('reviews')
 })
 
 it('fetches a missing paper once and keeps it on the thread', async () => {
