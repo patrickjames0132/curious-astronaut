@@ -16,6 +16,17 @@ tools/
                   `.tool-surface`'s scroll between the cards and a tool
 ```
 
+## Arrival
+
+The paper heading, authors and summary fade up together, then the tool cards
+follow at 60/100/140ms. Like the app's landing page, each uses independent
+450ms rise and fade animations: the rise eases out while opacity eases in,
+so the content resolves from the background as it settles. `both` holds the
+invisible starting frame during the stagger. These are mount animations;
+paper hydration or another render does not replay them. Returning to the
+cards or opening another paper mounts a fresh entrance. Reduced motion shows
+everything immediately, with no rise, fade or stagger.
+
 ## The cards
 
 Named **Paper Graph** and **Knowledge Graph** at 5b's review (Patrick,

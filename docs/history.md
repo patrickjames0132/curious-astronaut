@@ -5057,6 +5057,17 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Paper card homes fade up in a quick cascade** *(v8.49.1)* — the
+      paper title, authors and summary now rise and fade in together, with
+      the tool cards resolving from the background in sequence. Separate
+      rise/ease-out and fade/ease-in animations keep the landing page's motion
+      language. After browser tuning, each runs for 450ms, with cards starting
+      at 60/100/140ms: the cascade remains, with shorter gaps. The empty
+      General/new-exploration hero, greeting and composer also arrive faster,
+      at 550ms instead of 700ms; the composer's 120ms offset stays. Entrances
+      run on mount, not every render; reduced motion shows content at once.
+      Approved by Patrick, 2026-10-25.
+
 - [x] **A thicker upward chevron for Send** *(v8.48.1)* — the chat composers
       use one shared SVG arrowhead instead of a thin text arrow with a stem.
       The 20px icon has a 3-unit rounded stroke and inherits the button's

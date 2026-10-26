@@ -91,7 +91,10 @@ list.
 The graph-choice cards keep equal heights when stacked vertically, sized to
 the longest description at the current width. The graph-choice cards glow in their blue or gold accent, lift slightly, and
 grow on hover or keyboard focus; their icons and rounded squares grow together
-a little further. Reduced-motion settings keep the highlight without movement.
+a little further. On arrival the paper heading fades up, followed by the cards
+in a quick cascade. The General/new-exploration landing also uses a shorter
+fade-and-rise entrance. Reduced-motion settings show content immediately and
+keep the hover highlight without movement.
 
 The light/dark toggle crossfades the page and animates its icon, respecting
 reduced-motion preferences. The helmet has a blue outline in light mode only;

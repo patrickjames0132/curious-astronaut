@@ -173,13 +173,13 @@
 .teacher.landing.empty .landing-hero,
 .teacher.landing.empty .landing-greeting {
   animation:
-    rise 0.7s var(--ease-rise) both,
-    fade 0.7s var(--ease-fade) both;
+    rise 0.55s var(--ease-rise) both,
+    fade 0.55s var(--ease-fade) both;
 }
 .teacher.landing.empty .ask-dock {
   animation:
-    rise 0.7s var(--ease-rise) 0.12s both,
-    fade 0.7s var(--ease-fade) 0.12s both;
+    rise 0.55s var(--ease-rise) 0.12s both,
+    fade 0.55s var(--ease-fade) 0.12s both;
 }
 /* Except a chat opened with its `@` typed (the rail's Papers ＋, v8.32.1):
    the `@` list opens inside this block, and fading the block fades the list

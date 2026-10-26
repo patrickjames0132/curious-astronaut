@@ -249,6 +249,9 @@ the same proportions, picked by theme in `teacher.css`:
   of the painting and remapped onto an ellipse (measure where its paint ends in
   every direction, smooth away the square, keep the brush wiggle).
 
+The empty General/new-exploration entrance takes 550ms for both rise and fade,
+with the composer following the picture and greeting by 120ms.
+
 **A theme switch replays the entrance** for all three parts at once. The
 effect restarts their CSS animations in place through the Web Animations API
 (`getAnimations()` → cancel, play) rather than remounting — a remount would
