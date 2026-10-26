@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import logging
 import urllib.parse
-from typing import Iterator
+from typing import Any, Iterator, TypeVar
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 from pydantic_ai import Agent
@@ -324,12 +324,23 @@ def _prompt(
     return "\n\n".join(sections)
 
 
-def _partial_beats(args_json: str) -> list[LectureBeat]:
+BeatModel = TypeVar("BeatModel", bound=BaseModel)
+"""A beat as a model emits it: the graph lecture's, or the guided read's."""
+
+
+def _partial_beats(args_json: str, model: type[BeatModel] = LectureBeat) -> list[BeatModel]:  # type: ignore[assignment]
     """Parse the beats already complete inside a partially-streamed args JSON.
 
     The output tool's args stream as ``{"response": [{beat}, {beat}, ...``;
     ``allow_partial`` tolerates the truncated tail, and validation stops at
     the first element that doesn't (yet) have a beat's full shape.
+
+    Args:
+        args_json: The output tool's arguments so far.
+        model: The beat's shape (v8.50.0: the guided read has its own).
+
+    Returns:
+        The beats complete so far, the last maybe still generating.
     """
     try:
         parsed = from_json(args_json, allow_partial="trailing-strings")
@@ -338,13 +349,65 @@ def _partial_beats(args_json: str) -> list[LectureBeat]:
     items = parsed.get("response") if isinstance(parsed, dict) else None
     if not isinstance(items, list):
         return []
-    beats: list[LectureBeat] = []
+    beats: list[BeatModel] = []
     for item in items:
         try:
-            beats.append(LectureBeat.model_validate(item))
+            beats.append(model.model_validate(item))
         except ValidationError:
             break  # the trailing, still-generating element
     return beats
+
+
+def streamed_beats(
+    run_agent: Agent[None, Any], prompt: str, model: type[BeatModel], model_name: Any
+) -> Iterator[BeatModel]:
+    """Run a beat-emitting agent and yield each beat once it is complete.
+
+    A beat is complete once the model starts the next one, so narration
+    begins before the lecture ends; the validated final output flushes
+    whatever the partial view hadn't. Shared by the graph lecture and the
+    guided read (v8.50.0).
+
+    Args:
+        run_agent: The agent, whose output is a list of ``model``.
+        prompt: The user prompt.
+        model: The beat's shape.
+        model_name: The model to run on (``factory.model_for``).
+
+    Yields:
+        Each beat, in order, once.
+    """
+    emitted = 0
+    args_buffer = ""
+    output_part: int | None = None
+    final: list[BeatModel] | None = None
+    for event in streams.drive(run_agent, prompt, model=model_name):
+        if isinstance(event, PartStartEvent) and isinstance(event.part, ToolCallPart):
+            if event.part.tool_name == streams.OUTPUT_TOOL:
+                output_part = event.index
+                args = event.part.args
+                args_buffer = args if isinstance(args, str) else ""
+        elif (
+            isinstance(event, PartDeltaEvent)
+            and event.index == output_part
+            and isinstance(event.delta, ToolCallPartDelta)
+            and isinstance(event.delta.args_delta, str)
+        ):
+            args_buffer += event.delta.args_delta
+        elif isinstance(event, AgentRunResultEvent):
+            final = event.result.output
+            continue
+        else:
+            continue
+        # The last parsed beat may still be mid-generation — emit up to it.
+        partial = _partial_beats(args_buffer, model)
+        for beat in partial[emitted:-1]:
+            emitted += 1
+            yield beat
+    if final is not None:
+        for beat in final[emitted:]:
+            emitted += 1
+            yield beat
 
 
 def _beat(beat: LectureBeat, nodes: list[Node], figures: list[dict]) -> events.Beat:
@@ -516,18 +579,6 @@ def lecture(
     passages = _paper_passages(subject) if subject and not target else []
     fulltext = _paper_fulltext(subject) if subject and not target else ""
 
-    emitted = 0
-    args_buffer = ""
-    output_part: int | None = None
-    final: list[LectureBeat] | None = None
-
-    def flush(beats: list[LectureBeat]) -> Iterator[events.Beat]:
-        nonlocal emitted
-        for beat in beats[emitted:]:
-            emitted += 1
-            if beat.text.strip():
-                yield _beat(beat, nodes, figures)
-
     # The library a beat may cite, resolved up front like the answer agents'
     # (see researcher.main) so [Sn, p.N] renders as a real title from the
     # first beat onward.
@@ -540,28 +591,6 @@ def lecture(
         )
 
     prompt = _prompt(seed, nodes, subject, target, framing, figures, passages, fulltext)
-    for event in streams.drive(agent, prompt, model=factory.model_for(AGENT_ID)):
-        if isinstance(event, PartStartEvent) and isinstance(event.part, ToolCallPart):
-            if event.part.tool_name == streams.OUTPUT_TOOL:
-                output_part = event.index
-                args = event.part.args
-                args_buffer = args if isinstance(args, str) else ""
-        elif (
-            isinstance(event, PartDeltaEvent)
-            and event.index == output_part
-            and isinstance(event.delta, ToolCallPartDelta)
-            and isinstance(event.delta.args_delta, str)
-        ):
-            args_buffer += event.delta.args_delta
-        elif isinstance(event, AgentRunResultEvent):
-            final = event.result.output
-            continue
-        else:
-            continue
-        # The last parsed beat may still be mid-generation — emit up to it.
-        partial = _partial_beats(args_buffer)
-        yield from flush(partial[:-1])
-
-    # The validated final output flushes whatever the partial view hadn't.
-    if final is not None:
-        yield from flush(final)
+    for beat in streamed_beats(agent, prompt, LectureBeat, factory.model_for(AGENT_ID)):
+        if beat.text.strip():
+            yield _beat(beat, nodes, figures)

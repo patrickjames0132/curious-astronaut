@@ -366,7 +366,9 @@ export default function App() {
           over live content it has to push that content back to read at all. */}
       {/* The way back from a tool to its paper's cards. Rendered for the tool
           rather than the graph, so a build that failed still has an exit. */}
-      {paperThread && tool !== 'cards' && (
+      {/* Not over the Reader: its ↑ is at the top of the paper and scrolls
+          away with it (Patrick: floating, it read as "back to the top"). */}
+      {paperThread && tool !== 'cards' && tool !== 'reader' && (
         <div className="tool-nav">
           {/* Where a concept's lesson was opened from the Reader, the way back
               to the paper takes the ↑'s place (v8.44.0, Patrick: the two side

@@ -22,6 +22,23 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The Reader's box tests failed only under a loaded machine (v8.50.0)
+
+- **Symptom.** Reader tests that open the box's menu failed now and then in
+  a full `uv run nox`, never alone, never the same test twice; probably the
+  unexplained flake seen around v8.45.0.
+- **Root cause.** They waited for the menu with `findByRole`. A role query
+  walks the whole DOM and computes each element's accessible role and
+  name, and the Reader renders a whole paper. Under parallel test runs one
+  query could take most of `findBy`'s one-second wait, so a few retries
+  ran past it although the menu had long since appeared.
+- **Fix.** The box tests find the menu by its selector (`boxMenu()` in
+  `Reader.test.tsx`), which is instant on any DOM size. Four stress runs
+  of the suite in parallel passed.
+- **Lesson / guard.** Over a large rendered document, query by selector or
+  scope the role query to a small container (`within`); a role query's
+  cost grows with the page, and the timeout doesn't.
+
 ### The Reader's scrolls stopped short, by up to 1,000px (v8.49.0)
 
 - **Symptom.** Jumps in the Reader's text (a contents entry, a citation's

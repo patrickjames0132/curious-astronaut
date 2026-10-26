@@ -26,12 +26,21 @@
  */
 
 import { nanoid } from '@reduxjs/toolkit'
-import type { AskSourcesHandlers, HistoryTurn, PdfPlace, Provider, ThreadContext } from '../api'
+import type {
+  AskSourcesHandlers,
+  Beat,
+  HistoryTurn,
+  LectureHandlers,
+  PdfPlace,
+  Provider,
+  ThreadContext,
+} from '../api'
 import type { AppDispatch, RootState } from '../store'
 import { chatKey, type SIDE_CHAT_FIELDS } from '../store/chats'
 import type { ThreadRecord } from '../store/explorations'
 import {
   answerFailed,
+  chatBeatAdded,
   chatCleared,
   conversationEnsured,
   figureAdded,
@@ -45,6 +54,7 @@ import {
   tracesSettled,
   turnCompleted,
   turnContextSet,
+  turnRouted,
   turnStarted,
 } from '../store/transcript'
 import { borrowedChats, conversationHistory, siblingContext } from '../teacher/history'
@@ -212,6 +222,84 @@ export function askAssistant(tool: AssistantTool, request: AssistantQuestion, pr
       // A turn that produced nothing says so itself, so the note survives a
       // reload; a superseded one was replaced on purpose.
       if (!produced && !superseded) dispatch(answerFailed(failure, key))
+    }
+  }
+}
+
+/**
+ * How a tool streams a lecture into its chat (v8.50.0, the Reader's guided
+ * read): given the thread, the call that streams the beats, or null when
+ * there is nothing to lecture on.
+ */
+export type PrepareLecture = (
+  thread: ThreadRecord,
+) => ((handlers: LectureHandlers) => Promise<void>) | null
+
+/**
+ * Stream a lecture into a tool's side chat as one answer turn of beats, as
+ * the Citation Graph's lecture is a turn of its chat (v8.50.0). The same
+ * bookkeeping as {@link askAssistant}: a new message supersedes it, Stop and
+ * Clear end it, and a lecture that produced nothing says so on its turn.
+ *
+ * @param tool The tool whose assistant it is.
+ * @param request The thread, and the user turn's words ("Guide me through…").
+ * @param request.threadId The thread.
+ * @param request.question What the user turn shows.
+ * @param prepare How the tool streams it.
+ * @param onBeat Told each beat as it lands, its index, and the answer's index
+ *        in the chat (the Reader lights the first).
+ * @returns The thunk; it settles when the lecture has ended.
+ */
+export function lectureAssistant(
+  tool: AssistantTool,
+  request: { threadId: string; question: string },
+  prepare: PrepareLecture,
+  onBeat?: (beat: Beat, index: number, answer: number) => void,
+) {
+  return async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
+    const { threadId, question } = request
+    const thread = Object.values(getState().explorations.byId)
+      .flatMap((record) => record.threads)
+      .find((item) => item.id === threadId)
+    const stream = thread ? prepare(thread) : null
+    if (!stream) return
+    const key = chatKey(threadId, tool)
+    controllers.get(key)?.abort()
+    const ctrl = new AbortController()
+    controllers.set(key, ctrl)
+    dispatch(conversationEnsured(key))
+    const streamId = `${tool}:${nanoid()}`
+    dispatch(streamStarted(streamId, key))
+    dispatch(turnStarted(question, key))
+    // Said at the top of its bubble, by the timer, as the Citation Graph's
+    // chat says it (Patrick): "Answered as a lecture".
+    dispatch(turnRouted('lecture', key))
+    const answer = (getState().transcript.byKey[key]?.chat.length ?? 1) - 1
+    let failed = false
+    let failure = 'This lecture stopped before it finished.'
+    let beats = 0
+    try {
+      await stream({
+        signal: ctrl.signal,
+        onBeat: (beat) => {
+          dispatch(chatBeatAdded(beat, key))
+          onBeat?.(beat, beats, answer)
+          beats += 1
+        },
+        onError: (message) => {
+          failed = true
+          failure = message
+        },
+      })
+      if (!failed && !ctrl.signal.aborted) dispatch(turnCompleted(key))
+    } catch (error) {
+      if (!ctrl.signal.aborted) failure = error instanceof Error ? error.message : String(error)
+    } finally {
+      const superseded = controllers.get(key) !== ctrl
+      if (!superseded) controllers.delete(key)
+      dispatch(streamEnded(streamId, key))
+      if (!superseded) dispatch(tracesSettled(key))
+      if (!beats && !superseded) dispatch(answerFailed(failure, key))
     }
   }
 }

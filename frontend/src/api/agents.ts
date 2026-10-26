@@ -44,6 +44,14 @@ export interface Beat {
    * Absent on bridge lectures and older saved sessions.
    */
   figure?: { image: string; caption: string; number: number; title?: string | null } | null
+  /**
+   * A guided read's beat (v8.50.0) teaches a passage of the paper in the
+   * Reader, not papers on a graph: the paper's exact words, lit in the Reader
+   * as an answer's quotes are, and the labels it covers ("(3)", "Figure 2"),
+   * lit whole in either view. Absent on a graph lecture's beat.
+   */
+  quote?: string | null
+  labels?: string[]
 }
 
 /**
@@ -188,6 +196,83 @@ export async function resolveRoutedPapers(
   } catch {
     return []
   }
+}
+
+/** Where a message to the Reader Assistant goes (v8.50.0): a lecture on
+ *  the paper, or an answer. */
+export interface ReaderRoute {
+  target: 'guide' | 'answer'
+}
+
+/**
+ * Ask whether a message to the Reader Assistant wants a guided read
+ * (`POST /api/route_reader`, v8.50.0). Never rejects: any failure answers,
+ * as {@link routeMessage} does for the graph's chat.
+ *
+ * @param message The message as typed.
+ * @param signal Aborts a superseded message's routing.
+ * @returns The route, `answer` on any failure.
+ */
+export async function routeReaderMessage(
+  message: string,
+  signal?: AbortSignal,
+): Promise<ReaderRoute> {
+  const answer: ReaderRoute = { target: 'answer' }
+  try {
+    const res = await fetch('/api/route_reader', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+      signal,
+    })
+    if (!res.ok) return answer
+    return (await res.json()) as ReaderRoute
+  } catch {
+    return answer
+  }
+}
+
+/**
+ * Stream a lecture on the paper open in the Reader (v8.50.0, the guided
+ * read): beats in the paper's own order, each naming the passage it teaches.
+ *
+ * @param body What to read: the paper, the section in view, its title, and
+ *        the student's Knowledge Graph check-offs.
+ * @param body.paper The paper's arXiv id (or provider id).
+ * @param body.section The section in view, or `page:<n>` in the PDF view.
+ * @param body.title The paper's title, for a PDF.
+ * @param body.known Concepts the student has checked off.
+ * @param body.learning Concepts they haven't.
+ * @param body.provider Who to ask for a non-arXiv paper's PDF.
+ * @param handlers Beats as they arrive, the end, or an error.
+ */
+export async function streamGuideReader(
+  body: {
+    paper: string
+    section: string | null
+    title?: string
+    known: string[]
+    learning: string[]
+    provider: Provider
+  },
+  handlers: LectureHandlers,
+): Promise<void> {
+  const res = await fetch('/api/guide_reader', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: handlers.signal,
+  })
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string }
+    handlers.onError?.(data.error ?? 'The guided read couldn’t start.')
+    return
+  }
+  await readSSE(res, (event, data) => {
+    if (event === 'beat') handlers.onBeat(data as Beat)
+    else if (event === 'done') handlers.onDone?.()
+    else if (event === 'error') handlers.onError?.((data as { message: string }).message)
+  })
 }
 
 /** Callbacks for {@link streamLecture}. Optional ones may be omitted. */

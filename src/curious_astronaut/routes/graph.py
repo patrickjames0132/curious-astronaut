@@ -799,7 +799,11 @@ def api_paper_pdf_find(paper_ref: str) -> Response:
         return jsonify(
             {
                 "found": pdf_passages.find_quotes(path, quotes),
-                "labelled": pdf_passages.label_places(path, _floats(paper_ref), labels) if labels else [],
+                "labelled": (
+                    pdf_passages.label_places(path, _floats(paper_ref), labels, _contents(paper_ref))
+                    if labels
+                    else []
+                ),
             }
         )
     except pdf_service.PdfError:
@@ -835,6 +839,25 @@ def _labels_in(paper_ref: str, path: Path, places: list) -> list[str]:
         return pdf_passages.labels_in(path, _floats(paper_ref), places)
     except Exception:
         current_app.logger.warning("PDF labels failed for %s", paper_ref, exc_info=True)
+        return []
+
+
+def _contents(paper_ref: str) -> list[dict]:
+    """A paper's PDF contents, for its sections' places (v8.50.0).
+
+    Args:
+        paper_ref: The paper's arXiv id, or its provider node id.
+
+    Returns:
+        Its outline or found headings; none when there are none.
+    """
+    url = pdf_service.paper_pdf_url(normalize_arxiv_id(paper_ref), _requested_provider())
+    if not url:
+        return []
+    try:
+        return list(pdf_service.get_pdf_contents(url).get("entries") or [])
+    except Exception:  # no pdf extra, or an unreadable file: no sections
+        current_app.logger.warning("PDF contents failed for %s", paper_ref, exc_info=True)
         return []
 
 

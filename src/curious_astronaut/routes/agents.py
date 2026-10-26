@@ -10,6 +10,8 @@ POST /api/ask          -> the research agent, streamed over the visible graph
 POST /api/ask_sources  -> streamed chat with no graph open (library + search)
 POST /api/ask_course   -> the Knowledge Graph's assistant: the researcher,
                           graph-free, over a thread's course (v8.25.0)
+POST /api/route_reader -> whether a Reader message wants a guided read (JSON)
+POST /api/guide_reader -> the guided read: a lecture of the paper in the Reader
 POST /api/ask_reader   -> the Reader's assistant: the researcher, graph-free,
                           over the paper being read (v8.38.0)
 
@@ -311,6 +313,79 @@ def api_lecture() -> ResponseReturnValue:
         _relay(
             streams.terminated(
                 lecturer.lecture(seed=seed, nodes=nodes, target=target, framing=framing)
+            )
+        )
+    )
+
+
+
+@bp.post("/api/route_reader")
+def api_route_reader() -> ResponseReturnValue:
+    """Say whether a message to the Reader Assistant wants a guided read
+    (v8.50.0), before anything is streamed; the client then streams from
+    ``/api/guide_reader`` or ``/api/ask_reader``, as the graph's chat does
+    with ``/api/route``.
+
+    Body:
+        ``{message: str}``.
+
+    Returns:
+        ``{target: 'guide'|'answer'}``, always HTTP 200: any failure answers
+        (``router.route_reading``).
+    """
+    payload = request.get_json(silent=True) or {}
+    message = payload.get("message")
+    return jsonify(router.route_reading(message if isinstance(message, str) else "").model_dump())
+
+
+def _names(raw: object) -> list[str]:
+    """A request's list of concept names, checked and capped.
+
+    Args:
+        raw: The field.
+
+    Returns:
+        Up to 60 of its strings, each cut to 120 characters.
+    """
+    if not isinstance(raw, list):
+        return []
+    return [item.strip()[:120] for item in raw[:60] if isinstance(item, str) and item.strip()]
+
+
+@bp.post("/api/guide_reader")
+def api_guide_reader() -> ResponseReturnValue:
+    """Stream a guided read of the paper open in the Reader (v8.50.0).
+
+    A lecture of the paper, beat by beat in its own order, each beat naming
+    the passage it teaches (its exact words and any label, "(3)",
+    "Figure 2") for the Reader to light (``lecturer.guided_read``). It reads
+    the paper as the Reader Assistant does (``_reading_context``).
+
+    Body:
+        ``{paper, section?, title?, known?: [str], learning?: [str],
+        provider?}`` — ``paper``, ``section`` and ``title`` as for
+        ``/api/ask_reader``; ``known`` and ``learning`` the course's concepts
+        the student has and hasn't checked off. Always the whole paper.
+
+    Returns:
+        An SSE stream of ``beat`` events, then ``done`` (or ``error``); HTTP
+        400 when the paper has no readable text.
+    """
+    payload = request.get_json(silent=True) or {}
+    provider = resolve_provider(payload.get("provider"))
+    reading, error = _reading_context(
+        payload.get("paper"), payload.get("section"), provider, payload.get("title")
+    )
+    if not reading:
+        return jsonify({"error": error}), 400
+    return sse_response(
+        _relay(
+            streams.terminated(
+                lecturer.guided_read(
+                    reading,
+                    known=_names(payload.get("known")),
+                    learning=_names(payload.get("learning")),
+                )
             )
         )
     )

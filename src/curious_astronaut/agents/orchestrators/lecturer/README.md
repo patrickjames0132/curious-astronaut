@@ -86,6 +86,36 @@ lecturer.lecture(seed, nodes, target, framing)       main.py
   ahead of the first beat to resolve them). Everything
   degrades to empty on any failure; a lecture never blocks on its grounding.
 
+## The guided read (v8.50.0)
+
+`reading.py` is the graph lecture's sibling for the paper open in the
+Reader: `guided_read(reading, known, learning)` walks the whole paper,
+beat by beat **in the paper's own order** (a lecture on one section was
+tried and dropped, Patrick: the lecture is the paper's, given from its
+title). It runs on
+the lecturer's model (its Agent Settings row) and shares its streaming:
+`main.streamed_beats`, extracted from `lecture()` for both, sends a beat the
+moment the next begins, so the Reader lights the first while the rest are
+still being written.
+
+What differs is what a beat points at. A graph lecture's beat names papers
+to glow; a guided read's (`ReadingBeat`) names **a passage**: `quote`, the
+paper's exact words (found in either of the Reader's views as an answer's
+quotes are), and `label`, an equation's "(3)" or a "Figure 2" (cleaned to
+the form both views match, "Eq. (3)" read as "(3)"; the prompt asks for a
+label only when that equation or figure is the beat's subject, as the
+Reader lights a labelled beat by its label alone), and `section`, a whole
+section the beat covers ("6 Conclusion"), which rides as a "§" label and
+outranks the others: the Reader lights the whole section. They ride on
+`events.Beat` as `quote` and `labels`, empty on a graph lecture's beat.
+
+Its reading is the Reader Assistant's (`routes/agents._reading_context`), so
+it sees what the assistant sees. Its own beat bound (`READING_BEATS`, 8 to
+14), not
+the graph lecture's. The student's Knowledge Graph check-offs, when sent,
+say what to take quickly and what to slow down on. Served by
+`POST /api/guide_reader`; tested with scripted models in `test_reading.py`.
+
 ## Design decisions worth knowing
 
 - **The shape is read off the request; only the *framing* is named by it.**

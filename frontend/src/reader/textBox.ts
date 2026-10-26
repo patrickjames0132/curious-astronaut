@@ -19,6 +19,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
+import { comparable } from './passages'
 import { readerSelectionText } from './selectionText'
 
 /** The blocks a box can take, whole. */
@@ -164,8 +165,53 @@ export function labelsInRange(range: Range, root: Element): string[] {
   return labelsOf(touched)
 }
 
+/** What opens a whole section's label ("§6 Conclusion", v8.48.0's labels
+ *  grown for a lecture beat about a section, v8.50.0). */
+export const SECTION_MARK = '§'
+
 /**
- * The text's elements for some labels, to light whole.
+ * A heading's number: its first token, "6", "3.2", "B.1"; or "".
+ *
+ * @param text The heading, or its number alone.
+ * @returns The number, lowercased and without a trailing dot.
+ */
+function sectionNumber(text: string): string {
+  const first = text.trim().split(/\s+/)[0]?.replace(/\.$/, '').toLowerCase() ?? ''
+  return /^(?:\d+|[a-h])(?:\.\d+)*$/.test(first) ? first : ''
+}
+
+/**
+ * A whole section's elements: its own, then its subsections', up to the
+ * next section at its level or above (the text view's sections are a flat
+ * list, each with its level).
+ *
+ * @param root The text view's article.
+ * @param label The section's label, its mark taken off ("6 Conclusion").
+ * @returns The elements, or none when no section is it.
+ */
+function sectionElements(root: Element, label: string): Element[] {
+  const sections = Array.from(root.querySelectorAll<HTMLElement>('section.reader-section'))
+  const number = sectionNumber(label)
+  const wanted = comparable(label)
+  const level = (element: HTMLElement) =>
+    Number(/reader-level-(\d)/.exec(element.className)?.[1] ?? 1)
+  const index = sections.findIndex((element) => {
+    const own = element.querySelector('.reader-section-number')?.textContent ?? ''
+    const title = element.querySelector('.reader-section-title')?.textContent ?? ''
+    return number ? sectionNumber(own) === number : !!wanted && comparable(title).includes(wanted)
+  })
+  if (index < 0) return []
+  const taken: Element[] = [sections[index]]
+  for (const element of sections.slice(index + 1)) {
+    if (level(element) <= level(sections[index])) break
+    taken.push(element)
+  }
+  return taken
+}
+
+/**
+ * The text's elements for some labels, to light whole: an equation's, a
+ * figure's, or a whole section's ("§6 Conclusion").
  *
  * @param root The text view's article.
  * @param labels The labels.
@@ -178,8 +224,16 @@ export function labelElements(
   const byLabel = new Map(
     Array.from(root.querySelectorAll(LABELLED)).map((element) => [labelOf(element), element]),
   )
-  const elements = labels.flatMap((label) => byLabel.get(label) ?? [])
-  return { elements, missing: labels.length - elements.length }
+  let missing = 0
+  const elements = labels.flatMap((label) => {
+    const found = label.startsWith(SECTION_MARK)
+      ? sectionElements(root, label.slice(SECTION_MARK.length).trim())
+      : (byLabel.get(label) ?? [])
+    const list = Array.isArray(found) ? found : [found]
+    if (!list.length) missing++
+    return list
+  })
+  return { elements, missing }
 }
 
 /** An equation's number right after its LaTeX, as a passage writes a

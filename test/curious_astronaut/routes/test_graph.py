@@ -719,14 +719,17 @@ def test_pdf_find_and_passage_speak_labels(client, monkeypatch, tmp_path):
     monkeypatch.setattr(graph_routes.pdf_passages, "find_quotes", lambda path, quotes: [[] for _ in quotes])
     seen = {}
 
-    def fake_label_places(path, given, labels):
-        seen["floats"], seen["labels"] = given, labels
+    contents = [{"title": "6 Conclusion", "level": 1, "page": 8, "top": 292}]
+    monkeypatch.setattr(graph_routes.pdf_service, "get_pdf_contents", lambda url: {"entries": contents})
+
+    def fake_label_places(path, given, labels, sections):
+        seen["floats"], seen["labels"], seen["contents"] = given, labels, sections
         return [[{"page": 6, "rects": [[1, 2, 3, 4]]}]]
 
     monkeypatch.setattr(graph_routes.pdf_passages, "label_places", fake_label_places)
     response = client.post("/api/paper/x/pdf-find", json={"quotes": ["q"], "labels": ["Figure 1"]})
     assert response.json == {"found": [[]], "labelled": [[{"page": 6, "rects": [[1, 2, 3, 4]]}]]}
-    assert seen == {"floats": floats, "labels": ["Figure 1"]}
+    assert seen == {"floats": floats, "labels": ["Figure 1"], "contents": contents}
 
     box = [{"page": 6, "rects": [[1.0, 2.0, 3.0, 4.0]]}]
     monkeypatch.setattr(graph_routes.pdf_passages, "passage_at", lambda path, places: {"text": "", "places": []})

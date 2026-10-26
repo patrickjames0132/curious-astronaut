@@ -251,6 +251,17 @@ pymupdf's words, which come in reading order with their boxes:
   at that height, the column being the span of the lines that reach the
   number. Served by `/pdf-find` (`labels` in, `labelled` out) and
   `/pdf-passage` (the `labels` a passage covers).
+  **A whole section** is a label too, "§6 Conclusion" (a lecture's beat about
+  a section, v8.50.0): found in the PDF's contents (its outline, else its
+  found headings) by number, else by title, it runs from its heading's words
+  to the next heading at its level or above, **in reading order**, so across
+  columns and pages (a heading's height alone misleads: in two columns, 4
+  sits above 3.2 on the page). Its figures' regions are left out (their
+  axis numbers and legends lit as stray marks), and so, when it crosses
+  pages, is the page furniture (`_page_furniture`): running headers, the
+  same words at a page's edge on two pages or more, and bare page numbers
+  at its foot. A fixed band at the edges was tried and cut real text: SAC
+  has no page numbers, and its last line sits at the very bottom.
 
 Nothing is stored, as with figures (`docs/pdf-mining.md`): the words are
 memoized in process for the last four files (by path and mtime), since one

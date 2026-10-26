@@ -332,12 +332,26 @@ export const READER_TOUR: TourStep[] = [
       'past it. It keeps its own chat, apart from this paper’s graphs’; type @ to bring one of ' +
       'those into a question. The 📚 in its bar picks which of your sources it may search. ' +
       'The paper’s words it quotes light up in the paper; click an answer, or one of its ' +
-      'quotes, to go there, and Esc to put the light out.',
+      'quotes, to go there, and Esc to put the light out. Ask it for a lecture and it gives ' +
+      'one on the whole paper, as Give Lecture On Paper does.',
+  },
+  {
+    target: '[data-tour="reader-lecture"]',
+    presentIf: '[data-tour="reader-lecture"]',
+    title: 'Give Lecture On Paper',
+    body:
+      'A lecture on the whole paper, in the Reader Assistant: the paper taught step by step ' +
+      'in its own order, each step lit in the paper as you go. Back and Next on the step ' +
+      'you’re on, or click any step. In the PDF it sits in the margin by the title.',
   },
   {
     target: '[data-tour="tool-back"]',
+    presentIf: '[data-tour="tool-back"]',
     title: 'Back up to the paper’s cards',
-    body: 'The ↑ at the top takes you back up to this paper’s cards and its other tools.',
+    body:
+      'At the top of the paper, the ↑ over it takes you back up to this paper’s cards and ' +
+      'its other tools. Scrolled down, it becomes “Back to top”, which takes you back to ' +
+      'the paper’s start.',
   },
 ]
 

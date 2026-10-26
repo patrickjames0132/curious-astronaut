@@ -37,11 +37,12 @@ import {
 } from '../api'
 import type { PassageQuote } from '../assistant/askAssistant'
 import Lightbox from '../figures/Lightbox'
-import { courseOrder } from '../knowledge/model'
+import { courseOrder, nameKey } from '../knowledge/model'
 import SelectionMenu from '../selection/SelectionMenu'
 import InfoTip from '../ui/InfoTip'
 import { pillAnchor, useTextSelection } from '../selection/useTextSelection'
 import { useAppDispatch, useAppSelector } from '../store'
+import { chatKey } from '../store/chats'
 import { passagesCleared } from '../store/highlight'
 import {
   knowledgeKnownToggled,
@@ -72,8 +73,8 @@ import { labelElements, labelsInRange, labelsOf, readBox } from './textBox'
 import { usePdfPassages, type PdfLight } from './usePdfPassages'
 import PdfView, { type PdfMarginNote } from './PdfView'
 import type { PdfOutlineEntry } from './pdf'
-import { askReader, documentRef, readerMessage, setReadingSection } from './askReader'
-import { ReaderLinksContext, pdfPageId, plainText, readerDomId } from './links'
+import { askReader, documentRef, guideReader, readerMessage, setReadingSection } from './askReader'
+import { PDF_TEXT_DRAWN, ReaderLinksContext, pdfPageId, plainText, readerDomId } from './links'
 import { readerSelectionText, selectionSource } from './selectionText'
 import './reader.css'
 
@@ -128,6 +129,9 @@ function markLanded(element: Element) {
 function boxStyle(rect: number[]) {
   return { left: rect[0], top: rect[1], width: rect[2] - rect[0], height: rect[3] - rect[1] }
 }
+
+/** How far down the pane still counts as the top of the paper, in pixels. */
+const AT_TOP = 120
 
 /** The PDF view's zoom steps, as multiples of fitting the pane's width. */
 const ZOOMS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
@@ -513,7 +517,88 @@ export default function Reader({
       (first, second) => (courseRank.get(first) ?? Infinity) - (courseRank.get(second) ?? Infinity),
     )
   const conceptCard = useAnchoredCard(pageRef, '.reader-concept')
-  const pdfNotes = useMemo<PdfMarginNote[]>(() => {
+  // **Give Lecture** (v8.50.0): a lecture on the whole paper, from the
+  // Reader Assistant, each step lit in the paper as it's taught. By the
+  // paper's title, outside the assistant (Patrick): under it in the text, and
+  // in the PDF's margin with a line to it.
+  const paperTitle = thread.paper?.title ?? thread.data.graph_ref?.seed.title ?? thread.title
+  const lecturing = useAppSelector(
+    (state) => !!state.transcript.byKey[chatKey(thread.id, 'reader')]?.running.length,
+  )
+  const lectureButton = (
+    <button
+      type="button"
+      className="reader-lecture"
+      data-tour="reader-lecture"
+      disabled={lecturing || !ref}
+      onClick={() => {
+        onAssistant?.()
+        void dispatch(guideReader({ threadId: thread.id, provider }))
+      }}
+      title="A lecture on the whole paper in the Reader Assistant, each step lit in the paper as it’s taught"
+    >
+      Give Lecture On Paper
+    </button>
+  )
+  // Where the PDF sets the title on its first page, in points, found in its
+  // text layer by the title's words once it's drawn: the lecture's margin
+  // note sits level with it.
+  const [titleTop, setTitleTop] = useState<number | null>(null)
+  useEffect(() => {
+    setTitleTop(null)
+    const pane = pageRef.current
+    if (view !== 'pdf' || !pane) return
+    const words = new Set(
+      paperTitle
+        .split(/\s+/)
+        .map((word) => nameKey(word))
+        .filter((word) => word.length > 2),
+    )
+    const find = () => {
+      const page = pane.querySelector<HTMLElement>('.reader-pdf-page')
+      const spans = page ? Array.from(page.querySelectorAll('.textLayer span')) : []
+      if (!page || !spans.length) return
+      const origin = page.getBoundingClientRect().top
+      const scale = Number(page.dataset.scale) || 1
+      for (const span of spans) {
+        const shared = (span.textContent ?? '')
+          .split(/\s+/)
+          .filter((word) => words.has(nameKey(word))).length
+        if (shared >= Math.min(2, words.size)) {
+          setTitleTop((span.getBoundingClientRect().top - origin) / scale)
+          return
+        }
+      }
+    }
+    find()
+    pane.addEventListener(PDF_TEXT_DRAWN, find)
+    return () => pane.removeEventListener(PDF_TEXT_DRAWN, find)
+  }, [view, paperTitle])
+  const lectureNote = useMemo<PdfMarginNote | null>(
+    () =>
+      view === 'pdf' && titleTop !== null
+        ? {
+            key: 'lecture',
+            page: 1,
+            top: Math.max(0, titleTop - 4),
+            title: paperTitle,
+            node: (
+              // A margin note like the Knowledge Graph's, so it is stacked
+              // with them and drawn a line to its heading, the title.
+              <div className="reader-concepts reader-lecture-note">
+                <svg className="reader-concepts-link" aria-hidden="true">
+                  <path />
+                </svg>
+                {lectureButton}
+              </div>
+            ),
+          }
+        : null,
+    // `lectureButton` follows `lecturing` and `ref`.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [view, titleTop, paperTitle, lecturing, ref],
+  )
+  const conceptNotes = useMemo<PdfMarginNote[]>(() => {
     if (view !== 'pdf' || !course) return []
     const placed = textAvailable
       ? textNotesInPdf(notes, sections, outline)
@@ -545,6 +630,10 @@ export default function Reader({
     pdfContents,
     conceptCard.controls,
   ])
+  const pdfNotes = useMemo(
+    () => (lectureNote ? [lectureNote, ...conceptNotes] : conceptNotes),
+    [lectureNote, conceptNotes],
+  )
   const closeConcept = conceptCard.close
   useEffect(() => closeConcept(), [view, ref, closeConcept])
   // Stacked so they never overlap, each tied to its heading by a curve.
@@ -572,6 +661,17 @@ export default function Reader({
   // by hand: two headings close together on a page would otherwise light the
   // later one, both having passed the top third once the jump lands.
   const [pinnedId, setPinnedId] = useState<string | null>(null)
+  // Whether the pane is at the top of the paper: the button over it is the
+  // ↑ to the cards there, and Back to top anywhere below.
+  const [atTop, setAtTop] = useState(true)
+  useEffect(() => {
+    const pane = pageRef.current
+    if (!pane) return
+    const update = () => setAtTop(pane.scrollTop < AT_TOP)
+    update()
+    pane.addEventListener('scroll', update, { passive: true })
+    return () => pane.removeEventListener('scroll', update)
+  }, [view])
   useEffect(() => {
     const pane = pageRef.current
     if (!pane || !pinnedId) return
@@ -966,7 +1066,9 @@ export default function Reader({
         onLoaded={setPdfInfo}
         onFailed={setPdfFailure}
         notes={pdfNotes}
-        margin={pdfNotes.length ? PDF_NOTES_ROOM : 0}
+        // Room for the margin always: the lecture's note is there from the
+        // moment the title is found, and the pages mustn't shift for it.
+        margin={PDF_NOTES_ROOM}
         zoom={zoom}
         box={view === 'pdf' ? box : null}
         lit={pdfLit}
@@ -1046,6 +1148,7 @@ export default function Reader({
                 {paper.year ? ` · ${paper.year}` : ''}
               </p>
             )}
+            {lectureButton}
           </header>
           {doc.abstract.length > 0 && (
             <section className="reader-abstract" data-passage-from="the abstract">
@@ -1222,6 +1325,54 @@ export default function Reader({
         }}
       >
         {children}
+        {/* One button over the paper, two jobs (Patrick): scrolled down, it
+            takes you back to the top; at the top, up to the paper's cards.
+            The other tools' ↑ alone, floating over a scrolled page, read as
+            "back to the top". */}
+        <div className="tool-nav">
+          {atTop ? (
+            <button
+              type="button"
+              className="tool-back"
+              data-tour="tool-back"
+              onClick={() => void dispatch(openTool('cards'))}
+              title={`Back up to the cards for ${thread.title}`}
+              aria-label="Back to this paper’s cards"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M8 13V3M3.5 7.5 8 3l4.5 4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="tool-return reader-to-top"
+              onClick={() => {
+                setPinnedId(null)
+                const pane = pageRef.current
+                if (pane) glideTo(pane, () => 0)
+              }}
+              title="Back to the top of the paper"
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M3 2.5h10M8 14V6M4.5 9.5 8 6l3.5 3.5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="tool-return-label">Back to top</span>
+            </button>
+          )}
+        </div>
         <div
           key={view ?? 'loading'}
           className={`reader-page${view === 'pdf' ? ' reader-page-pdf' : ''}${slide ? ` ${slide}` : ''}`}

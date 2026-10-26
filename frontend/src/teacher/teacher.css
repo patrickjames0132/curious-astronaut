@@ -636,6 +636,24 @@
   line-height: 1.55;
   color: var(--text);
 }
+/* Back / Next on the lit beat of a guided read (v8.50.0, the Reader's
+   lecture): step through it from where you are. */
+.beat-steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.beat-steps button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.beat-steps-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 .beat-nodes {
   margin-top: 6px;
   font-size: 11px;

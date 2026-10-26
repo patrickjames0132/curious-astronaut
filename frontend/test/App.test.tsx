@@ -240,7 +240,9 @@ it('puts “Back to reading” in the ↑’s place after a lesson opened from t
   expect(screen.queryByRole('button', { name: 'Back to this paper’s cards' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Back to reading' }))
   await screen.findByTestId('reader')
-  // Back in the Reader, the ↑ to the cards again; the way back is spent.
-  expect(screen.getByRole('button', { name: 'Back to this paper’s cards' })).toBeTruthy()
+  // Back in the Reader, the way back is spent; its ↑ is its own now, at
+  // the top of the paper (the Reader is mocked here), never floating over it.
+  expect(screen.queryByRole('button', { name: 'Back to reading' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Back to this paper’s cards' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Back to reading' })).toBeNull()
 })

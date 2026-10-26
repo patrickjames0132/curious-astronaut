@@ -21,7 +21,7 @@ import { useAppDispatch, useAppSelector } from '../store'
 import { chatKey } from '../store/chats'
 import type { ThreadRecord } from '../store/explorations'
 import { passagesCleared, passagesLit } from '../store/highlight'
-import { askReader, documentRef } from './askReader'
+import { askOrGuideReader, beatLight, documentRef } from './askReader'
 import { answerQuotes, questionPassage } from './passages'
 import { labelsInPassage } from './textBox'
 
@@ -58,6 +58,11 @@ export default function ReaderAssistant({
   const chat = useAppSelector((state) => state.transcript.byKey[chatKey(thread.id, 'reader')]?.chat)
   const lit = useAppSelector((state) => state.highlight?.passages)
   const active = lit?.threadId === thread.id ? lit.answer : null
+  const activeBeat =
+    lit?.threadId === thread.id && lit.answer !== null && typeof lit.beat === 'number'
+      ? { answer: lit.answer, beat: lit.beat }
+      : null
+  const available = !!documentRef(thread)
   const passages = useMemo<AnswerPassages>(() => {
     // The whole answer stands for the passage it was asked about, exactly as
     // highlighted; its quotes light one at a time, clicked (Patrick,
@@ -80,9 +85,30 @@ export default function ReaderAssistant({
     }
     const show = (answer: number | null, lit: ReturnType<typeof about>, scroll: boolean) =>
       dispatch(passagesLit({ threadId: thread.id, answer, ...lit, scroll }))
+    // A guided read's beat lights its passage (v8.50.0): its words, and the
+    // label of the equation or figure it teaches, in either view.
+    const showBeat = (answer: number, index: number) => {
+      const beat = chat?.[answer]?.beats?.[index]
+      if (!beat) return
+      dispatch(
+        passagesLit({
+          threadId: thread.id,
+          answer,
+          beat: index,
+          ...beatLight(beat),
+          places: [],
+          quotes: [],
+          scroll: true,
+        }),
+      )
+    }
+    const isLecture = (index: number) => !!chat?.[index]?.beats?.length
     return {
       active,
+      activeBeat,
       onFinished: (index) => {
+        // A guided read lit its first beat as it arrived.
+        if (isLecture(index)) return
         const lit = about(index)
         if (lit.passage || lit.places.length || lit.quotes.length) show(index, lit, false)
       },
@@ -92,15 +118,19 @@ export default function ReaderAssistant({
       },
       onQuote: (quote) =>
         show(null, { passage: null, places: [], labels: [], quotes: [quote] }, true),
+      onBeat: (answer, index) => {
+        if (activeBeat?.answer === answer && activeBeat.beat === index) dispatch(passagesCleared())
+        else showBeat(answer, index)
+      },
     }
-  }, [active, chat, dispatch, thread.id])
+  }, [active, activeBeat, chat, dispatch, thread.id])
   return (
     <DockedAssistant
       passages={passages}
       thread={thread}
       tool="reader"
-      available={!!documentRef(thread)}
-      ask={askReader}
+      available={available}
+      ask={askOrGuideReader}
       collapsed={collapsed}
       onClose={onClose}
       quote={quote}
@@ -111,12 +141,14 @@ export default function ReaderAssistant({
           'Ask about the paper: what a passage means, where a symbol comes from, why a step ' +
           'follows. Highlight text (or ⌥-drag a box over an equation or figure) ' +
           'and choose Explain or Simplify to ask about it here, or ' +
-          'Chat to attach it and ask anything.',
+          'Chat to attach it and ask anything. For a lecture on the whole paper, press Give ' +
+          'Lecture On Paper by its title, or ask for one here.',
         context: `Asking about ${thread.paper?.title ?? thread.title}, from the section you’re reading`,
         tip:
           'It reads the paper, starting with the section you’re in, and searches your library ' +
           'and the web only when a question reaches past the paper. The paper’s words it quotes ' +
-          'light up in the paper: click an answer or a quote to go there. Type @ to bring in ' +
+          'light up in the paper: click an answer or a quote to go there. A lecture lights ' +
+          'each step as you go: Back and Next on the step you’re on. Type @ to bring in ' +
           'another chat, such as this paper’s Knowledge Graph conversation.',
         placeholder: 'Ask about this paper, or @ another chat…',
         className: 'reader-assistant',

@@ -220,3 +220,65 @@ def test_a_place_is_told_the_labels_it_covers(tmp_path):
     assert passages.labels_in(path, FLOATS, [{"page": 1, "rects": [[100, 320, 150, 340]]}]) == ["Figure 2"]
     # The prose citing "(3)" isn't an equation.
     assert passages.labels_in(path, FLOATS, [{"page": 1, "rects": [[55, 168, 300, 184]]}]) == []
+
+
+def _sectioned(tmp_path):
+    """Three pages: "1 Introduction" and "1.1 Setting" on page 1, "2 Method"
+    running onto page 2 with a figure in it and a running header on each
+    page, then "3 Conclusion" on page 3."""
+    doc = fitz.open()
+    for number in range(3):
+        page = doc.new_page(width=612, height=792)
+        page.insert_text((250, 40), "A Running Header", fontsize=9)
+        if number == 0:
+            page.insert_text((72, 100), "1 Introduction", fontsize=12)
+            page.insert_text((72, 120), "The opening words of the paper.", fontsize=10)
+            page.insert_text((72, 160), "1.1 Setting", fontsize=11)
+            page.insert_text((72, 180), "Where it all happens.", fontsize=10)
+            page.insert_text((72, 400), "2 Method", fontsize=12)
+            page.insert_text((72, 420), "The method begins here.", fontsize=10)
+        if number == 1:
+            page.insert_text((72, 100), "The method goes on here.", fontsize=10)
+            page.insert_text((100, 300), "axis 4000", fontsize=8)
+        if number == 2:
+            page.insert_text((72, 100), "3 Conclusion", fontsize=12)
+            page.insert_text((72, 120), "It all comes together.", fontsize=10)
+    path = tmp_path / "sectioned.pdf"
+    doc.save(path)
+    doc.close()
+    return path
+
+
+CONTENTS = [
+    {"title": "1 Introduction", "level": 1, "page": 1, "top": 91},
+    {"title": "1.1 Setting", "level": 2, "page": 1, "top": 152},
+    {"title": "2 Method", "level": 1, "page": 1, "top": 391},
+    {"title": "3 Conclusion", "level": 1, "page": 3, "top": 91},
+]
+FIGURE = [{"kind": "figure", "page": 2, "caption": "Figure 1. A plot.", "region": [90, 280, 300, 320]}]
+
+
+def _lines(path, places):
+    words = list(passages._words(path))
+    return [
+        " ".join(word.text for word in words if word.page == place["page"] and passages._inside(word, [rect]))
+        for place in places
+        for rect in place["rects"]
+    ]
+
+
+def test_a_section_is_found_by_number_or_title_with_its_subsections(tmp_path):
+    path = _sectioned(tmp_path)
+    by_number, by_title, missing = passages.label_places(path, [], ["§1", "§Conclusion", "§9 Nope"], CONTENTS)
+    lines = _lines(path, by_number)
+    assert lines[0] == "1 Introduction" and "Where it all happens." in lines
+    assert "2 Method" not in lines  # it ends at the next heading at its level
+    assert _lines(path, by_title) == ["3 Conclusion", "It all comes together."]
+    assert missing == []
+
+
+def test_a_section_across_pages_leaves_out_figures_and_running_headers(tmp_path):
+    path = _sectioned(tmp_path)
+    [method] = passages.label_places(path, FIGURE, ["§2 Method"], CONTENTS)
+    lines = _lines(path, method)
+    assert lines == ["2 Method", "The method begins here.", "The method goes on here."]

@@ -103,3 +103,26 @@ it('reads labels off an older question’s own words', () => {
   ])
   expect(labelsInPassage('As (3) shows, $x$ is small.')).toEqual([])
 })
+
+it('finds a whole section by its label: its own element and its subsections', () => {
+  const article = laidOut(
+    '<section class="reader-section reader-level-1"><h2 class="reader-section-title">' +
+      '<span class="reader-section-number">5</span>Experiments</h2></section>' +
+      '<section class="reader-section reader-level-2"><h3 class="reader-section-title">' +
+      '<span class="reader-section-number">5.1</span>Comparisons</h3></section>' +
+      '<section class="reader-section reader-level-1"><h2 class="reader-section-title">' +
+      '<span class="reader-section-number">6</span>Conclusion</h2></section>' +
+      '<section class="reader-section reader-level-1"><h2 class="reader-section-title">' +
+      'Acknowledgments</h2></section>',
+  )
+  const sections = Array.from(article.querySelectorAll('section'))
+  // By number: the section and its subsection, not the next section.
+  expect(labelElements(article, ['§5 Experiments'])).toEqual({
+    elements: [sections[0], sections[1]],
+    missing: 0,
+  })
+  // By title, when the label has no number.
+  expect(labelElements(article, ['§Conclusion']).elements).toEqual([sections[2]])
+  expect(labelElements(article, ['§acknowledgments']).elements).toEqual([sections[3]])
+  expect(labelElements(article, ['§9 Nope'])).toEqual({ elements: [], missing: 1 })
+})

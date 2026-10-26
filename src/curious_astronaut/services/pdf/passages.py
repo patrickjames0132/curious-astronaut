@@ -77,6 +77,13 @@ EQUATION_NUMBER = re.compile(r"^\((\d+[a-z]?)\)[.,;]?$")
 """An equation's number, as a word of its own: "(6)"."""
 WORD_GAP = 8.0
 """Points after a word the next on its line may start; a column's gutter is wider."""
+SECTION_MARK = "§"
+"""What a section's label opens with ("§6 Conclusion"), apart from a float's."""
+EDGE_BAND = 90.0
+"""Points from a page's top or bottom word where a running header or footer
+can sit."""
+SECTION_PAGES = 3
+"""Pages a last section may run to when no heading follows it."""
 NUMBER_REACH = 120.0
 """Points right of a place an equation's number may sit and still be its."""
 
@@ -509,13 +516,173 @@ def _closes_its_line(words: tuple[Word, ...], number: Word) -> bool:
     )
 
 
-def label_places(path: str | Path, floats: list[dict], labels: list[str]) -> list[list[Place]]:
-    """Where each label is in a PDF: a float's region, an equation's line.
+def _section_number(text: str) -> str:
+    """A heading's number, as its first token: "6", "3.2", "B.1"; or "".
+
+    Args:
+        text: The heading ("6 Conclusion", "B.1 Lemma 1", "Acknowledgments").
+
+    Returns:
+        Its number, lowercased and without a trailing dot.
+    """
+    first = text.strip().split(" ", 1)[0].rstrip(".").lower()
+    return first if re.fullmatch(r"(?:\d+|[a-h])(?:\.\d+)*", first) else ""
+
+
+def _matching_entry(entries: list[dict], label: str) -> int | None:
+    """The contents entry a section label names: by its number when the
+    label has one, else by its title.
+
+    Args:
+        entries: The PDF's contents (``get_pdf_contents``'s ``entries``).
+        label: The section, without its mark ("6 Conclusion", "Conclusion").
+
+    Returns:
+        The entry's index, or None.
+    """
+    number = _section_number(label)
+    wanted = comparable(label)
+    for index, entry in enumerate(entries):
+        title = str(entry.get("title", ""))
+        if number and _section_number(title) == number:
+            return index
+        if not number and wanted and wanted in comparable(title):
+            return index
+    return None
+
+
+def _heading_start(words: tuple[Word, ...], entry: dict) -> int | None:
+    """The word a contents entry's heading begins with.
+
+    Args:
+        words: Every word of the PDF.
+        entry: The entry: ``{title, page, top?}``.
+
+    Returns:
+        The word's index, or None when its words aren't where it says.
+    """
+    wanted = comparable(str(entry.get("title", "")))[:24]
+    top = entry.get("top")
+    if not wanted:
+        return None
+    for position, word in enumerate(words):
+        if word.page != entry.get("page"):
+            continue
+        if isinstance(top, int | float) and not top - 4 <= word.y0 <= top + 16:
+            continue
+        run = "".join(comparable(item.text) for item in words[position : position + 8])
+        if run.startswith(wanted):
+            return position
+    return None
+
+
+def _section_places(
+    words: tuple[Word, ...], entries: list[dict], label: str, floats: list[dict]
+) -> list[Place]:
+    """A whole section's text, from its heading to the next heading at its
+    level or above, in reading order, across columns and pages (v8.50.0).
+    The figures and tables floating inside it aren't its text, and their
+    axis numbers and legends lit as stray marks; nor are running headers.
+
+    Args:
+        words: Every word of the PDF.
+        entries: The PDF's contents, in document order.
+        label: The section's label, its mark taken off.
+        floats: The PDF's mined floats, whose regions are left out.
+
+    Returns:
+        Its places, a rectangle per line; empty when it can't be found.
+    """
+    index = _matching_entry(entries, label)
+    start = _heading_start(words, entries[index]) if index is not None else None
+    if index is None or start is None:
+        return []
+    level = entries[index].get("level", 1)
+    end: int | None = None
+    for entry in entries[index + 1 :]:
+        if entry.get("level", 1) <= level:
+            end = _heading_start(words, entry)
+            if end is not None and end > start:
+                break
+            end = None
+    if end is None:
+        last_page = words[start].page + SECTION_PAGES - 1
+        end = next((position for position in range(start, len(words)) if words[position].page > last_page), len(words))
+    regions = [(int(item["page"]), [float(value) for value in item["region"]]) for item in floats]
+    covered = [
+        word
+        for word in words[start:end]
+        if not any(
+            page == word.page and _overlaps([word.x0, word.y0, word.x1, word.y1], region)
+            for page, region in regions
+        )
+    ]
+    if not covered:
+        return []
+    if covered[0].page != covered[-1].page:
+        # Across pages, the running headers and page numbers between aren't
+        # the section's.
+        furniture = _page_furniture(words)
+        covered = [word for word in covered if (word.page, word.block, word.line) not in furniture]
+    return _places_of(covered)
+
+
+def _page_furniture(words: tuple[Word, ...]) -> set[tuple[int, int, int]]:
+    """The lines that are a page's furniture, not its text: a running header
+    or footer (the same words at a page's top or bottom edge on two pages or
+    more) and a page number (a number alone at an edge).
+
+    A fixed band at the top and bottom can't tell them apart from text: SAC
+    has no page numbers, and its last line of text sits at the very bottom.
+
+    Args:
+        words: Every word of the PDF.
+
+    Returns:
+        The furniture's lines, as (page, block, line).
+    """
+    lines: dict[tuple[int, int, int], list[Word]] = {}
+    for word in words:
+        lines.setdefault((word.page, word.block, word.line), []).append(word)
+    tops: dict[int, float] = {}
+    bottoms: dict[int, float] = {}
+    for word in words:
+        tops[word.page] = min(tops.get(word.page, word.y0), word.y0)
+        bottoms[word.page] = max(bottoms.get(word.page, word.y1), word.y1)
+    edge_lines = {
+        key: comparable(" ".join(item.text for item in items))
+        for key, items in lines.items()
+        if items[0].y0 - tops[key[0]] < EDGE_BAND or bottoms[key[0]] - items[0].y1 < EDGE_BAND
+    }
+    pages_per_text: dict[str, set[int]] = {}
+    for key, said in edge_lines.items():
+        pages_per_text.setdefault(said, set()).add(key[0])
+    furniture = set()
+    for key, said in edge_lines.items():
+        items = lines[key]
+        raw = " ".join(item.text for item in items).strip()
+        at_foot = bottoms[key[0]] - items[0].y1 < EDGE_BAND
+        # Repeated words (a running header), or a bare page number at the
+        # foot; an equation's "(1)" is not one.
+        if len(said) > 3 and len(pages_per_text[said]) >= 2:
+            furniture.add(key)
+        elif at_foot and re.fullmatch(r"\d{1,3}", raw):
+            furniture.add(key)
+    return furniture
+
+
+def label_places(
+    path: str | Path, floats: list[dict], labels: list[str], contents: list[dict] | None = None
+) -> list[list[Place]]:
+    """Where each label is in a PDF: a float's region, an equation's line, a
+    section's lines (v8.50.0, a label opening with ``SECTION_MARK``).
 
     Args:
         path: Filesystem path to the PDF.
         floats: The PDF's mined manifest (``get_pdf_floats``'s ``floats``).
         labels: The labels, as the text view writes them.
+        contents: The PDF's contents (``get_pdf_contents``'s ``entries``),
+            for section labels.
 
     Returns:
         For each label, in order, its places; empty for one not found.
@@ -523,6 +690,9 @@ def label_places(path: str | Path, floats: list[dict], labels: list[str]) -> lis
     words = _words(path)
     found: list[list[Place]] = []
     for label in labels:
+        if label.startswith(SECTION_MARK):
+            found.append(_section_places(words, contents or [], label[len(SECTION_MARK) :].strip(), floats))
+            continue
         if label.startswith("("):
             numbers = [word for word in words if _number(word) == label]
             number = next((word for word in numbers if _closes_its_line(words, word)), None)
