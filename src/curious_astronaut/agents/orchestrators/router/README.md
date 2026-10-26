@@ -170,6 +170,17 @@ correctable** in the transcript. The turn says which assistant answered and
 offers the other in one click, so a misroute costs a click rather than a
 wrong answer the reader has to detect.
 
+## The Reader's router (v8.50.0)
+
+`reading.py` makes the same decision for the Reader Assistant: a **lecture
+on the paper** (`lecturer.guided_read`) or an answer (`ReadingRoute`).
+Patrick asked for both ways in: the **Give Lecture** button by the title,
+and asking in the chat. As here, a message that asks in so many words
+("walk me through this paper", "give me a lecture") is routed without a
+model
+(`obvious_reading`); anything else is the summarizer model's call, and any
+failure answers. Served by `POST /api/route_reader`.
+
 ## Who uses it
 
 `POST /api/route` (`routes/agents.py`), called by the chat composer before it

@@ -19,6 +19,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
+import { useEffect, useRef } from 'react'
 import type { AnswerFigure, Beat, SourceRef } from '../../api'
 import MathText from '../../notation/MathText'
 import FigCard from '../../figures/FigCard'
@@ -47,6 +48,7 @@ export default function BeatList({
   activeBeat,
   sourceRefs,
   onBeatClick,
+  onStep,
   onRefClick,
   onEnlarge,
 }: {
@@ -56,13 +58,25 @@ export default function BeatList({
    *  cite the same retrieved library). */
   sourceRefs?: Record<string, SourceRef>
   onBeatClick: (index: number, beat: Beat) => void
+  /** Step from the lit beat (v8.50.0, the Reader's guided read): Back / Next
+   *  show on it; without it, beats are only clicked. */
+  onStep?: (index: number, step: -1 | 1) => void
   /** Spotlight one paper from a clicked inline `[n]` marker in a beat. */
   onRefClick?: (nodeId: string) => void
   onEnlarge: (figure: AnswerFigure) => void
 }) {
+  // Stepping through a guided read (v8.50.0) keeps the lit beat, and its
+  // Back / Next, in view in the chat: Next could leave it below the fold.
+  const list = useRef<HTMLOListElement>(null)
+  useEffect(() => {
+    if (!onStep || activeBeat === null) return
+    const item = list.current?.children[activeBeat]
+    if (item instanceof HTMLElement && typeof item.scrollIntoView === 'function')
+      item.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [activeBeat, onStep])
   if (beats.length === 0) return null
   return (
-    <ol className="beats">
+    <ol className="beats" ref={list}>
       {beats.map((beat, index) => {
         // A beat with no papers — the synthesis that closes most lectures —
         // has nothing to light, so it is not a control: no pointer, no hover,
@@ -70,7 +84,8 @@ export default function BeatList({
         // dimmed like a beat whose papers had left the graph, and read as
         // disabled or broken when it is the paragraph that ties the lecture
         // together.
-        const lightable = beat.node_ids.length > 0
+        // A guided read's beat lights a passage of the paper (v8.50.0).
+        const lightable = beat.node_ids.length > 0 || !!beat.quote || !!beat.labels?.length
         return (
           <li
             key={index}
@@ -92,6 +107,29 @@ export default function BeatList({
               // Enlarging the figure must not toggle the beat's highlight.
               <div onClick={(event) => event.stopPropagation()}>
                 <FigCard figure={asAnswerFigure(beat.figure)} onEnlarge={onEnlarge} />
+              </div>
+            )}
+            {onStep && activeBeat === index && (
+              <div className="beat-steps" onClick={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="link-btn"
+                  disabled={index === 0}
+                  onClick={() => onStep(index, -1)}
+                >
+                  ‹ Back
+                </button>
+                <span className="beat-steps-count">
+                  {index + 1} of {beats.length}
+                </span>
+                <button
+                  type="button"
+                  className="link-btn"
+                  disabled={index === beats.length - 1}
+                  onClick={() => onStep(index, 1)}
+                >
+                  Next ›
+                </button>
               </div>
             )}
             {beat.node_ids.length > 0 && (

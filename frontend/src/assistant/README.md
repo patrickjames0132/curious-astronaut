@@ -69,6 +69,16 @@ v8.48.0): the server sends the model their images. And the labels a
 passage covers (`labels`, "Figure 1", "(6)") are kept on the turn, not
 sent: the Reader lights the passage by them in whichever view it's in.
 
+## Lectures in a docked chat (v8.50.0)
+
+`lectureAssistant` streams a lecture into a tool's chat as one answer turn
+of beats, with `askAssistant`'s bookkeeping (a new message supersedes it,
+Stop and Clear end it, a lecture that produced nothing says so on its
+turn). The Reader's guided read is its one user. `DockedAssistant` passes
+beat clicks and Back / Next through `AnswerPassages` (`activeBeat`,
+`onBeat`). The lecture's button, **Give Lecture**, is the Reader's, by the
+paper's title, not the panel's.
+
 ## Verified by
 
 The tools' own tests drive it end to end: `test/knowledge/KnowledgeNetwork.test.tsx`

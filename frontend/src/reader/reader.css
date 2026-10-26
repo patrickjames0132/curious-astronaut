@@ -620,12 +620,6 @@
 .reader-cite-card-actions button[aria-pressed='true'] {
   color: var(--knowledge-known-ink);
 }
-.reader-cite-card.reader-concept-card {
-  border-color: color-mix(in srgb, var(--knowledge-paper-ink) 45%, var(--border));
-}
-.reader-cite-card.reader-concept-card.pinned {
-  border-color: color-mix(in srgb, var(--knowledge-paper-ink) 75%, var(--border));
-}
 
 /* The citation card (v8.43.0): under its citation in the scrolled text (or
    above it, `.above`, when there's no room below), so it scrolls with it.
@@ -636,7 +630,9 @@
   width: 360px;
   max-width: calc(100% - 16px);
   padding: 12px 14px 10px;
-  border: 1px solid var(--border);
+  /* A dim outline in the citations' blue, stronger once pinned or focused,
+     as the concept card's is in the Knowledge Graph's gold (Patrick). */
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
   border-radius: 12px;
   background: var(--panel);
   box-shadow: 0 6px 20px var(--shadow);
@@ -648,8 +644,18 @@
 .reader-cite-card.above {
   translate: 0 -100%;
 }
-.reader-cite-card.pinned {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+.reader-cite-card.pinned,
+.reader-cite-card:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 75%, var(--border));
+}
+/* The concept card is the citation card in the Knowledge Graph's gold: after
+   the blue, which it would otherwise tie with and lose to. */
+.reader-cite-card.reader-concept-card {
+  border-color: color-mix(in srgb, var(--knowledge-paper-ink) 45%, var(--border));
+}
+.reader-cite-card.reader-concept-card.pinned,
+.reader-cite-card.reader-concept-card:focus-within {
+  border-color: color-mix(in srgb, var(--knowledge-paper-ink) 75%, var(--border));
 }
 .reader-cite-card p {
   margin: 0 0 6px;
@@ -1277,5 +1283,71 @@
   }
   .reader-view-thumb {
     transition: none;
+  }
+}
+
+/* Give Lecture On Paper (v8.50.0): the paper's lecture, by its title. An
+   outlined chip in the red of what the assistant lights in the paper, no
+   fill (Patrick), as the Knowledge Graph's chips are outlined in their
+   gold: under the title in the text, and in the PDF's margin, a note with a
+   line to it. */
+.reader-lecture {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 13px;
+  border: 1px solid var(--passage-lit);
+  border-radius: 999px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.reader-lecture:hover:not(:disabled),
+.reader-lecture:focus-visible {
+  background: color-mix(in srgb, var(--passage-lit) 16%, transparent);
+}
+.reader-lecture:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* In the text, just under the authors, with room before the abstract (the
+   authors' own margin is pulled up). */
+.reader-header .reader-lecture {
+  margin: -14px 0 30px;
+}
+/* In the PDF's margin: the Knowledge Graph note's shape in red (Patrick),
+   its bar and an outlined chip of the chips' size and type, no fill. */
+.reader-lecture-note.reader-concepts {
+  border-left-color: var(--passage-lit);
+}
+.reader-lecture-note .reader-lecture {
+  margin: 0;
+  padding: 1px 7px;
+  font-size: inherit;
+  line-height: inherit;
+}
+/* Its line is the notes' own, barely there until the note is hovered;
+   then red, where theirs turn gold (Patrick). */
+.reader-lecture-note.reader-concepts:hover .reader-concepts-link path {
+  stroke: var(--passage-lit);
+  stroke-opacity: 0.85;
+}
+
+/* Back to top: words alone (Patrick), until the window is narrow enough
+   that the tool-return pill shrinks to its icon, which is all it shows. */
+.tool-return.reader-to-top {
+  padding: 0 14px;
+}
+.tool-return.reader-to-top svg {
+  display: none;
+}
+@container tool-surface (max-width: 480px) {
+  .tool-return.reader-to-top {
+    padding: 0;
+  }
+  .tool-return.reader-to-top svg {
+    display: block;
   }
 }

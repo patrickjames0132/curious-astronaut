@@ -33,9 +33,12 @@ from .main import (
     resolve_papers,
     route,
 )
+from .reading import ReadingRoute, route_reading
 
 __all__ = [
     "ANSWER",
+    "ReadingRoute",
+    "route_reading",
     "MessageRoute",
     "RoutePaper",
     "Scope",

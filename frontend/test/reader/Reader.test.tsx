@@ -209,6 +209,22 @@ function mount(ui: ReactElement, thread: ThreadRecord = THREAD) {
   return { store, ...render(<Provider store={store}>{ui}</Provider>) }
 }
 
+/**
+ * The box's menu, once it's up. Found by its selector, not its role: a role
+ * query names every element of the rendered paper, which under a loaded test
+ * run took past the 1s wait and failed at random (the flake of v8.45.0's
+ * release gate).
+ *
+ * @returns The menu.
+ */
+async function boxMenu(): Promise<HTMLElement> {
+  return waitFor(() => {
+    const menu = document.querySelector<HTMLElement>('.selection-menu[aria-label="Boxed area"]')
+    if (!menu) throw new Error('no box menu yet')
+    return menu
+  })
+}
+
 /** Select a phrase in a paragraph, as a reader's drag would, and let go.
  * @param paragraph The paragraph's text, to find it by.
  * @param phrase Text at the start of its first text node.
@@ -1221,7 +1237,7 @@ it('asks about a box drawn over the PDF with ⌥-drag, by its place', async () =
   expect(screen.queryByRole('toolbar', { name: 'Boxed area' })).toBeNull()
   // ⌥-drag: a box, its words read, its menu up.
   drag(true, [110, 70])
-  const menu = await screen.findByRole('toolbar', { name: 'Boxed area' })
+  const menu = await boxMenu()
   const box = [{ page: 2, rects: [[10, 20, 110, 70]] }]
   expect(read).toHaveBeenCalledWith('1706.03762', 's2', { places: box })
   // Esc lets it go; drawn again, Explain asks about it by its place.
@@ -1229,7 +1245,7 @@ it('asks about a box drawn over the PDF with ⌥-drag, by its place', async () =
   await waitFor(() => expect(screen.queryByRole('toolbar', { name: 'Boxed area' })).toBeNull())
   drag(true, [110, 70])
   fireEvent.mouseDown(
-    within(await screen.findByRole('toolbar', { name: 'Boxed area' })).getByRole('button', {
+    within(await boxMenu()).getByRole('button', {
       name: 'Explain',
     }),
   )
@@ -1280,7 +1296,7 @@ it('quotes a box with no words in it as its picture', async () => {
   fireEvent.mouseDown(page.firstChild!, { altKey: true, button: 0, clientX: 100, clientY: 100 })
   fireEvent.mouseUp(window, { clientX: 300, clientY: 250 })
   fireEvent.mouseDown(
-    within(await screen.findByRole('toolbar', { name: 'Boxed area' })).getByRole('button', {
+    within(await boxMenu()).getByRole('button', {
       name: 'Simplify',
     }),
   )
@@ -1310,7 +1326,7 @@ it('asks about a box over the text by the whole elements it takes, a figure as i
   fireEvent.mouseDown(equation, { altKey: true, button: 0, clientX: 100, clientY: 410 })
   fireEvent.mouseMove(window, { clientX: 300, clientY: 500 })
   fireEvent.mouseUp(window, { clientX: 300, clientY: 500 })
-  const menu = await screen.findByRole('toolbar', { name: 'Boxed area' })
+  const menu = await boxMenu()
   // Snapped to what it took: the equation and the figure, whole.
   const box = document.querySelector('.reader-text-box') as HTMLElement
   expect([box.style.left, box.style.top, box.style.width, box.style.height]).toEqual([
@@ -1418,4 +1434,167 @@ it('carries the labels a text selection or box reaches into the question', async
   fireEvent.mouseDown(await screen.findByRole('button', { name: 'Chat' }))
   await waitFor(() => expect(opened).toHaveBeenCalled())
   expect(opened.mock.calls[0][0]).toMatchObject({ labels: ['(1)'] })
+})
+
+it('gives a lecture on the paper from the button by its title, its first beat lit', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const guide = vi.spyOn(api, 'streamGuideReader').mockImplementation(async (_body, handlers) => {
+    handlers.onBeat({
+      heading: 'Queries',
+      text: 'A query asks.',
+      node_ids: [],
+      quote: 'mapping a query',
+    })
+  })
+  const opened = vi.fn()
+  const { store } = mount(<Harness onAssistant={opened} />)
+  await screen.findByRole('heading', { name: 'Attention Is All You Need' })
+  fireEvent.click(screen.getByRole('button', { name: 'Give Lecture On Paper' }))
+  // The assistant opens on it, and the whole paper is lectured on.
+  expect(opened).toHaveBeenCalledWith()
+  await waitFor(() => expect(guide).toHaveBeenCalled())
+  expect(guide.mock.calls[0][0]).toMatchObject({ paper: '1706.03762' })
+  expect(guide.mock.calls[0][0]).not.toHaveProperty('scope')
+  await waitFor(() =>
+    expect(store.getState().highlight.passages).toMatchObject({
+      answer: 1,
+      beat: 0,
+      passage: 'mapping a query',
+    }),
+  )
+  expect(store.getState().transcript.byKey['attention:reader'].chat[0].text).toBe(
+    'Give me a lecture on this paper',
+  )
+})
+
+it('lectures when asked in the chat, and steps beat by beat, one place each', async () => {
+  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const guide = vi.spyOn(api, 'streamGuideReader').mockImplementation(async (_body, handlers) => {
+    handlers.onBeat({
+      heading: 'Queries',
+      text: 'A query asks.',
+      node_ids: [],
+      quote: 'mapping a query',
+    })
+    // A labelled beat lights its equation alone, not the sentence naming it.
+    handlers.onBeat({
+      heading: 'The equation',
+      text: 'Read it.',
+      node_ids: [],
+      quote: 'We compute the matrix of outputs as:',
+      labels: ['(1)'],
+    })
+  })
+  const route = vi.spyOn(api, 'routeReaderMessage').mockResolvedValue({ target: 'guide' })
+  const answer = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
+  const { store } = mount(<ReaderAssistant thread={THREAD} collapsed={false} onClose={() => {}} />)
+  // The panel has no lecture button of its own: that's by the title.
+  expect(screen.queryByRole('button', { name: /Guide me|Give Lecture/ })).toBeNull()
+  const box = screen.getByRole('textbox')
+  fireEvent.change(box, { target: { value: 'take me through it all' } })
+  fireEvent.submit(box.closest('form')!)
+  await waitFor(() => expect(guide).toHaveBeenCalled())
+  const chat = () => store.getState().transcript.byKey['attention:reader'].chat
+  await waitFor(() => expect(chat()[0].text).toBe('take me through it all'))
+  const lit = () => store.getState().highlight.passages
+  // It followed itself to its last beat as it was written.
+  await waitFor(() => expect(lit()).toMatchObject({ answer: 1, beat: 1, labels: ['(1)'] }))
+  fireEvent.click(await screen.findByRole('button', { name: '‹ Back' }))
+  expect(lit()).toMatchObject({ beat: 0, passage: 'mapping a query' })
+  fireEvent.click(await screen.findByRole('button', { name: 'Next ›' }))
+  expect(lit()).toMatchObject({ answer: 1, beat: 1, passage: null, labels: ['(1)'] })
+  // Its bubble is never lit as a whole: only the beat is (Patrick).
+  const bubble = screen.getByText('A query asks.').closest('.chat') as HTMLElement
+  expect(bubble.classList.contains('active')).toBe(false)
+  // Said as a lecture at the top of its bubble, by the timer.
+  expect(within(bubble).getByText('Answered as a lecture')).toBeTruthy()
+  expect(chat()[1].routedTo).toBe('lecture')
+  // It folds behind its caret, and opens again.
+  const caret = screen.getByRole('button', { name: /2 beats/ })
+  expect(caret.getAttribute('aria-expanded')).toBe('true')
+  fireEvent.click(caret)
+  expect(caret.getAttribute('aria-expanded')).toBe('false')
+  fireEvent.click(caret)
+  expect(caret.getAttribute('aria-expanded')).toBe('true')
+  // A question stays a question.
+  route.mockResolvedValue({ target: 'answer' })
+  fireEvent.change(box, { target: { value: 'what is a query?' } })
+  fireEvent.submit(box.closest('form')!)
+  await waitFor(() => expect(answer).toHaveBeenCalled())
+  expect(guide).toHaveBeenCalledTimes(1)
+})
+
+it('never routes a question about an attached passage', async () => {
+  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const route = vi.spyOn(api, 'routeReaderMessage')
+  const answer = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
+  mount(
+    <ReaderAssistant
+      thread={THREAD}
+      collapsed={false}
+      onClose={() => {}}
+      quote={{ text: 'Recurrent networks', from: 'section 1', seq: 1 }}
+    />,
+  )
+  const box = screen.getByRole('textbox')
+  fireEvent.change(box, { target: { value: 'walk me through this' } })
+  fireEvent.submit(box.closest('form')!)
+  await waitFor(() => expect(answer).toHaveBeenCalled())
+  expect(route).not.toHaveBeenCalled()
+})
+
+it('follows a lecture beat by beat as it is written, until the reader takes over', async () => {
+  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  let resume: () => void = () => {}
+  const paused = new Promise<void>((resolve) => {
+    resume = resolve
+  })
+  vi.spyOn(api, 'routeReaderMessage').mockResolvedValue({ target: 'guide' })
+  vi.spyOn(api, 'streamGuideReader').mockImplementation(async (_body, handlers) => {
+    handlers.onBeat({ heading: 'One', text: 'First.', node_ids: [], quote: 'first words' })
+    handlers.onBeat({ heading: 'Two', text: 'Second.', node_ids: [], quote: 'second words' })
+    await paused
+    handlers.onBeat({ heading: 'Three', text: 'Third.', node_ids: [], quote: 'third words' })
+  })
+  const { store } = mount(<ReaderAssistant thread={THREAD} collapsed={false} onClose={() => {}} />)
+  const lit = () => store.getState().highlight.passages
+  const box = screen.getByRole('textbox')
+  fireEvent.change(box, { target: { value: 'lecture me' } })
+  fireEvent.submit(box.closest('form')!)
+  // Following: each beat lit and gone to as it arrives.
+  await waitFor(() => expect(lit()).toMatchObject({ beat: 1, passage: 'second words', scroll: 2 }))
+  // The reader steps back: the third beat, arriving, leaves them there.
+  fireEvent.click(await screen.findByRole('button', { name: '‹ Back' }))
+  expect(lit()).toMatchObject({ beat: 0 })
+  resume()
+  await waitFor(() =>
+    expect(store.getState().transcript.byKey['attention:reader'].chat[1].beats).toHaveLength(3),
+  )
+  expect(lit()).toMatchObject({ beat: 0, passage: 'first words' })
+})
+
+it('has one button over the paper: Back to top when scrolled, the ↑ to the cards at the top', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const { store } = mount(<Reader thread={THREAD} />)
+  await screen.findByRole('heading', { name: '3.2Attention' })
+  const pane = document.querySelector('[data-tour="reader-page"]') as HTMLElement
+  // At the top: the ↑ to the cards.
+  expect(screen.getByRole('button', { name: 'Back to this paper’s cards' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Back to top' })).toBeNull()
+  // Scrolled down: Back to top, back up the paper.
+  pane.scrollTop = 900
+  fireEvent.scroll(pane)
+  fireEvent.click(await screen.findByRole('button', { name: 'Back to top' }))
+  expect(Element.prototype.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }))
+  expect(screen.queryByRole('button', { name: 'Back to this paper’s cards' })).toBeNull()
+  // At the top again: the ↑, to the cards.
+  pane.scrollTop = 0
+  fireEvent.scroll(pane)
+  fireEvent.click(await screen.findByRole('button', { name: 'Back to this paper’s cards' }))
+  const saved = store
+    .getState()
+    .explorations.byId.saved.threads.find((item) => item.id === THREAD.id)
+  expect(saved?.tool).toBe('cards')
+  // No second Back to top in the contents.
+  expect(document.querySelector('.reader-contents-top')).toBeNull()
 })

@@ -80,6 +80,17 @@ about in one view lights in the other too, by its figure and equation
 numbers, and when part of it has no place there a note says so, with the
 other view a click away. The ⓘ beside the switch sums up the controls.
 
+**Give Lecture On Paper**, under the authors in the text view (a red note in
+the PDF's margin by the title), walks you through the whole paper in eight
+to fourteen steps, in its own order. Each step lights the passage it teaches,
+in red: the words it quotes, or a whole figure, table, equation or section.
+The Reader follows each step as it arrives, and **Back** / **Next** under the
+lecture step through it again. Asking in the chat ("walk me through this
+paper", "give me a lecture") does the same; anything else is answered. The
+steps go quickly over what you've ticked off in the paper's Knowledge Graph
+course and slow down on what you're still learning. Scrolled down, the button
+over the paper becomes **Back to top**.
+
 An enlarged figure covers the middle of the app, never the sidebar or a
 docked assistant, so an assistant explaining a figure stays readable beside it.
 

@@ -17,5 +17,6 @@ from __future__ import annotations
 
 from .config import Framing
 from .main import agent, lecture
+from .reading import guided_read
 
-__all__ = ["Framing", "agent", "lecture"]
+__all__ = ["Framing", "agent", "guided_read", "lecture"]

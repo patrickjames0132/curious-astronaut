@@ -71,6 +71,12 @@ class Beat(BaseModel):
     # which the frontend never sees.
     graph_refs: dict[str, str] = Field(default_factory=dict)
     figure: BeatFigure | None = None
+    # A guided read's beat (v8.50.0, the Reader's lecture) is about a passage
+    # of the paper, not papers on a graph: the paper's exact words, and the
+    # labels it covers ("(1)", "Figure 2"), which the Reader lights in either
+    # of its views. Empty on a graph lecture's beat.
+    quote: str | None = None
+    labels: list[str] = Field(default_factory=list)
 
 
 class Token(BaseModel):

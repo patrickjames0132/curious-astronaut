@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v8.49.1 · living document · MIT-licensed · on PyPI as
+> **Status:** v8.50.0 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -1821,8 +1821,12 @@ than deleted so the plan doesn't get re-proposed.
          and passages that cross views by the labels both share, with a
          note when part of one can't. The full story is in
          [docs/history.md](docs/history.md).
+      9. ✓ **Shipped in v8.50.0**: the guided read, as **Give Lecture On
+         Paper**: a lecture on the whole paper, each beat lighting its
+         passage, also reachable by asking in the chat. The full story is
+         in [docs/history.md](docs/history.md).
 
-      **Later:** the guided read. ~~A margin teacher you can ask about the
+      Every planned stage has shipped. ~~A margin teacher you can ask about the
       selection~~ is crossed off (Patrick, 2026-10-25): both halves of its
       sketch shipped under other names, "before this section you need…" as
       the Knowledge Graph notes (v8.44.0) and "ask about the selection" as

@@ -103,6 +103,10 @@ export interface AnswerPassages {
   onActivate: (index: number) => void
   /** One of an answer's quotes clicked: light it and go there. */
   onQuote: (quote: string) => void
+  /** The lecture beat lit (v8.50.0, the guided read), by answer and beat. */
+  activeBeat?: { answer: number; beat: number } | null
+  /** A lecture beat clicked: light its passage and go there (again: unlight). */
+  onBeat?: (answer: number, index: number) => void
 }
 
 /**
@@ -164,6 +168,13 @@ export default function DockedAssistant({
       onFinished(chat.length - 1)
   }, [asking, chat, onFinished])
   const provider = thread.data.provider ?? 's2'
+  // A lecture folds behind its caret (v8.50.0, the Reader's): the newest
+  // open until the reader says otherwise, as the Citation Graph's chat does.
+  const [lectureOpen, setLectureOpen] = useState<Record<number, boolean>>({})
+  const newestLecture = chat.reduce(
+    (newest, message, index) => (message.beats?.length ? index : newest),
+    -1,
+  )
 
   // The exploration's other chats, for the `@` list.
   const record = useAppSelector((state) => state.explorations.byId[state.explorations.activeId])
@@ -376,13 +387,35 @@ export default function DockedAssistant({
           <ChatMessage
             key={`c${index}`}
             message={message}
-            active={passages?.active === index}
+            // A lecture's turn is its beats (v8.50.0): it has nothing of its
+            // own to light, so it is neither clicked nor shown lit as a whole,
+            // which only washed out the beats inside it (Patrick).
+            active={!message.beats?.length && passages?.active === index}
             onActivate={
-              passages && message.role === 'assistant' && !message.failed
+              passages && message.role === 'assistant' && !message.failed && !message.beats?.length
                 ? () => passages.onActivate(index)
                 : undefined
             }
             onQuote={passages?.onQuote}
+            activeBeat={passages?.activeBeat?.answer === index ? passages.activeBeat.beat : null}
+            beatsOpen={lectureOpen[index] ?? index === newestLecture}
+            onToggleBeats={
+              message.beats?.length
+                ? () =>
+                    setLectureOpen((open) => ({
+                      ...open,
+                      [index]: !(open[index] ?? index === newestLecture),
+                    }))
+                : undefined
+            }
+            onBeatClick={
+              passages?.onBeat ? (beatIndex) => passages.onBeat?.(index, beatIndex) : undefined
+            }
+            onBeatStep={
+              passages?.onBeat
+                ? (beatIndex, step) => passages.onBeat?.(index, beatIndex + step)
+                : undefined
+            }
             streaming={asking}
             working={asking && index === chat.length - 1}
             onRetry={message.failed ? () => retry(index) : undefined}

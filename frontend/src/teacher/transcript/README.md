@@ -8,7 +8,7 @@ caller until v7.21.0 — the panel's Lecture section).
 
 ```
 transcript/
-  BeatList.tsx       — lecture beats (click to light their papers)
+  BeatList.tsx       — lecture beats (click to light their papers, or a guided read's passages)
   ChatMessage.tsx    — one turn: retrieval line, trace chips, prose+figures,
                        or a lecture's beats + the route line
   AnswerMarkdown.tsx — Markdown + KaTeX + citation rendering for answers
@@ -119,6 +119,15 @@ transcript/
   searched", because those are different things to tell a student. A
   conversational turn renders no line: a greeting asserts nothing, so
   attributing it would be noise.
+
+## A guided read's beats (v8.50.0)
+
+The Reader's guided read is a lecture too, a turn of the Reader Assistant's
+chat, so its beats come through `BeatList` like the graph's. A beat that
+names a passage (`quote`, `labels`) is a control without any papers: it
+lights that passage in the Reader. Given `onStep`, the lit beat shows
+**‹ Back · n of N · Next ›** and is kept in view in the chat as you step;
+without it (a graph lecture), beats are only clicked.
 
 ## The trace, and answers that never arrive
 

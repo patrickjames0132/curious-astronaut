@@ -27,7 +27,8 @@ reader/
   useAnchoredCard.ts — when a card shows, stays and goes, and where it sits
   selectionText.ts — what a highlight says (formulas as LaTeX) and where it's from
   askReader.ts    — the Reader Assistant's asking: what it sends, the
-                    section in view, how a highlight's action is worded
+                    section in view, how a highlight's action is worded,
+                    and the lecture (guideReader, askOrGuideReader, beatLight)
   ReaderAssistant.tsx — the docked assistant: the shared panel with the Reader's words
   PdfView.tsx     — the PDF view: pages sized up front, drawn near the view,
                     notes in the margin beside them
@@ -47,6 +48,58 @@ below); (6) an answer lighting up the passage it's about (v8.45.0, below);
 (7) a box drawn over the PDF to ask about (v8.46.0, below); (8) the same
 box in the text view, taking whole elements (v8.48.0, below).
 Read the OnePager entry before extending it.
+
+## The lecture: Give Lecture On Paper (v8.50.0)
+
+The Reader card's last planned stage, the "guided read": the whole paper
+taught step by step in the Reader Assistant's chat, each step lit in the
+paper as you go. The margin teacher it was planned after was crossed off:
+both halves of its sketch had shipped as the Knowledge Graph notes and the
+assistant.
+
+- **Two ways in** (Patrick): **Give Lecture On Paper**, by the paper's title
+  and outside the assistant, and asking in the chat. In the text it is a red
+  button just under the authors; in the PDF it is a margin note on the first
+  page in the Knowledge Graph notes' shape, in red (a bar and an outlined
+  chip of their size and type), with a red line to the title (stacked with
+  the notes and drawn its line by `useMarginNotes`; the title's
+  height is found in page 1's text layer by its words, and the PDF always
+  keeps the margin's room so the pages don't shift when it appears). A typed
+  message goes through `askOrGuideReader`: the Reader's router
+  (`/api/route_reader`) says lecture or answer. A question about an attached
+  passage is never routed. Always the whole paper: a lecture on one section
+  was tried and dropped (Patrick).
+- **A lecture turn**: `guideReader` streams the beats into the chat as one
+  turn (`lectureAssistant`), the lecturer writing them over the paper as the
+  assistant reads it (`/api/guide_reader`, `lecturer.guided_read`), told
+  the course's check-offs (`courseNames`). Each beat names its passage, its
+  exact words and any label ("(1)", "Figure 2").
+- **One place per beat** (`beatLight`): a beat about **a whole section**
+  lights the section, a beat about an equation, figure, table or algorithm
+  lights that, whole, by its label; any other beat, its quote. A section
+  rides as a label too, "§6 Conclusion" (Patrick: "the conclusion beat
+  should highlight the whole Conclusion section"): in the text, its element
+  and its subsections' (`labelElements`), in the PDF its text from its
+  heading to the next at its level, figures and running headers left out
+  (`services/pdf/passages.py`). Lighting both lit two places a page apart whenever the quote was
+  the sentence *naming* the figure ("…described in Algorithm 1."), which
+  read as noise (Patrick); after, every SAC beat lit one place, in both
+  views, a third of the way down the pane.
+- **It follows itself as it is written** (Patrick, as the Citation Graph's
+  lecture does): each beat lights and the Reader goes there as it arrives,
+  for as long as the reader is following (the lit beat is the one before
+  it). Clicking a beat, Back / Next or Esc leaves them where they went, and
+  the beats still arriving don't pull them away. The lit beat shows Back /
+  Next;
+  any beat can be clicked. Its bubble says "Answered as a lecture" by the
+  timer, as the Citation Graph's chat does (`lectureAssistant` marks the
+  turn `routedTo: 'lecture'`), and folds behind its caret, the newest
+  lecture open. The lecture's bubble itself is neither clicked
+  nor shown lit (it has nothing of its own to light, and lit, it washed out
+  the beats inside it). A beat
+  lights like an answer (`store/highlight`'s `passages`, with its `beat`),
+  in either view, and the note says when it has no place in the one you're
+  in.
 
 ## Scrolling that lands (v8.49.0)
 
@@ -249,7 +302,8 @@ stay lit until something else is chosen.
   stays through hovering other citations, until its ×, Esc or a click
   elsewhere (`useAnchoredCard`, shared with the concept cards). It sits in the pane's scrolled content,
   under the citation or above it when there's no room, so it scrolls with
-  the text.
+  the text. Its outline is a dim blue, stronger once pinned or focused, as
+  a concept card's is in gold (v8.50.0).
 - **The paper it cites**, from `GET /api/paper/<id>/cited`
   (`services/reader/citations.py`): each bibliography entry matched to the
   thread provider's reference list, by arXiv id, then title. Matched: title,
@@ -531,7 +585,12 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
   (`ca.readerContentsOpen`), and the panel stays at every window width.
 - **The shell's overlays sit over the reading pane** (`.reader-main`), not
   the whole Reader, so the ↑ back to the cards centres over the text, not
-  over text and contents together, and stays put as the text scrolls. (A ←
+  over text and contents together, and stays put as the text scrolls. Since
+  v8.50.0 the Reader draws that button itself (the app leaves it out for
+  the Reader): the ↑ within 120px of the top (`AT_TOP`), and below that a
+  **Back to top** pill, words alone until the pane is narrow and then just
+  its icon, gliding back to the top. It replaced the contents panel's own
+  Back to top. (A ←
   was tried and dropped; `tools/README.md` has the story.) The top-right
   corner is kept free on purpose: it's where the app's assistants dock and
   reopen (`.pane-assistant`), and where the Reader's will.

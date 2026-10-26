@@ -3903,6 +3903,43 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
         has and what still sits between them and the paper. The layout above
         is how that assessment gets drawn, not the goal in itself.
 
+- [x] **The Reader card, stage 9: a lecture on the paper** *(v8.50.0)* —
+      the guided read the Reader's plan always ended with, as **Give
+      Lecture On Paper**: a red outlined button under the authors in the
+      text view, and in the PDF a margin note by the title, shaped like a
+      Knowledge Graph note in red. Always the **whole paper** (Patrick: a
+      lecture on one section was dropped; the button is the paper's), in 8
+      to 14 beats in the paper's own order.
+
+      **A beat points at a passage, not papers.** The lecturer's sibling,
+      `lecturer.guided_read`, shares its model and its streaming
+      (`streamed_beats`, extracted from `lecture()`: a beat is sent the
+      moment the next begins). Each beat carries the paper's exact words
+      (`quote`) and, only when a figure, table or equation is the beat's
+      subject, its label; a beat about a whole section names it, riding as
+      a `§` label so both views light it whole. In the PDF a section runs
+      from its heading to the next heading at its level in reading order,
+      leaving out floats and page furniture (running headers, page numbers;
+      `_section_places`). One place lights per beat: its labels if any, else
+      its quote. The Reader **follows each beat as it arrives** while the
+      reader is still on the latest one; **Back / Next** under the lecture
+      step through it after, the active beat scrolling into view.
+
+      **Both ways in** (Patrick): the button, or asking. `router/reading.py`
+      sends a Reader message to the lecture or the answer, plain asks
+      ("walk me through this paper") without a model, the rest on the
+      summarizer's model, every failure answering (`POST /api/route_reader`,
+      `POST /api/guide_reader`). The bubble says "Answered as a lecture". The
+      student's Knowledge Graph check-offs go with it: known concepts are
+      taken quickly, ones still being learned slowly.
+
+      Also: the Reader's own button over the paper, the ↑ to the cards at the
+      top and **Back to top** below (words alone; the icon only when narrow),
+      replacing the contents panel's Back to top; citation cards in a dim
+      blue outline, stronger when pinned or focused, as concept cards are in
+      gold; and the Reader's box tests no longer flake under load
+      ([docs/bugs.md](bugs.md)).
+
 - [x] **The Reader card: polish after stage 8** *(v8.49.0)* — four things
       Patrick found reading:
 

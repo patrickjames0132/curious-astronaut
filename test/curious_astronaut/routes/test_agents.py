@@ -65,7 +65,7 @@ def test_lecture_types_the_payload_and_relays_by_event_type(client, monkeypatch)
     response = client.post("/api/lecture", json={"seed": SEED, "nodes": NODES})
     assert frames(response) == [
         ("beat", {"heading": "Roots", "text": "It began.", "node_ids": ["node02"],
-                  "graph_refs": {}, "figure": None}),
+                  "graph_refs": {}, "figure": None, "quote": None, "labels": []}),
         ("done", {}),
     ]
     # The route delivered typed Nodes, sim baggage stripped, annotations kept.
@@ -783,3 +783,33 @@ def test_ask_reader_shows_the_model_figures_boxed_in_the_text(client, monkeypatc
     frames(client.post("/api/ask_reader", json=body))
     assert seen["images"] == [b"\x89PNG fig"]
     assert "THE FIGURE THEY BOXED in the paper's text is pictured in the image sent" in seen["reading"]
+
+
+def test_route_reader_says_guide_or_answer(client):
+    """v8.50.0: a plain ask for a guided read is routed without a model."""
+    response = client.post("/api/route_reader", json={"message": "walk me through this paper"})
+    assert response.json == {"target": "guide"}
+    assert client.post("/api/route_reader", json={"message": 7}).json == {"target": "answer"}
+
+
+def test_guide_reader_streams_beats_over_the_paper_being_read(client, monkeypatch):
+    """v8.50.0: the guided read reads the paper as the Reader Assistant does,
+    and streams the lecturer's beats."""
+    seen: dict = {}
+
+    def fake_guided_read(reading, known, learning):
+        seen.update(reading=reading, known=known, learning=learning)
+        yield events.Beat(heading="Step", text="Teach it.", node_ids=[], quote="the words", labels=["(1)"])
+
+    _pdf_pages(monkeypatch, ["Page one text."])
+    monkeypatch.setattr(agents_routes.lecturer, "guided_read", fake_guided_read)
+    response = client.post(
+        "/api/guide_reader",
+        json={"paper": "1412.6980", "section": "page:1", "known": ["Softmax", 3], "learning": "x"},
+    )
+    sent = frames(response)
+    assert sent[0][0] == "beat" and sent[0][1]["quote"] == "the words" and sent[0][1]["labels"] == ["(1)"]
+    assert sent[-1] == ("done", {})
+    assert seen["known"] == ["Softmax"] and seen["learning"] == []
+    assert "THE PAGE THEY ARE READING: page 1" in seen["reading"]
+    assert client.post("/api/guide_reader", json={}).status_code == 400

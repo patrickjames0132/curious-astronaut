@@ -247,6 +247,7 @@ export default function ChatMessage({
   onQuote,
   activeBeat,
   onBeatClick,
+  onBeatStep,
   onReroute,
   onQuick,
   // Defaults open: a caller that forgets to manage this shows the lecture
@@ -280,6 +281,9 @@ export default function ChatMessage({
   activeBeat?: number | null
   /** Light one of this turn's beats (undefined = beats render unclickable). */
   onBeatClick?: (index: number, beat: Beat) => void
+  /** Step from the lit beat to the one before or after (v8.50.0, the
+   *  Reader's guided read): shows Back / Next on it. */
+  onBeatStep?: (index: number, step: -1 | 1) => void
   /** Send this turn's question to the other assistant — only wired when a
    *  model chose this one, so a reader's own choice carries no offer. */
   onReroute?: () => void
@@ -491,6 +495,7 @@ export default function ChatMessage({
               activeBeat={activeBeat ?? null}
               sourceRefs={message.sourceRefs}
               onBeatClick={(index, beat) => onBeatClick?.(index, beat)}
+              onStep={onBeatStep}
               onRefClick={onRefClick}
               onEnlarge={onEnlarge}
             />

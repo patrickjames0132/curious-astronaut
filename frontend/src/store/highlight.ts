@@ -29,6 +29,8 @@ export interface LitPassages {
   threadId: string
   /** The answer they belong to (its index in the Reader's chat), if any. */
   answer: number | null
+  /** The beat of a guided read they are (v8.50.0), when they are one. */
+  beat?: number | null
   /** The passage its question was asked about, when one was highlighted. */
   passage: string | null
   /** Where that passage sits in the PDF, when it was highlighted there
