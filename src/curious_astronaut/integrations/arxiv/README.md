@@ -119,7 +119,7 @@ vocab.py        — the bundled taxonomy: what categories exist + their labels
   Since v8.38.0 it also renders the parse back to plain text for a model
   (`inline_text`, `block_text`, `section_heading`, `section_text`: math as
   `$…$`, citations as their markers, tables as `|` rows), which the Reader
-  assistant's `_reading_context` (`routes/agents.py`) lays out.
+  assistant's `reading_context` (`agents/orchestrators/assistant/context.py`) lays out.
   The cache key carries `_PARSE_VERSION`: bump it whenever the parse's
   output changes, or a document cached by the old parse is served for the
   rest of its 30 days.

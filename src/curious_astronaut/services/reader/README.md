@@ -40,7 +40,8 @@ cache, the providers, all offline) and the route's tests.
 ## `figures.py` — figures boxed in the text (v8.48.0)
 
 `figure_pngs(sources)` turns the figures a box over the Reader's text took
-into PNGs for the model, which `/api/ask_reader` sends with the question.
+into PNGs for the model, which the assistant's `reader` view sends with the
+question (`assistant.context.boxed_figures`).
 An image can't be selected, so before the box the model only ever saw a
 figure's caption.
 

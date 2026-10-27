@@ -6,7 +6,7 @@
  * item with its kind, its check-off, what it needs and why (a synthesis's
  * concepts and target), and the lessons written so far. Sent as structure;
  * the server lays it out for the researcher and bounds it
- * (`routes/agents.py`, `_course_context`).
+ * (`assistant/context.py`, `course_context`).
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>

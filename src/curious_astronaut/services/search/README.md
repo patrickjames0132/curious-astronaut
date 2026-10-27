@@ -76,8 +76,8 @@ chip.
 - **`agents/workers/search/papers`** — the scout's `search` tool calls
   `local_search` before every provider search.
 - **`routes/search.py`** — `_opt_fields` validates the query arg through
-  `valid_fields`; **`routes/agents.py`** — `_opt_filters` does the same for the
-  ask routes' JSON body. `api_mentions` runs `naming.paper_by_name` behind the
+  `valid_fields`; **`agents/orchestrators/assistant`** — `main._filters` does
+  the same for the general view's filters. `api_mentions` runs `naming.paper_by_name` behind the
   `has_exact_title_match` gate, and since the same route file's `api_search`
   does too (alongside the scout), the two paths a bare `@name` can take agree
   on which paper a nickname means.

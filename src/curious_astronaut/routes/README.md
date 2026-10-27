@@ -147,11 +147,11 @@ Design decisions worth knowing:
 - **The filters bind, and they are not prompt text.** `year_from` / `year_to`
   / `fields` go into `ScoutDeps`, so every lookup is already restricted and no
   wording the model chooses can widen them (it may narrow further inside the
-  window). The same filters ride on `/api/ask_sources`
-  (`routes/agents.py`'s `_opt_filters`), because they belong to the chat bar
-  rather than to one of its modes — one set of filters, both destinations.
-  `/api/ask` stopped reading them in v8.28.0, when the Citation Graph
-  assistant lost its paper search: they had nothing left to bind there.
+  window). The same filters ride on the assistant's `general` view
+  (`assistant.main._filters`), because they belong to the chat bar rather
+  than to one of its modes — one set of filters, both destinations. No other
+  view reads them: since v8.28.0 only the General chat searches papers, so
+  they have nothing to bind anywhere else.
 - **The nickname resolve runs here too, alongside the scout.** The `@`
   dropdown learned that `dqn` reaches *Playing Atari with Deep Reinforcement
   Learning* only through world knowledge (`services/search/naming.py`), and
@@ -396,89 +396,82 @@ Thin wrappers over `services/sources`. Points worth knowing:
   `upload.save()` (on Windows an open handle holds an exclusive lock),
   removal in a `finally`.
 
-## `agents.py` — the teacher's endpoints
+## `agents.py` — the assistant's endpoints
 
 | Endpoint | Job |
 | --- | --- |
-| `POST /api/route` | which assistant a typed message wants, and over which papers (**JSON, not SSE**) |
-| `POST /api/route/papers` | which graph papers a lecture request named (**JSON**) |
-| `POST /api/lecture` | streamed lecture over the reader's scoped graph |
-| `POST /api/ask` | agentic Q&A over the graph (no paper search since v8.28.0: it reads and expands the graph) |
-| `POST /api/ask_sources` | chat with no graph open (library + search) |
-| `POST /api/ask_course` | the Knowledge Graph's course assistant (v8.25.0; no paper search since v8.28.0): the same graph-free researcher, with the thread's course laid out and bounded by `_course_context` (the open lesson whole, the others' openings) |
-| `POST /api/route_reader` | whether a message to the Reader Assistant wants a guided read (v8.50.0): `{message}` in, `{target: 'guide'|'answer', scope: 'paper'|'section'}` out, always 200 (any failure answers; `router.route_reading`) |
-| `POST /api/guide_reader` | the guided read (v8.50.0): a lecture of the paper open in the Reader, beat by beat in its own order, streamed as SSE `beat` events, each naming its passage (`quote`, `labels`). Reads the paper as `/api/ask_reader` does (`_reading_context`); always the whole paper; `known`/`learning` the course's check-offs. 400 when there's nothing to read |
-| `POST /api/ask_reader` | the Reader's assistant (v8.38.0; no paper search): the same graph-free researcher over the paper being read. The client sends only the arXiv id and the section in view; `_reading_context` lays the paper out from the cached document (`integrations/arxiv/document.py`): title, abstract, outline, the section in view whole, then the rest in order under `READING_CHARS` (most papers fit whole). Since v8.40.0 `_pdf_context` lays it out from the PDF's text page by page instead, the page in view first, when the Reader shows the PDF (`section` is `page:<n>`) or the paper has no HTML render (needs the `pdf` extra, and says so without it). Since v8.45.0 a passage highlighted in the PDF view comes as `places`, and `_highlight_context` adds the PDF's own words there to the prompt and sends the model a picture of it (`images`); since v8.48.0 figures boxed in the text view come as `figures`, their image sources, sent as images too (`services/reader/figures.py`). 400 when there's nothing to read |
+| `POST /api/assistant/route` | which workflow a typed message wants, in the view it was typed in (**JSON, not SSE**): `{message, view: {kind}}` in, `{workflow, framing, scope, year_from, year_to}` out |
+| `POST /api/assistant/route/papers` | which graph papers a lecture request named (**JSON**) |
+| `POST /api/assistant` | the workflow, streamed: an answer, a lecture over the graph, or a guided read of the paper in the Reader. `{workflow?, question?, view: {kind, ...}, provider?, source_ids?, history?, thread_context?, quick?, model?}` |
 
-All three `ask` routes take `quick: true` since v8.30.0: ⚡ Quick response, the researcher with no tools (`_opt_quick`; see the researcher's README).
-
-All three also take `model` since v8.33.0: the chat bar's Model pick, a `provider:model` the researcher answers on in place of its configured model (`_opt_model`, which drops anything but a known vendor's string to the configured model; see the researcher's README).
-
-Since v8.25.0 the sibling index (`thread_context`) has one entry per
-**chat**, not per thread (a paper thread's Citation Graph and Knowledge
-Graph each, see `frontend/src/store/chats.ts`), and a mentioned Knowledge
-Graph chat carries its course, which `_sibling_context` adds as an outline
-(no lessons) after the chat's turns.
+**One assistant since v8.53.0.** Until then there was a route per assistant
+and per workflow: `/api/ask` (the Citation Graph's), `ask_sources` (the
+General chat's), `ask_course` (the Knowledge Graph's), `ask_reader` (the
+Reader's), `lecture`, `guide_reader`, and two routers, `route` and
+`route_reader`. They differed in what the view lent the model and which tools
+it allowed, so the `view` in the body now says which, and
+`agents/orchestrators/assistant` reads it: its screen → tools table, what each
+view lends the prompt, and the dispatch. Its README lists each view's fields.
+These routes validate, set status codes and relay. Stage 1 of the OnePager's
+"One assistant" item; the panels still call the client's old function names
+(`frontend/src/api/agents.ts`), each now naming its view.
 
 (The route face of the `agents` package — a deliberate name-cousin,
-different full paths.) Each streaming endpoint validates, builds typed
-inputs, and hands off to the agent that serves it — directly, since v7.0.0
-deleted the `orchestrator.run(intent, ...)` funnel they all used to pass
-through; one `_relay` generator serializes the typed event stream as SSE.
+different full paths.) One `_relay` generator serializes the typed event
+stream as SSE.
 
 Design decisions worth knowing:
 
-- **`/api/route` is the one endpoint here that doesn't stream**, because it
-  produces a *decision* rather than an answer: the client uses it to pick
-  between `/api/lecture` and `/api/ask`, then streams from the one it picked.
-  Two round trips on purpose — folding the choice into one streaming endpoint
-  would mean a second implementation of both workflows' event relays, to save
-  a few milliseconds on localhost.
+- **`/api/assistant/route` doesn't stream**, because it produces a
+  *decision* rather than an answer, and on the Citation Graph the client has
+  work to do between the two: a lecture's scope is resolved against the graph
+  on screen, which only the client holds (`frontend/src/scope/README.md`). So
+  routing and streaming stay two round trips.
 
-  It **always returns 200**. A blank message, a missing key, a dead model and
-  an unparseable classification all come back as the researcher, because this
-  sits in front of every message the reader sends: failing it would break
-  asking questions in order to protect a routing nicety. See
+  It **always returns 200**. A blank message, an unknown view, a dead model
+  and an unparseable classification all answer, because this sits in front of
+  every message the reader sends: failing it would break asking questions in
+  order to protect a routing nicety. See
   `agents/orchestrators/router/README.md` for the cost model behind that
-  asymmetry.
+  asymmetry. A view with one workflow (General, Knowledge Graph) is never
+  routed at all.
 
-  Since v7.23.0 its answer also carries a **`scope`** — which papers a
-  lecture is about, as far as the message says (`screen`, `references`,
-  `citations`, `seed`, `named`). **`/api/route/papers`** is the second half
-  of that: called by the client only when the scope was `named`, with the
-  graph's paper list (`{id, title, year, authors}` per paper — a thin cut,
-  no abstracts), it returns the ids the message pointed at. Split from
-  `/api/route` on purpose, so the paper list crosses the wire and is billed
-  only for the messages that name a paper, never on the every-message
-  classify. It, too, always returns 200: an empty `ids` is both "nothing
-  matched" and every failure, because the client already has to handle the
-  first.
+  On the Citation Graph its answer also carries a **`scope`** — which papers
+  a lecture is about, as far as the message says (`screen`, `references`,
+  `citations`, `seed`, `named`). **`/api/assistant/route/papers`** is the
+  second half of that: called by the client only when the scope was `named`,
+  with the graph's paper list (`{id, title, year, authors}` per paper — a
+  thin cut, no abstracts), it returns the ids the message pointed at. Split
+  out on purpose, so the paper list crosses the wire and is billed only for
+  the messages that name a paper, never on the every-message classify. It,
+  too, always returns 200: an empty `ids` is both "nothing matched" and every
+  failure, because the client already has to handle the first.
+- **`/api/assistant` refuses at the door.** An unknown view, a workflow the
+  view doesn't offer (a lecture in the Reader) and a view missing what its
+  workflow needs (no nodes, no course, no readable paper) are HTTP 400 with
+  `{error}`, decided before any stream exists (`assistant.RequestError`).
 - **One serialization rule replaces six tuple matches.** Frame name = the
   event's `type` tag, payload = `model_dump(exclude={"type"})`. That
   reproduces the old wire shapes for `token`/`beat`/`cited`/`trace`/`done`
   exactly, with the two documented renames (`nodes` → `discovery`,
   error `{"error"}` → `{"message"}`); `discard` is gone (nothing to disavow
   — the researcher's pre-answer narration is never streamed).
-- **The typed-node boundary.** The agents take `Node` models; the
-  frontend sends dicts that the force-graph renderer has mutated with
-  simulation fields (`x`, `vy`, `index`, ...). `_node` picks exactly the
-  model's fields out of each dict — strict about the core shape (missing
-  fields → 400), tolerant about baggage.
-- **History is client-owned.** Both research routes validate and cap the
-  completed transcript supplied with every request. Agents receive history;
-  neither they nor the routes store a competing copy. Lecture beats are
-  converted by the frontend before sending. `thread_context` carries a bounded
-  sibling index and explicitly mentioned histories, labelled as borrowed
-  background rather than current paper scope or instructions.
-- **Both research routes carry a `provider`.** `/api/ask` takes it from the
-  graph it's grounded in; `/api/ask_sources` has no graph, so it takes the
-  header dropdown's choice straight off the request. Leaving it off — as
-  `ask_sources` did until v6.14.0 — doesn't leave the agent backend-less, it
-  silently pins it to the default, so a chat under OpenAlex searched Semantic
-  Scholar and handed back ids no OpenAlex build could resolve. Both go
-  through `resolve_provider`, which degrades anything unrecognized to the
+- **History is client-owned.** Every request carries the completed
+  transcript, validated and capped (`context.resumed_history`). Agents
+  receive history; neither they nor the routes store a competing copy.
+  Lecture beats are converted by the frontend before sending.
+  `thread_context` carries a bounded sibling index, one entry per **chat**
+  (since v8.25.0), and explicitly mentioned histories, labelled as borrowed
+  background rather than current paper scope or instructions; a mentioned
+  Knowledge Graph chat carries its course as an outline.
+- **Every request carries a `provider`.** On the Citation Graph it is the
+  graph's; elsewhere it is the header dropdown's choice. Leaving it off — as
+  the old `ask_sources` did until v6.14.0 — doesn't leave the agent
+  backend-less, it silently pins it to the default, so a chat under OpenAlex
+  searched Semantic Scholar and handed back ids no OpenAlex build could
+  resolve. `resolve_provider` degrades anything unrecognized to the
   configured default rather than erroring.
-- **No availability gate on `/api/ask_sources`** (the old route 400'd when
+- **No availability gate on the general view** (the old route 400'd when
   embeddings didn't load): retrieval self-degrades to lexical-only, and an
   empty library just means the agent's source search finds nothing — a working
   degraded feature shouldn't be refused. The sources drawer's `available`

@@ -14,7 +14,7 @@ exact words (``quote``, found in either of the Reader's views as an answer's
 quotes are) and the label of an equation, figure or table it teaches
 (``label``, "(3)", "Figure 2"), which both views light whole.
 
-Its reading is the Reader Assistant's (``routes/agents._reading_context``):
+Its reading is the Reader Assistant's (``assistant.context.reading_context``):
 the document or the PDF's pages, the section or page in view first. The
 student's Knowledge Graph check-offs, when sent, tell it what to take
 quickly.
@@ -69,7 +69,7 @@ def _prompt(reading: str, known: list[str], learning: list[str]) -> str:
     dropped; the button is the paper's, by its title).
 
     Args:
-        reading: The paper laid out (``_reading_context``).
+        reading: The paper laid out (``assistant.context.reading_context``).
         known: Concepts the student has checked off in its Knowledge Graph.
         learning: Concepts in its course they haven't.
 
@@ -121,7 +121,7 @@ def guided_read(
     """Stream a guided read of the paper open in the Reader as beats.
 
     Args:
-        reading: The paper laid out for the model (``_reading_context``).
+        reading: The paper laid out for the model (``assistant.context.reading_context``).
         known: Concepts the student knows, from its Knowledge Graph.
         learning: Concepts they're still learning.
 

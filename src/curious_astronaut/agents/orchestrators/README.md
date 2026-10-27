@@ -5,6 +5,8 @@ parts of it, and is answerable for what the user finally sees.
 
 ```
 orchestrators/
+  assistant/      — the front door: one assistant, keyed by the view it's
+                    asked from (v8.53.0)
   researcher/     — agentic Q&A, with or without a graph
   lecturer/       — the streaming lecture over the visible graph
   summarizer/     — one-shot paper TL;DRs
@@ -46,10 +48,10 @@ never grew the model half it was designed around. Every caller already knew
 which workflow it wanted, so the enum was a string round-trip between a route
 and the function next to it.
 
-Routing lives in the routes now, which is where the intent already was:
-`/api/lecture` calls the lecturer, `/api/ask` and `/api/ask_sources` call the
-researcher. Two things the router carried had to land somewhere real, and
-neither belonged to it:
+Routing lived in the routes after that, which is where the intent already
+was: `/api/lecture` called the lecturer, `/api/ask` and `/api/ask_sources`
+the researcher. Two things the router carried had to land somewhere real,
+and neither belonged to it:
 
 - **The Done/Error termination contract** — a stream that simply stops looks
   identical to one still working, so the panel would wait forever. It is now
@@ -67,13 +69,32 @@ different shape on purpose. The deleted orchestrator was a funnel every route
 passed through, threading an enum between callers that already knew their
 own workflow. This one is a **classifier with one caller**: the chat composer,
 holding a sentence a person typed, for which working out what the sentence
-*is* is the entire job. `/api/lecture` and `/api/ask` are still called
-directly by everything that already knows — a reader correcting a route — so
-nothing pays for a decision it doesn't need. Since v7.23.0 the router also
+*is* is the entire job. A caller that already knows the workflow — a reader
+correcting a route — names it and is never classified, so nothing pays for a
+decision it doesn't need. Since v7.23.0 the router also
 reads a lecture's **scope** off the message ("lecture me on the references",
 "…on the Bekenstein paper"), with a second, rarer call resolving named papers
 against the graph. See [`router/README.md`](router/README.md) for the
 two-stage design, the scope, and why every failure answers the question.
+
+## `assistant/`, and why it isn't the funnel again (v8.53.0)
+
+`assistant/` is a single entry point every question passes through, which is
+what v7.0.0 deleted. The difference is what it is keyed by. The old funnel
+dispatched on an **intent** the caller already knew, so the enum was a
+string round-trip. `assistant.run` dispatches on the **view** the question
+was asked from, and the view decides things no caller should restate:
+which workflows may run there, whether the researcher may search the
+literature, and what the view lends the prompt (the paper being read, a
+course, the graph in scope). Before it, those facts were spread over seven
+routes as a `paper_search=False` here and a missing endpoint there; now
+they are one table (`assistant/views.py`).
+
+It is also what the OnePager's "One assistant" item needs: one assistant
+docked beside whatever view is open knows the view and the message, nothing
+more, so something has to turn those into tools and a workflow. The
+workflow is still named by the caller, after `assistant.route` (or a
+correction) decides it, so a correction never pays for a classify.
 
 ## What moved here, and what it cost
 

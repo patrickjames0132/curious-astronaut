@@ -26,10 +26,10 @@ This package is that model half, finally wanted. The difference is the whole
 reason it exists: **nothing here knows which workflow it wants.** The caller is
 a composer holding a sentence a person typed, and working out what that
 sentence *is* is the entire job. So the shape is deliberately not the old
-one — no enum threaded through unrelated routes, no single funnel. `/api/ask`
-and `/api/lecture` still exist and are still called directly by everything
-that already knows (a reader correcting a route). The router is asked only
-when the answer is genuinely unknown.
+one — no enum threaded through unrelated routes. Everything that already
+knows the workflow (a reader correcting a route) names it to
+`/api/assistant` and is never classified. The router is asked only when the
+answer is genuinely unknown.
 
 ## Two stages, cheapest first
 
@@ -179,14 +179,18 @@ and asking in the chat. As here, a message that asks in so many words
 ("walk me through this paper", "give me a lecture") is routed without a
 model
 (`obvious_reading`); anything else is the summarizer model's call, and any
-failure answers. Served by `POST /api/route_reader`.
+failure answers. Served by `POST /api/assistant/route` in the `reader`
+view.
 
 ## Who uses it
 
-`POST /api/route` (`routes/agents.py`), called by the chat composer before it
-picks between `streamAsk` and `streamLecture`; `POST /api/route/papers`,
-called by the same composer only when the first answered `named`. Nothing
-else. (Until v7.23.0 a `/lecture` command bypassed the router entirely — the
+The assistant (`orchestrators/assistant`, v8.53.0), which asks `route` for
+a message typed beside the Citation Graph and `route_reading` for one typed
+in the Reader, and asks neither in a view with only one workflow. Its
+`POST /api/assistant/route` is called by the chat composer before it picks
+between `streamAsk` and `streamLecture`; `POST /api/assistant/route/papers`
+(`resolve_papers`), by the same composer only when the first answered
+`named`. Nothing else. (Until v7.23.0 a `/lecture` command bypassed the router entirely — the
 deterministic path, no classify, no guess. It went because the router reads
 everything the command could say and more: a two-value command has no way to
 spell "on the references".)

@@ -66,12 +66,13 @@ assistant.
   height is found in page 1's text layer by its words, and the PDF always
   keeps the margin's room so the pages don't shift when it appears). A typed
   message goes through `askOrGuideReader`: the Reader's router
-  (`/api/route_reader`) says lecture or answer. A question about an attached
+  (`/api/assistant/route` in the `reader` view) says lecture or answer. A question about an attached
   passage is never routed. Always the whole paper: a lecture on one section
   was tried and dropped (Patrick).
 - **A lecture turn**: `guideReader` streams the beats into the chat as one
   turn (`lectureAssistant`), the lecturer writing them over the paper as the
-  assistant reads it (`/api/guide_reader`, `lecturer.guided_read`), told
+  assistant reads it (`/api/assistant`'s `guide` workflow,
+  `lecturer.guided_read`), told
   the course's check-offs (`courseNames`). Each beat names its passage, its
   exact words and any label ("(1)", "Figure 2").
 - **One place per beat** (`beatLight`): a beat about **a whole section**
@@ -504,7 +505,7 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
   in the top-right corner kept free for it, behind a 🎓 when closed.
 - **It reads the paper, not a summary.** `askReader` sends only the arXiv id
   and the section in view; the server lays the paper out from the document
-  it cached for the Reader (`routes/agents.py`, `_reading_context`): the
+  it cached for the Reader (`assistant/context.py`, `reading_context`): the
   section in view whole, then the rest of the paper as it fits. It searches
   the library and the web only when a question reaches past the paper, and
   never the literature (Patrick's choice: paper + library + web).

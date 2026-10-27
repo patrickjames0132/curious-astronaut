@@ -8,7 +8,7 @@
  *
  * It sends only the paper's arXiv id and the section in view; the server lays
  * the paper out from the document it already cached for the Reader
- * (`routes/agents.py`, `_reading_context`). The section in view is the
+ * (`assistant/context.py`, `reading_context`). The section in view is the
  * Reader's to know, and changes on every scroll, so the Reader writes it here
  * (`setReadingSection`) rather than into the store, where each scroll would
  * re-render whatever reads it; it's only needed at the moment of asking.

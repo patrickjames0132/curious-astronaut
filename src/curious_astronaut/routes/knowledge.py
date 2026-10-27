@@ -14,8 +14,8 @@ Since v8.25.0 it also names the concept behind a passage the reader
 highlighted in a lesson (``/api/knowledge/phrase``, the lesson's "Expand"),
 and since v8.44.0 finds where in the paper each of the course's concepts is
 needed (``/api/knowledge/place``), for the Reader's margin notes.
-The course's assistant, which answers over the course, is an ask route and
-lives with the others in ``routes/agents.py``.
+The course's assistant, which answers over the course, is the one assistant
+in its ``knowledge`` view: ``/api/assistant`` in ``routes/agents.py``.
 
 **Both results are cached permanently**, like generated TL;DRs: a lesson on
 Bellman equations under DQN is the same lesson tomorrow, and a reader

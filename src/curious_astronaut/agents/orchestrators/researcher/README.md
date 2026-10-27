@@ -180,7 +180,7 @@ nobody was watching. Two log lines in sequence are the measurement.
 `answer(model=...)` runs the researcher on the `provider:model` the reader
 picked in that conversation's chat bar (Model, `teacher/ModelPicker`), via
 `factory.model_for(AGENT_ID, model)`; None runs it on its configured model.
-Every ask route reads it with `routes/agents._opt_model`, which passes on
+Every view reads it with `assistant.main._model`, which passes on
 only a `provider:model` naming a known vendor and drops anything else to
 None, so a malformed pick falls back to Settings rather than failing the
 answer. Only the researcher's own model changes: the paper and web scouts
@@ -191,7 +191,7 @@ it sends out keep theirs, since the picker is about who answers.
 `answer(quick=True)` is the chat's version of the lesson's quick response:
 every chat bar offers ⚡ Quick response while an answer is still searching,
 and the frontend stops that run and re-asks with `quick: true` on whichever
-route it came from (`routes/agents._opt_quick`; only a literal `true`
+view it came from (`assistant.main._answer`; only a literal `true`
 counts). Every tool is withheld through its `prepare` (`_unless_quick`,
 folded into the library, web and paper gates), so the model sees none
 rather than ones that refuse; `_unconsulted` returns nothing, so the
@@ -208,22 +208,22 @@ by default.
 
 `answer(paper_search=False)` takes `find_papers` away (a `prepare` gate, like
 the web's and the library's, so the tool is absent rather than refusing) and
-zeroes `searches_left`. Both docked assistants pass it: `/api/ask`, the
-Citation Graph's, `/api/ask_course`, the Knowledge Graph's, and since v8.38.0
-`/api/ask_reader`, the Reader's. Over a graph
+zeroes `searches_left`. Every docked view passes it, from the assistant's
+screen → tools table (`orchestrators/assistant/views.py`): the Citation
+Graph, the Knowledge Graph, and since v8.38.0 the Reader. Over a graph
 the graph *is* the reader's map of the literature: the assistant reads its
 papers and grows it along citations (`expand_node` stays), and a paper the
 graph doesn't reach is the reader's to find, from the General chat or by
 naming it with `@`. Over a course there are no numbered papers at all, so
 its prompt drops the promise of `[n]` citations along with the tool. Only
-the General chat (`/api/ask_sources`) still searches papers. Zeroing the budget
+the General chat (the `general` view) still searches papers. Zeroing the budget
 rather than adding a second check is deliberate: the web hand-off and the
 coverage guard already read `searches_left`, so neither asks for a search the
 model has no tool to make. The system prompt describes `find_papers` for
 every chat, so `_prompt` adds a line over the graph saying it's off and to
 ignore that advice (the course's context says the same in its own words).
-The bar's paper filters only ever bound this search, so `/api/ask` stops
-reading them too.
+The bar's paper filters only ever bound this search, so only the general
+view reads them.
 
 ## Design decisions worth knowing
 
@@ -299,15 +299,16 @@ reading them too.
 
 ## Who uses it, and how/why
 
-- **`routes/agents.py`** — both chat surfaces call `answer(...)` directly,
-  per `skills/workflows/research.md`: `POST /api/ask` with a graph open (seed
-  + visible nodes + provider, and `paper_search=False` since v8.28.0),
-  `POST /api/ask_sources` without one, and
-  since v8.25.0 `POST /api/ask_course` for the Knowledge Graph's course
+- **`orchestrators/assistant`** (`POST /api/assistant` since v8.53.0; one
+  route per view before) — every view's answer is `answer(...)`, per
+  `skills/workflows/research.md`: the `citations` view with a graph open
+  (seed + visible nodes + provider, and `paper_search=False` since v8.28.0),
+  the `general` view without one, and
+  since v8.25.0 the `knowledge` view for the Knowledge Graph's course
   assistant: graph-free, with `course` (the course laid out by the route)
   standing where a graph would in the prompt, and an instruction to answer a
   question about the course from it, searching when it reaches beyond; and
-  since v8.38.0 `POST /api/ask_reader` for the Reader's assistant: graph-free
+  since v8.38.0 the `reader` view for the Reader's assistant: graph-free
   likewise, with `reading` (the paper laid out by the route from its cached
   document) in the same place, framed as a reading companion that points to
   the paper's sections, equations and figures by number, and since v8.45.0

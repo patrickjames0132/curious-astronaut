@@ -473,7 +473,7 @@ than deleted so the plan doesn't get re-proposed.
       it show images?** Two of Patrick's questions, to answer from the code
       before building anything. (1) **The graph:** the assistant runs the
       researcher graph-free and gets the course only as text through
-      `_course_context` (noted in the syntheses follow-up under Phase 5), so
+      `course_context` (noted in the syntheses follow-up under Phase 5), so
       it can read the concepts but can't point at nodes or act on them by id.
       (2) **Images:** whether `show_figure` / `show_source_figure` (paper,
       library, web and S2 figures) are registered for the course variant. Write
@@ -1565,7 +1565,7 @@ than deleted so the plan doesn't get re-proposed.
         reason in the panel) rather than a finished node. Raising one
         unprompted, say after a breakdown, is a question for the agent's
         design, not a new UI. The researcher runs graph-free here, so the
-        tool needs the course's ids, which `_course_context` only shows as
+        tool needs the course's ids, which `course_context` only shows as
         text today.
 
       **Later stages, deliberately out of v1:**

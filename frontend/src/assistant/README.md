@@ -18,8 +18,12 @@ The tools' own layers are thin:
 
 | Tool | Panel | Ask | Chat key | Saved as |
 | --- | --- | --- | --- | --- |
-| Knowledge Graph | `knowledge/assistant/CourseAssistant` | `askCourse` (`/api/ask_course`, the course) | `<thread>:knowledge` | `ThreadRecord.courseChat` |
-| Reader | `reader/ReaderAssistant` | `askReader` (`/api/ask_reader`, the paper id and section) | `<thread>:reader` | `ThreadRecord.readerChat` |
+| Knowledge Graph | `knowledge/assistant/CourseAssistant` | `askCourse` (the `knowledge` view: the course) | `<thread>:knowledge` | `ThreadRecord.courseChat` |
+| Reader | `reader/ReaderAssistant` | `askReader` (the `reader` view: the paper id and section) | `<thread>:reader` | `ThreadRecord.readerChat` |
+
+Both ask the one backend assistant, `POST /api/assistant` (v8.53.0), naming
+the view they ask from (`api/agents.ts`); the view decides what the model
+reads and which tools it gets.
 
 ## Why it is shaped like this
 

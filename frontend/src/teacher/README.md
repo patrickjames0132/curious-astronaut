@@ -174,7 +174,7 @@ Four pieces of the composer are shared with the Knowledge Graph Assistant
   each open, so a key added in Settings shows without a reload), under a
   "Settings default" that goes back to Settings → Agents. The pick is the
   conversation's (`Conversation.model`), sent with its every ask and read by
-  `routes/agents._opt_model`; docked, a dot on the icon says the chat has
+  the assistant's `main._model`; docked, a dot on the icon says the chat has
   its own. The bar's popovers stay one-at-a-time (`openScope`). On the
   empty landing chat its popover drops down from a bar centred mid-page, so
   it measures the room left and cuts its scrolling list (the only part that
@@ -213,8 +213,8 @@ completes, so it shows none.
   icon inside the bar beside 🗑, never lit (its badge says it's narrowed),
   with no row under the bar at all; on the landing chat it is a labelled chip in the row under the
   bar, beside the paper filters. The filters are the landing chat's alone:
-  docked, nothing searches papers — `/api/ask` runs the researcher with
-  `paper_search=False`, and `@` offers chats only (`useMentionSuggestions`'
+  docked, nothing searches papers — the assistant's `citations` view runs
+  the researcher with `paper_search=False`, and `@` offers chats only (`useMentionSuggestions`'
   `withPapers`, as the Knowledge Graph's assistant always has), so a bare
   `@words` there is just text in a message — and `Teacher` neither shows the
   filters docked nor sends them (`activeOptions`).

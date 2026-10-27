@@ -25,9 +25,9 @@ now describe the shared panel as the course uses it.
 ## Why it is shaped like this
 
 - **The researcher, generalized, not a new agent** (Patrick, 2026-10-17).
-  `POST /api/ask_course` runs the same graph-free researcher as the General
-  chat, with the course laid out where a graph would be
-  (`routes/agents.py`, `_course_context`). So it keeps the library, paper and
+  The assistant's `knowledge` view runs the same graph-free researcher as
+  the General chat, with the course laid out where a graph would be
+  (`orchestrators/assistant`, `context.course_context`). So it keeps the library, paper and
   web search, the citation chips and the trace, and the transcript renders
   exactly as Teacher's does (`teacher/transcript/ChatMessage`). Its prompt
   tells it whose assistant it is and to answer a question *about the course*
@@ -59,7 +59,7 @@ now describe the shared panel as the course uses it.
   Model picker came the same way (v8.33.0, `teacher/ModelPicker`): the bar
   arbitrates its two popovers so only one is open (`openPopover`); and its
   answers wear the same response timer, which `ChatMessage` draws. Also
-  since v8.28.0 it doesn't search for papers (`/api/ask_course` runs the
+  since v8.28.0 it doesn't search for papers (the `knowledge` view runs the
   researcher with `paper_search=False`): it answers from the course, the
   library and the web, and finding papers is the General chat's job. A chat
   picked from its `@` list attaches as a chip over the bar (v8.29.0), as in
