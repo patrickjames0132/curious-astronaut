@@ -1883,10 +1883,12 @@ than deleted so the plan doesn't get re-proposed.
 
       **Stages, each shippable alone:**
       1. **One brain.** The context-aware endpoint and the screen → tools
-         table; the router also returns the turn's scope. Today's UIs call
-         it; nothing visible changes.
+         table. Today's UIs call it; nothing visible changes.
       2. **Chats own the conversation.** Paper threads stop holding chats;
-         turns carry tags (shown, clickable, correctable); the dock in every
+         turns carry tags (shown, clickable, correctable), and the router
+         decides each turn's tag (moved from stage 1, Patrick 2026-10-26:
+         before tags are shown, a tag would only echo the view the client
+         already knows); the dock in every
          view shows the active chat, switched from the sidebar. This
          reverses "assistants encapsulated per tool" (Patrick, 2026-10-09)
          on purpose. **No migration, and a major version** (Patrick,
