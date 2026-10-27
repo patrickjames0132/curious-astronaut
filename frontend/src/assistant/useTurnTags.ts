@@ -34,6 +34,17 @@ let anchor: { chatKey: string; index: number; at: number } | null = null
 const ANCHOR_LIFE = 3000
 
 /**
+ * Leave a turn to keep in view when the panel next shows its chat: a tag, or
+ * an answer's link to another view (v9.0.0), clicked just before going there.
+ *
+ * @param chatKey The chat.
+ * @param index The turn's index in it.
+ */
+export function anchorTurn(chatKey: string, index: number): void {
+  anchor = { chatKey, index, at: Date.now() }
+}
+
+/**
  * Take the question a tag click left to keep in view, once.
  *
  * @param chatKey The chat on screen; an anchor in another is left alone.
@@ -78,7 +89,7 @@ export function useTurnTags(
         onTagOpen: gone
           ? undefined
           : () => {
-              anchor = { chatKey, index, at: Date.now() }
+              anchorTurn(chatKey, index)
               void dispatch(openTag({ tag, chatId: chatKey }))
             },
       }

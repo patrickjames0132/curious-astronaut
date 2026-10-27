@@ -1,4 +1,4 @@
-import { openChat, selectScope } from '../store/workspace'
+import { openChat, openTag, selectScope } from '../store/workspace'
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
@@ -56,6 +56,8 @@ import type { AnimationEvent, CSSProperties, FormEvent, KeyboardEvent } from 're
 import {
   DEFAULT_SEARCH_OPTIONS,
   type AnswerFigure,
+  type Beat,
+  type ChatMsg,
   type MentionPaper,
   type SearchOptions,
   type TurnTag,
@@ -64,7 +66,11 @@ import { useAppDispatch, useAppSelector } from '../store'
 import { failedTurnDropped, selectChatKey, selectConversation } from '../store/transcript'
 import { quotedMessage, type PassageQuote } from '../assistant/askAssistant'
 import DockChatPicker from '../assistant/DockChatPicker'
-import { takeTurnAnchor, useTurnTags } from '../assistant/useTurnTags'
+import { anchorTurn, takeTurnAnchor, useTurnTags } from '../assistant/useTurnTags'
+import TagFilter, { tagKey, type TagChoice } from '../assistant/TagFilter'
+import { highlightSet, passagesLit } from '../store/highlight'
+import { answerLight, beatLight } from '../reader/askReader'
+import { TURN_TOOL_NAMES, tagLabel } from '../store/chats'
 import { explorationChats, paperTag } from '../store/chats'
 import { threadTool } from '../store/explorations'
 import { useCourseView } from '../knowledge/assistant/useCourseView'
@@ -97,28 +103,8 @@ import { useResizablePanel } from '../ui/useResizablePanel'
 import { useTheme } from '../ui/theme'
 import { usePresence } from '../ui/usePresence'
 import SendGlyph from '../ui/SendGlyph'
+import ClearGlyph from '../ui/ClearGlyph'
 import './teacher.css'
-
-/**
- * The bin the composer's Clear wears — here and, since v8.25.0, in the
- * Knowledge Graph's assistant.
- *
- * @returns The inline glyph.
- */
-export function ClearGlyph() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path
-        d="M3.2 4.6h9.6M6.5 4.6V3.3a.8.8 0 0 1 .8-.8h1.4a.8.8 0 0 1 .8.8v1.3M4.8 4.6l.45 7.9a1.1 1.1 0 0 0 1.1 1h3.3a1.1 1.1 0 0 0 1.1-1l.45-7.9"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 /**
  * Whether the reader has asked the OS for less motion.
@@ -137,8 +123,17 @@ function prefersStill(): boolean {
   )
 }
 
+/** Each chat's lecture folds the reader chose, by turn (see `toggleFold`),
+ *  for the sitting: kept here because the panel remounts on every view. */
+const lectureFolds = new Map<string, Record<number, boolean>>()
+/** A stable empty fold record, for a chat with none chosen. */
+const NO_FOLDS: Record<number, boolean> = {}
+
 /** Where the docked assistant sits (v9.0.0): beside the view, or under it. */
 export type AssistantDock = 'right' | 'bottom'
+
+/** How long the panel takes to morph from one edge to the other, ms. */
+const DOCK_MORPH_MS = 420
 
 /** Below this width the docked panel covers the view rather than squeezing
  *  it (teacher.css holds the same breakpoint). */
@@ -389,6 +384,44 @@ export default function Teacher({
     )
       setReopening(false)
   }
+  // **Moving it to the other edge morphs** (Patrick): the panel slides and
+  // reshapes from where it was into where it lands, a FLIP. Its box is
+  // measured at the click (never per render: this re-renders per streamed
+  // token), the move lays it out on the other edge, and before that paints
+  // it is drawn back in the old box and animated into the new one. Its
+  // contents fade through the middle, so the stretch of a scaled box never
+  // reads as squashed text.
+  const sectionRef = useRef<HTMLElement>(null)
+  const dockedFrom = useRef<DOMRect | null>(null)
+  const moveDock = (next: AssistantDock) => {
+    dockedFrom.current = sectionRef.current?.getBoundingClientRect() ?? null
+    onDockChange?.(next)
+  }
+  useLayoutEffect(() => {
+    const panelBox = sectionRef.current
+    const from = dockedFrom.current
+    dockedFrom.current = null
+    if (!panelBox || !from || prefersStill()) return
+    const to = panelBox.getBoundingClientRect()
+    if (!to.width || !to.height) return
+    const easing = 'cubic-bezier(0.22, 0.61, 0.36, 1)'
+    // `animate` is optional-called: jsdom has no Web Animations API.
+    panelBox.animate?.(
+      [
+        {
+          transformOrigin: 'top left',
+          transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`,
+        },
+        { transformOrigin: 'top left', transform: 'none' },
+      ],
+      { duration: DOCK_MORPH_MS, easing },
+    )
+    for (const part of panelBox.children)
+      part.animate?.([{ opacity: 0 }, { opacity: 0, offset: 0.45 }, { opacity: 1 }], {
+        duration: DOCK_MORPH_MS,
+        easing,
+      })
+  }, [dock])
   // Over a narrow window the docked panel covers the view (v9.0.0,
   // teacher.css), so Esc from inside it puts it away again, back to the view.
   const onPanelKeyDown = (event: KeyboardEvent) => {
@@ -768,10 +801,16 @@ export default function Teacher({
   useLayoutEffect(() => {
     if (collapsed) return
     const index = takeTurnAnchor(activeKey)
-    const turn = index === null ? null : scrollRef.current?.children[index]
-    if (!turn) return
+    const box = scrollRef.current
+    const turn = index === null ? null : box?.querySelector(`[data-turn="${index}"]`)
+    if (!box || !turn) return
     following.current = false
-    turn.scrollIntoView?.({ block: 'start' })
+    // Just under the "Showing" line when there is one: it sticks over the
+    // top of the transcript, and a question scrolled to the very top sat
+    // half hidden behind it (Patrick).
+    const covered = box.querySelector<HTMLElement>('.tag-filter')?.offsetHeight ?? 0
+    box.scrollTop +=
+      turn.getBoundingClientRect().top - box.getBoundingClientRect().top - covered - 8
   }, [activeKey, collapsed, landing])
 
   // The composer's drop, on the first question of a landing session. Empty, it
@@ -947,21 +986,134 @@ export default function Teacher({
   // `clearConversation`) rather than tracked through every mutation — a stale
   // entry would fold the wrong lecture, and the cost of being wrong here is a
   // caret the reader clicks once.
-  const [openByReader, setFoldedByReader] = useState<Record<number, boolean>>({})
+  //
+  // **Kept per chat, outside the panel** (v9.0.0, Patrick): going to another
+  // view remounts the panel (it is keyed on the workspace epoch), and the
+  // choices lived in its state, so a lecture folded away opened again on
+  // every switch. `lectureFolds` holds them for the sitting.
+  const [, refold] = useState(0)
+  const openByReader = lectureFolds.get(activeKey) ?? NO_FOLDS
   const newestLecture = chat.reduce(
     (latest, message, index) => (message.beats?.length ? index : latest),
     -1,
   )
+  /**
+   * Fold a lecture turn the reader has, or open it, and remember that.
+   *
+   * @param index The lecture's turn.
+   */
+  const toggleFold = (index: number) => {
+    lectureFolds.set(activeKey, {
+      ...openByReader,
+      [index]: !(openByReader[index] ?? index === newestLecture),
+    })
+    refold((count) => count + 1)
+  }
 
   /** Clear the conversation, and the fold choices that addressed its turns. */
   const clearConversation = () => {
-    setFoldedByReader({})
+    lectureFolds.delete(activeKey)
+    refold((count) => count + 1)
     clearChat()
   }
 
   // The conversation's turns, rendered identically wherever they land — in
   // the Q&A section beside a graph, or as the whole panel without one.
+  // **A turn asked beside another view links there** (v9.0.0, stage 4a). What
+  // it would light (its graph's papers, its passages in the Reader) is in
+  // that view, so clicking the answer, a `[n]`, a quote or a beat goes there
+  // first, keeping the turn in view (`anchorTurn`), then lights it. The
+  // navigation's own resets have happened by then: the highlight clears on
+  // a thread switch and a graph load (`store/highlight`).
+  const goLight = (index: number, tag: TurnTag, light: () => void) => {
+    anchorTurn(activeKey, index)
+    void dispatch(openTag({ tag, chatId: activeKey })).then(light)
+  }
+  const elsewhere = (message: ChatMsg, index: number) => {
+    const tag = chat[index - 1]?.tag
+    if (message.role !== 'assistant' || message.failed || !tag || owns(index)) return {}
+    if (!explorationRecord?.threads.some((thread) => thread.id === tag.threadId)) return {}
+    const beats = message.beats ?? []
+    if (tag.tool === 'graph') {
+      const grounded = message.cited?.length
+        ? message.cited
+        : [...new Set(beats.flatMap((beat) => beat.node_ids))]
+      const glow = (ids: string[]) => () => dispatch(highlightSet(ids))
+      return {
+        active: false,
+        activeBeat: null,
+        onActivate: grounded.length ? () => goLight(index, tag, glow(grounded)) : undefined,
+        onRefClick: (nodeId: string) => goLight(index, tag, glow([nodeId])),
+        onBeatClick: beats.length
+          ? (_beatIndex: number, beat: Beat) => goLight(index, tag, glow(beat.node_ids))
+          : undefined,
+        onBeatStep: undefined,
+      }
+    }
+    if (tag.tool === 'reader') {
+      const show = (lit: Omit<Parameters<typeof passagesLit>[0], 'threadId' | 'scroll'>) => () =>
+        dispatch(passagesLit({ threadId: tag.threadId, scroll: true, ...lit }))
+      return {
+        active: false,
+        activeBeat: null,
+        onActivate: beats.length
+          ? undefined
+          : () => goLight(index, tag, show({ answer: index, ...answerLight(chat, index) })),
+        onQuote: (quote: string) =>
+          goLight(
+            index,
+            tag,
+            show({ answer: null, passage: null, places: [], labels: [], quotes: [quote] }),
+          ),
+        onBeatClick: beats.length
+          ? (beatIndex: number) =>
+              goLight(
+                index,
+                tag,
+                show({
+                  answer: index,
+                  beat: beatIndex,
+                  ...beatLight(beats[beatIndex]),
+                  places: [],
+                  quotes: [],
+                }),
+              )
+          : undefined,
+        onBeatStep: undefined,
+      }
+    }
+    return {}
+  }
+
+  // **Filtered by where it was asked** (v9.0.0, stage 4a): once a chat
+  // crosses views, a menu over it picks one place, and only the exchanges
+  // asked there show. Per chat, and forgotten on leaving it.
+  const [filter, setFilter] = useState<{ chat: string; tag: string } | null>(null)
+  const shownTag = filter?.chat === activeKey ? filter.tag : null
+  const tagChoices = useMemo(() => {
+    const seen = new Map<string, TagChoice>()
+    for (const message of chat) {
+      const key = tagKey(message.tag)
+      if (message.role !== 'user' || seen.has(key)) continue
+      const label = tagLabel(explorationRecord, message.tag)
+      const split = label.lastIndexOf(' › ')
+      seen.set(key, {
+        key,
+        label,
+        paper: message.tag ? label.slice(0, split) : null,
+        tool: message.tag ? TURN_TOOL_NAMES[message.tag.tool] : null,
+      })
+    }
+    return [...seen.values()]
+  }, [chat, explorationRecord])
+  const shown = (index: number) => {
+    if (shownTag === null || tagChoices.length < 2) return true
+    const question = chat[chat[index]?.role === 'user' ? index : index - 1]
+    return tagKey(question?.tag) === shownTag
+  }
+
   const chatTurns = chat.map((message, index) => {
+    if (!shown(index)) return null
     // Beside the course or the Reader, a turn is that view's: its answers
     // light passages there when they are its own (`owns`), and its own are
     // the ones it can retry or answer quickly (v9.0.0).
@@ -990,15 +1142,7 @@ export default function Teacher({
             lights && passages?.activeBeat?.answer === index ? passages.activeBeat.beat : null
           }
           beatsOpen={openByReader[index] ?? index === newestLecture}
-          onToggleBeats={
-            message.beats?.length
-              ? () =>
-                  setFoldedByReader((folded) => ({
-                    ...folded,
-                    [index]: !(folded[index] ?? index === newestLecture),
-                  }))
-              : undefined
-          }
+          onToggleBeats={message.beats?.length ? () => toggleFold(index) : undefined}
           onBeatClick={
             lights && passages?.onBeat
               ? (beatIndex) => passages.onBeat?.(index, beatIndex)
@@ -1020,6 +1164,8 @@ export default function Teacher({
           onPaperSeed={onPaperSeed}
           provider={viewProvider}
           onEnlarge={setLightbox}
+          turn={index}
+          {...elsewhere(message, index)}
         />
       )
     }
@@ -1070,15 +1216,7 @@ export default function Teacher({
         // since a conversation can hold more than one lecture.
         activeBeat={activeChatBeat?.turn === index ? activeChatBeat.beat : null}
         beatsOpen={openByReader[index] ?? index === newestLecture}
-        onToggleBeats={
-          message.beats?.length
-            ? () =>
-                setFoldedByReader((folded) => ({
-                  ...folded,
-                  [index]: !(folded[index] ?? index === newestLecture),
-                }))
-            : undefined
-        }
+        onToggleBeats={message.beats?.length ? () => toggleFold(index) : undefined}
         onBeatClick={
           message.beats?.length
             ? (beatIndex, beat) => onChatBeatClick(index, beatIndex, beat)
@@ -1095,6 +1233,8 @@ export default function Teacher({
               }
             : undefined
         }
+        turn={index}
+        {...elsewhere(message, index)}
       />
     )
   })
@@ -1109,6 +1249,7 @@ export default function Teacher({
   const title = view ? view.copy.title : hasGraph ? 'Citation Graph Assistant' : 'Ask the assistant'
   return (
     <section
+      ref={sectionRef}
       className={`teacher${landing ? ' landing' : ` dock-${dock}`}${view ? ` ${view.copy.className}` : ''}${landing && chat.length === 0 ? ' empty' : ''}${drafted ? ' drafted' : ''}${collapsed && !panel.present ? ' collapsed' : ''}${panel.closing ? ' closing' : ''}${reopening ? ' reopening' : ''}`}
       data-tour="assistant-panel"
       style={dockStyle}
@@ -1136,7 +1277,7 @@ export default function Teacher({
                 <button
                   type="button"
                   className="link-btn dock-flip"
-                  onClick={() => onDockChange(dock === 'right' ? 'bottom' : 'right')}
+                  onClick={() => moveDock(dock === 'right' ? 'bottom' : 'right')}
                   title={
                     dock === 'right'
                       ? 'Dock the assistant along the bottom'
@@ -1178,6 +1319,13 @@ export default function Teacher({
           the two shapes are now the same shape. The follow-the-bottom effect
           above watches this box, so a streaming answer keeps itself in view. */}
       <div className="teacher-scroll" ref={scrollRef} onScroll={onTranscriptScroll}>
+        {tagChoices.length > 1 && (
+          <TagFilter
+            tags={tagChoices}
+            value={shownTag}
+            onChange={(tag) => setFilter(tag === null ? null : { chat: activeKey, tag })}
+          />
+        )}
         {chatTurns}
         {chat.length === 0 &&
           (view ? (

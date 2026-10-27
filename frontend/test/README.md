@@ -17,7 +17,7 @@ test/
                                 tagged with its paper and tool, and supersedes
                                 the other engine's answer there (v9.0.0)
     DockChatPicker.test.tsx   — the dock's chat picker: switch, start one,
-                                never a paper (v9.0.0)
+                                delete in two clicks, never a paper (v9.0.0)
     AssistantLauncher.test.tsx — the 🎓 opens the assistant (v9.0.0)
     useTurnTags.test.tsx      — a tag shows once a chat crosses views; a
                                 clicked one anchors its question, once (v9.0.0)
@@ -73,6 +73,10 @@ test/
                                 the carets, tour staging, which of its two
                                 homes the 📚 source picker renders in, and
                                 what Enter does with the @ dropdown open
+    crossView.test.tsx        — a chat across views, over a real store: the
+                                Showing menu, an answer from another view
+                                linking there and lighting it, and a folded
+                                lecture staying folded across a remount (v9.0.0)
     HopDots.test.tsx          — the shared indicator's accessibility contract
     ScopePicker.test.tsx      — the controlled open/close contract (popover
                                 only when `open`; trigger and ✕ report via

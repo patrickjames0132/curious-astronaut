@@ -8,6 +8,12 @@
  * view (Patrick, at 2a's browser test: switching here rather than a button
  * between full screen and docked). The rail still opens a chat full screen.
  *
+ * With two chats or more, a 🗑 beside it deletes the docked chat (Patrick),
+ * and the dock falls back to the first chat left. Two clicks, as the rail's
+ * ⋮ → Delete is: the first asks "Delete this chat?" in place, the second
+ * deletes, and it backs off after a few seconds or a click elsewhere. A
+ * conversation has no undo, and a lone bin is one stray click away.
+ *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
@@ -16,7 +22,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../store'
 import { explorationChats } from '../store/chats'
 import { dockChatSet } from '../store/explorations'
-import { newDockChat } from '../store/workspace'
+import { deleteThread, newDockChat } from '../store/workspace'
+import ClearGlyph from '../ui/ClearGlyph'
 import { usePresence } from '../ui/usePresence'
 
 /**
@@ -34,6 +41,23 @@ export default function DockChatPicker({ chatId }: { chatId: string }) {
   const [open, setOpen] = useState(false)
   const popover = usePresence(open)
   const wrapRef = useRef<HTMLDivElement>(null)
+  // Asked once to delete the docked chat, waiting for the second click.
+  const [confirming, setConfirming] = useState(false)
+  const deleteRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!confirming) return
+    const backOff = window.setTimeout(() => setConfirming(false), 4000)
+    const away = (event: PointerEvent) => {
+      if (!deleteRef.current?.contains(event.target as Node)) setConfirming(false)
+    }
+    document.addEventListener('pointerdown', away)
+    return () => {
+      window.clearTimeout(backOff)
+      document.removeEventListener('pointerdown', away)
+    }
+  }, [confirming])
+  // A different chat docked is a different question.
+  useEffect(() => setConfirming(false), [chatId])
 
   // A menu, so a click anywhere else or Esc puts it away.
   useEffect(() => {
@@ -64,19 +88,45 @@ export default function DockChatPicker({ chatId }: { chatId: string }) {
   }
   return (
     <div className="teacher-chat scope-wrap" ref={wrapRef}>
-      <button
-        type="button"
-        className="teacher-chat-btn"
-        onClick={() => setOpen(!open)}
-        aria-haspopup="true"
-        aria-expanded={open}
-        title="The chat every view's assistant talks in: switch to another, or start one"
-      >
-        In <strong>{current.label}</strong>
-        <span className="teacher-chat-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
+      <div className="teacher-chat-row">
+        <button
+          type="button"
+          className="teacher-chat-btn"
+          onClick={() => setOpen(!open)}
+          aria-haspopup="true"
+          aria-expanded={open}
+          title="The chat every view's assistant talks in: switch to another, or start one"
+        >
+          In <strong>{current.label}</strong>
+          <span className="teacher-chat-caret" aria-hidden="true">
+            ▾
+          </span>
+        </button>
+        {chats.length > 1 &&
+          (confirming ? (
+            <button
+              ref={deleteRef}
+              type="button"
+              className="teacher-chat-delete confirming"
+              onClick={() => {
+                setConfirming(false)
+                void dispatch(deleteThread(current.key))
+              }}
+            >
+              Delete this chat?
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="teacher-chat-delete"
+              onClick={() => setConfirming(true)}
+              title="Delete this chat"
+              aria-label="Delete this chat"
+            >
+              <ClearGlyph />
+            </button>
+          ))}
+      </div>
       {popover.present && (
         <div
           className={`scope-pop teacher-chat-pop${popover.closing ? ' closing' : ''}`}
@@ -86,6 +136,16 @@ export default function DockChatPicker({ chatId }: { chatId: string }) {
         >
           <div className="scope-pop-head">
             <span>Talk in</span>
+            <span className="scope-pop-actions">
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => setOpen(false)}
+                aria-label="Close the chat picker"
+              >
+                ✕
+              </button>
+            </span>
           </div>
           {chats.map((chat) => (
             <label key={chat.key} className="scope-item">

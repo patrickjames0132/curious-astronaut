@@ -18,9 +18,14 @@ assistant/
                         Stop and Clear, the passage messages
   inFlight.ts         — the answer in flight in each chat, shared with
                         teacher/useConversation (v9.0.0)
-  useTurnTags.ts      — a question's tag as its bubble shows it (v9.0.0)
-  DockChatPicker.tsx  — the line under the docked panel's title: its chat, and
-                        a menu to switch to another or start one (v9.0.0)
+  useTurnTags.ts      — a question's tag as its bubble shows it, and the
+                        anchor a click leaves to keep its turn in view (v9.0.0)
+  TagFilter.tsx       — the "Showing: All ▾" menu filtering a chat by where
+                        its questions were asked (v9.0.0, stage 4a)
+  DockChatPicker.tsx  — the line under the docked panel's title: its chat, a
+                        menu to switch to another or start one, and with two
+                        chats or more a 🗑 that deletes it, in two clicks
+                        (v9.0.0)
   AssistantLauncher.tsx — the 🎓 in the top-right corner: opens it while
                         closed (v9.0.0)
 ```
@@ -68,14 +73,30 @@ reads and which tools it gets.
 - **Tags show once a chat crosses views** (`useTurnTags.ts`). A chat whose
   questions were all asked with no view open is General throughout; from
   the first question asked beside a paper, every question wears its tag,
-  and clicking one goes there (`workspace.openTag`).
+  and clicking one goes there (`workspace.openTag`), keeping the question in
+  view across the remount the navigation causes (`anchorTurn`).
+- **An answer from another view links there** (stage 4a, `teacher/Teacher`'s
+  `elsewhere`). What it lights is in that view: a graph's papers, a Reader's
+  passages. So clicking the answer, a `[n]`, a quote or a beat goes there
+  first, keeps the turn in view, then lights it, through the same highlight
+  the view would have set itself (`store/highlight`; `reader/askReader`'s
+  `answerLight` and `beatLight`).
+- **Filtered by where it was asked** (`TagFilter.tsx`). Once a chat holds
+  questions from two places or more, "Showing: All ▾" at its top picks one,
+  and only the exchanges asked there show: each tool's conversation, back
+  when it is wanted. Per chat, forgotten on leaving it. A menu, grouped by
+  paper, rather than the row of chips it started as, which wrapped into
+  rows over the transcript as places added up (Patrick).
 - **A passage is quoted with where it's from.** `PassageQuote` is `{text,
   from}`, `from` a phrase ("the lesson on Q-learning", "section 3.2,
   Attention") that the quote card shows ("From …") and the messages carry
   ("Explain this passage from …"), so a transcript reads on its own later.
 
 - **Docks right or along the bottom** (Patrick, at stage 3: as PyCharm docks
-  a tool window). The header's dock button flips it, remembered. (Dragging
+  a tool window). The header's dock button flips it, remembered, and the
+  panel morphs from one edge to the other (a FLIP in `teacher/Teacher`: drawn
+  in its old box, animated into the new, its contents fading through the
+  middle so the stretch never reads). (Dragging
   its title toward an edge was tried and dropped: the drag selected the
   text it passed over, Patrick.) The
   graph, the course and the paper are wider than they are tall, so a bottom

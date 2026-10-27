@@ -22,6 +22,8 @@ import {
   streamAskReader,
   streamGuideReader,
   type Beat,
+  type ChatMsg,
+  type PdfPlace,
   type Provider,
 } from '../api'
 import {
@@ -34,7 +36,8 @@ import { isCurrentMap } from '../knowledge/model'
 import type { AppDispatch, RootState } from '../store'
 import type { ThreadRecord } from '../store/explorations'
 import { passagesLit } from '../store/highlight'
-import { questionPassage } from './passages'
+import { answerQuotes, questionPassage } from './passages'
+import { labelsInPassage } from './textBox'
 
 /** The section in view in each thread's Reader, by thread id. */
 const readingSections = new Map<string, string>()
@@ -121,6 +124,37 @@ export const LECTURE_ASK = 'Give me a lecture on this paper'
 export function beatLight(beat: Beat): { passage: string | null; labels: string[] } {
   const labels = beat.labels ?? []
   return labels.length ? { passage: null, labels } : { passage: beat.quote ?? null, labels: [] }
+}
+
+/**
+ * What an answer lights in the paper (v8.45.0): **the passage its question
+ * was asked about**, exactly as highlighted, with its place in the PDF and
+ * the labels it covers; else, for an answer to a typed question, its
+ * ⟦quotes⟧ (Patrick, 2026-10-25). Pure, so an answer can be lit from beside
+ * the Reader (`useReaderView`) and from another view, which goes to the
+ * Reader first (v9.0.0, `teacher/Teacher`).
+ *
+ * @param chat The chat the answer is in.
+ * @param index The answer's index.
+ * @returns The passage, its places and labels, and the quotes to light.
+ */
+export function answerLight(
+  chat: ChatMsg[],
+  index: number,
+): { passage: string | null; places: PdfPlace[]; labels: string[]; quotes: string[] } {
+  const asked = chat[index - 1]
+  const user = asked?.role === 'user' ? asked : null
+  const passage = user ? questionPassage(user.text) : null
+  const places = user?.places ?? []
+  // A question from before labels were kept reads them off its words.
+  const labels = user?.labels ?? (passage ? labelsInPassage(passage) : [])
+  const asHighlighted = !!passage || places.length > 0
+  return {
+    passage,
+    places,
+    labels,
+    quotes: asHighlighted ? [] : answerQuotes(chat[index]?.text ?? ''),
+  }
 }
 
 /**

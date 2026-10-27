@@ -92,10 +92,34 @@ describe('the dock’s chat picker', () => {
     expect(selectChatKey(store.getState())).toBe(docked)
   })
 
+  it('deletes the docked chat in two clicks, and offers nothing with one chat left', () => {
+    const store = setUp()
+    mount(store)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete this chat' }))
+    // Asked, not done.
+    expect(store.getState().explorations.byId.x.threads).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete this chat?' }))
+    const left = store.getState().explorations.byId.x.threads
+    expect(left.map((thread) => thread.title)).toEqual(['Transformers', 'Attention'])
+    // The dock falls back to the chat left, and one chat can't be deleted.
+    expect(selectChatKey(store.getState())).toBe('second')
+    expect(screen.queryByRole('button', { name: 'Delete this chat' })).toBeNull()
+  })
+
   it('never docks a paper', () => {
     const store = setUp()
     const before = selectChatKey(store.getState())
     store.dispatch(dockChatSet('paper'))
     expect(selectChatKey(store.getState())).toBe(before)
   })
+})
+
+it('closes the chat menu with its ✕', () => {
+  const store = setUp()
+  mount(store)
+  fireEvent.click(screen.getByRole('button', { name: /RL basics/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Close the chat picker' }))
+  expect(screen.getByRole('button', { name: /RL basics/ }).getAttribute('aria-expanded')).toBe(
+    'false',
+  )
 })

@@ -121,8 +121,11 @@ export const HOME_TOUR: TourStep[] = [
       'that paper in its own thread — onto its graph if you are already on one, onto its ' +
       'cards otherwise. A paper keeps no conversation of its own: beside its graph, its ' +
       'course or its Reader, the assistant talks in the chat you were last in, and each ' +
-      'question there is tagged with where you asked it — click a tag to go back. Type @ and ' +
-      'pick another chat to bring it into the one you are in.',
+      'question there is tagged with where you asked it — click a tag to go back. An answer ' +
+      'asked from another paper’s view takes you there when you click it, its citations or ' +
+      'its quotes, and lights them there; once a chat spans several places, the Showing menu ' +
+      'at its top shows only the questions asked from one. Type @ and pick another chat to ' +
+      'bring it into the one you are in.',
   },
   {
     target: '[data-tour="rail"]',
@@ -651,7 +654,8 @@ export const GRAPH_TOUR: TourStep[] = [
       'The assistant docks on the right or ' +
       'along the bottom: the button by its ✕ moves it. It ' +
       'talks in the chat you were last in, so a conversation can follow you across papers; ' +
-      'the chat’s name under the title is a menu to switch to another, or start one.',
+      'the chat’s name under the title is a menu to switch to another, or start one, and ' +
+      'the 🗑 beside it deletes it (click twice: it asks first).',
   },
   {
     target: '[data-tour="source-scope"]',

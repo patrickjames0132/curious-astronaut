@@ -116,7 +116,7 @@ function trimmed(from: [number, number], to: [number, number]) {
 /**
  * The picker's icon: a small network of hollow nodes, a hexagon around a hub,
  * every corner wired to its neighbours and the centre (Patrick, v8.33.0, in
- * place of a 🧠). Drawn in `currentColor` like the bar's 🗑 (`ClearGlyph`),
+ * place of a 🧠). Drawn in `currentColor` like the bar's 🗑 (`ui/ClearGlyph`),
  * so it takes the bar's hover colour and both themes, where an emoji keeps
  * its own.
  *

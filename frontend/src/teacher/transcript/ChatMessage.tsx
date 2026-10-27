@@ -238,7 +238,7 @@ const TAG_SEPARATOR = ' › '
  * @param props.label The tag's label, `General` or `<paper> › <tool>`.
  * @returns The two parts.
  */
-function TagText({ label }: { label: string }) {
+export function TagText({ label }: { label: string }) {
   const at = label.lastIndexOf(TAG_SEPARATOR)
   if (at === -1) return <span className="chat-tag-paper">{label}</span>
   return (
@@ -274,6 +274,7 @@ export default function ChatMessage({
   onQuick,
   tagLabel,
   onTagOpen,
+  turn,
   // Defaults open: a caller that forgets to manage this shows the lecture
   // rather than silently hiding it, which is the right way round to fail.
   beatsOpen = true,
@@ -316,6 +317,9 @@ export default function ChatMessage({
   tagLabel?: string
   /** Go where it was asked (undefined: the tag is plain text). */
   onTagOpen?: () => void
+  /** Its index in the chat, so the panel can find it again however the chat
+   *  is filtered (`data-turn`). */
+  turn?: number
   /** ⚡ Quick response: stop this working answer's search and answer now
    *  (v8.30.0). Offered only while it is still searching, before prose. */
   onQuick?: () => void
@@ -391,6 +395,7 @@ export default function ChatMessage({
   return (
     <div
       className={`chat ${message.role}${clickable ? ' clickable' : ''}${active ? ' active' : ''}`}
+      data-turn={turn}
       onClick={onActivate}
     >
       {lectureHeader || quickHeader ? (

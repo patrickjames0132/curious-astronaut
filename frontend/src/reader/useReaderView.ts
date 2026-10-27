@@ -21,9 +21,7 @@ import { useAppDispatch, useAppSelector } from '../store'
 import type { ThreadRecord } from '../store/explorations'
 import { passagesCleared, passagesLit } from '../store/highlight'
 import { selectConversation } from '../store/transcript'
-import { askOrGuideReader, beatLight, documentRef } from './askReader'
-import { answerQuotes, questionPassage } from './passages'
-import { labelsInPassage } from './textBox'
+import { answerLight, askOrGuideReader, beatLight, documentRef } from './askReader'
 
 /** A stable empty transcript, for a chat that hasn't started. */
 const NO_TURNS: never[] = []
@@ -59,25 +57,9 @@ export function useReaderView(thread: ThreadRecord | undefined): AssistantView |
 
   const passages = useMemo(() => {
     if (!threadId) return undefined
-    // The whole answer stands for the passage it was asked about, exactly as
-    // highlighted; its quotes light one at a time, clicked (Patrick,
-    // 2026-10-25). An answer to a typed question has no passage: its quotes
-    // stand in.
-    const about = (index: number) => {
-      const asked = chat[index - 1]
-      const user = asked?.role === 'user' ? asked : null
-      const passage = user ? questionPassage(user.text) : null
-      const places = user?.places ?? []
-      // A question from before labels were kept reads them off its words.
-      const labels = user?.labels ?? (passage ? labelsInPassage(passage) : [])
-      const asHighlighted = !!passage || places.length > 0
-      return {
-        passage,
-        places,
-        labels,
-        quotes: asHighlighted ? [] : answerQuotes(chat[index]?.text ?? ''),
-      }
-    }
+    // The whole answer stands for the passage it was asked about; its quotes
+    // light one at a time, clicked (`answerLight`).
+    const about = (index: number) => answerLight(chat, index)
     const show = (answer: number | null, lighting: ReturnType<typeof about>, scroll: boolean) =>
       dispatch(passagesLit({ threadId, answer, ...lighting, scroll }))
     // A guided read's beat lights its passage (v8.50.0): its words, and the
