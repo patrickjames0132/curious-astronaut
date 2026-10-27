@@ -1904,16 +1904,19 @@ than deleted so the plan doesn't get re-proposed.
          the floating icon, replacing the landing composer, `teacher/Teacher`
          docked, and `assistant/DockedAssistant`; every highlight menu feeds
          it. (Expand and the sidebar switching the dock went: 2a's chat
-         menu does that job.) The groundwork exists: since v8.38.0
+         menu does that job.) **Built** (Patrick, 2026-10-26): `Teacher` is
+         the one panel; the course and the Reader lend it their words and
+         asking (`assistant/views`). It docks **right or along the bottom**
+         (a button by its ✕; dragging it to an edge was tried and dropped,
+         as the drag selected the page's text), pushes the view aside, and
+         covers it below 900px (✕ or Esc back). Closed, one 🎓 sits in the
+         top-right corner (draggable for one round, dropped: it stays
+         put). The groundwork existed: since v8.38.0
          the Knowledge Graph's and Reader's assistants are one component on
          one stream engine (`frontend/src/assistant/`).
       4. **Reaching across.** Answers acting on views not on screen become
          links; tags with several papers; filtering a chat by tag.
 
-      **Open (decide in the stage that needs it):** whether the dock
-      overlays the view or pushes it aside on wide screens, and how it
-      behaves on narrow windows (stage 3); whether the floating icon's
-      position is remembered (stage 3).
 
 - [ ] **Peer Reviews: v2 and polish** — follow-ups to the card shipped in
       v8.52.0 (its full record is in `docs/history.md`).
