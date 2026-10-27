@@ -11,8 +11,10 @@ import { Provider, useSelector } from 'react-redux'
 import { afterEach, expect, it, vi } from 'vitest'
 import { useState } from 'react'
 import KnowledgeNetwork from '../../src/knowledge/KnowledgeNetwork'
-import CourseAssistant from '../../src/knowledge/assistant/CourseAssistant'
-import type { LessonQuote } from '../../src/knowledge/assistant/askCourse'
+import Teacher from '../../src/teacher/Teacher'
+import { lessonSource } from '../../src/knowledge/assistant/askCourse'
+import type { PassageQuote } from '../../src/assistant/askAssistant'
+import highlightReducer from '../../src/store/highlight'
 import library from '../../src/store/library'
 import { KnowledgeNavigationHelp } from '../../src/knowledge/KnowledgeControls'
 import type { KnowledgeGraphProps } from '../../src/knowledge/KnowledgeGraph'
@@ -956,7 +958,9 @@ it('chats about a highlighted passage: attached to the bar, sent with the questi
   const ask = vi.spyOn(api, 'streamAskCourse').mockImplementation(async (_body, handlers) => {
     handlers.onToken('Because it bootstraps.')
   })
-  const store = configureStore({ reducer: { workspace, transcript, explorations, library } })
+  const store = configureStore({
+    reducer: { workspace, transcript, explorations, library, highlight: highlightReducer },
+  })
   const record = newExploration('saved')
   record.threads.push({ ...structuredClone(THREAD), knowledge: openLessonCourse() })
   record.activeThreadId = THREAD.id
@@ -966,20 +970,16 @@ it('chats about a highlighted passage: attached to the bar, sent with the questi
     const thread = useSelector((state: ReturnType<typeof store.getState>) =>
       state.explorations.byId.saved.threads.find((item) => item.id === THREAD.id),
     )!
-    const [quote, setQuote] = useState<(LessonQuote & { seq: number }) | null>(null)
+    const [quote, setQuote] = useState<(PassageQuote & { seq: number }) | null>(null)
     return (
       <>
         <KnowledgeNetwork
           thread={thread}
-          onAssistant={(next) => next && setQuote({ ...next, seq: Date.now() })}
+          onAssistant={(next) =>
+            next && setQuote({ text: next.text, from: lessonSource(next.lesson), seq: Date.now() })
+          }
         />
-        <CourseAssistant
-          thread={thread}
-          collapsed={false}
-          onClose={() => {}}
-          quote={quote}
-          onQuoteClear={() => setQuote(null)}
-        />
+        <Teacher quote={quote} onQuoteClear={() => setQuote(null)} />
       </>
     )
   }

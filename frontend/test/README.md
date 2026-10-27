@@ -18,6 +18,9 @@ test/
                                 the other engine's answer there (v9.0.0)
     DockChatPicker.test.tsx   — the dock's chat picker: switch, start one,
                                 never a paper (v9.0.0)
+    AssistantLauncher.test.tsx — the 🎓 opens the assistant (v9.0.0)
+    useTurnTags.test.tsx      — a tag shows once a chat crosses views; a
+                                clicked one anchors its question, once (v9.0.0)
   detail/
     DetailPanel.test.tsx      — the joint loading gate: one skeleton set, one
                                 reveal, once every fetch has answered

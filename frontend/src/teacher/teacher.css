@@ -48,6 +48,47 @@
 .teacher.reopening {
   animation: panel-in var(--motion-panel) var(--ease-rise) both;
 }
+/* Docked along the bottom (v9.0.0, Patrick: as PyCharm docks a tool window).
+   The body turns to a column (`.shell-body.dock-bottom`, app.css), the panel
+   takes the full width at the height it was dragged to, and it slides down
+   and up rather than out to the side. */
+.teacher.dock-bottom {
+  width: auto;
+  border-left: 0;
+  border-top: 1px solid var(--border);
+}
+.teacher.dock-bottom.closing {
+  animation-name: panel-out-bottom;
+}
+.teacher.dock-bottom.reopening {
+  animation-name: panel-in-bottom;
+}
+.dock-flip {
+  display: grid;
+  place-items: center;
+  padding: 2px;
+}
+/* A narrow window gives the view no room to share (v9.0.0): the docked panel
+   covers it instead, against its edge, and ✕ or Esc goes back to the view.
+   The breakpoint is `NARROW_QUERY` in Teacher.tsx. */
+@media (max-width: 900px) {
+  .teacher.dock-right:not(.landing) {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    box-shadow: -8px 0 24px var(--shadow);
+  }
+  .teacher.dock-bottom:not(.landing) {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    box-shadow: 0 -8px 24px var(--shadow);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .teacher.closing,
   .teacher.reopening {
@@ -1493,8 +1534,8 @@ button.chat-tag:hover {
   margin-left: 4px;
   font: inherit;
 }
-/* A passage a lesson's Chat attached to the Knowledge Graph Assistant's bar
-   (v8.26.0, `knowledge/assistant/CourseAssistant.tsx`): a quote card over
+/* A passage a highlight's Chat attached to the assistant's bar (v8.26.0, a
+   lesson's; v8.38.0, the Reader's; `teacher/Teacher`): a quote card over
    the pill, the accent stripe on its left, cut to three lines, with its
    lesson under it and a ✕ to let it go. */
 .course-quote {

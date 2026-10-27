@@ -285,7 +285,7 @@ search row does the job without the rule.
 
 **Paper lookups only on the General chat** (v8.28.0). Docked beside a
 graph, `Teacher` calls the hook with `withPapers = false` (so no search
-row), as `knowledge/assistant/CourseAssistant.tsx` always has: nothing
+row), as the course's and the Reader's views always have: nothing
 is looked up, and a bare `@words` is ordinary text in the message rather
 than a quick paper search. Finding and opening papers is the General chat's
 job.

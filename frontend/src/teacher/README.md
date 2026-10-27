@@ -1,13 +1,23 @@
 # `src/teacher`
 
-One composer serves chats and paper threads. A chat is graphless: searches,
-broad questions and comparisons can live there. In a paper thread the panel
-**docks beside the Citation Graph only** (since v8.15.0); the Knowledge
-Graph and the Reader dock their own panels (`assistant/DockedAssistant`).
-Since v9.0.0 every panel talks in **the dock's chat**, the chat you were
-last in (`store/chats`): beside a graph, Teacher shows that chat and asks in
-it, each question tagged with the paper and the graph (`ChatMsg.tag`, shown
-by `assistant/useTurnTags`). A paper holds no conversation of its own, so
+**The one assistant** (v9.0.0, the OnePager's "One assistant", stage 3).
+One composer serves chats and every view of a paper: full screen as a
+chat's landing surface, else **docked beside the view**, against the right
+edge or along the bottom (the header's dock button), and behind the floating 🎓 when
+closed (`assistant/AssistantLauncher`). Below 900px it covers the view
+instead of squeezing it, and Esc from inside puts it away. Until stage 3 it
+docked beside the Citation Graph only (since v8.15.0), and the Knowledge
+Graph and the Reader docked panels of their own; now they lend it their
+words, their asking and the Reader's passages (`assistant/views`:
+`useCourseView`, `useReaderView`), and `Teacher` sends through the view's
+`ask` when it has one, else through `useConversation` as it always has.
+
+It talks in **the dock's chat**, the chat you were last in (`store/chats`),
+each question tagged with where it was asked (`ChatMsg.tag`, shown by
+`assistant/useTurnTags`). A turn is the view's own when its question was
+asked here (`owns`): only those it retries, answers quickly, re-routes or
+lights, since a turn asked beside another view needs that view's context.
+A paper holds no conversation of its own, so
 opening another paper keeps the conversation and changes the canvas under
 it; a discovery for a paper no longer on screen waits on that paper
 (`pendingDiscoveries`). Elsewhere Teacher stays mounted but hidden, so a

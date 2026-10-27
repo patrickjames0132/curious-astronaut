@@ -1159,11 +1159,11 @@ it('slides the arriving view in from its button’s side', async () => {
 })
 
 it('lights what an answer is about when it finishes, and goes there when clicked', async () => {
-  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const { default: Teacher } = await import('../../src/teacher/Teacher')
   vi.spyOn(api, 'streamAskReader').mockImplementation(async (_body, handlers) => {
     handlers.onToken('As it says, ⟦the dominant models⟧ are recurrent.')
   })
-  const { store } = mount(<ReaderAssistant thread={THREAD} collapsed={false} onClose={() => {}} />)
+  const { store } = mount(<Teacher />)
   const box = screen.getByPlaceholderText('Ask about this paper, or @ another chat…')
   fireEvent.change(box, { target: { value: 'What came before?' } })
   fireEvent.submit(box.closest('form')!)
@@ -1184,18 +1184,13 @@ it('lights what an answer is about when it finishes, and goes there when clicked
 })
 
 it('lights only the highlighted passage for an answer to one, its quotes one at a time', async () => {
-  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const { default: Teacher } = await import('../../src/teacher/Teacher')
   vi.spyOn(api, 'streamAskReader').mockImplementation(async (_body, handlers) => {
     handlers.onToken('It says ⟦the dominant models⟧ are recurrent.')
   })
   const places = [{ page: 3, rects: [[10, 20, 30, 40]] }]
   const { store } = mount(
-    <ReaderAssistant
-      thread={THREAD}
-      collapsed={false}
-      onClose={() => {}}
-      quote={{ text: 'Recurrent networks', from: 'page 3', places, seq: 1 }}
-    />,
+    <Teacher quote={{ text: 'Recurrent networks', from: 'page 3', places, seq: 1 }} />,
   )
   const box = screen.getByRole('textbox')
   fireEvent.change(box, { target: { value: 'Why?' } })
@@ -1464,7 +1459,7 @@ it('gives a lecture on the paper from the button by its title, its first beat li
 })
 
 it('lectures when asked in the chat, and steps beat by beat, one place each', async () => {
-  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const { default: Teacher } = await import('../../src/teacher/Teacher')
   const guide = vi.spyOn(api, 'streamGuideReader').mockImplementation(async (_body, handlers) => {
     handlers.onBeat({
       heading: 'Queries',
@@ -1483,7 +1478,7 @@ it('lectures when asked in the chat, and steps beat by beat, one place each', as
   })
   const route = vi.spyOn(api, 'routeReaderMessage').mockResolvedValue({ target: 'guide' })
   const answer = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
-  const { store } = mount(<ReaderAssistant thread={THREAD} collapsed={false} onClose={() => {}} />)
+  const { store } = mount(<Teacher />)
   // The panel has no lecture button of its own: that's by the title.
   expect(screen.queryByRole('button', { name: /Guide me|Give Lecture/ })).toBeNull()
   const box = screen.getByRole('textbox')
@@ -1521,17 +1516,10 @@ it('lectures when asked in the chat, and steps beat by beat, one place each', as
 })
 
 it('never routes a question about an attached passage', async () => {
-  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const { default: Teacher } = await import('../../src/teacher/Teacher')
   const route = vi.spyOn(api, 'routeReaderMessage')
   const answer = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
-  mount(
-    <ReaderAssistant
-      thread={THREAD}
-      collapsed={false}
-      onClose={() => {}}
-      quote={{ text: 'Recurrent networks', from: 'section 1', seq: 1 }}
-    />,
-  )
+  mount(<Teacher quote={{ text: 'Recurrent networks', from: 'section 1', seq: 1 }} />)
   const box = screen.getByRole('textbox')
   fireEvent.change(box, { target: { value: 'walk me through this' } })
   fireEvent.submit(box.closest('form')!)
@@ -1540,7 +1528,7 @@ it('never routes a question about an attached passage', async () => {
 })
 
 it('follows a lecture beat by beat as it is written, until the reader takes over', async () => {
-  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const { default: Teacher } = await import('../../src/teacher/Teacher')
   let resume: () => void = () => {}
   const paused = new Promise<void>((resolve) => {
     resume = resolve
@@ -1552,7 +1540,7 @@ it('follows a lecture beat by beat as it is written, until the reader takes over
     await paused
     handlers.onBeat({ heading: 'Three', text: 'Third.', node_ids: [], quote: 'third words' })
   })
-  const { store } = mount(<ReaderAssistant thread={THREAD} collapsed={false} onClose={() => {}} />)
+  const { store } = mount(<Teacher />)
   const lit = () => store.getState().highlight.passages
   const box = screen.getByRole('textbox')
   fireEvent.change(box, { target: { value: 'lecture me' } })

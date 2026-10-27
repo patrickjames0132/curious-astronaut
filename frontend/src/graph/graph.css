@@ -42,8 +42,8 @@
   place-items: center;
   padding: 0;
   border: 1px solid var(--border);
-  /* A rounded square, matching the assistant's reopen button
-     (.pane-assistant) — the two corner buttons that bring a panel back. */
+  /* A rounded square, matching the assistant's launcher
+     (.assistant-launcher) — the buttons that bring a panel back. */
   border-radius: 9px;
   background: var(--panel);
   box-shadow: 0 4px 14px var(--shadow);

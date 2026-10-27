@@ -294,11 +294,11 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
       'assistant with the passage attached to its bar, so you can ask anything about it.',
   },
   {
-    target: '[data-tour="course-assistant-btn"]',
-    presentIf: '[data-tour="course-assistant-btn"]',
-    title: 'The Knowledge Graph Assistant',
+    target: '[data-tour="assistant-btn"]',
+    presentIf: '[data-tour="assistant-btn"]',
+    title: 'The assistant, beside the course',
     body:
-      'The 🎓 opens an assistant beside the course. It reads the whole course: every concept, ' +
+      'The floating 🎓 opens the assistant beside the course. It reads the whole course: every concept, ' +
       'what each needs, what you have checked off, and the lessons written so far. Ask what a ' +
       'concept means, how two connect, or what to study next. It talks in the chat you were ' +
       'last in, as every view’s assistant does; type @ to bring another chat into a question. ' +
@@ -374,11 +374,11 @@ export const READER_TOUR: TourStep[] = [
       'The ⓘ at its end sums up the controls.',
   },
   {
-    target: '[data-tour="reader-assistant-btn"]',
-    presentIf: '[data-tour="reader-assistant-btn"]',
-    title: 'The Reader Assistant',
+    target: '[data-tour="assistant-btn"]',
+    presentIf: '[data-tour="assistant-btn"]',
+    title: 'The assistant, beside the paper',
     body:
-      'The 🎓 opens an assistant beside the paper. It reads the paper, starting with the ' +
+      'The floating 🎓 opens the assistant beside the paper. It reads the paper, starting with the ' +
       'section you’re in, and searches your library and the web only when a question reaches ' +
       'past it. It talks in the chat you were last in, as every view’s assistant does; type @ ' +
       'to bring another chat into a question. The 📚 in its bar picks which of your sources ' +
@@ -646,10 +646,12 @@ export const GRAPH_TOUR: TourStep[] = [
     target: '[data-tour="assistant-btn"]',
     title: 'The assistant, when you want it',
     body:
-      'The 🎓 opens the assistant beside the graph; ✕ tucks it away again, and it stays the ' +
-      'way you leave it. It talks in the chat you were last in, the same chat the Knowledge ' +
-      'Graph’s and the Reader’s assistants use, so a conversation can follow you across ' +
-      'papers. The chat’s name under the title is a menu: switch to another, or start one.',
+      'The floating 🎓 opens the assistant — one assistant beside every view, the graph, the ' +
+      'course and the Reader alike; ✕ tucks it away again, and it stays the way you leave it. ' +
+      'The assistant docks on the right or ' +
+      'along the bottom: the button by its ✕ moves it. It ' +
+      'talks in the chat you were last in, so a conversation can follow you across papers; ' +
+      'the chat’s name under the title is a menu to switch to another, or start one.',
   },
   {
     target: '[data-tour="source-scope"]',
