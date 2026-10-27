@@ -1835,14 +1835,12 @@ than deleted so the plan doesn't get re-proposed.
         view, closable to a small floating icon in the bottom-right corner
         (draggable, after ChatGPT's desktop companion). No tool keeps its
         own column.
-      - **The sidebar is the only chat switcher.** With a view open,
-        clicking a chat loads it into the dock (opening it if closed) and
-        leaves the view alone; with no view open it opens full screen. The
-        sidebar marks the chat that's in the dock. The dock has **Expand**,
-        which closes it and opens that chat full screen; full screen offers
-        the way back to the view it left (like `returnTo`). The collapsed
-        rail's Explorations pop-up lists the same chats. No switcher inside
-        the dock: that would duplicate the sidebar.
+      - **The dock switches its own chat** (Patrick, at 2a's browser test,
+        2026-10-26, replacing "the sidebar is the only switcher" and the
+        Expand button): the chat's name under the dock's title is a menu
+        listing the exploration's chats and ＋ New chat, so a conversation
+        changes without leaving the view. The sidebar still opens a chat
+        full screen. Shipped in 2a.
       - **Opening a view keeps the chat you were last in.** Opening a paper
         never swaps your conversation.
       - **A chat crosses papers on purpose.** Every turn carries a **tag**,
@@ -1884,21 +1882,29 @@ than deleted so the plan doesn't get re-proposed.
       **Stages, each shippable alone:**
       1. **One brain.** The context-aware endpoint and the screen → tools
          table. Today's UIs call it; nothing visible changes.
-      2. **Chats own the conversation.** Paper threads stop holding chats;
-         turns carry tags (shown, clickable, correctable), and the router
-         decides each turn's tag (moved from stage 1, Patrick 2026-10-26:
-         before tags are shown, a tag would only echo the view the client
-         already knows); the dock in every
-         view shows the active chat, switched from the sidebar. This
-         reverses "assistants encapsulated per tool" (Patrick, 2026-10-09)
-         on purpose. **No migration, and a major version** (Patrick,
-         2026-10-26): saves from 8.x aren't read, so this stage ships as
-         **v9.0.0**. Nobody else has installed it yet (only Patrick's two
-         machines), so clearing `data/` is the upgrade path.
+      2. **Chats own the conversation**, split in two (Patrick, 2026-10-26):
+         - **2a, built.** Paper threads stop holding chats; every view's
+           dock talks in the chat you were last in, switched from a menu
+           under its title; each question is tagged with where it was
+           asked, from the screen (General or `<paper> › <tool>`), shown
+           once a chat crosses views and clickable back there. Tags go on
+           questions only: an answer sits under its question. This
+           reverses "assistants encapsulated per tool" (Patrick,
+           2026-10-09) on purpose.
+         - **2b, with stage 4.** The router decides the tag (General vs. the
+           screen vs. a named paper, moved from stage 1), tags can be
+           corrected, and an answer can use an off-screen view's context: a
+           tag naming a paper not on screen needs its context, and an
+           unloaded Citation Graph has no nodes to send.
+         **No migration, and a major version** (Patrick, 2026-10-26): saves
+         from 8.x aren't read, so this stage ships as **v9.0.0**. Nobody
+         else has installed it yet (only Patrick's two machines), so
+         clearing `data/` is the upgrade path.
       3. **One body.** One assistant component for full screen, docked and
          the floating icon, replacing the landing composer, `teacher/Teacher`
-         docked, and `assistant/DockedAssistant`; Expand and the way back;
-         every highlight menu feeds it. The groundwork exists: since v8.38.0
+         docked, and `assistant/DockedAssistant`; every highlight menu feeds
+         it. (Expand and the sidebar switching the dock went: 2a's chat
+         menu does that job.) The groundwork exists: since v8.38.0
          the Knowledge Graph's and Reader's assistants are one component on
          one stream engine (`frontend/src/assistant/`).
       4. **Reaching across.** Answers acting on views not on screen become
