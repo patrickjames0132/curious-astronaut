@@ -47,9 +47,10 @@ The tools' own layers are thin:
   Attention") that the quote card shows ("From …") and the messages carry
   ("Explain this passage from …"), so a transcript reads on its own later.
 
-The OnePager's "One assistant across the tools" item (2026-10-24) plans to
-fold these panels into a single floating assistant; this package is the
-groundwork for it.
+The OnePager's "One assistant" item (2026-10-24, redesigned 2026-10-26)
+plans to fold these panels into a single assistant docked beside whatever
+view is open, talking in the exploration's chats rather than per-tool ones;
+this package is the groundwork for it.
 
 ## What an answer can light (v8.45.0)
 

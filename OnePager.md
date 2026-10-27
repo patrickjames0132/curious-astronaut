@@ -1813,50 +1813,98 @@ than deleted so the plan doesn't get re-proposed.
       - For the brainstorm's **shareable snapshot** idea: showing arXiv text
         in a local app is like viewing it in a browser, but putting it in an
         exported snapshot is redistribution, and arXiv licenses vary by paper.
-- [ ] **One assistant across the tools, floating over the app** —
-      Patrick's idea (2026-10-24), filed while the Reader's selection menu was
-      being built, to workshop another day. Today each tool docks its own
-      assistant (the Citation Graph's, the Knowledge Graph's, and the
-      Reader's from v8.38.0), and with the contents and detail panels that
-      is a lot of side columns — "almost too many". Referencing other chats
-      with `@thread[…]` everywhere is also messy. The idea: **one AI assistant
-      for every tool, still separate from the General chats**, launched from
-      a small floating icon in the bottom-right corner that overlays the whole
-      app and can be dragged and clicked at any time (after ChatGPT's
-      desktop companion).
+- [ ] **One assistant: chats own the conversation, views lend it context** —
+      Patrick's idea (2026-10-24), redesigned from the ground up with Claude
+      (2026-10-26). Today a paper thread is a *view* (cards, Citation Graph,
+      Knowledge Graph, Reader, Reviews) **and** three conversations (the
+      Citation Graph's chat, `courseChat`, `readerChat`), while a Chat is a
+      conversation with no view. So conversations live in four places, each
+      tool docks its own assistant ("almost too many" side columns), and
+      `@thread[…]` gets used everywhere to stitch them together.
 
-      **Suggestions and adjustments (Claude, 2026-10-24), not yet settled:**
-      - **It knows what's on screen.** Each question carries the current
-        view as context: the graph on the Citation Graph, the course on the
-        Knowledge Graph, the paper and the section being read in the Reader.
-        That removes most `@` references; `@` stays for *other* threads.
-      - **The icon floats; the chat doesn't stay small.** Researched answers
-        carry citations, figures and long explanations, and a pet-sized
-        window would be cramped. Clicking the icon opens a full-height panel
-        over the right edge, closed again with ✕ or Esc, so no tool keeps a
-        column. Dragging the icon is fine; a freely draggable chat window
-        tends to sit on exactly what you're reading.
-      - **One conversation per thread, aware of the tool**, rather than one
-        per tool. This reverses "assistants encapsulated per tool" (Patrick,
-        2026-10-09), so it's Patrick's call; a chat per tool that the
-        floating assistant switches between is the alternative. One global
-        conversation across threads would mix papers.
-      - **Every highlight menu answers there.** A lesson's Explain / Expand
-        / Chat and the Reader's Explain / Simplify / Chat all go to the same
-        assistant, opening it if closed.
-      - **It's a large change, its own phase.** The Citation Graph's
-        assistant also runs lectures, paper filters and the landing chat, and
-        those need a home in the unified one. The groundwork is already
-        there: since v8.38.0 the Knowledge Graph's and the Reader's
-        assistants are one component on one stream engine
-        (`frontend/src/assistant/`), differing only in their context and
-        endpoint, so the work is mostly the shell and the Citation Graph's
-        extras.
+      **The settled design:**
+      - **An exploration is a set of papers plus several chats.** The
+        sidebar keeps its Chats and Papers groups (v8.31.0), but they now
+        mean *conversations* and *views*. **Papers own no chats**: they
+        keep their view state (graph, course, reading place, reviews) and
+        nothing else.
+      - **One assistant with two shapes.** **Full screen** when a chat is
+        clicked with no view open: this is the landing page, which is
+        simply the home of an exploration with no papers yet (the first
+        message creates the exploration, as today). **Docked** beside a
+        view, closable to a small floating icon in the bottom-right corner
+        (draggable, after ChatGPT's desktop companion). No tool keeps its
+        own column.
+      - **The sidebar is the only chat switcher.** With a view open,
+        clicking a chat loads it into the dock (opening it if closed) and
+        leaves the view alone; with no view open it opens full screen. The
+        sidebar marks the chat that's in the dock. The dock has **Expand**,
+        which closes it and opens that chat full screen; full screen offers
+        the way back to the view it left (like `returnTo`). The collapsed
+        rail's Explorations pop-up lists the same chats. No switcher inside
+        the dock: that would duplicate the sidebar.
+      - **Opening a view keeps the chat you were last in.** Opening a paper
+        never swaps your conversation.
+      - **A chat crosses papers on purpose.** Every turn carries a **tag**,
+        `General` or `<paper> › <tool>` (breadcrumbs like the settings
+        sub-pages); a bridge question may carry several papers. `General`
+        is a place too: the exploration's home. A tag is a link to its
+        view, opened where the turn was asked with its highlights replayed,
+        and it can be corrected on the question's bubble, as "Answered as a
+        lecture · Ask as a question instead" corrects the router today.
+        Filtering a chat by tag gives back a per-tool conversation when one
+        is wanted. This is most of **Bridge two topics** (below): a chat
+        whose turns span two fields already is the bridge.
+      - **The router picks the tag**, in this order: what the question names
+        (`@` a paper is a fact, not a guess), what's on screen, the chat's
+        recent tags, then `General` (a search, a question about the
+        exploration). It already picks researcher or lecturer; scope is the
+        second decision it makes.
+      - **What's on screen decides the tools.** No view: paper search, paper
+        filters, 📚 sources. Citation Graph: expand, light nodes, lecture
+        over the graph. Knowledge Graph: lessons, placing a concept.
+        Reader: lighting passages, lecturing on the paper, guided reading.
+        One context-aware endpoint replaces `/api/ask`, `/api/ask_course`,
+        `/api/ask_reader`, `/api/lecture` and the two `route` calls.
+      - **Context stays scoped.** Turns tagged with the current scope go to
+        the model in full; the rest of the chat goes as summaries unless the
+        question pulls them in.
+      - **The agent never moves the view unasked.** An answer about a view
+        that isn't open is tagged with it, and the tag is the way there;
+        only "show me…" navigates.
+      - **Other chats are referenced with `@`, exactly as today.**
+        `siblingContext` (`teacher/history.ts`) already sends every other
+        chat's rolling summary as background and an `@`-mentioned chat's
+        full history. Later, if a whole chat proves too broad: `@` a tag's
+        slice of one.
+      - **Every highlight menu answers in the docked chat**: a lesson's
+        Explain / Expand / Chat and the Reader's Explain / Simplify / Chat,
+        opening the dock if closed.
 
-      **Open:** per-thread or per-tool conversations; where lectures live;
-      whether the panel overlays the tool or pushes it aside on wide
-      screens; how it behaves on narrow windows; whether the icon's position
-      is remembered.
+      **Stages, each shippable alone:**
+      1. **One brain.** The context-aware endpoint and the screen → tools
+         table; the router also returns the turn's scope. Today's UIs call
+         it; nothing visible changes.
+      2. **Chats own the conversation.** Paper threads stop holding chats;
+         turns carry tags (shown, clickable, correctable); the dock in every
+         view shows the active chat, switched from the sidebar. This
+         reverses "assistants encapsulated per tool" (Patrick, 2026-10-09)
+         on purpose. **No migration** (Patrick clears his own data), but the
+         app is on PyPI: an old save must load without crashing, even if it
+         just starts fresh.
+      3. **One body.** One assistant component for full screen, docked and
+         the floating icon, replacing the landing composer, `teacher/Teacher`
+         docked, and `assistant/DockedAssistant`; Expand and the way back;
+         every highlight menu feeds it. The groundwork exists: since v8.38.0
+         the Knowledge Graph's and Reader's assistants are one component on
+         one stream engine (`frontend/src/assistant/`).
+      4. **Reaching across.** Answers acting on views not on screen become
+         links; tags with several papers; filtering a chat by tag.
+
+      **Open (decide in the stage that needs it):** whether the dock
+      overlays the view or pushes it aside on wide screens, and how it
+      behaves on narrow windows (stage 3); whether the floating icon's
+      position is remembered (stage 3).
 
 - [ ] **Peer Reviews: v2 and polish** — follow-ups to the card shipped in
       v8.52.0 (its full record is in `docs/history.md`).
@@ -1878,7 +1926,9 @@ than deleted so the plan doesn't get re-proposed.
 - [ ] **Bridge two topics** *(unnumbered; split out of the old Phase 5,
       2026-10-06)* — cross-link two fields with no citation edge between
       them; `/api/bridge` or similar. The half of the old concept mindmap
-      worth building — see the feature stack.
+      worth building — see the feature stack. *(2026-10-26: "One assistant"
+      above covers most of this — a chat whose tagged turns span two papers
+      is a bridge; what's left is any dedicated rendering of the link.)*
 - ~~Phase 6 — Audio lecture (Podcastfy / Edge TTS / ElevenLabs)~~ and
   ~~Phase 7 — Polished media (AutoContent API)~~ — **retired 2026-08-16**,
   reasoning in the feature stack above. Don't re-file these from `todos.md`.
