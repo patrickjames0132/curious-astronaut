@@ -42,8 +42,8 @@ import SelectionMenu from '../selection/SelectionMenu'
 import InfoTip from '../ui/InfoTip'
 import { pillAnchor, useTextSelection } from '../selection/useTextSelection'
 import { useAppDispatch, useAppSelector } from '../store'
-import { chatKey } from '../store/chats'
 import { passagesCleared } from '../store/highlight'
+import { selectConversation } from '../store/transcript'
 import {
   knowledgeKnownToggled,
   knowledgeOpened,
@@ -520,9 +520,9 @@ export default function Reader({
   // paper's title, outside the assistant (Patrick): under it in the text, and
   // in the PDF's margin with a line to it.
   const paperTitle = thread.paper?.title ?? thread.data.graph_ref?.seed.title ?? thread.title
-  const lecturing = useAppSelector(
-    (state) => !!state.transcript.byKey[chatKey(thread.id, 'reader')]?.running.length,
-  )
+  // Since v9.0.0 the lecture streams into the dock's chat, which any view's
+  // question supersedes, so the button waits while that chat is answering.
+  const lecturing = useAppSelector((state) => !!selectConversation(state).running.length)
   const lectureButton = (
     <button
       type="button"

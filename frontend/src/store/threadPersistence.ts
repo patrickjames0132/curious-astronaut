@@ -5,19 +5,28 @@
  */
 import { nanoid } from '@reduxjs/toolkit'
 import type { SavedSession, SaveSessionBody, SessionData, ChatMsg } from '../api'
-import { SIDE_CHAT_FIELDS, SIDE_CHAT_TOOLS, chatKey } from './chats'
+import { paperTag } from './chats'
 import type { ExplorationRecord, ExplorationsState, ThreadRecord } from './explorations'
 import type { TranscriptState } from './transcript'
 import { buildSaveBody, restoredLectureTurn, withGraphRefs } from './workspace'
 import type { WorkspaceState } from './workspace'
 
-/** Split legacy exchanges by the assistant stamp, retaining every unstamped turn.
+/** Read a save into an exploration. A legacy save (one chat, before
+ * explorations) keeps every turn in its General chat (v9.0.0, chats own the
+ * conversation), each question tagged with the paper its answer was stamped
+ * with, or the save's own seed when unstamped, and opens a paper thread for
+ * each paper its stamps name.
  * @param saved The unchanged on-disk record.
  * @returns An in-memory exploration; reading never writes it back.
  */
 export function migrateExploration(saved: SavedSession): ExplorationRecord {
   if (saved.data.exploration)
-    return { id: saved.id, title: saved.name, ...saved.data.exploration, revision: 0 }
+    return chatsOwnTheConversation({
+      id: saved.id,
+      title: saved.name,
+      ...saved.data.exploration,
+      revision: 0,
+    })
   const data = saved.data
   const seed = data.graph_ref?.seed ?? data.seed
   const provider = data.provider ?? 's2'
@@ -47,12 +56,12 @@ export function migrateExploration(saved: SavedSession): ExplorationRecord {
       pending.push(message)
       continue
     }
-    let target = home
+    let paper = home
     if (message.graph) {
       const stamp = message.graph
       const backend = stamp.provider ?? provider
       const identity = `${backend}:${stamp.seedId}`
-      target = threads.find((item) => item.identity === identity) ?? {
+      paper = threads.find((item) => item.identity === identity) ?? {
         id: nanoid(),
         title: stamp.seedTitle,
         identity,
@@ -63,15 +72,49 @@ export function migrateExploration(saved: SavedSession): ExplorationRecord {
           graph_ref: { seed: { id: stamp.seedId, title: stamp.seedTitle }, seed_ref: stamp.seedId },
         },
       }
-      if (!threads.includes(target)) threads.push(target)
+      if (!threads.includes(paper)) threads.push(paper)
     }
-    target.data.chat.push(...pending, message)
+    const tag = paper.identity ? paperTag(paper, 'graph') : undefined
+    general.data.chat.push(...pending.map((question) => (tag ? { ...question, tag } : question)))
+    general.data.chat.push(message)
     pending = []
   }
-  home.data.chat.push(...pending)
+  general.data.chat.push(...pending)
   const lecture = restoredLectureTurn(data)
-  if (lecture) home.data.chat.push(lecture)
-  return { id: saved.id, title: saved.name, threads, activeThreadId: home.id, revision: 0 }
+  if (lecture) general.data.chat.push(lecture)
+  return {
+    id: saved.id,
+    title: saved.name,
+    threads,
+    activeThreadId: home.id,
+    chatId: general.id,
+    revision: 0,
+  }
+}
+
+/**
+ * Read an exploration the v9.0.0 way: chats hold the conversation, papers
+ * hold none (`store/chats`). A save from before kept a chat on every paper
+ * thread, and two more per tool (`courseChat`, `readerChat`); there is no
+ * migration (Patrick, 2026-10-26: v9.0.0 is a major release, and nobody but
+ * him had installed it), so those are dropped here rather than read wrong.
+ *
+ * @param record The exploration as read.
+ * @returns It with its papers' chats and summaries gone.
+ */
+function chatsOwnTheConversation(record: ExplorationRecord): ExplorationRecord {
+  const threads = record.threads.map((thread) => {
+    if (!thread.identity) return thread
+    const {
+      summary: _summary,
+      summarizedThrough: _through,
+      courseChat: _course,
+      readerChat: _reader,
+      ...paper
+    } = thread as ThreadRecord & { courseChat?: unknown; readerChat?: unknown }
+    return { ...paper, data: { ...thread.data, chat: [] } }
+  })
+  return { ...record, threads }
 }
 
 /** Save all threads from one immutable state snapshot, never from a later active canvas.
@@ -108,16 +151,7 @@ export function explorationBody(
         discovered_edges: [...(data.discovered_edges ?? []), ...pending.edges],
       }
     const { workspace: _workspace, ...metadata } = thread
-    // The side chats (the Knowledge Graph assistant's, v8.25.0; the
-    // Reader's, v8.38.0), as this sitting has them.
-    const saved: Partial<Pick<ThreadRecord, 'courseChat' | 'readerChat'>> = {}
-    for (const tool of SIDE_CHAT_TOOLS) {
-      const field = SIDE_CHAT_FIELDS[tool]
-      const live = state.transcript.byKey[chatKey(thread.id, tool)]?.chat
-      if (live?.length || thread[field])
-        saved[field] = { ...thread[field], chat: live ?? thread[field]?.chat ?? [] }
-    }
-    return { ...metadata, data, ...saved }
+    return { ...metadata, data }
   })
   return {
     id: record.id,
@@ -127,6 +161,7 @@ export function explorationBody(
     exploration: {
       version: 1,
       activeThreadId: record.activeThreadId,
+      chatId: record.chatId,
       threads,
       summary: threads
         .filter((thread) => thread.summary)

@@ -98,10 +98,12 @@ export default function App() {
   const tool = threadTool(activeThread)
   const paperThread = tool !== null
   const showGraph = !!graph && tool === 'graph'
-  // Assistants are encapsulated per tool (Patrick, 2026-10-09): Teacher docks
-  // beside the Citation Graph, since v8.25.0 the course's own assistant
-  // beside the Knowledge Graph, and since v8.38.0 the Reader's beside the
-  // Reader, each with its own chat (`store/chats`).
+  // A panel per tool: Teacher docks beside the Citation Graph, since v8.25.0
+  // the course's assistant beside the Knowledge Graph, and since v8.38.0 the
+  // Reader's beside the Reader. Since v9.0.0 all three talk in one chat, the
+  // dock's (`store/chats`): the chat you were last in, each question tagged
+  // with where it was asked. (One panel for all three is the OnePager's
+  // "One assistant", stage 3.)
   // Elsewhere in a paper thread both stay mounted but hidden, so a half-typed
   // question survives and the remembered open/closed state comes back.
   const assistantDocks = tool === 'graph'

@@ -350,6 +350,62 @@
   letter-spacing: 0.05em;
   color: var(--muted);
 }
+/* Which chat a docked panel talks in, and the menu to switch (v9.0.0,
+   `assistant/DockChatPicker`): every view's dock shares the chat you were
+   last in. */
+.teacher-chat {
+  margin-top: 4px;
+}
+.teacher-chat-btn {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  max-width: 100%;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.teacher-chat-btn strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--text);
+}
+.teacher-chat-btn:hover strong {
+  color: var(--text-strong);
+}
+.teacher-chat-caret {
+  flex-shrink: 0;
+  font-size: 10px;
+}
+.teacher-chat-pop {
+  left: 0;
+  right: auto;
+  transform-origin: top left;
+}
+.teacher-chat-new {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 4px 2px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+.teacher-chat-new:hover {
+  color: var(--text-strong);
+}
 /* Source-scope selector in the assistant header — a button opening a checkbox
    popover that pins the library search to a subset of sources (or all). */
 .scope-wrap {
@@ -1389,6 +1445,40 @@
   cursor: default;
 }
 
+/* Where a question was asked (v9.0.0, `assistant/useTurnTags`): General, or
+   a paper and its tool, as breadcrumbs. Quiet like the lines below it; a
+   link back there when the paper still exists. */
+.chat-tag {
+  display: flex;
+  max-width: 100%;
+  margin: 0 0 6px;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  text-align: left;
+  white-space: nowrap;
+}
+/* A long title gives way, never the tool: "Citation Gra…" hid the part that
+   says where the question was asked. */
+.chat-tag-paper {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-tag-tool {
+  flex-shrink: 0;
+  white-space: pre;
+}
+button.chat-tag {
+  cursor: pointer;
+}
+button.chat-tag:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
 .chat-borrowed {
   font-size: 11px;
   color: var(--muted);

@@ -1,9 +1,9 @@
 # `src/knowledge/assistant`
 
 The **Knowledge Graph Assistant** (v8.25.0; the code calls it the course
-assistant, `CourseAssistant`): the Knowledge Graph's own chat, docked
-beside a thread's course the way `teacher/Teacher` docks beside the Citation
-Graph. Ask what a concept means, how two connect, or what to study next; a
+assistant, `CourseAssistant`), docked beside a thread's course the way
+`teacher/Teacher` docks beside the Citation Graph, talking in the dock's
+chat (v9.0.0, `store/chats`). Ask what a concept means, how two connect, or what to study next; a
 lesson's **Explain** (a highlighted passage, `../SelectionMenu.tsx`) asks
 here too, and its **Chat** (v8.26.0) attaches the passage to the bar as a
 quote card for a question of the reader's own (`quotedMessage`; the card
@@ -12,8 +12,8 @@ is `.course-quote` in `teacher/teacher.css`).
 ```
 assistant/
   CourseAssistant.tsx — the panel: the shared DockedAssistant with the course's words
-  askCourse.ts        — what the course sends (askCourse), Stop and Clear, a lesson's messages
-  context.ts          — the course as the assistant reads it, and its outline
+  askCourse.ts        — what the course sends (askCourse), a lesson's messages
+  context.ts          — the course as the assistant reads it
 ```
 
 **Since v8.38.0 the panel and the stream engine are shared**
@@ -37,11 +37,12 @@ now describe the shared panel as the course uses it.
   concepts and target, and **every lesson written so far**, image markers
   removed. The server shows the open lesson whole and the others' openings,
   under a ceiling, so a long course can't crowd out the question.
-- **Its own chat** (`store/chats`). Assistants are encapsulated per tool
-  (Patrick, 2026-10-09): this one writes to the thread's Knowledge Graph
-  chat, key `<threadId>:knowledge`, saved as `ThreadRecord.courseChat`, with
-  its own rolling summary for the sibling index. The Citation Graph's chat
-  is untouched, and `@` reaches either from the other.
+- **The dock's chat** (v9.0.0, `store/chats`). It writes to the chat you
+  were last in, shared with every view's assistant, each question tagged
+  with the paper and its course. Until v9.0.0 assistants were encapsulated
+  per tool (Patrick, 2026-10-09) and this one kept the thread's Knowledge
+  Graph chat (`<threadId>:knowledge`, `ThreadRecord.courseChat`); the
+  OnePager's "One assistant" reversed it on purpose.
 - **A thunk, not a hook.** Two places ask: the composer, and Explain in the
   lesson panel, which may fire while the assistant is still closed (it opens
   through the shell's `onAssistant`). Both dispatch `askCourse`, and the

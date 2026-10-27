@@ -10,10 +10,12 @@
  * different `ask`: generalized from the Knowledge Graph's when the Reader
  * needed the same thing.
  *
- * **Its own chat, not the thread's.** Assistants are encapsulated per tool
- * (Patrick, 2026-10-09), so each writes to the thread's side chat for its
- * tool (`store/chats`), and the `@` list offers the exploration's other
- * chats, this thread's other tools' among them.
+ * **The dock's chat** (v9.0.0, `store/chats`). Every view's assistant talks
+ * in the chat you were last in, each question tagged with the paper and tool
+ * it was asked beside, and the `@` list offers the exploration's other
+ * chats. (Until v9.0.0 each tool kept a chat of its own, Patrick 2026-10-09;
+ * the OnePager's "One assistant" reversed it on purpose.) Only the answers
+ * to questions asked here light anything in the tool (`AnswerPassages.owns`).
  *
  * Deliberately smaller than Teacher: no landing shape, no lecture routing,
  * no paper filters or paper lookups. It shares Teacher's 📚 source picker
@@ -43,8 +45,8 @@ import {
 } from '../mentions/attachments'
 import { useMentionSuggestions } from '../mentions/useMentionSuggestions'
 import { useAppDispatch, useAppSelector, type AppDispatch, type RootState } from '../store'
-import { chatKey, explorationChats } from '../store/chats'
-import { failedTurnDropped } from '../store/transcript'
+import { explorationChats } from '../store/chats'
+import { failedTurnDropped, selectChatKey } from '../store/transcript'
 import type { ThreadRecord } from '../store/explorations'
 import { openChat, seedPaper } from '../store/workspace'
 import HopDots from '../teacher/HopDots'
@@ -63,9 +65,10 @@ import {
   quotedMessage,
   stopAssistant,
   type AssistantQuestion,
-  type AssistantTool,
   type PassageQuote,
 } from './askAssistant'
+import DockChatPicker from './DockChatPicker'
+import { useTurnTags } from './useTurnTags'
 import '../teacher/teacher.css'
 
 /** A stable empty transcript, for a chat that hasn't started. */
@@ -97,6 +100,9 @@ export interface AssistantCopy {
 export interface AnswerPassages {
   /** The answer whose passages are lit, by its index in the chat. */
   active: number | null
+  /** Whether an answer is this tool's to light: its question was asked
+   *  beside this paper's tool (v9.0.0). The others stay unclickable here. */
+  owns: (index: number) => boolean
   /** An answer finished: light what it's about, without moving the page. */
   onFinished: (index: number) => void
   /** An answer clicked: light what it's about and go there (again: unlight). */
@@ -114,7 +120,6 @@ export interface AnswerPassages {
  *
  * @param props Component props.
  * @param props.thread The paper thread it answers over.
- * @param props.tool The tool whose side chat it writes to.
  * @param props.copy Its words, class and width key.
  * @param props.available Whether there is anything to ask over yet; the bar
  *   won't send until there is.
@@ -130,7 +135,6 @@ export interface AnswerPassages {
  */
 export default function DockedAssistant({
   thread,
-  tool,
   copy,
   available,
   ask,
@@ -141,7 +145,6 @@ export default function DockedAssistant({
   passages,
 }: {
   thread: ThreadRecord
-  tool: AssistantTool
   copy: AssistantCopy
   available: boolean
   ask: (
@@ -154,12 +157,14 @@ export default function DockedAssistant({
   passages?: AnswerPassages
 }) {
   const dispatch = useAppDispatch()
-  const key = chatKey(thread.id, tool)
+  const key = useAppSelector(selectChatKey)
   const chat = useAppSelector((state) => state.transcript.byKey[key]?.chat ?? NO_TURNS)
+  const tags = useTurnTags(key, chat)
   const asking = useAppSelector((state) => !!state.transcript.byKey[key]?.running.length)
   // An answer finishing (v8.45.0): tell whoever lights what it's about.
   const wasAsking = useRef(asking)
   const onFinished = passages?.onFinished
+  const owns = passages?.owns
   useEffect(() => {
     const finished = wasAsking.current && !asking
     wasAsking.current = asking
@@ -167,6 +172,7 @@ export default function DockedAssistant({
     if (finished && onFinished && last?.role === 'assistant' && !last.failed)
       onFinished(chat.length - 1)
   }, [asking, chat, onFinished])
+  const lights = (index: number) => !!passages && !!owns?.(index)
   const provider = thread.data.provider ?? 's2'
   // A lecture folds behind its caret (v8.50.0, the Reader's): the newest
   // open until the reader says otherwise, as the Citation Graph's chat does.
@@ -178,15 +184,14 @@ export default function DockedAssistant({
 
   // The exploration's other chats, for the `@` list.
   const record = useAppSelector((state) => state.explorations.byId[state.explorations.activeId])
-  const conversations = useAppSelector((state) => state.transcript.byKey)
   const otherChats = useMemo(
     () =>
       record
-        ? explorationChats(record, { byKey: conversations })
+        ? explorationChats(record)
             .filter((entry) => entry.key !== key)
             .map((entry) => ({ id: entry.key, title: entry.label }))
         : [],
-    [record, conversations, key],
+    [record, key],
   )
   const mentions = useMentionSuggestions(provider, otherChats, false)
   const mentionsPanel = usePresence(mentions.open)
@@ -339,7 +344,7 @@ export default function DockedAssistant({
     const history = conversationHistory(chat.slice(0, index - 1))
     // A quick response stops the answer still working first, so nothing
     // more of it lands once its turn is gone.
-    if (quick) stopAssistant(thread.id, tool)
+    if (quick) stopAssistant(key)
     dispatch(failedTurnDropped(index, key))
     void dispatch(
       ask({
@@ -380,6 +385,7 @@ export default function DockedAssistant({
             </button>
           </div>
         </div>
+        <DockChatPicker chatId={key} />
       </div>
 
       <div className="teacher-scroll" ref={scrollRef} onScroll={onTranscriptScroll}>
@@ -390,14 +396,22 @@ export default function DockedAssistant({
             // A lecture's turn is its beats (v8.50.0): it has nothing of its
             // own to light, so it is neither clicked nor shown lit as a whole,
             // which only washed out the beats inside it (Patrick).
-            active={!message.beats?.length && passages?.active === index}
+            active={!message.beats?.length && lights(index) && passages?.active === index}
             onActivate={
-              passages && message.role === 'assistant' && !message.failed && !message.beats?.length
+              passages &&
+              lights(index) &&
+              message.role === 'assistant' &&
+              !message.failed &&
+              !message.beats?.length
                 ? () => passages.onActivate(index)
                 : undefined
             }
-            onQuote={passages?.onQuote}
-            activeBeat={passages?.activeBeat?.answer === index ? passages.activeBeat.beat : null}
+            onQuote={lights(index) ? passages?.onQuote : undefined}
+            activeBeat={
+              lights(index) && passages?.activeBeat?.answer === index
+                ? passages.activeBeat.beat
+                : null
+            }
             beatsOpen={lectureOpen[index] ?? index === newestLecture}
             onToggleBeats={
               message.beats?.length
@@ -409,13 +423,16 @@ export default function DockedAssistant({
                 : undefined
             }
             onBeatClick={
-              passages?.onBeat ? (beatIndex) => passages.onBeat?.(index, beatIndex) : undefined
+              passages?.onBeat && lights(index)
+                ? (beatIndex) => passages.onBeat?.(index, beatIndex)
+                : undefined
             }
             onBeatStep={
-              passages?.onBeat
+              passages?.onBeat && lights(index)
                 ? (beatIndex, step) => passages.onBeat?.(index, beatIndex + step)
                 : undefined
             }
+            {...tags(message)}
             streaming={asking}
             working={asking && index === chat.length - 1}
             onRetry={message.failed ? () => retry(index) : undefined}
@@ -528,7 +545,7 @@ export default function DockedAssistant({
             <button
               type="button"
               className="ask-clear"
-              onClick={() => dispatch(clearAssistantChat(thread.id, tool))}
+              onClick={() => dispatch(clearAssistantChat(key))}
               title="Clear the chat — start a fresh conversation"
               aria-label="Clear chat"
             >
@@ -539,7 +556,7 @@ export default function DockedAssistant({
             type={asking ? 'button' : 'submit'}
             className={asking ? 'is-stop' : undefined}
             disabled={!asking && (!input.trim() || !available)}
-            onClick={asking ? () => stopAssistant(thread.id, tool) : undefined}
+            onClick={asking ? () => stopAssistant(key) : undefined}
             title={asking ? 'Stop generating' : undefined}
             aria-label={asking ? 'Stop generating' : 'Ask'}
           >

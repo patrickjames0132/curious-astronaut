@@ -40,8 +40,11 @@ import type {
   MentionPaper,
   Provider,
   SearchOptions,
+  TurnTag,
 } from '../api'
-import { useAppDispatch, useAppSelector, useAppStore } from '../store'
+import { inFlight } from '../assistant/inFlight'
+import { useAppDispatch, useAppSelector, useAppStore, type RootState } from '../store'
+import { paperTag } from '../store/chats'
 import { highlightSet, selectHighlightSet } from '../store/highlight'
 import {
   answerFailed,
@@ -56,6 +59,7 @@ import {
   provenanceSet,
   paperRefsSet,
   failedTurnDropped,
+  selectChatKey,
   selectConversation,
   streamEnded,
   streamStarted,
@@ -172,7 +176,20 @@ function mentionNode(paper: MentionPaper): GraphNode {
   }
 }
 
-const threadControllers = new Map<string, { current: AbortController | null }>()
+/**
+ * Where a question is asked (v9.0.0): beside the Citation Graph, its paper
+ * and the graph; with no graph open, nothing (General).
+ *
+ * @param state The store, as the question is asked.
+ * @param seedNode The graph's seed, when one is open.
+ * @returns The tag, or undefined for General.
+ */
+function graphTag(state: RootState, seedNode: GraphNode | null): TurnTag | undefined {
+  if (!seedNode) return undefined
+  const record = state.explorations.byId[state.explorations.activeId]
+  const thread = record?.threads.find((item) => item.id === record.activeThreadId)
+  return thread?.identity ? paperTag(thread, 'graph') : undefined
+}
 
 /**
  * The scope stamp for a turn — what the transcript shows and a correction
@@ -228,15 +245,20 @@ export function useConversation() {
   // addressed to the conversation that asked the question, not to whichever
   // one happens to be on screen when a chunk lands. Read from a ref, never
   // from the render closure, so a stream started before a switch still sees
-  // its own key afterwards.
-  const activeKey = useAppSelector((state) => state.transcript.activeKey)
-  const activeKeyRef = useRef(activeKey)
+  // its own key afterwards. Since v9.0.0 it is a chat's key, the dock's
+  // beside a paper (`store/chats`).
+  const chatKey = useAppSelector(selectChatKey)
+  const chatKeyRef = useRef(chatKey)
   useEffect(() => {
-    activeKeyRef.current = activeKey
-  }, [activeKey])
+    chatKeyRef.current = chatKey
+  }, [chatKey])
+  // The thread on screen: the paper an answer is about, beside its graph, or
+  // the chat itself with no graph. What decides whether a discovery merges
+  // into the live graph or waits for its paper to be opened.
+  const activeKey = useAppSelector((state) => state.transcript.activeKey)
 
   const [routing, setAsking] = useState(false)
-  const running = useAppSelector((state) => state.transcript.byKey[activeKey]?.running.length ?? 0)
+  const running = useAppSelector((state) => state.transcript.byKey[chatKey]?.running.length ?? 0)
   const [error, setError] = useState<string | null>(null)
   // Which chat answer is "active" (its whole grounding set lit on the graph).
   // Panel-local UI state — only the RESULTING highlight ids are global.
@@ -260,9 +282,9 @@ export function useConversation() {
   }, [])
 
   // The message in flight — an answer or a lecture, since both are replies to
-  // something typed and only one of them can be the latest.
-  if (!threadControllers.has(activeKey)) threadControllers.set(activeKey, { current: null })
-  const askCtrl = threadControllers.get(activeKey)!
+  // something typed and only one of them can be the latest. The chat's one
+  // slot, shared with the other docks' engine (`assistant/inFlight`).
+  const askCtrl = inFlight(chatKey)
   // The in-flight message classification (see `send`). Its own controller
   // rather than `askCtrl`'s, because it runs *before* the turn exists: a
   // second message must abort the first's route without also aborting an
@@ -405,7 +427,7 @@ export function useConversation() {
     askCtrl.current?.abort()
     askCtrl.current = null
     setAsking(false)
-    dispatch(chatCleared())
+    dispatch(chatCleared(chatKeyRef.current))
     setActiveChat(null)
     setActiveRef(null)
     highlight([])
@@ -476,12 +498,17 @@ export function useConversation() {
       // another exploration mid-answer and this one still lands where it was
       // asked. `isActive()` guards the things that are about the *screen*
       // (errors, highlights, the active-turn mark) rather than the transcript.
-      const key = activeKeyRef.current
-      const isActive = () => store.getState().transcript.activeKey === key
+      const key = chatKeyRef.current
+      const screen = store.getState().transcript.activeKey
+      const isActive = () => store.getState().transcript.activeKey === screen
       const streamId = `ask:${nextStreamId()}`
       dispatch(streamStarted(streamId, key))
       history ??= conversationHistory(store.getState().transcript.byKey[key]?.chat ?? [])
-      dispatch(turnStarted(question, key, quick ? startedAt : undefined, quick))
+      dispatch(
+        turnStarted(question, key, quick ? startedAt : undefined, quick, {
+          tag: graphTag(store.getState(), seedNode),
+        }),
+      )
       dispatch(turnContextSet(borrowedChats(store.getState(), question, key), key))
       // Stamp the turn with the graph it is about, while that is still what is
       // on screen. Skipped graph-free: there is no graph to name, and an
@@ -584,7 +611,7 @@ export function useConversation() {
                 // abort-on-switch existed to prevent. Off-screen finds wait in
                 // their own conversation and are applied when it is opened.
                 if (isActive()) dispatch(discoveryMerged(discovery))
-                else dispatch(backgroundDiscovery(discovery, key))
+                else dispatch(backgroundDiscovery(discovery, screen))
                 for (const node of discovery.nodes) {
                   if (typeof node.idx === 'number' && node.idx >= 1) {
                     numberedIds[node.idx - 1] = node.id
@@ -737,12 +764,17 @@ export function useConversation() {
       setActiveChat(null)
       setActiveChatBeat(null)
       setActiveRef(null)
-      const key = activeKeyRef.current
-      const isActive = () => store.getState().transcript.activeKey === key
+      const key = chatKeyRef.current
+      const screen = store.getState().transcript.activeKey
+      const isActive = () => store.getState().transcript.activeKey === screen
       const turnIdx = chatLength + 1 // the assistant turn about to be added
       const streamId = `ask:${nextStreamId()}`
       dispatch(streamStarted(streamId, key))
-      dispatch(turnStarted(question, key))
+      dispatch(
+        turnStarted(question, key, undefined, false, {
+          tag: graphTag(store.getState(), seedNode),
+        }),
+      )
       // `seedNode` is non-null: the guard above returns.
       dispatch(
         turnGraphSet(
@@ -921,8 +953,12 @@ export function useConversation() {
         // The empty-scope signal — a failed turn, not a silent fallback. Goes
         // through the ordinary turn actions so it reads, retries and saves
         // like any other failure.
-        const key = activeKeyRef.current
-        dispatch(turnStarted(question, key))
+        const key = chatKeyRef.current
+        dispatch(
+          turnStarted(question, key, undefined, false, {
+            tag: graphTag(store.getState(), seedNode),
+          }),
+        )
         dispatch(
           turnGraphSet({ seedId: seedNode.id, seedTitle: seedNode.title, nodes: 0, provider }, key),
         )
@@ -1029,7 +1065,7 @@ export function useConversation() {
       const history = conversationHistory(conversation.chat.slice(0, index - 1))
       // Read before the turn is dropped: the retry asks for the same papers.
       const scope = rescope(requestFromStamp(answer?.scope))
-      dispatch(failedTurnDropped(index))
+      dispatch(failedTurnDropped(index, chatKeyRef.current))
       if (!scope) return
       void ask(question.text, undefined, undefined, history, undefined, scope)
     },
@@ -1056,7 +1092,7 @@ export function useConversation() {
       if (!last || answer?.role !== 'assistant') return
       // Stop first, so nothing more of the old run lands once its turn is gone.
       askCtrl.current?.abort()
-      dispatch(failedTurnDropped(index))
+      dispatch(failedTurnDropped(index, chatKeyRef.current))
       void ask(
         last.question,
         last.sourceIds,

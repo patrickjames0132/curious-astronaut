@@ -4,7 +4,7 @@
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { describe, expect, it } from 'vitest'
-import { courseContext, courseOutline } from '../../../src/knowledge/assistant/context'
+import { courseContext } from '../../../src/knowledge/assistant/context'
 import {
   createMap,
   withChildren,
@@ -74,11 +74,5 @@ describe('courseContext', () => {
       ['MDPs', 'An MDP is a model.'],
       ['Q-learning', 'Q learns.\n\nMore.'],
     ])
-  })
-  it('leaves the lessons and the open item out of the outline', () => {
-    const outline = courseOutline(course())
-    expect(outline.open).toBeNull()
-    expect(outline.items.some((item) => item.lesson)).toBe(false)
-    expect(outline.items).toHaveLength(5)
   })
 })

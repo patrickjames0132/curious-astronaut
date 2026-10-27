@@ -10,9 +10,9 @@
  *
  * Since v8.38.0 the panel is the shared `assistant/DockedAssistant`, which the
  * Reader's uses too; this file gives it the course's words and `askCourse`,
- * and turns a lesson's quote into the shared shape. It writes to the
- * thread's Knowledge Graph chat (`store/chats`, saved as
- * `ThreadRecord.courseChat`).
+ * and turns a lesson's quote into the shared shape. Since v9.0.0 it talks in
+ * the dock's chat (`store/chats`), each question tagged with the paper and
+ * its course.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -55,7 +55,6 @@ export default function CourseAssistant({
   return (
     <DockedAssistant
       thread={thread}
-      tool="knowledge"
       available={!!thread.knowledge}
       ask={askCourse}
       collapsed={collapsed}
@@ -70,9 +69,9 @@ export default function CourseAssistant({
           'here, or Chat to attach it and ask anything.',
         context: `Asking about the course on ${thread.title}`,
         tip:
-          'Type @ to bring in another chat from this exploration, such as this paper’s ' +
-          'Citation Graph conversation. Highlight a passage in a lesson and choose Explain to ' +
-          'ask about it here, or Chat to attach it and ask anything.',
+          'It talks in the chat you were last in (switch it under the title); type @ to bring in ' +
+          'another chat from this exploration. Highlight a passage in a lesson and choose ' +
+          'Explain to ask about it here, or Chat to attach it and ask anything.',
         placeholder: 'Ask about this course, or @ another chat…',
         className: 'course-assistant',
         widthKey: 'ca.courseAssistantWidth',

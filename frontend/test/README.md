@@ -9,7 +9,15 @@ test/
   api/
     agents.test.ts            — `routeMessage` never rejects: it fronts every
                                 message, so a dead backend routes to `answer`;
-                                `resolveRoutedPapers` likewise matches nothing
+                                `resolveRoutedPapers` likewise matches nothing;
+                                which view each function asks the one
+                                assistant from (v8.53.0)
+  assistant/
+    askAssistant.test.ts      — a docked question lands in the dock's chat,
+                                tagged with its paper and tool, and supersedes
+                                the other engine's answer there (v9.0.0)
+    DockChatPicker.test.tsx   — the dock's chat picker: switch, start one,
+                                never a paper (v9.0.0)
   detail/
     DetailPanel.test.tsx      — the joint loading gate: one skeleton set, one
                                 reveal, once every fetch has answered
@@ -45,7 +53,10 @@ test/
                                 routed lecture landing on its own chat turn
     threads.test.ts           — thread ownership, legacy migration, and the
                                 card home: a paper opens on its cards with no
-                                graph, which builds in place when opened
+                                graph, which builds in place when opened; the
+                                dock's chat, and where a tag goes (v9.0.0)
+    chats.test.ts             — chats and papers, the dock's chat, mentions,
+                                and tag labels (v9.0.0)
     workspace.test.ts         — hand-picked selection, and the default scope
                                 (selection outranks filters)
   scope/
@@ -64,7 +75,8 @@ test/
                                 only when `open`; trigger and ✕ report via
                                 `onOpenChange`)
     transcript/ChatMessage.test.tsx — a turn the router placed: beats where the
-                                prose goes, and the one-click correction
+                                prose goes, and the one-click correction; a
+                                question's tag, a link or plain text (v9.0.0)
     transcript/remarkCite.test.ts — [n] markers → citeref nodes, on mdast
     transcript/AnswerMarkdown.test.tsx — clickable `[n]` chips, end to end
     transcript/provenance.test.ts — the grounding line's honest cases

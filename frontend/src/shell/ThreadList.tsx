@@ -10,7 +10,7 @@ import { splitAttached } from '../mentions/attachments'
 import { useAppDispatch, useAppSelector, useAppStore } from '../store'
 import { deleteThread, newGeneralChat, openThread } from '../store/workspace'
 import { threadRenamed, type ThreadRecord } from '../store/explorations'
-import { SIDE_CHAT_TOOLS, chatKey, chatTurns } from '../store/chats'
+import { chatTurns } from '../store/chats'
 import SessionRow from './SessionRow'
 
 /**
@@ -107,7 +107,7 @@ export default function ThreadList({
    * @param thread The chat.
    */
   const resummarize = async (thread: ThreadRecord) => {
-    const questions = chatTurns(store.getState().transcript, thread, 'graph')
+    const questions = chatTurns(store.getState().transcript, thread)
       .filter((turn) => turn.role === 'user')
       .map((turn) => splitAttached(turn.text).body)
       .filter(Boolean)
@@ -129,10 +129,7 @@ export default function ThreadList({
       key={thread.id}
       session={{ name: thread.title }}
       active={thread.id === record.activeThreadId}
-      working={
-        !!conversations[thread.id]?.running.length ||
-        SIDE_CHAT_TOOLS.some((tool) => !!conversations[chatKey(thread.id, tool)]?.running.length)
-      }
+      working={!!conversations[thread.id]?.running.length}
       onOpen={() => {
         void dispatch(openThread(thread.id))
         onNavigate?.()

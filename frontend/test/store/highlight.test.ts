@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { chatKey } from '../../src/store/chats'
+
 import highlight, { passagesCleared, passagesLit } from '../../src/store/highlight'
 import { chatCleared } from '../../src/store/transcript'
 
@@ -48,10 +48,9 @@ describe('lit passages', () => {
     expect(highlight(state, passagesCleared()).passages).toBeNull()
   })
 
-  it('go out when their Reader chat is cleared, and not for another chat', () => {
-    const state = lit('paper')
-    expect(highlight(state, chatCleared(chatKey('paper', 'knowledge'))).passages).not.toBeNull()
-    expect(highlight(state, chatCleared(chatKey('other', 'reader'))).passages).not.toBeNull()
-    expect(highlight(state, chatCleared(chatKey('paper', 'reader'))).passages).toBeNull()
+  it('go out when the chat is cleared', () => {
+    // Since v9.0.0 the Reader's answers live in the dock's chat, and the
+    // passages lit are always the docked chat's: clearing it puts them out.
+    expect(highlight(lit('paper'), chatCleared('chat')).passages).toBeNull()
   })
 })

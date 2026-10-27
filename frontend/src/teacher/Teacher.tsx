@@ -60,7 +60,9 @@ import {
   type SearchOptions,
 } from '../api'
 import { useAppDispatch, useAppSelector } from '../store'
-import { selectConversation } from '../store/transcript'
+import { selectChatKey, selectConversation } from '../store/transcript'
+import DockChatPicker from '../assistant/DockChatPicker'
+import { useTurnTags } from '../assistant/useTurnTags'
 import { explorationChats } from '../store/chats'
 import HopDots from './HopDots'
 import ComposerNotes from './ComposerNotes'
@@ -185,23 +187,23 @@ export default function Teacher({
     clearChat,
   } = useConversation()
 
-  // The other chats in this exploration (`store/chats`: a paper thread's
-  // Citation Graph and Knowledge Graph each have one since v8.25.0), offered
-  // as `@` rows above the paper results so a question can carry one along.
+  // The other chats in this exploration (`store/chats`), offered as `@` rows
+  // above the paper results so a question can carry one along. The chat on
+  // screen is the active one, or beside a graph the dock's (v9.0.0).
   const explorationRecord = useAppSelector(
     (state) => state.explorations.byId[state.explorations.activeId],
   )
-  const conversations = useAppSelector((state) => state.transcript.byKey)
-  const activeKey = useAppSelector((state) => state.transcript.activeKey)
+  const activeKey = useAppSelector(selectChatKey)
   const siblingThreads = useMemo(
     () =>
       explorationRecord
-        ? explorationChats(explorationRecord, { byKey: conversations })
+        ? explorationChats(explorationRecord)
             .filter((entry) => entry.key !== activeKey)
             .map((entry) => ({ id: entry.key, title: entry.label }))
         : [],
-    [explorationRecord, conversations, activeKey],
+    [explorationRecord, activeKey],
   )
+  const tags = useTurnTags(activeKey, chat)
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const dispatch = useAppDispatch()
@@ -502,7 +504,7 @@ export default function Teacher({
   // here, and only on the General chat, the one whose `@` searches. Only
   // the draft addressed to this chat: the one being left hears it too.
   const onMentionInput = mentions.onInput
-  const chatId = useAppSelector((state) => state.transcript.activeKey)
+  const chatId = activeKey
   // A chat opened with its `@` typed arrives with the bar already in place
   // (`drafted`, teacher.css, v8.32.1): the list opens inside the bar's
   // block, and that block's entrance fade left the list see-through, the
@@ -791,6 +793,7 @@ export default function Teacher({
       <ChatMessage
         key={`c${index}`}
         message={message}
+        {...tags(message)}
         onThreadOpen={(id) => void dispatch(openChat(id))}
         active={activeChat === index}
         streaming={asking || searching}
@@ -883,6 +886,7 @@ export default function Teacher({
             </div>
           </div>
         )}
+        {!landing && <DockChatPicker chatId={activeKey} />}
       </div>
 
       {/* One scroller, holding the conversation and nothing else.

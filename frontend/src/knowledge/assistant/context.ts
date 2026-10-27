@@ -50,19 +50,3 @@ export function courseContext(map: KnowledgeMap): CourseContext {
     items,
   }
 }
-
-/**
- * The course's outline alone, for a chat that mentions this one: its
- * lessons stay home (`ThreadContext.course`).
- *
- * @param map The course.
- * @returns The context without lessons or an open item.
- */
-export function courseOutline(map: KnowledgeMap): CourseContext {
-  const context = courseContext(map)
-  return {
-    ...context,
-    open: null,
-    items: context.items.map(({ lesson: _lesson, ...item }) => item),
-  }
-}

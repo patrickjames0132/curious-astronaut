@@ -17,7 +17,7 @@ import library from '../../src/store/library'
 import { KnowledgeNavigationHelp } from '../../src/knowledge/KnowledgeControls'
 import type { KnowledgeGraphProps } from '../../src/knowledge/KnowledgeGraph'
 import workspace from '../../src/store/workspace'
-import transcript from '../../src/store/transcript'
+import transcript, { selectConversation } from '../../src/store/transcript'
 import explorations, {
   explorationOpened,
   newExploration,
@@ -1007,9 +1007,7 @@ it('chats about a highlighted passage: attached to the bar, sent with the questi
   fireEvent.change(bar, { target: { value: 'Why is it called a backup?' } })
   fireEvent.keyDown(bar, { key: 'Enter' })
   await waitFor(() =>
-    expect(
-      store.getState().transcript.byKey['dqn:knowledge'].chat.map((turn) => turn.text),
-    ).toEqual([
+    expect(selectConversation(store.getState()).chat.map((turn) => turn.text)).toEqual([
       'About this passage from the lesson on Q-learning:\n\n“Bellman backup”\n\nWhy is it called a backup?',
       'Because it bootstraps.',
     ]),
@@ -1044,9 +1042,7 @@ it('explains a highlighted passage in the course assistant without touching the 
   fireEvent.mouseDown(screen.getByRole('button', { name: 'Explain' }))
   expect(opened).toHaveBeenCalled()
   await waitFor(() =>
-    expect(
-      store.getState().transcript.byKey['dqn:knowledge'].chat.map((turn) => turn.text),
-    ).toEqual([
+    expect(selectConversation(store.getState()).chat.map((turn) => turn.text)).toEqual([
       'Explain this passage from the lesson on Q-learning:\n\n“Bellman backup”',
       'It is the update.',
     ]),

@@ -27,7 +27,29 @@ import type {
  * the exact messages — text, the papers an answer cited, and the agent's
  * trace steps.
  */
+/** A tool a question can be asked from, beside a paper (v9.0.0). */
+export type TurnTool = 'graph' | 'knowledge' | 'reader'
+
+/**
+ * Where a question was asked (v9.0.0): a paper and the tool beside it. A
+ * question with no tag was asked in a chat with no view open: General.
+ * `title` is the paper's title when the tag was stamped, for a paper since
+ * deleted; a live paper's label reads its current title (`store/chats`).
+ */
+export interface TurnTag {
+  threadId: string
+  title: string
+  tool: TurnTool
+}
+
 export interface ChatMsg {
+  /**
+   * Where this question was asked (v9.0.0): a paper and its tool, or absent
+   * for General. A chat crosses papers, so each question says which view it
+   * was asked from; the bubble shows it, and clicking it goes there. User
+   * turns only.
+   */
+  tag?: TurnTag
   /** Answer requested via Quick response; available before its first token. */
   quickResponse?: boolean
   /** Explicitly attached sibling discussions, with stable navigation ids. */
@@ -235,6 +257,8 @@ export interface SessionData {
     version: 1
     summary?: string
     activeThreadId: string
+    /** The dock's chat: the chat last in (v9.0.0, `store/chats`). */
+    chatId?: string
     threads: import('../store/explorations').ThreadRecord[]
   }
   /**

@@ -500,9 +500,11 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
 
 - **The assistant is the Knowledge Graph's, generalized.** The panel and
   stream engine are `../assistant/`, shared; `ReaderAssistant.tsx` and
-  `askReader.ts` give it the Reader's words and what to send. It keeps its
-  own chat (`<thread>:reader`, saved as `ThreadRecord.readerChat`) and docks
-  in the top-right corner kept free for it, behind a 🎓 when closed.
+  `askReader.ts` give it the Reader's words and what to send. It talks in
+  the dock's chat (v9.0.0, `store/chats`; until then a Reader chat of its
+  own), and only the answers to questions asked beside this paper's Reader
+  light passages in it (`AnswerPassages.owns`). It docks in the top-right
+  corner kept free for it, behind a 🎓 when closed.
 - **It reads the paper, not a summary.** `askReader` sends only the arXiv id
   and the section in view; the server lays the paper out from the document
   it cached for the Reader (`assistant/context.py`, `reading_context`): the

@@ -67,8 +67,7 @@ export const HOME_TOUR: TourStep[] = [
     title: 'Type @ to name a paper or a thread',
     body:
       'Start any word with @ and suggestions appear as you type: this exploration’s ' +
-      'other discussions first (a paper’s Citation Graph and Knowledge Graph chats each ' +
-      'listed), then papers. In a chat the top row is “Search for …”: press ' +
+      'other chats first, then papers. In a chat the top row is “Search for …”: press ' +
       'Enter and Curious Astronaut searches properly for what you typed and lists what it ' +
       'found. Arrow down onto a paper or chat and Enter attaches it as a chip over the bar, ' +
       'for the question you type next; Backspace in an empty bar lets the last chip go. To ' +
@@ -120,9 +119,10 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'Click a paper citation to highlight it on the current graph. A graph icon opens ' +
       'that paper in its own thread — onto its graph if you are already on one, onto its ' +
-      'cards otherwise. Your chats stay available for searches and broad questions; ' +
-      'each paper thread keeps its own conversation. Type @ and pick another discussion to bring it ' +
-      'into the one you are in.',
+      'cards otherwise. A paper keeps no conversation of its own: beside its graph, its ' +
+      'course or its Reader, the assistant talks in the chat you were last in, and each ' +
+      'question there is tagged with where you asked it — click a tag to go back. Type @ and ' +
+      'pick another chat to bring it into the one you are in.',
   },
   {
     target: '[data-tour="rail"]',
@@ -130,9 +130,9 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'Every exploration saves itself — there is no Save button. Ask a question or open ' +
       'a paper and a row appears here, named after what you were asking about and kept ' +
-      'up to date as you work. Its threads nest underneath in two groups: Chats, for broad ' +
-      'questions and searches, each named after its first question; and Papers, one ' +
-      'discussion per paper you open. Chats’ ＋ starts another chat, so one can keep its ' +
+      'up to date as you work. Its threads nest underneath in two groups: Chats, your ' +
+      'conversations, each named after its first question; and Papers, one per paper you ' +
+      'open, to read and explore. Chats’ ＋ starts another chat, so one can keep its ' +
       'search results while you talk about something else; Papers’ ＋ opens a chat with @ ' +
       'typed, ready to find a paper. Use the carets to fold them, and each ⋮ menu to ' +
       'rename or delete a thread (the last chat stays), or re-summarize a chat whose ' +
@@ -300,9 +300,9 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
     body:
       'The 🎓 opens an assistant beside the course. It reads the whole course: every concept, ' +
       'what each needs, what you have checked off, and the lessons written so far. Ask what a ' +
-      'concept means, how two connect, or what to study next. It keeps its own chat, apart from ' +
-      'the Citation Graph’s; type @ to bring that one, or any other in this exploration, into ' +
-      'a question. The 📚 in its bar picks which of your sources it may search.',
+      'concept means, how two connect, or what to study next. It talks in the chat you were ' +
+      'last in, as every view’s assistant does; type @ to bring another chat into a question. ' +
+      'The 📚 in its bar picks which of your sources it may search.',
   },
   {
     target: '[data-tour="tool-return"][data-return="reader"]',
@@ -380,8 +380,9 @@ export const READER_TOUR: TourStep[] = [
     body:
       'The 🎓 opens an assistant beside the paper. It reads the paper, starting with the ' +
       'section you’re in, and searches your library and the web only when a question reaches ' +
-      'past it. It keeps its own chat, apart from this paper’s graphs’; type @ to bring one of ' +
-      'those into a question. The 📚 in its bar picks which of your sources it may search. ' +
+      'past it. It talks in the chat you were last in, as every view’s assistant does; type @ ' +
+      'to bring another chat into a question. The 📚 in its bar picks which of your sources ' +
+      'it may search. ' +
       'The paper’s words it quotes light up in the paper; click an answer, or one of its ' +
       'quotes, to go there, and Esc to put the light out. Ask it for a lecture and it gives ' +
       'one on the whole paper, as Give Lecture On Paper does.',
@@ -645,9 +646,10 @@ export const GRAPH_TOUR: TourStep[] = [
     target: '[data-tour="assistant-btn"]',
     title: 'The assistant, when you want it',
     body:
-      'The 🎓 opens this paper’s conversation beside the graph; ✕ tucks it away again, and ' +
-      'it stays the way you leave it. Each tool keeps its own: the Knowledge Graph has its ' +
-      'Knowledge Graph Assistant with a chat of its own, and @ reaches either from the other.',
+      'The 🎓 opens the assistant beside the graph; ✕ tucks it away again, and it stays the ' +
+      'way you leave it. It talks in the chat you were last in, the same chat the Knowledge ' +
+      'Graph’s and the Reader’s assistants use, so a conversation can follow you across ' +
+      'papers. The chat’s name under the title is a menu: switch to another, or start one.',
   },
   {
     target: '[data-tour="source-scope"]',

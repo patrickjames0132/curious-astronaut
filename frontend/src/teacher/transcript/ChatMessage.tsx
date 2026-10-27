@@ -227,6 +227,28 @@ function TraceBlock({
   )
 }
 
+/** Between a paper's title and its tool's name in a tag (`store/chats`). */
+const TAG_SEPARATOR = ' › '
+
+/**
+ * A tag's words, the paper's title giving way to a narrow bubble before the
+ * tool's name does: the tool is the part that says where it was asked.
+ *
+ * @param props Component props.
+ * @param props.label The tag's label, `General` or `<paper> › <tool>`.
+ * @returns The two parts.
+ */
+function TagText({ label }: { label: string }) {
+  const at = label.lastIndexOf(TAG_SEPARATOR)
+  if (at === -1) return <span className="chat-tag-paper">{label}</span>
+  return (
+    <>
+      <span className="chat-tag-paper">{label.slice(0, at)}</span>
+      <span className="chat-tag-tool">{label.slice(at)}</span>
+    </>
+  )
+}
+
 /**
  * Render one chat turn end-to-end.
  *
@@ -250,6 +272,8 @@ export default function ChatMessage({
   onBeatStep,
   onReroute,
   onQuick,
+  tagLabel,
+  onTagOpen,
   // Defaults open: a caller that forgets to manage this shows the lecture
   // rather than silently hiding it, which is the right way round to fail.
   beatsOpen = true,
@@ -287,6 +311,11 @@ export default function ChatMessage({
   /** Send this turn's question to the other assistant — only wired when a
    *  model chose this one, so a reader's own choice carries no offer. */
   onReroute?: () => void
+  /** Where this question was asked (v9.0.0): `General`, or a paper and its
+   *  tool. Shown on the question; absent, nothing is. */
+  tagLabel?: string
+  /** Go where it was asked (undefined: the tag is plain text). */
+  onTagOpen?: () => void
   /** ⚡ Quick response: stop this working answer's search and answer now
    *  (v8.30.0). Offered only while it is still searching, before prose. */
   onQuick?: () => void
@@ -391,6 +420,25 @@ export default function ChatMessage({
       ) : (
         timer
       )}
+      {tagLabel &&
+        (onTagOpen ? (
+          <button
+            type="button"
+            className="chat-tag"
+            onClick={(event) => {
+              event.stopPropagation()
+              onTagOpen()
+            }}
+            title={`Asked from ${tagLabel}: go there`}
+            aria-label={tagLabel}
+          >
+            <TagText label={tagLabel} />
+          </button>
+        ) : (
+          <span className="chat-tag" title={tagLabel}>
+            <TagText label={tagLabel} />
+          </span>
+        ))}
       <AttachedChips
         chips={attached.map((item, index) => {
           const threadId = item.kind === 'thread' ? borrowedId(item.title) : undefined

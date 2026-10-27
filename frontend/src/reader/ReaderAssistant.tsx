@@ -7,8 +7,9 @@
  * fits) through the researcher, which also reaches the library and the web,
  * not the literature. The panel is the shared `assistant/DockedAssistant`
  * (the Knowledge Graph's is the same one); this file gives it the Reader's
- * words and `askReader`. It writes to the thread's Reader chat
- * (`store/chats`, saved as `ThreadRecord.readerChat`).
+ * words and `askReader`. Since v9.0.0 it talks in the dock's chat
+ * (`store/chats`), where only the questions asked beside this paper's Reader
+ * light passages in it.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -18,9 +19,9 @@ import { useMemo } from 'react'
 import DockedAssistant, { type AnswerPassages } from '../assistant/DockedAssistant'
 import type { PassageQuote } from '../assistant/askAssistant'
 import { useAppDispatch, useAppSelector } from '../store'
-import { chatKey } from '../store/chats'
 import type { ThreadRecord } from '../store/explorations'
 import { passagesCleared, passagesLit } from '../store/highlight'
+import { selectConversation } from '../store/transcript'
 import { askOrGuideReader, beatLight, documentRef } from './askReader'
 import { answerQuotes, questionPassage } from './passages'
 import { labelsInPassage } from './textBox'
@@ -55,7 +56,7 @@ export default function ReaderAssistant({
   // it. On finishing, in place; on a click, there too, and the Reader goes
   // to it (Patrick).
   const dispatch = useAppDispatch()
-  const chat = useAppSelector((state) => state.transcript.byKey[chatKey(thread.id, 'reader')]?.chat)
+  const chat = useAppSelector((state) => selectConversation(state).chat)
   const lit = useAppSelector((state) => state.highlight?.passages)
   const active = lit?.threadId === thread.id ? lit.answer : null
   const activeBeat =
@@ -103,12 +104,20 @@ export default function ReaderAssistant({
       )
     }
     const isLecture = (index: number) => !!chat?.[index]?.beats?.length
+    // Only the answers to questions asked beside this paper's Reader light
+    // passages in it (v9.0.0): the chat is the dock's, and also holds turns
+    // asked beside other views and papers.
+    const owns = (index: number) => {
+      const tag = chat?.[index - 1]?.tag
+      return tag?.tool === 'reader' && tag.threadId === thread.id
+    }
     return {
       active,
       activeBeat,
+      owns,
       onFinished: (index) => {
         // A guided read lit its first beat as it arrived.
-        if (isLecture(index)) return
+        if (isLecture(index) || !owns(index)) return
         const lit = about(index)
         if (lit.passage || lit.places.length || lit.quotes.length) show(index, lit, false)
       },
@@ -128,7 +137,6 @@ export default function ReaderAssistant({
     <DockedAssistant
       passages={passages}
       thread={thread}
-      tool="reader"
       available={available}
       ask={askOrGuideReader}
       collapsed={collapsed}
@@ -148,8 +156,8 @@ export default function ReaderAssistant({
           'It reads the paper, starting with the section you’re in, and searches your library ' +
           'and the web only when a question reaches past the paper. The paper’s words it quotes ' +
           'light up in the paper: click an answer or a quote to go there. A lecture lights ' +
-          'each step as you go: Back and Next on the step you’re on. Type @ to bring in ' +
-          'another chat, such as this paper’s Knowledge Graph conversation.',
+          'each step as you go: Back and Next on the step you’re on. It talks in the chat ' +
+          'you were last in (switch it under the title); type @ to bring in another chat.',
         placeholder: 'Ask about this paper, or @ another chat…',
         className: 'reader-assistant',
         widthKey: 'ca.readerAssistantWidth',

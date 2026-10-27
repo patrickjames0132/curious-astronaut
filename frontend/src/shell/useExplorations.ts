@@ -20,14 +20,7 @@ import { explorationBody, migrateExploration } from '../store/threadPersistence'
 import { loadGraph, errorSet, discoveryMerged } from '../store/workspace'
 import { conversationHistory } from '../teacher/history'
 import { conversationDropped, pendingDiscoveriesDrained } from '../store/transcript'
-import {
-  SIDE_CHAT_TOOLS,
-  chatKey,
-  chatSummary,
-  chatTurns,
-  savedSideChat,
-  type ChatTool,
-} from '../store/chats'
+import { chatTurns, isChat } from '../store/chats'
 import { splitAttached } from '../mentions/attachments'
 import { ExplorationWrites } from './saveQueue'
 import { useSessions } from './useSessions'
@@ -77,8 +70,6 @@ export function useExplorations() {
           body.exploration?.threads.map((thread) => [
             thread.id,
             thread.data.chat,
-            thread.courseChat?.chat,
-            thread.readerChat?.chat,
             thread.data.discovered_nodes,
             thread.data.discovered_edges,
             thread.data.selectedNodeIds,
@@ -146,7 +137,7 @@ export function useExplorations() {
     for (const record of Object.values(records.byId)) {
       for (const thread of record.threads) {
         if (!awaitsTitle(thread) || titling.current.has(thread.id)) continue
-        const turns = chatTurns(transcript, thread, 'graph')
+        const turns = chatTurns(transcript, thread)
         // Answered and settled: a search writes its list while it runs, and a
         // title read off half a list would name the wrong thing.
         if (!turns.some((turn) => turn.role === 'assistant' && turn.text)) continue
@@ -185,55 +176,51 @@ export function useExplorations() {
   }, [flush])
 
   // Each chat keeps a rolling summary for the sibling index, refreshed once
-  // it settles: a thread's own, and its side chats (`store/chats`).
+  // it settles (`store/chats`; papers hold no chat since v9.0.0).
   useEffect(() => {
-    const tools: ChatTool[] = ['graph', ...SIDE_CHAT_TOOLS]
     for (const record of Object.values(records.byId))
-      for (const thread of record.threads)
-        for (const tool of tools) {
-          const key = chatKey(thread.id, tool)
-          const conversation = transcript.byKey[key]
-          if (!conversation?.chat.length) {
-            summaryAttempts.current.delete(key)
-            continue
-          }
-          if (conversation.running.length) continue
-          const through = conversation.chat.length
-          const { summary, summarizedThrough } = chatSummary(thread, tool)
-          if (
-            (summarizedThrough ?? 0) >= through ||
-            summaryAttempts.current.get(key) === JSON.stringify(conversation.chat)
-          )
-            continue
-          summaryAttempts.current.set(key, JSON.stringify(conversation.chat))
-          const turns = conversationHistory(conversation.chat).map(
-            (turn) => `${turn.role}: ${turn.content}`,
-          )
-          if (!turns.length) continue
-          void fetch('/api/sessions/summary', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ previous: summary ?? '', turns }),
-          })
-            .then((response) => (response.ok ? response.json() : null))
-            .then((result: { summary?: string } | null) => {
-              if (
-                result?.summary &&
-                store.getState().transcript.byKey[key]?.chat === conversation.chat
-              ) {
-                dispatch(
-                  threadSummarized({
-                    explorationId: record.id,
-                    id: thread.id,
-                    tool,
-                    summary: result.summary,
-                    through,
-                  }),
-                )
-              }
-            })
-            .catch(() => {})
+      for (const thread of record.threads.filter(isChat)) {
+        const key = thread.id
+        const conversation = transcript.byKey[key]
+        if (!conversation?.chat.length) {
+          summaryAttempts.current.delete(key)
+          continue
         }
+        if (conversation.running.length) continue
+        const through = conversation.chat.length
+        if (
+          (thread.summarizedThrough ?? 0) >= through ||
+          summaryAttempts.current.get(key) === JSON.stringify(conversation.chat)
+        )
+          continue
+        summaryAttempts.current.set(key, JSON.stringify(conversation.chat))
+        const turns = conversationHistory(conversation.chat).map(
+          (turn) => `${turn.role}: ${turn.content}`,
+        )
+        if (!turns.length) continue
+        void fetch('/api/sessions/summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ previous: thread.summary ?? '', turns }),
+        })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((result: { summary?: string } | null) => {
+            if (
+              result?.summary &&
+              store.getState().transcript.byKey[key]?.chat === conversation.chat
+            ) {
+              dispatch(
+                threadSummarized({
+                  explorationId: record.id,
+                  id: thread.id,
+                  summary: result.summary,
+                  through,
+                }),
+              )
+            }
+          })
+          .catch(() => {})
+      }
   }, [records, transcript, dispatch, store])
 
   const open = useCallback(
@@ -270,22 +257,14 @@ export function useExplorations() {
               body.exploration?.threads.map((thread) => [
                 thread.id,
                 thread.data.chat,
-                thread.courseChat?.chat,
-                thread.readerChat?.chat,
                 thread.data.discovered_nodes,
                 thread.data.discovered_edges,
                 thread.data.selectedNodeIds,
               ]),
             ]),
           )
-          for (const thread of record.threads) {
+          for (const thread of record.threads)
             summaryAttempts.current.set(thread.id, JSON.stringify(thread.data.chat))
-            for (const tool of SIDE_CHAT_TOOLS) {
-              const saved = savedSideChat(thread, tool)
-              if (saved)
-                summaryAttempts.current.set(chatKey(thread.id, tool), JSON.stringify(saved.chat))
-            }
-          }
         }
         const thread = record.threads.find((item) => item.id === record.activeThreadId)!
         const pending = store.getState().transcript.byKey[thread.id]?.pendingDiscoveries
@@ -327,10 +306,7 @@ export function useExplorations() {
       const state = store.getState()
       const record = state.explorations.byId[id]
       dispatch(explorationRemoved(id))
-      for (const thread of record?.threads ?? []) {
-        dispatch(conversationDropped(thread.id))
-        for (const tool of SIDE_CHAT_TOOLS) dispatch(conversationDropped(chatKey(thread.id, tool)))
-      }
+      for (const thread of record?.threads ?? []) dispatch(conversationDropped(thread.id))
       if (state.explorations.activeId === id) dispatch(explorationOpened(newExploration()))
       await writes.current!.remove(id)
       await removeRow(id)
@@ -377,13 +353,7 @@ export function useExplorations() {
   )
   const working = Object.values(records.byId)
     .filter((record) =>
-      record.threads.some(
-        (thread) =>
-          transcript.byKey[thread.id]?.running.length ||
-          SIDE_CHAT_TOOLS.some(
-            (tool) => transcript.byKey[chatKey(thread.id, tool)]?.running.length,
-          ),
-      ),
+      record.threads.some((thread) => transcript.byKey[thread.id]?.running.length),
     )
     .map((record) => record.id)
   return {

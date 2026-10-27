@@ -3,8 +3,14 @@
  *
  * Description:
  * The transcript slice: the reader's conversations — their turns, lectures
- * included — **several at once**, keyed by thread (and since v8.25.0 by a
- * thread's tool too: the Knowledge Graph's assistant, `store/chats`).
+ * included — **several at once**, keyed by chat (`store/chats`). Since
+ * v9.0.0 only chats hold turns; a paper thread's entry only holds the papers
+ * its graph found while it wasn't on screen (`pendingDiscoveries`).
+ *
+ * **`activeKey` is the thread on screen**, a chat or a paper, as it has
+ * always been: what the graph's parking and a stale load's check compare
+ * against. The conversation on screen is `selectConversation`: the active
+ * chat, or beside a paper, the dock's chat.
  *
  * This slice is why the old `onStateChange`/`teacherStateRef` plumbing died:
  * the transcript used to live in Teacher.tsx with a live duplicate hoisted
@@ -46,9 +52,15 @@ import type {
   SourceRef,
   TraceEvent,
   TurnScope,
+  TurnTag,
 } from '../api'
-import { SIDE_CHAT_TOOLS, chatKey, savedSideChat } from './chats'
-import { explorationOpened, threadActivated, type ThreadRecord } from './explorations'
+import { chatOnScreen } from './chats'
+import {
+  explorationOpened,
+  threadActivated,
+  type ExplorationsState,
+  type ThreadRecord,
+} from './explorations'
 import { restoreSession, workspaceCleared } from './workspace'
 
 /** One conversation: a thread's, or since v8.25.0 one of its tools' (`store/chats`). */
@@ -153,6 +165,8 @@ export interface TurnExtras {
   places?: PdfPlace[]
   figures?: string[]
   labels?: string[]
+  /** Where the question was asked (v9.0.0); absent for General. */
+  tag?: TurnTag
 }
 
 type Timed = Keyed & { at: number; quick?: boolean } & TurnExtras
@@ -175,22 +189,18 @@ function keyed<Payload>() {
 const lastMsg = (conversation: Conversation) => conversation.chat[conversation.chat.length - 1]
 
 /**
- * Hold a thread's conversations, as saved, unless this sitting already does:
- * its own (the Citation Graph's, or General's) and its side chats: the
- * Knowledge Graph assistant's (v8.25.0) and the Reader's (v8.38.0)
- * (`store/chats`).
+ * Hold a thread's conversation, as saved, unless this sitting already does:
+ * a chat's turns, or for a paper (v9.0.0) an empty one, where the papers its
+ * graph found while away wait.
  *
  * @param state The slice state (mutated via immer).
  * @param thread The thread.
  */
 function seedThread(state: TranscriptState, thread: ThreadRecord): void {
-  state.byKey[thread.id] ??= { ...emptyConversation(), chat: thread.data.chat }
-  if (thread.identity)
-    for (const tool of SIDE_CHAT_TOOLS)
-      state.byKey[chatKey(thread.id, tool)] ??= {
-        ...emptyConversation(),
-        chat: savedSideChat(thread, tool)?.chat ?? [],
-      }
+  state.byKey[thread.id] ??= {
+    ...emptyConversation(),
+    chat: thread.identity ? [] : thread.data.chat,
+  }
 }
 
 const transcriptSlice = createSlice({
@@ -436,10 +446,11 @@ const transcriptSlice = createSlice({
       reducer(state, action: PayloadAction<string, string, Timed>) {
         const conversation = target(state, action.meta.key)
         if (!conversation) return
-        const { places, figures, labels } = action.meta
+        const { places, figures, labels, tag } = action.meta
         conversation.chat.push({
           role: 'user',
           text: action.payload,
+          ...(tag && { tag }),
           ...(places && { places }),
           ...(figures && { boxedFigures: figures }),
           ...(labels?.length && { labels }),
@@ -801,6 +812,21 @@ export const {
 export default transcriptSlice.reducer
 
 /**
+ * The key of the conversation on screen (v9.0.0): the active chat, or beside
+ * a paper, the dock's chat (`store/chats`'s `chatOnScreen`).
+ *
+ * @param state The root state.
+ * @returns The chat's key.
+ */
+export const selectChatKey = (state: {
+  transcript: TranscriptState
+  explorations: ExplorationsState
+}): string => {
+  const record = state.explorations.byId[state.explorations.activeId]
+  return record ? chatOnScreen(record) : state.transcript.activeKey
+}
+
+/**
  * The conversation on screen. Everything the teacher panel renders reads
  * through here, so a background stream writing to another key changes nothing
  * the reader is looking at.
@@ -808,8 +834,10 @@ export default transcriptSlice.reducer
  * @param state The root state.
  * @returns The active conversation, or a stable empty one if it has gone.
  */
-export const selectConversation = (state: { transcript: TranscriptState }): Conversation =>
-  state.transcript.byKey[state.transcript.activeKey] ?? NO_CONVERSATION
+export const selectConversation = (state: {
+  transcript: TranscriptState
+  explorations: ExplorationsState
+}): Conversation => state.transcript.byKey[selectChatKey(state)] ?? NO_CONVERSATION
 
 /**
  * The active conversation, for the autosave.

@@ -35,7 +35,8 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 card opened; the assistant docks beside
    │                                 the Citation Graph, the course assistant
    │                                 (v8.25.0) beside the Knowledge Graph, each
-   │                                 hidden elsewhere with its own chat.
+   │                                 hidden elsewhere; all talk in the dock's
+   │                                 chat (v9.0.0, store/chats.ts).
    │                                 Teacher stays at one position in the tree
    │                                 across all three, so the switch never
    │                                 remounts it — see teacher/README.md.
@@ -74,12 +75,12 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │  │                              Explain · Expand · Chat here, v8.25.0)
    │  └─ image lightbox            figures/Lightbox.tsx
    ├─ Knowledge Graph Assistant    knowledge/assistant/CourseAssistant.tsx —
-   │                                 docked beside the Knowledge Graph; its
-   │                                 own chat (store/chats.ts). The panel is
+   │                                 docked beside the Knowledge Graph, in the
+   │                                 dock's chat (store/chats.ts). The panel is
    │                                 assistant/DockedAssistant.tsx (shared)
    ├─ Reader Assistant             reader/ReaderAssistant.tsx — docked
    │                                 beside the Reader (v8.38.0), the same
-   │                                 shared panel, its own chat
+   │                                 shared panel, the same chat
    ├─ graph area                   graph/GraphExplorer.tsx
    │  ├─ overlays (from the shell): loading / error, and the ↑ back up to
    │  │                              the paper's cards  (App.tsx)

@@ -26,10 +26,8 @@ import {
 } from '../api'
 import {
   askAssistant,
-  clearAssistantChat,
   lectureAssistant,
   passageMessage,
-  stopAssistant,
   type AssistantQuestion,
 } from '../assistant/askAssistant'
 import { isCurrentMap } from '../knowledge/model'
@@ -69,8 +67,8 @@ export function documentRef(thread: ThreadRecord): string | null {
 }
 
 /**
- * Ask the Reader's assistant, streaming the answer into the thread's Reader
- * chat. Does nothing for a thread with no paper to read.
+ * Ask the Reader's assistant, streaming the answer into the dock's chat.
+ * Does nothing for a thread with no paper to read.
  *
  * @param request The question and the thread it is about.
  * @returns The thunk; it settles when the answer has ended, however it ended.
@@ -83,26 +81,6 @@ export function askReader(request: AssistantQuestion) {
     const title = thread.paper?.title ?? thread.title
     return (body, handlers) => streamAskReader({ ...body, paper, section, title }, handlers)
   })
-}
-
-/**
- * Stop the answer streaming in a thread's Reader chat, keeping what it has
- * written.
- *
- * @param threadId The thread.
- */
-export function stopReaderAsk(threadId: string): void {
-  stopAssistant(threadId, 'reader')
-}
-
-/**
- * Stop any answer and clear a thread's Reader chat.
- *
- * @param threadId The thread.
- * @returns The thunk.
- */
-export function clearReaderChat(threadId: string) {
-  return clearAssistantChat(threadId, 'reader')
 }
 
 /** What each of the Reader's highlight-menu actions asks for. */
@@ -166,8 +144,8 @@ export function courseNames(thread: ThreadRecord): { known: string[]; learning: 
 
 /**
  * Give a lecture on the paper in the Reader (v8.50.0, the guided read): the
- * whole paper, beat by beat in its own order, streamed into the Reader
- * Assistant's chat as one turn. **It follows itself as it is written**, as
+ * whole paper, beat by beat in its own order, streamed into the dock's chat
+ * as one turn. **It follows itself as it is written**, as
  * the Citation Graph's lecture does (Patrick): each beat lights its passage
  * and the Reader goes there as it arrives, for as long as the reader is
  * still following (the lit beat is the one before it). Clicking a beat,

@@ -26,7 +26,6 @@ import reducer, {
   conversationDropped,
   failedTurnDropped,
   pendingDiscoveriesDrained,
-  selectConversation,
   selectRunningKeys,
   streamEnded,
   streamStarted,
@@ -51,13 +50,15 @@ function makeBeat(overrides: Partial<Beat> = {}): Beat {
  * The slice holds several at once now — that is what lets a stream keep
  * writing to its own exploration after the reader moves on — so these tests,
  * which are about what a single conversation does, read through the active one
- * exactly as the panel's selectors do.
+ * exactly as the panel's selectors do. With no exploration to say which chat
+ * is docked (`selectChatKey`, v9.0.0), the conversation on screen is the
+ * active key's.
  *
  * @param state The slice state.
  * @returns The active conversation.
  */
 function active(state: TranscriptState): Conversation {
-  return selectConversation({ transcript: state })
+  return state.byKey[state.activeKey]
 }
 
 /**

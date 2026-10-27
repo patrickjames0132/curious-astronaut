@@ -5,14 +5,7 @@
  */
 import { createAction, createSlice, nanoid } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
-import type {
-  AnswerFigure,
-  ChatMsg,
-  KnowledgeChild,
-  PaperDetails,
-  Provider,
-  SessionData,
-} from '../api'
+import type { AnswerFigure, KnowledgeChild, PaperDetails, Provider, SessionData } from '../api'
 import {
   isCurrentMap,
   withChildren,
@@ -24,7 +17,6 @@ import {
   withForgotten,
   type KnowledgeMap,
 } from '../knowledge/model'
-import { SIDE_CHAT_FIELDS, chatOf, type ChatTool } from './chats'
 import type { WorkspaceState } from './workspace'
 
 /**
@@ -77,22 +69,6 @@ export interface ThreadRecord {
   returnTo?: { tool: ThreadTool; from: ThreadTool }
   /** The knowledge network's course (v8.14.0), once its card has been opened. */
   knowledge?: KnowledgeMap
-  /**
-   * The Knowledge Graph assistant's chat (v8.25.0), as last saved, with its
-   * own rolling summary for the sibling index. The Citation Graph's chat
-   * keeps the fields it had before chats were per tool: `data.chat`,
-   * `summary` and `summarizedThrough` (`store/chats`).
-   */
-  courseChat?: SideChat
-  /** The Reader assistant's chat (v8.38.0), saved the same way. */
-  readerChat?: SideChat
-}
-
-/** A tool's chat beside the thread's own (v8.25.0). */
-export interface SideChat {
-  chat: ChatMsg[]
-  summary?: string
-  summarizedThrough?: number
 }
 
 /**
@@ -136,6 +112,12 @@ export interface ExplorationRecord {
   title: string
   threads: ThreadRecord[]
   activeThreadId: string
+  /**
+   * The dock's chat (v9.0.0): the chat last in, which every view's docked
+   * assistant talks in. Absent or stale, the first chat (`store/chats`'s
+   * `dockChatId`).
+   */
+  chatId?: string
   revision: number
 }
 export interface ExplorationsState {
@@ -153,6 +135,7 @@ export function newExploration(id = nanoid()): ExplorationRecord {
     id,
     title: 'Untitled exploration',
     activeThreadId: threadId,
+    chatId: threadId,
     revision: 0,
     threads: [
       // Named from its first question, like every chat since v8.31.0. An
@@ -223,6 +206,7 @@ export const threadActivated = createAction<{
 const first = newExploration()
 first.threads[0].id = 'initial'
 first.activeThreadId = 'initial'
+first.chatId = 'initial'
 const initialState: ExplorationsState = { activeId: first.id, byId: { [first.id]: first } }
 const slice = createSlice({
   name: 'explorations',
@@ -239,6 +223,8 @@ const slice = createSlice({
         if (!thread) continue
         if (!thread.identity && record.threads.filter((item) => !item.identity).length < 2) continue
         record.threads = record.threads.filter((item) => item.id !== thread.id)
+        // The dock falls back to the first chat (`dockChatId`).
+        if (record.chatId === thread.id) delete record.chatId
         record.revision++
       }
     },
@@ -265,6 +251,19 @@ const slice = createSlice({
         record.revision++
       },
       prepare: () => ({ payload: nanoid() }),
+    },
+    /** Put another chat in the dock (v9.0.0): the docked panel's chat picker,
+     * which switches conversations without leaving the view. Only a chat of
+     * the active exploration can be docked.
+     * @param state Exploration state.
+     * @param action The chat's id.
+     */
+    dockChatSet(state, action: PayloadAction<string>) {
+      const record = state.byId[state.activeId]
+      const chat = record?.threads.find((item) => item.id === action.payload)
+      if (!chat || chat.identity || record.chatId === chat.id) return
+      record.chatId = chat.id
+      record.revision++
     },
     /** Mark an intentional view edit for autosave.
      * @param state Exploration state.
@@ -611,32 +610,25 @@ const slice = createSlice({
         }
       })
     },
-    /** Store a summary only for the revision the summarizer actually read.
+    /** Store a chat's summary only for the revision the summarizer actually read.
      * @param state Exploration state.
-     * @param action Summary with its owning thread, its chat (the Citation
-     *   Graph's when absent) and revision.
+     * @param action Summary with its chat and revision.
      */
     threadSummarized(
       state,
       action: PayloadAction<{
         explorationId: string
         id: string
-        tool?: ChatTool
         summary: string
         through: number
       }>,
     ) {
-      const { explorationId, id, tool = 'graph', summary, through } = action.payload
+      const { explorationId, id, summary, through } = action.payload
       const record = state.byId[explorationId]
       const thread = record?.threads.find((item) => item.id === id)
       if (!thread) return
-      if (tool === 'graph') {
-        thread.summary = summary
-        thread.summarizedThrough = through
-      } else {
-        const field = SIDE_CHAT_FIELDS[tool]
-        thread[field] = { chat: [], ...thread[field], summary, summarizedThrough: through }
-      }
+      thread.summary = summary
+      thread.summarizedThrough = through
       record.revision++
     },
   },
@@ -654,27 +646,22 @@ const slice = createSlice({
         if (!record.threads.some((item) => item.id === action.payload.thread.id))
           record.threads.push(action.payload.thread)
         record.activeThreadId = action.payload.thread.id
+        // Opening a chat makes it the dock's (v9.0.0); opening a paper keeps
+        // the chat you were last in.
+        if (!action.payload.thread.identity) record.chatId = action.payload.thread.id
         record.revision++
         state.activeId = record.id
       })
       .addMatcher(
         (action) => action.type === 'transcript/chatCleared',
         (state, action) => {
+          // A cleared chat drops its summary. Every clear names its chat.
           const key = (action as { meta?: { key?: string } }).meta?.key
-          const { threadId, tool } = chatOf(key ?? state.byId[state.activeId]?.activeThreadId ?? '')
           for (const record of Object.values(state.byId)) {
-            const thread = record.threads.find((item) => item.id === threadId)
+            const thread = record.threads.find((item) => item.id === key)
             if (!thread) continue
-            if (tool === 'graph') {
-              delete thread.summary
-              delete thread.summarizedThrough
-            } else {
-              const saved = thread[SIDE_CHAT_FIELDS[tool]]
-              if (saved) {
-                delete saved.summary
-                delete saved.summarizedThrough
-              }
-            }
+            delete thread.summary
+            delete thread.summarizedThrough
             record.revision++
           }
         },
@@ -683,6 +670,7 @@ const slice = createSlice({
 export const {
   threadRemoved,
   generalChatAdded,
+  dockChatSet,
   threadEdited,
   explorationRenamed,
   explorationRemoved,

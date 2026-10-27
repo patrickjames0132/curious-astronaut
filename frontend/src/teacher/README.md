@@ -1,22 +1,27 @@
 # `src/teacher`
 
-One composer serves General and paper threads. General is graphless: searches,
+One composer serves chats and paper threads. A chat is graphless: searches,
 broad questions and comparisons can live there. In a paper thread the panel
-**docks beside the Citation Graph only** (since v8.15.0): assistants are
-encapsulated per tool. The card home has none, and the Knowledge Graph has its
-own since v8.25.0 (`knowledge/assistant/`, with a chat of its own); elsewhere
-Teacher stays mounted but hidden, so a running answer keeps streaming
-into the thread. With the graph up, the composer names its subject and scoped
-paper count. Questions and lectures belong to the active thread; opening
-another paper switches to its discussion rather than carrying this transcript
-onto a different canvas.
+**docks beside the Citation Graph only** (since v8.15.0); the Knowledge
+Graph and the Reader dock their own panels (`assistant/DockedAssistant`).
+Since v9.0.0 every panel talks in **the dock's chat**, the chat you were
+last in (`store/chats`): beside a graph, Teacher shows that chat and asks in
+it, each question tagged with the paper and the graph (`ChatMsg.tag`, shown
+by `assistant/useTurnTags`). A paper holds no conversation of its own, so
+opening another paper keeps the conversation and changes the canvas under
+it; a discovery for a paper no longer on screen waits on that paper
+(`pendingDiscoveries`). Elsewhere Teacher stays mounted but hidden, so a
+running answer keeps streaming. With the graph up, the composer names its
+subject and scoped paper count.
 
 **Why the graph alone** (Patrick, 2026-10-09). Beside the cards and the
 Knowledge Graph this assistant could only answer seedless. `@thread`
 borrowing assumed a thread *was* its graph conversation; v8.25.0 answered
-that by making a reference address a **chat**, a thread and a tool
-(`store/chats.ts`), so the Knowledge Graph got an assistant of its own rather
-than this one.
+that by making a reference address a **chat**, a thread and a tool, so the
+Knowledge Graph got an assistant of its own rather than this one. v9.0.0
+kept the panels apart but gave them one conversation: a chat is a thread of
+its own now, and a tool is where a question was asked (its tag). One panel
+for all of them is the OnePager's "One assistant", stage 3.
 
 ## Sending and streaming
 

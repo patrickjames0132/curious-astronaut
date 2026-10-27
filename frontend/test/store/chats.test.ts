@@ -1,105 +1,104 @@
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
- * Description: Per-tool chats (v8.25.0) — keys, labels, which chats an exploration offers, and mentions old and new.
+ * Description: Chats own the conversation (v9.0.0) — which threads are chats, the dock's chat, which chats an exploration offers, mentions, and tags.
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { describe, expect, it } from 'vitest'
 import {
-  chatKey,
-  chatLabel,
-  chatOf,
+  chatOnScreen,
   chatTurns,
+  dockChatId,
   explorationChats,
+  isChat,
   mentionsChat,
+  paperTag,
+  tagLabel,
 } from '../../src/store/chats'
 import { newExploration, type ThreadRecord } from '../../src/store/explorations'
-import { createMap } from '../../src/knowledge/model'
 
 /** A paper thread.
  * @param id Its id.
  * @param title Its title.
- * @param extra Anything else it holds.
  * @returns The thread.
  */
-function paperThread(id: string, title: string, extra: Partial<ThreadRecord> = {}): ThreadRecord {
-  return { id, title, identity: `s2:${id}`, data: { chat: [], layout: 'force' }, ...extra }
+function paperThread(id: string, title: string): ThreadRecord {
+  return { id, title, identity: `s2:${id}`, data: { chat: [], layout: 'force' } }
 }
 
-describe('chat keys', () => {
-  it('keep the thread id for the Citation Graph, so older keys need no migration', () => {
-    expect(chatKey('abc', 'graph')).toBe('abc')
-    expect(chatKey('abc', 'knowledge')).toBe('abc:knowledge')
-    expect(chatOf('abc')).toEqual({ threadId: 'abc', tool: 'graph' })
-    expect(chatOf('abc:knowledge')).toEqual({ threadId: 'abc', tool: 'knowledge' })
-    expect(chatKey('abc', 'reader')).toBe('abc:reader')
-    expect(chatOf('abc:reader')).toEqual({ threadId: 'abc', tool: 'reader' })
+/** A chat.
+ * @param id Its id.
+ * @param title Its title.
+ * @returns The thread.
+ */
+function chatThread(id: string, title: string): ThreadRecord {
+  return { id, title, identity: null, data: { chat: [], layout: 'timeline' } }
+}
+
+describe('chats and papers', () => {
+  it('a chat is a thread with no paper', () => {
+    expect(isChat(chatThread('c', 'Chat'))).toBe(true)
+    expect(isChat(paperThread('p', 'PPO'))).toBe(false)
   })
-  it("label a paper thread's chats by tool, and General as itself", () => {
-    expect(chatLabel(paperThread('ppo', 'PPO'), 'knowledge')).toBe('PPO › Knowledge Graph')
-    expect(chatLabel(paperThread('ppo', 'PPO'), 'graph')).toBe('PPO › Citation Graph')
-    expect(chatLabel({ title: 'General', identity: null }, 'graph')).toBe('General')
+  it('offers only chats, each under its title', () => {
+    const record = newExploration('x')
+    record.threads.push(paperThread('ppo', 'PPO'), chatThread('c2', 'Second'))
+    expect(explorationChats(record).map((chat) => [chat.key, chat.label])).toEqual([
+      [record.threads[0].id, 'New chat'],
+      ['c2', 'Second'],
+    ])
+  })
+  it('reads a chat’s live turns before its saved ones', () => {
+    const thread = chatThread('c', 'Chat')
+    thread.data.chat = [{ role: 'user', text: 'saved' }]
+    expect(chatTurns({ byKey: {} }, thread)[0].text).toBe('saved')
+    const live = { chat: [{ role: 'user' as const, text: 'live' }], running: [] }
+    expect(
+      chatTurns(
+        { byKey: { c: { ...live, pendingDiscoveries: { nodes: [], edges: [] } } } },
+        thread,
+      )[0].text,
+    ).toBe('live')
+  })
+  it('matches a chat by its mention', () => {
+    const [chat] = explorationChats({ ...newExploration('x'), threads: [chatThread('c', 'DQN')] })
+    expect(mentionsChat('compare @thread[DQN] with this', chat)).toBe(true)
+    expect(mentionsChat('compare DQN with this', chat)).toBe(false)
   })
 })
 
-describe('explorationChats', () => {
-  it('offers a Knowledge Graph chat once the thread has a course or turns', () => {
-    const record = newExploration('x')
-    record.threads.push(
-      paperThread('ppo', 'PPO', { knowledge: createMap({ id: 'ppo', title: 'PPO' }) }),
-      paperThread('dqn', 'DQN'),
-      paperThread('sac', 'SAC', { courseChat: { chat: [{ role: 'user', text: 'hi' }] } }),
-    )
-    const labels = explorationChats(record, { byKey: {} }).map((chat) => chat.label)
-    expect(labels).toEqual([
-      'New chat',
-      'PPO › Citation Graph',
-      'PPO › Knowledge Graph',
-      'DQN › Citation Graph',
-      'SAC › Citation Graph',
-      'SAC › Knowledge Graph',
-    ])
-  })
-  it('offers a Reader chat once it has turns (v8.38.0)', () => {
-    const record = newExploration('x')
-    record.threads.push(
-      paperThread('att', 'Attention', { readerChat: { chat: [{ role: 'user', text: 'hi' }] } }),
-      paperThread('dqn', 'DQN'),
-    )
-    const labels = explorationChats(record, { byKey: {} }).map((chat) => chat.label)
-    expect(labels).toEqual([
-      'New chat',
-      'Attention › Citation Graph',
-      'Attention › Reader',
-      'DQN › Citation Graph',
-    ])
-  })
-  it("reads a chat's live turns before its saved ones", () => {
-    const thread = paperThread('sac', 'SAC', {
-      courseChat: { chat: [{ role: 'user', text: 'old' }] },
-    })
-    const live = {
-      'sac:knowledge': {
-        chat: [{ role: 'user' as const, text: 'new' }],
-        running: [],
-        pendingDiscoveries: { nodes: [], edges: [] },
-      },
+describe('the dock’s chat', () => {
+  it('is the chat last in, else the first, never a paper', () => {
+    const record = {
+      threads: [chatThread('a', 'A'), paperThread('p', 'PPO'), chatThread('b', 'B')],
+      chatId: 'b',
+      activeThreadId: 'p',
     }
-    expect(chatTurns({ byKey: live }, thread, 'knowledge')[0].text).toBe('new')
-    expect(chatTurns({ byKey: {} }, thread, 'knowledge')[0].text).toBe('old')
+    expect(dockChatId(record)).toBe('b')
+    expect(dockChatId({ ...record, chatId: undefined })).toBe('a')
+    expect(dockChatId({ ...record, chatId: 'gone' })).toBe('a')
+    expect(dockChatId({ ...record, chatId: 'p' })).toBe('a')
+  })
+  it('is on screen beside a paper; a chat on screen is itself', () => {
+    const threads = [chatThread('a', 'A'), paperThread('p', 'PPO'), chatThread('b', 'B')]
+    expect(chatOnScreen({ threads, chatId: 'b', activeThreadId: 'p' })).toBe('b')
+    expect(chatOnScreen({ threads, chatId: 'b', activeThreadId: 'a' })).toBe('a')
   })
 })
 
-describe('mentionsChat', () => {
-  it('matches a chat by its label, and a bare thread title as its Citation Graph chat', () => {
-    const record = newExploration('x')
-    record.threads.push(
-      paperThread('ppo', 'PPO', { knowledge: createMap({ id: 'ppo', title: 'PPO' }) }),
+describe('tags', () => {
+  it('label a question by where it was asked, General with no tag', () => {
+    const record = { threads: [paperThread('p', 'Attention')] }
+    expect(tagLabel(record, undefined)).toBe('General')
+    expect(tagLabel(record, paperTag(record.threads[0], 'reader'))).toBe('Attention › Reader')
+    expect(tagLabel(record, paperTag(record.threads[0], 'graph'))).toBe(
+      'Attention › Citation Graph',
     )
-    const [, graph, knowledge] = explorationChats(record, { byKey: {} })
-    expect(mentionsChat('compare @thread[PPO › Knowledge Graph]', knowledge)).toBe(true)
-    expect(mentionsChat('compare @thread[PPO › Knowledge Graph]', graph)).toBe(false)
-    // Sent before chats were per tool.
-    expect(mentionsChat('compare @thread[PPO]', graph)).toBe(true)
-    expect(mentionsChat('compare @thread[PPO]', knowledge)).toBe(false)
+  })
+  it('follow a rename, and keep the stamped title for a paper deleted since', () => {
+    const tag = paperTag(paperThread('p', 'Attention'), 'knowledge')
+    expect(tagLabel({ threads: [paperThread('p', 'Transformers')] }, tag)).toBe(
+      'Transformers › Knowledge Graph',
+    )
+    expect(tagLabel({ threads: [] }, tag)).toBe('Attention › Knowledge Graph')
   })
 })
