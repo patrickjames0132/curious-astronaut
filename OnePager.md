@@ -1917,6 +1917,17 @@ than deleted so the plan doesn't get re-proposed.
       4. **Reaching across.** Answers acting on views not on screen become
          links; tags with several papers; filtering a chat by tag.
 
+      **Polish, after the stages:**
+      - **Animate the view behind a dock flip, per view** (Patrick,
+        2026-10-26). Flipping the dock between right and bottom morphs the
+        panel (a FLIP), but the view behind it snaps to its new size, and
+        each view is a different thing to resize: the graph canvases
+        re-fit, the Reader reflows its text and PDF and moves its margin
+        notes, the cards and Peer Reviews are scrolling pages. Resizing
+        every frame would re-lay them out dozens of times per flip; each
+        view probably needs its own move (hold the old size and fade or
+        slide to the new, or ease the canvas's fit).
+
 
 - [ ] **Peer Reviews: v2 and polish** — follow-ups to the card shipped in
       v8.52.0 (its full record is in `docs/history.md`).
