@@ -1889,9 +1889,10 @@ than deleted so the plan doesn't get re-proposed.
          turns carry tags (shown, clickable, correctable); the dock in every
          view shows the active chat, switched from the sidebar. This
          reverses "assistants encapsulated per tool" (Patrick, 2026-10-09)
-         on purpose. **No migration** (Patrick clears his own data), but the
-         app is on PyPI: an old save must load without crashing, even if it
-         just starts fresh.
+         on purpose. **No migration, and a major version** (Patrick,
+         2026-10-26): saves from 8.x aren't read, so this stage ships as
+         **v9.0.0**. Nobody else has installed it yet (only Patrick's two
+         machines), so clearing `data/` is the upgrade path.
       3. **One body.** One assistant component for full screen, docked and
          the floating icon, replacing the landing composer, `teacher/Teacher`
          docked, and `assistant/DockedAssistant`; Expand and the way back;
