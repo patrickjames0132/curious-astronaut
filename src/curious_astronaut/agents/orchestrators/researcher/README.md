@@ -225,6 +225,17 @@ ignore that advice (the course's context says the same in its own words).
 The bar's paper filters only ever bound this search, so only the general
 view reads them.
 
+## Several papers at once (v9.0.0)
+
+`answer(across=True)` is a bridge question: one about several of the
+exploration's papers together, comparing them, connecting them, or tracing
+an idea across them (the assistant's `papers` view). `nodes` are those
+papers as numbered peers, the first as `seed` only because the context
+needs one to head it; `_prompt` says so, that none of them is the focus,
+and that they aren't a citation graph. No graph is built for it (Patrick,
+2026-10-27): the papers themselves are the context, which `read_node` and
+`expand_node` still reach, and `paper_search` is off as over any view.
+
 ## Design decisions worth knowing
 
 - **Failures are tool-result text, never exceptions.** A spent budget, a

@@ -146,8 +146,9 @@ def api_assistant_route_place() -> ResponseReturnValue:
         open one's number in that list (from 1), and its view.
 
     Returns:
-        ``{place: 'here'|'general'|'paper', paper: n|null, tool}``
-        (``router.PlaceRoute``), always HTTP 200: every failure, and every
+        ``{place: 'here'|'general'|'paper'|'papers', paper: n|null, tool,
+        papers: [n, ...]}`` (``router.PlaceRoute``; ``papers`` lists a
+        bridge question's papers), always HTTP 200: every failure, and every
         malformed body, keeps the question where it was asked.
     """
     payload = request.get_json(silent=True) or {}

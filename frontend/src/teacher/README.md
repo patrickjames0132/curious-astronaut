@@ -22,8 +22,9 @@ a `[n]`, a quote or a beat goes to that view and lights it. Once a chat
 spans places, `assistant/TagFilter`'s menu over the transcript shows one at
 a time. Before a question goes out, `placeOrHere` asks where it is about
 (stage 4b, `api.routePlace`) when the exploration has another paper it could
-mean; placed elsewhere, it is asked there (`assistant/askAt`), and its
-bubble offers "Ask from … instead" (`askInstead`).
+mean; placed elsewhere, or across several papers (stage 4c), it is asked
+there (`assistant/askAt`), and its bubble offers "Ask from … instead"
+(`askInstead`).
 A paper holds no conversation of its own, so
 opening another paper keeps the conversation and changes the canvas under
 it; a discovery for a paper no longer on screen waits on that paper

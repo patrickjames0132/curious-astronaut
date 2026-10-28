@@ -27,22 +27,27 @@ import { usePresence } from '../ui/usePresence'
 export interface TagChoice {
   /** Its filter key (`tagKey`). */
   key: string
-  /** Its label, `General` or `<paper> › <tool>`. */
+  /** Its label, `General`, `Across papers` or `<paper> › <tool>`. */
   label: string
-  /** The paper's title, null for General. */
+  /** The paper's title, null for General and Across papers. */
   paper: string | null
   /** The tool's name, null for General. */
   tool: string | null
 }
 
+/** The filter key every bridge question shares (v9.0.0, stage 4c). */
+export const ACROSS_KEY = 'across'
+
 /**
- * A tag as a filter key: `general`, or the paper and its tool.
+ * A tag as a filter key: `general`, `across` for any question about several
+ * papers, or the paper and its tool.
  *
  * @param tag The tag; absent means General.
  * @returns The key.
  */
 export function tagKey(tag: TurnTag | undefined): string {
-  return tag ? `${tag.threadId}:${tag.tool}` : 'general'
+  if (!tag) return 'general'
+  return tag.tool === 'across' ? ACROSS_KEY : `${tag.threadId}:${tag.tool}`
 }
 
 /**
@@ -94,9 +99,10 @@ export default function TagFilter({
     onChange(key)
     setOpen(false)
   }
-  // General first, then each paper with its tools under it, in the order
-  // the chat first asked from them.
-  const general = tags.find((tag) => tag.paper === null)
+  // General first, then the questions across papers, then each paper with
+  // its tools under it, in the order the chat first asked from them.
+  const general = tags.find((tag) => tag.key === 'general')
+  const across = tags.find((tag) => tag.key === ACROSS_KEY)
   const papers = new Map<string, TagChoice[]>()
   for (const tag of tags)
     if (tag.paper !== null) papers.set(tag.paper, [...(papers.get(tag.paper) ?? []), tag])
@@ -106,11 +112,11 @@ export default function TagFilter({
    *
    * @param key The place's key, or null for all.
    * @param words What the row says.
-   * @param nested Whether it sits under a paper's title.
+
    * @returns The row.
    */
-  const item = (key: string | null, words: string, nested = false) => (
-    <label key={key ?? 'all'} className={`scope-item${nested ? ' tag-filter-tool' : ''}`}>
+  const item = (key: string | null, words: string) => (
+    <label key={key ?? 'all'} className="scope-item">
       <input type="radio" name="tag-filter" checked={value === key} onChange={() => choose(key)} />
       <span className="scope-item-title" title={words}>
         {words}
@@ -156,12 +162,13 @@ export default function TagFilter({
           </div>
           {item(null, 'All')}
           {general && item(general.key, 'General')}
+          {across && item(across.key, across.label)}
           {[...papers].map(([paper, tools]) => (
             <div key={paper} role="group" aria-label={paper}>
               <div className="tag-filter-paper" title={paper}>
                 {paper}
               </div>
-              {tools.map((tool) => item(tool.key, tool.tool ?? tool.label, true))}
+              {tools.map((tool) => item(tool.key, tool.tool ?? tool.label))}
             </div>
           ))}
         </div>

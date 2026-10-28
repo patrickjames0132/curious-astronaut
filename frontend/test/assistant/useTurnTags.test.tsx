@@ -65,6 +65,28 @@ describe('a question’s tag', () => {
     expect(takeTurnAnchor('chat')).toBeNull()
   })
 
+  it('links each paper a bridge question names, a deleted one going nowhere', () => {
+    const bridge: ChatMsg = {
+      role: 'user',
+      text: 'How do they differ?',
+      tag: {
+        threadId: 'paper',
+        title: 'Attention',
+        tool: 'across',
+        papers: [
+          { threadId: 'paper', title: 'Attention' },
+          { threadId: 'gone', title: 'Soft Actor-Critic' },
+        ],
+      },
+    }
+    const props = tagsFor([bridge])(bridge, 0)
+    expect(props.tagLabel).toBe('Attention · Soft Actor-Critic')
+    expect(props.onTagOpen).toBeUndefined()
+    expect(props.tagPapers?.map((paper) => paper.title)).toEqual(['Attention', 'Soft Actor-Critic'])
+    expect(props.tagPapers?.[0].onOpen).toBeDefined()
+    expect(props.tagPapers?.[1].onOpen).toBeUndefined()
+  })
+
   it('lets a stale anchor go, so it never moves the chat later', () => {
     vi.useFakeTimers()
     const tags = tagsFor([asked])

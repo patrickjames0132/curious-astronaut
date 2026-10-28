@@ -24,7 +24,7 @@
 import { useCallback } from 'react'
 import type { ChatMsg } from '../api'
 import { useAppDispatch, useAppSelector } from '../store'
-import { tagLabel } from '../store/chats'
+import { tagLabel, tagPapers } from '../store/chats'
 import { openTag } from '../store/workspace'
 
 /** The question whose tag was just clicked, for the panel to keep in view. */
@@ -57,10 +57,20 @@ export function takeTurnAnchor(chatKey: string): number | null {
   return Date.now() - at < ANCHOR_LIFE ? index : null
 }
 
+/** One paper a bridge question's tag names, and where its title goes. */
+export interface TagPaperLink {
+  title: string
+  /** Its cards; absent for a paper deleted since. */
+  onOpen?: () => void
+}
+
 /** What a question's bubble shows of its tag (`ChatMessage`'s props). */
 export interface TurnTagProps {
   tagLabel?: string
   onTagOpen?: () => void
+  /** A bridge question's papers (v9.0.0, stage 4c), each title a link of
+   *  its own: there's no one view to go to. */
+  tagPapers?: TagPaperLink[]
 }
 
 /**
@@ -85,17 +95,27 @@ export function useTurnTags(
     (message: ChatMsg, index: number) => {
       if (message.role !== 'user' || !crosses) return {}
       const { tag } = message
+      const go = (target: typeof tag) => () => {
+        onLeave?.()
+        anchorTurn(chatKey, index)
+        void dispatch(openTag({ tag: target, chatId: chatKey }))
+      }
       // A paper deleted since keeps its label but goes nowhere.
-      const gone = !!tag && !record?.threads.some((thread) => thread.id === tag.threadId)
+      const live = (threadId: string) => !!record?.threads.some((thread) => thread.id === threadId)
+      if (tag?.tool === 'across')
+        return {
+          tagLabel: tagLabel(record, tag),
+          tagPapers: tagPapers(tag).map((paper) => ({
+            title:
+              record?.threads.find((thread) => thread.id === paper.threadId)?.title ?? paper.title,
+            onOpen: live(paper.threadId)
+              ? go({ ...paper, tool: 'across', papers: tag.papers })
+              : undefined,
+          })),
+        }
       return {
         tagLabel: tagLabel(record, tag),
-        onTagOpen: gone
-          ? undefined
-          : () => {
-              onLeave?.()
-              anchorTurn(chatKey, index)
-              void dispatch(openTag({ tag, chatId: chatKey }))
-            },
+        onTagOpen: tag && !live(tag.threadId) ? undefined : go(tag),
       }
     },
     [chatKey, crosses, dispatch, record, onLeave],

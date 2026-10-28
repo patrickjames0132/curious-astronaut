@@ -20,8 +20,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, get_args
 
-#: Where a question is asked from. ``general`` is a chat with no view open.
-ViewKind = Literal["general", "citations", "knowledge", "reader"]
+#: Where a question is asked from. ``general`` is a chat with no view open;
+#: ``papers`` is several of the exploration's papers at once (v9.0.0, a
+#: bridge question), which no one view shows.
+ViewKind = Literal["general", "citations", "knowledge", "reader", "papers"]
 #: What a question can set running: an answer (the researcher), a lecture
 #: over the graph (the lecturer), or a guided read of the paper in the Reader.
 Workflow = Literal["answer", "lecture", "guide"]
@@ -50,6 +52,7 @@ CAPABILITIES: dict[ViewKind, Capabilities] = {
     "citations": Capabilities(workflows=("answer", "lecture"), paper_search=False),
     "knowledge": Capabilities(workflows=("answer",), paper_search=False),
     "reader": Capabilities(workflows=("answer", "guide"), paper_search=False),
+    "papers": Capabilities(workflows=("answer",), paper_search=False),
 }
 
 

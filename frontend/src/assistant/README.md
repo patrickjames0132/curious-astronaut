@@ -18,7 +18,8 @@ assistant/
                         course's and the Reader's asking through it, Stop and
                         Clear, the passage messages
   askAt.ts            — asking a question in a view that isn't on screen,
-                        or in General, where the router placed it (stage 4b)
+                        in General, or across several papers, where the
+                        router placed it (stages 4b, 4c)
   pendingAsk.ts       — a placed lecture, waiting for the panel that arrives
                         at its view to ask it (stage 4b)
   keepChatInView.ts   — the full-screen chat, taking the reader to a paper,
@@ -100,6 +101,15 @@ reads and which tools it gets.
   on that paper. Its bubble says where it was typed (`ChatMsg.placedFrom`)
   and offers to ask it there instead, as a re-routed lecture offers the
   answer. `streamAnswer` is the one stream engine all of this runs on.
+  **Several papers at once** (stage 4c): a bridge question, comparing or
+  connecting papers, is tagged `across` with each of them
+  (`store/chats`'s `acrossTag`), and answered over the papers themselves,
+  numbered as peers the researcher can read and expand, with no graph
+  built (Patrick, 2026-10-27; `api.streamAcross`, the `papers` view). A
+  paper with no hydrated details yet has them fetched and kept on its
+  thread, as its cards would. Its tag has no one view to go to, so each
+  title in it is a link of its own, to that paper's cards, and so is a
+  `[n]` naming one of them; a `[n]` for a paper it expanded into opens it.
   **A lecture goes there** (Patrick, 2026-10-27): placed on another paper's
   Citation Graph or Reader and read as a lecture or a guided read, the
   question can't be answered off-screen, since it lights its graph or paper
@@ -117,7 +127,9 @@ reads and which tools it gets.
   and only the exchanges asked there show: each tool's conversation, back
   when it is wanted. Per chat, forgotten on leaving it. A menu, grouped by
   paper, rather than the row of chips it started as, which wrapped into
-  rows over the transcript as places added up (Patrick).
+  rows over the transcript as places added up (Patrick). Every bridge
+  question is one entry, "Across papers", after General, whichever papers
+  it named (Patrick).
 - **A passage is quoted with where it's from.** `PassageQuote` is `{text,
   from}`, `from` a phrase ("the lesson on Q-learning", "section 3.2,
   Attention") that the quote card shows ("From …") and the messages carry

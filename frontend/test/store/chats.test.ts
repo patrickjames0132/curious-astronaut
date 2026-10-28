@@ -4,7 +4,9 @@
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { describe, expect, it } from 'vitest'
+import { tagKey } from '../../src/assistant/TagFilter'
 import {
+  acrossTag,
   chatOnScreen,
   chatTurns,
   dockChatId,
@@ -100,5 +102,12 @@ describe('tags', () => {
       'Transformers › Knowledge Graph',
     )
     expect(tagLabel({ threads: [] }, tag)).toBe('Attention › Knowledge Graph')
+  })
+  it('name every paper a bridge question is about, and file them all as one place', () => {
+    const tag = acrossTag([paperThread('p', 'Attention'), paperThread('q', 'Soft Actor-Critic')])
+    expect(tag).toMatchObject({ threadId: 'p', title: 'Attention', tool: 'across' })
+    expect(tagLabel({ threads: [paperThread('q', 'SAC')] }, tag)).toBe('Attention · SAC')
+    expect(tagKey(tag)).toBe(tagKey(acrossTag([paperThread('r', 'DQN'), paperThread('p', 'A')])))
+    expect(tagKey(tag)).not.toBe(tagKey(paperTag(paperThread('p', 'Attention'), 'reader')))
   })
 })

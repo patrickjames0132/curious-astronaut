@@ -16,7 +16,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { PROVIDER_LABEL } from '../../api'
 import type { AnswerFigure, Beat, ChatMsg, Provider, TraceEvent } from '../../api'
 import MathText from '../../notation/MathText'
@@ -32,6 +32,8 @@ import QuickResponse from '../../ui/QuickResponse'
 import AttachedChips from '../../mentions/AttachedChips'
 import { splitAttached } from '../../mentions/attachments'
 import ResponseTimer from '../ResponseTimer'
+import type { TagPaperLink } from '../../assistant/useTurnTags'
+import { PAPER_SEPARATOR } from '../../store/chats'
 
 /**
  * Why a failed search never turned anything up, in plain words — "the budget
@@ -274,6 +276,7 @@ export default function ChatMessage({
   onQuick,
   tagLabel,
   onTagOpen,
+  tagPapers,
   askInstead,
   turn,
   // Defaults open: a caller that forgets to manage this shows the lecture
@@ -318,6 +321,9 @@ export default function ChatMessage({
   tagLabel?: string
   /** Go where it was asked (undefined: the tag is plain text). */
   onTagOpen?: () => void
+  /** A question about several papers (v9.0.0, stage 4c): each title links
+   *  to its own paper, in place of `onTagOpen`. */
+  tagPapers?: TagPaperLink[]
   /** The router placed this question elsewhere (v9.0.0, stage 4b): ask it
    *  where it was typed instead, named by `label`. */
   askInstead?: { label: string; onAsk: () => void }
@@ -430,7 +436,30 @@ export default function ChatMessage({
         timer
       )}
       {tagLabel &&
-        (onTagOpen ? (
+        (tagPapers ? (
+          <span className="chat-tag chat-tag-across" title={tagLabel}>
+            {tagPapers.map((paper, at) => (
+              <Fragment key={at}>
+                {at > 0 && <span className="chat-tag-tool">{PAPER_SEPARATOR}</span>}
+                {paper.onOpen ? (
+                  <button
+                    type="button"
+                    className="chat-tag-paper chat-tag-link"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      paper.onOpen?.()
+                    }}
+                    title={`Go to ${paper.title}`}
+                  >
+                    {paper.title}
+                  </button>
+                ) : (
+                  <span className="chat-tag-paper">{paper.title}</span>
+                )}
+              </Fragment>
+            ))}
+          </span>
+        ) : onTagOpen ? (
           <button
             type="button"
             className="chat-tag"

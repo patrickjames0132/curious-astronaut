@@ -46,16 +46,18 @@ TOOL_NAMES: dict[str, str] = {
 class PlaceRoute(BaseModel):
     """Where one message is about.
 
-    ``place`` is ``here`` (the view on screen), ``general`` (no view), or
+    ``place`` is ``here`` (the view on screen), ``general`` (no view),
     ``paper``: one of the exploration's papers, by its number in the list the
-    router was shown, and the tool the question is for.
+    router was shown, and the tool the question is for, or ``papers``: two or
+    more of them at once (v9.0.0, a bridge question), by their numbers.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    place: Literal["here", "general", "paper"]
+    place: Literal["here", "general", "paper", "papers"]
     paper: int | None = None
     tool: PlaceTool | None = None
+    papers: list[int] = []
 
 
 #: The fallback, and the shape of every failure: where it was asked.
@@ -79,8 +81,12 @@ SYSTEM_PROMPT = (
     "learn first, prerequisites, concepts behind it, its course; 'reader' for "
     "what the paper itself says: its sections, equations, figures, method, "
     "results.\n"
-    "A paper the reader already has open is 'here', whatever its view. Never "
-    "invent a paper number."
+    "- place 'papers' when it compares, connects or traces an idea across "
+    "TWO OR MORE papers in the list (the one open among them, or not): give "
+    "all their numbers as papers.\n"
+    "A paper the reader already has open is 'here', whatever its view, unless "
+    "the message is about it together with another. Never invent a paper "
+    "number."
 )
 
 # No model at construction: passed per run by `factory.model_for`.
@@ -149,6 +155,14 @@ def route_place(
         log.warning("message place routing failed, keeping it here", exc_info=True)
         return HERE
     route = result.output
+    if route.place == "papers":
+        named = list(dict.fromkeys(number for number in route.papers if 1 <= number <= len(papers)))
+        if len(named) >= 2:
+            return PlaceRoute(place="papers", papers=named)
+        # One paper is a question about it, in what it says; none stays here.
+        if not named:
+            return HERE
+        route = PlaceRoute(place="paper", paper=named[0], tool="reader")
     if route.place != "paper":
         return PlaceRoute(place=route.place)
     if route.paper is None or not 1 <= route.paper <= len(papers):

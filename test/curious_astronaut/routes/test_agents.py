@@ -804,7 +804,7 @@ class TestPlaceEndpoint:
             "screen": {"paper": 1, "tool": "reader"},
         }
         response = client.post("/api/assistant/route/place", json=body)
-        assert response.get_json() == {"place": "paper", "paper": 2, "tool": "graph"}
+        assert response.get_json() == {"place": "paper", "paper": 2, "tool": "graph", "papers": []}
         assert seen == [("and the Atari paper's references?", ["Attention", "Atari"], 1, "reader")]
 
     @pytest.mark.parametrize(
@@ -813,4 +813,26 @@ class TestPlaceEndpoint:
     def test_a_malformed_body_stays_here(self, client, body):
         response = client.post("/api/assistant/route/place", json=body)
         assert response.status_code == 200
-        assert response.get_json() == {"place": "here", "paper": None, "tool": None}
+        assert response.get_json() == {"place": "here", "paper": None, "tool": None, "papers": []}
+
+
+def test_the_papers_view_answers_across_its_papers(client, monkeypatch):
+    """v9.0.0, a bridge question: several papers as peers, the first heading
+    the context, no paper search; fewer than two is refused."""
+    seen: dict = {}
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        yield events.Token(text="They differ.")
+
+    patch_agents(monkeypatch, fake_run)
+    other = {**SEED, "id": "sac", "title": "Soft Actor-Critic", "is_seed": False}
+    response = client.post(
+        "/api/assistant", json={"question": "Compare them", "view": {"kind": "papers", "papers": [SEED, other]}}
+    )
+    assert frames(response)[-1] == ("done", {})
+    assert seen["across"] is True and seen["paper_search"] is False
+    assert seen["seed"].id == "seed01"
+    assert [paper.id for paper in seen["nodes"]] == ["seed01", "sac"]
+    lone = client.post("/api/assistant", json={"question": "q", "view": {"kind": "papers", "papers": [SEED]}})
+    assert lone.status_code == 400

@@ -23,20 +23,24 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import type { ChatMsg, TurnTag, TurnTool } from '../api'
+import type { ChatMsg, TagPaper, TagTool, TurnTag, TurnTool } from '../api'
 import type { ExplorationRecord, ThreadRecord } from './explorations'
 import type { TranscriptState } from './transcript'
 
 /** Each tool a question can be asked from, as its card on the paper's home
- *  says it, for a tag's label. */
-export const TURN_TOOL_NAMES: Record<TurnTool, string> = {
+ *  says it, for a tag's label; and a question about several papers. */
+export const TURN_TOOL_NAMES: Record<TagTool, string> = {
   graph: 'Citation Graph',
   knowledge: 'Knowledge Graph',
   reader: 'Reader',
+  across: 'Across papers',
 }
 
 /** Between a paper's title and its tool's name in a tag's label. */
 const LABEL_SEPARATOR = ' › '
+
+/** Between the papers a bridge question names, in its tag's label. */
+export const PAPER_SEPARATOR = ' · '
 
 /**
  * Whether a thread is a chat (it holds a conversation) rather than a paper.
@@ -121,9 +125,10 @@ export function mentionsChat(message: string, chat: ChatEntry): boolean {
 
 /**
  * A tag's label: `General`, or the paper and the tool it was asked from,
- * e.g. `Attention Is All You Need › Reader`. The paper's title is read off
- * its thread, so a rename follows; a paper deleted since keeps the title the
- * tag was stamped with.
+ * e.g. `Attention Is All You Need › Reader`, or a bridge question's papers,
+ * `Attention Is All You Need · Soft Actor-Critic` (no view to name). A paper's
+ * title is read off its thread, so a rename follows; a paper deleted since
+ * keeps the title the tag was stamped with.
  *
  * @param record The exploration, for the paper's current title.
  * @param tag The tag; absent means General.
@@ -134,8 +139,34 @@ export function tagLabel(
   tag?: TurnTag,
 ): string {
   if (!tag) return 'General'
-  const title = record?.threads.find((thread) => thread.id === tag.threadId)?.title ?? tag.title
-  return `${title}${LABEL_SEPARATOR}${TURN_TOOL_NAMES[tag.tool]}`
+  const titles = tagPapers(tag).map(
+    (paper) => record?.threads.find((thread) => thread.id === paper.threadId)?.title ?? paper.title,
+  )
+  if (tag.tool === 'across') return titles.join(PAPER_SEPARATOR)
+  return `${titles.join(PAPER_SEPARATOR)}${LABEL_SEPARATOR}${TURN_TOOL_NAMES[tag.tool]}`
+}
+
+/**
+ * The papers a tag names: a bridge question's, or the one paper.
+ *
+ * @param tag The tag.
+ * @returns Its papers, as stamped.
+ */
+export function tagPapers(tag: TurnTag): TagPaper[] {
+  return tag.tool === 'across' && tag.papers?.length
+    ? tag.papers
+    : [{ threadId: tag.threadId, title: tag.title }]
+}
+
+/**
+ * The tag for a question about several papers at once (v9.0.0, stage 4c).
+ *
+ * @param threads The paper threads, in the order the question named them.
+ * @returns The tag, the first paper heading it.
+ */
+export function acrossTag(threads: Pick<ThreadRecord, 'id' | 'title'>[]): TurnTag {
+  const papers = threads.map((thread) => ({ threadId: thread.id, title: thread.title }))
+  return { ...papers[0], tool: 'across', papers }
 }
 
 /**

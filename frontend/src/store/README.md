@@ -169,7 +169,10 @@ An exploration is **a set of papers plus several chats** (the OnePager's
   `TurnTag`): a paper thread and its tool, or no tag for General. A label
   reads the paper's current title (`tagLabel`), falling back to the title
   stamped on the tag once the paper is deleted. `workspace.openTag` goes
-  there: the paper on that tool, or the chat itself.
+  there: the paper on that tool, or the chat itself. A question about
+  several papers at once (stage 4c) is tagged `across`, naming each of
+  them (`acrossTag`, `tagPapers`); with no one view to go to, its tag
+  opens a paper's cards.
 - **One answer in flight per chat**, whichever view asked
   (`assistant/inFlight`): both stream engines share a chat now, so a new
   question supersedes whatever the chat was answering.

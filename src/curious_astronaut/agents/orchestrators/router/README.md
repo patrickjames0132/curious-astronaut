@@ -190,8 +190,10 @@ in (`here`), no view (`general`: a search, a broad question, small talk),
 or another of the exploration's papers (`paper`, by its number in the list
 it was shown) and which of its tools: its Citation Graph for citations and
 lineage, its Knowledge Graph course for what to learn first, its Reader for
-what the paper says. The answer is the question's tag, and the view it
-names is the one whose context the answer gets, open or not. Served by
+what the paper says. Or, since stage 4c, several papers at once (`papers`,
+their numbers): a bridge question, comparing or connecting them, which no
+one view shows. The answer is the question's tag, and the view it names is
+the one whose context the answer gets, open or not. Served by
 `POST /api/assistant/route/place`.
 
 The client asks only when it could matter: an exploration with no paper but
@@ -203,7 +205,9 @@ click on its correction ("Ask from … instead" on the bubble), where one
 sent elsewhere by mistake costs an answer about the wrong paper. The prompt
 says so, and the output is read as sensibly as it can be: a paper number it
 was never shown, or the paper and view already open, stays here; a paper
-with no tool is the Reader.
+with no tool is the Reader; a bridge's numbers are deduplicated and checked,
+and one that names a single real paper is about that paper (its Reader),
+none at all here.
 
 ## Who uses it
 

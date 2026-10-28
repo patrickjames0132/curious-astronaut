@@ -77,7 +77,7 @@ import TagFilter, { tagKey, type TagChoice } from '../assistant/TagFilter'
 import { highlightSet, passagesLit } from '../store/highlight'
 import { answerLight, beatLight } from '../reader/askReader'
 import { TURN_TOOL_NAMES, tagLabel } from '../store/chats'
-import { explorationChats, paperTag } from '../store/chats'
+import { acrossTag, explorationChats, paperTag, tagPapers } from '../store/chats'
 import { threadTool } from '../store/explorations'
 import { useCourseView } from '../knowledge/assistant/useCourseView'
 import { useReaderView } from '../reader/useReaderView'
@@ -154,7 +154,11 @@ export const NARROW_QUERY = '(max-width: 900px)'
  */
 function sameTag(left: TurnTag | undefined, right: TurnTag | undefined): boolean {
   if (!left || !right) return !left && !right
-  return left.threadId === right.threadId && left.tool === right.tool
+  const papers = (tag: TurnTag) =>
+    tagPapers(tag)
+      .map((paper) => paper.threadId)
+      .join()
+  return left.tool === right.tool && papers(left) === papers(right)
 }
 
 /**
@@ -596,12 +600,17 @@ export default function Teacher({
       papers.map((paper) => paper.title),
       { paper: screenPaper || null, tool: screenTag?.tool ?? null },
     )
+    // A bridge question (stage 4c) is about several papers at once, the
+    // router having checked their numbers.
+    const bridged = (placed.papers ?? []).flatMap((number) => papers[number - 1] ?? [])
     const elsewhere =
       placed.place === 'general'
         ? undefined
-        : placed.place === 'paper' && placed.paper && papers[placed.paper - 1]
-          ? paperTag(papers[placed.paper - 1], placed.tool ?? 'reader')
-          : screenTag
+        : placed.place === 'papers' && bridged.length >= 2
+          ? acrossTag(bridged)
+          : placed.place === 'paper' && placed.paper && papers[placed.paper - 1]
+            ? paperTag(papers[placed.paper - 1], placed.tool ?? 'reader')
+            : screenTag
     if (sameTag(elsewhere, screenTag)) {
       setPlacing(false)
       askHere()
@@ -611,7 +620,7 @@ export default function Teacher({
     // guided read lights its graph or its paper as it goes, so it is given
     // where it is about. The panel moves, and the one that arrives asks it
     // through the ordinary path (`assistant/pendingAsk`).
-    if (elsewhere && elsewhere.tool !== 'knowledge') {
+    if (elsewhere && (elsewhere.tool === 'graph' || elsewhere.tool === 'reader')) {
       const taught =
         elsewhere.tool === 'graph'
           ? (await routeMessage(question)).target === 'lecture'
@@ -1189,6 +1198,22 @@ export default function Teacher({
     if (message.role !== 'assistant' || message.failed || !tag || owns(index)) return {}
     if (!explorationRecord?.threads.some((thread) => thread.id === tag.threadId)) return {}
     const beats = message.beats ?? []
+    if (tag.tool === 'across') {
+      // No one view holds a bridge question's papers: a `[n]` for one of
+      // them goes to its cards, and for a paper it expanded into, opens it.
+      const go = (nodeId: string) => {
+        const thread = explorationRecord.threads.find(
+          (item) =>
+            item.paper?.id === nodeId && tagPapers(tag).some((paper) => paper.threadId === item.id),
+        )
+        if (thread) {
+          leaving()
+          anchorTurn(activeKey, index)
+          void dispatch(openTag({ tag: { ...tag, threadId: thread.id }, chatId: activeKey }))
+        } else onPaperSeed(nodeId)
+      }
+      return { onRefClick: go }
+    }
     if (tag.tool === 'graph') {
       const grounded = message.cited?.length
         ? message.cited
@@ -1265,10 +1290,14 @@ export default function Teacher({
       if (message.role !== 'user' || seen.has(key)) continue
       const label = tagLabel(explorationRecord, message.tag)
       const split = label.lastIndexOf(' › ')
+      // Every bridge question is one place, "Across papers", whichever
+      // papers it named (Patrick).
+      const across = message.tag?.tool === 'across'
+      const paper = message.tag && !across ? label.slice(0, split) : null
       seen.set(key, {
         key,
-        label,
-        paper: message.tag ? label.slice(0, split) : null,
+        label: across ? TURN_TOOL_NAMES.across : label,
+        paper,
         tool: message.tag ? TURN_TOOL_NAMES[message.tag.tool] : null,
       })
     }

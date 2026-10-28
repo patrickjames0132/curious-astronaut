@@ -149,6 +149,31 @@ def _graph(view: dict) -> tuple[Node, list[Node]]:
         raise RequestError("seed/nodes are malformed") from error
 
 
+def _papers(view: dict) -> tuple[Node, list[Node]]:
+    """The papers a bridge question is about, typed (v9.0.0).
+
+    Args:
+        view: The request's ``papers`` view: ``{papers: [node, ...]}``.
+
+    Returns:
+        ``(first, papers)``: the first heads the context as a graph's seed
+        would, and all of them are numbered as peers.
+
+    Raises:
+        RequestError: When there are fewer than two, or one is malformed.
+    """
+    raw = view.get("papers")
+    if not isinstance(raw, list) or len(raw) < 2:
+        raise RequestError("papers must list at least two papers")
+    try:
+        papers = [_node(item) for item in raw if isinstance(item, dict)]
+    except ValidationError as error:
+        raise RequestError("papers are malformed") from error
+    if len(papers) < 2:
+        raise RequestError("papers must list at least two papers")
+    return papers[0], papers
+
+
 def _reading(view: dict, provider: Provider) -> str:
     """The paper open in the Reader, laid out, or a refusal.
 
@@ -286,6 +311,9 @@ def _answer(kind: ViewKind, view: dict, request: dict, provider: Provider) -> It
         lent["course"] = context.course_context(view.get("course"))
         if not lent["course"]:
             raise RequestError("course is required")
+    elif kind == "papers":
+        lent["seed"], lent["nodes"] = _papers(view)
+        lent["across"] = True
     elif kind == "reader":
         highlight, images = context.highlight_context(view.get("paper"), provider, view.get("places"))
         boxed, figures = context.boxed_figures(view.get("figures"))
@@ -379,7 +407,7 @@ def run(request: dict) -> Iterator[events.Event]:
     view = request.get("view")
     kind = view_kind(view)
     if kind is None or not isinstance(view, dict):
-        raise RequestError("view.kind must be one of general, citations, knowledge, reader")
+        raise RequestError("view.kind must be one of general, citations, knowledge, reader, papers")
     workflow = request.get("workflow", "answer")
     if workflow not in CAPABILITIES[kind].workflows:
         raise RequestError(f"the {kind} view has no {workflow!r} workflow")

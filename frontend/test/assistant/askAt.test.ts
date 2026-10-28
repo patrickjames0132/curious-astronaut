@@ -113,4 +113,45 @@ describe('asking where the router placed it', () => {
     expect(build).toHaveBeenCalledWith('atari', 's2')
     expect(store.getState().workspace.graph).toBeNull()
   })
+
+  it('answers a bridge question over the papers themselves, fetching one it lacks', async () => {
+    const store = setUp()
+    const sac: ThreadRecord = {
+      id: 'sac',
+      title: 'Soft Actor-Critic',
+      identity: 's2:sac',
+      data: { chat: [], layout: 'force' },
+      paper: node('sac-paper'),
+    }
+    store.dispatch(
+      explorationOpened({
+        ...store.getState().explorations.byId.x,
+        threads: [...store.getState().explorations.byId.x.threads, sac],
+      }),
+    )
+    const fetched = vi.spyOn(api, 'fetchPaperDetail').mockResolvedValue(node('atari-paper'))
+    const build = vi.spyOn(api, 'fetchGraphStream')
+    const ask = vi.spyOn(api, 'streamAcross').mockImplementation(async (body, handlers) => {
+      expect(body.papers.map((item) => item.id)).toEqual(['atari-paper', 'sac-paper'])
+      handlers.onToken('[1] plays, [2] acts.')
+    })
+    const tag = {
+      threadId: 'atari',
+      title: 'Playing Atari',
+      tool: 'across' as const,
+      papers: [
+        { threadId: 'atari', title: 'Playing Atari' },
+        { threadId: 'sac', title: 'Soft Actor-Critic' },
+      ],
+    }
+    await store.dispatch(askAt(tag, QUESTION))
+    expect(ask).toHaveBeenCalledOnce()
+    expect(fetched).toHaveBeenCalledWith('atari', 's2')
+    expect(build).not.toHaveBeenCalled()
+    const [asked, answer] = selectConversation(store.getState()).chat
+    expect(asked.tag).toEqual(tag)
+    expect(answer.graphRefs).toEqual({ 1: 'atari-paper', 2: 'sac-paper' })
+    const atari = store.getState().explorations.byId.x.threads.find((item) => item.id === 'atari')
+    expect(atari?.paper?.id).toBe('atari-paper')
+  })
 })

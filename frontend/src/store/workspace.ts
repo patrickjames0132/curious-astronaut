@@ -578,8 +578,10 @@ export const openChat = createAsyncThunk<void, string, { state: NavigationState 
 )
 
 /** Go where a question was asked (v9.0.0): its tag's paper, on the tool it was
- * asked beside; or for General, the chat it is in, full screen. A tag whose
- * paper has since been deleted goes nowhere.
+ * asked beside; or for General, the chat it is in, full screen. A question
+ * about several papers (stage 4c) has no one view: its tag goes to its first
+ * paper's cards, and each title in it to that paper's. A tag whose paper has
+ * since been deleted goes nowhere.
  * @param target The question's tag, and the chat it is in.
  * @param target.tag Where it was asked; absent for General.
  * @param target.chatId The chat holding it.
@@ -597,6 +599,11 @@ export const openTag = createAsyncThunk<
   const record = explorations.byId[explorations.activeId]
   const paper = record?.threads.find((thread) => thread.id === tag.threadId)
   if (!paper) return
+  if (tag.tool === 'across') {
+    if (record.activeThreadId !== paper.id || threadTool(paper) !== 'cards')
+      await dispatch(openThread(paper.id))
+    return
+  }
   if (record.activeThreadId !== paper.id) await dispatch(openThread(paper.id))
   if (threadTool(paper) !== tag.tool || record.activeThreadId !== paper.id)
     await dispatch(openTool(tag.tool))

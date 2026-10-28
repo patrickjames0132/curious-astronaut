@@ -79,3 +79,16 @@ def test_the_prompt_says_where_the_reader_is():
     assert "WHERE THE READER IS: paper [2], on its Citation Graph" in prompt
     assert "[3] Soft Actor-Critic" in prompt
     assert "a chat, with no paper open" in place._prompt("hi", None, None, PAPERS)
+
+
+def test_a_bridge_names_two_papers_or_more():
+    assert decide({"place": "papers", "papers": [3, 2, 3, 9]}) == router.PlaceRoute(
+        place="papers", papers=[3, 2]
+    )
+
+
+def test_a_bridge_naming_one_paper_is_about_it_and_none_stays_here():
+    assert decide({"place": "papers", "papers": [2, 9]}) == router.PlaceRoute(
+        place="paper", paper=2, tool="reader"
+    )
+    assert decide({"place": "papers", "papers": []}) == router.HERE

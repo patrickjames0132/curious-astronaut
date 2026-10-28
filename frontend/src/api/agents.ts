@@ -46,6 +46,9 @@ export type AssistantView =
       bridge?: GraphNode
     }
   | { kind: 'knowledge'; course: CourseContext }
+  /** Several of the exploration's papers at once (v9.0.0, a bridge
+   *  question): two or more, the first heading the context. */
+  | { kind: 'papers'; papers: GraphNode[] }
   | {
       kind: 'reader'
       paper: string
@@ -330,12 +333,15 @@ export async function resolveRoutedPapers(
 }
 
 /** What a message is about (v9.0.0, stage 4b): the view it was typed in,
- *  no view (General), or another of the exploration's papers and its tool. */
+ *  no view (General), another of the exploration's papers and its tool, or
+ *  several papers at once (stage 4c). */
 export interface PlaceRoute {
-  place: 'here' | 'general' | 'paper'
+  place: 'here' | 'general' | 'paper' | 'papers'
   /** The paper's number in the list sent, from 1. */
   paper: number | null
   tool: 'graph' | 'knowledge' | 'reader' | null
+  /** A bridge question's papers, by number, two or more (`papers` only). */
+  papers?: number[]
 }
 
 /**
@@ -356,7 +362,7 @@ export async function routePlace(
   screen: { paper: number | null; tool: string | null },
   signal?: AbortSignal,
 ): Promise<PlaceRoute> {
-  const here: PlaceRoute = { place: 'here', paper: null, tool: null }
+  const here: PlaceRoute = { place: 'here', paper: null, tool: null, papers: [] }
   try {
     const res = await fetch('/api/assistant/route/place', {
       method: 'POST',
@@ -657,6 +663,25 @@ export async function streamAsk(
     { ...rest, view: { kind: 'citations', seed, nodes } },
     handlers.signal,
   )
+  await relayAssistant(res, handlers)
+}
+
+/**
+ * Stream an answer across several papers at once (v9.0.0, stage 4c: a
+ * bridge question). The researcher reads them as numbered peers, and may
+ * read and expand them; it searches nothing.
+ *
+ * @param body What the answer is asked with: the question, the papers, and
+ *        what every answer carries (`streamAsk`'s).
+ * @param handlers Event callbacks; `onDiscovery` is told of the papers an
+ *        expand numbers past them.
+ */
+export async function streamAcross(
+  body: Omit<Parameters<typeof streamAsk>[0], 'seed' | 'nodes'> & { papers: GraphNode[] },
+  handlers: AskHandlers,
+): Promise<void> {
+  const { papers, ...rest } = body
+  const res = await postAssistant({ ...rest, view: { kind: 'papers', papers } }, handlers.signal)
   await relayAssistant(res, handlers)
 }
 

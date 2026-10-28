@@ -26,6 +26,7 @@ Served by `routes/agents.py`: `POST /api/assistant/route` (`route`) and
 | `citations` | answer, lecture | no | the seed and the graph in scope (numbered, expandable) |
 | `knowledge` | answer | no | the course: its concepts, what each needs, check-offs, lessons |
 | `reader` | answer, guide | no | the paper being read, the section or page in view first; a PDF highlight pictured; boxed figures |
+| `papers` | answer | no | several papers as numbered peers, the first heading the context (a bridge question: no one view shows them) |
 
 Only the general chat searches the literature (v8.28.0): a view is its own
 map, and finding papers is the general chat's job. The bar's paper filters
@@ -47,6 +48,10 @@ What `run` reads off `request["view"]`; everything else (`question`,
   or `page:<n>` in the PDF view), `title?`, `places?` (a PDF highlight),
   `figures?` (boxed figures' image sources), and for a guided read
   `known?` / `learning?` (the course's concepts checked off, and not).
+- **`papers`**: `papers` (two or more full node shapes, validated like the
+  Citation Graph's `nodes`; the first is the seed). The researcher answers
+  with `across`: it compares them, reads and expands them, and searches
+  nothing.
 
 ## Why it is shaped like this
 

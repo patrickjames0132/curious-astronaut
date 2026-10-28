@@ -30,16 +30,30 @@ import type {
 /** A tool a question can be asked from, beside a paper (v9.0.0). */
 export type TurnTool = 'graph' | 'knowledge' | 'reader'
 
+/** Where a question can be about: a paper's tool, or several papers at once
+ *  (`across`, v9.0.0 stage 4c: a bridge question, which no one view shows). */
+export type TagTool = TurnTool | 'across'
+
+/** One paper a tag names, as it was titled when the tag was stamped. */
+export interface TagPaper {
+  threadId: string
+  title: string
+}
+
 /**
  * Where a question was asked (v9.0.0): a paper and the tool beside it. A
  * question with no tag was asked in a chat with no view open: General.
  * `title` is the paper's title when the tag was stamped, for a paper since
  * deleted; a live paper's label reads its current title (`store/chats`).
+ * An `across` tag names every paper in `papers`, the first of them in
+ * `threadId` and `title`.
  */
 export interface TurnTag {
   threadId: string
   title: string
-  tool: TurnTool
+  tool: TagTool
+  /** A bridge question's papers, two or more (`across` only). */
+  papers?: TagPaper[]
 }
 
 export interface ChatMsg {

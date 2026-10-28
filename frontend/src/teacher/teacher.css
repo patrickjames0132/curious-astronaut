@@ -1578,6 +1578,20 @@ button.chat-tag:hover {
   color: var(--text);
   text-decoration: underline;
 }
+/* A question about several papers (v9.0.0, stage 4c): each title is a link
+   to its own paper, and the titles share what room there is. */
+.chat-tag-link {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.chat-tag-link:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
 /* The chat filtered by where its questions were asked (v9.0.0,
    `assistant/TagFilter`): one line, "Showing: All ▾", that stays at the top
    of the transcript while it scrolls, its menu grouping the places by paper.
@@ -1647,9 +1661,7 @@ button.chat-tag:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tag-filter-tool {
-  padding-left: 14px;
-}
+
 .chat-borrowed {
   font-size: 11px;
   color: var(--muted);
