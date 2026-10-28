@@ -57,7 +57,7 @@ api/
   `progress` → callback (coarse build stage), `done` → the graph, `error` →
   thrown — so the "Building graph…" overlay shows a real bar. `fetchGraph` (the
   plain GET) remains for non-streaming callers.
-- **One assistant behind every agent stream (v8.53.0).** `streamAsk`,
+- **One assistant behind every agent stream (v9.0.0).** `streamAsk`,
   `streamAskSources`, `streamAskCourse`, `streamAskReader`, `streamLecture`
   and `streamGuideReader` all post to `/api/assistant`, each naming the
   view it asks from (`AssistantView`: `citations`, `general`, `knowledge`,

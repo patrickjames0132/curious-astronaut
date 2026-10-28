@@ -3,7 +3,7 @@
  *
  * Description:
  * The AI teacher: streaming lecture, and agentic Q&A with a graph or without.
- * Since v8.53.0 every one of them is the one assistant (`POST /api/assistant`)
+ * Since v9.0.0 every one of them is the one assistant (`POST /api/assistant`)
  * asked from a different view: the functions here keep the shapes the panels
  * call and say which view they ask from. Each is a `text/event-stream` POST
  * decoded through the shared readSSE.
@@ -21,7 +21,7 @@ import type { GraphNode, GraphEdge, Provider } from './graph'
 import type { PdfPlace } from './reader'
 
 /**
- * Where a question is asked from (v8.53.0), and what that view lends the
+ * Where a question is asked from (v9.0.0), and what that view lends the
  * assistant. The backend reads the view to decide which workflows may run
  * and which tools the researcher gets (its screen → tools table,
  * `agents/orchestrators/assistant/views.py`): only `general` searches the
@@ -378,7 +378,7 @@ export interface ReaderRoute {
 
 /**
  * Ask whether a message to the Reader Assistant wants a guided read
- * (v8.50.0; the assistant's route in the `reader` view since v8.53.0). Never
+ * (v8.50.0; the assistant's route in the `reader` view since v9.0.0). Never
  * rejects: any failure answers, as {@link routeMessage} does for the graph's
  * chat.
  *

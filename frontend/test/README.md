@@ -11,7 +11,7 @@ test/
                                 message, so a dead backend routes to `answer`;
                                 `resolveRoutedPapers` likewise matches nothing;
                                 which view each function asks the one
-                                assistant from (v8.53.0)
+                                assistant from (v9.0.0)
   assistant/
     askAssistant.test.ts      — a docked question lands in the dock's chat,
                                 tagged with its paper and tool, and supersedes

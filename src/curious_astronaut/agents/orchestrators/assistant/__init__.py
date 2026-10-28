@@ -2,7 +2,7 @@
 
 Description:
 The assistant: one front door to the crew, keyed by the view a question is
-asked from (v8.53.0).
+asked from (v9.0.0).
 
 * ``views``   — the screen → tools table: which workflows each view offers,
   and whether the researcher may search the literature there.

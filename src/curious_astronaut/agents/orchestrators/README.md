@@ -6,7 +6,7 @@ parts of it, and is answerable for what the user finally sees.
 ```
 orchestrators/
   assistant/      — the front door: one assistant, keyed by the view it's
-                    asked from (v8.53.0)
+                    asked from (v9.0.0)
   researcher/     — agentic Q&A, with or without a graph
   lecturer/       — the streaming lecture over the visible graph
   summarizer/     — one-shot paper TL;DRs
@@ -77,7 +77,7 @@ reads a lecture's **scope** off the message ("lecture me on the references",
 against the graph. See [`router/README.md`](router/README.md) for the
 two-stage design, the scope, and why every failure answers the question.
 
-## `assistant/`, and why it isn't the funnel again (v8.53.0)
+## `assistant/`, and why it isn't the funnel again (v9.0.0)
 
 `assistant/` is a single entry point every question passes through, which is
 what v7.0.0 deleted. The difference is what it is keyed by. The old funnel

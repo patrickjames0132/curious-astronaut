@@ -3,7 +3,7 @@
  *
  * Description:
  * `routeMessage`'s one real contract: it never rejects — and neither does
- * `resolveRoutedPapers`, its second half. And since v8.53.0, which view each
+ * `resolveRoutedPapers`, its second half. And since v9.0.0, which view each
  * of the client's functions asks the one assistant from.
  *
  * The first sits in front of every message the reader sends, so a throw here
@@ -147,7 +147,7 @@ describe('resolveRoutedPapers', () => {
   })
 })
 
-describe('one assistant, asked from each view (v8.53.0)', () => {
+describe('one assistant, asked from each view (v9.0.0)', () => {
   const seed = { id: 'seed01', title: 'Playing Atari' } as GraphNode
   const course: CourseContext = { paper: 'Playing Atari', open: null, items: [] }
 

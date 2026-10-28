@@ -405,7 +405,7 @@ Thin wrappers over `services/sources`. Points worth knowing:
 | `POST /api/assistant/route/place` | what a message is about (v9.0.0, stage 4b): `{message, papers: [title], screen: {paper, tool}}` in, `{place: 'here'\|'general'\|'paper', paper, tool}` out, always 200 (`router.route_place`; any failure keeps it here) |
 | `POST /api/assistant` | the workflow, streamed: an answer, a lecture over the graph, or a guided read of the paper in the Reader. `{workflow?, question?, view: {kind, ...}, provider?, source_ids?, history?, thread_context?, quick?, model?}` |
 
-**One assistant since v8.53.0.** Until then there was a route per assistant
+**One assistant since v9.0.0.** Until then there was a route per assistant
 and per workflow: `/api/ask` (the Citation Graph's), `ask_sources` (the
 General chat's), `ask_course` (the Knowledge Graph's), `ask_reader` (the
 Reader's), `lecture`, `guide_reader`, and two routers, `route` and

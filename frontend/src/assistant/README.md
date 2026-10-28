@@ -43,9 +43,9 @@ The views' own layers are thin:
 | --- | --- | --- | --- |
 | Knowledge Graph | `knowledge/assistant/useCourseView` | `askCourse` (the `knowledge` view: the course) | `<paper> › Knowledge Graph` |
 | Reader | `reader/useReaderView` | `askOrGuideReader` (the `reader` view: the paper id and section) | `<paper> › Reader` |
-| Citation Graph, cards, Peer Reviews, a chat | nothing: `Teacher` asks itself (`useConversation`) | `send` | `<paper> › Citation Graph`, or General |
+| Citation Graph, cards, Criticisms, a chat | nothing: `Teacher` asks itself (`useConversation`) | `send` | `<paper> › Citation Graph`, or General |
 
-All ask the one backend assistant, `POST /api/assistant` (v8.53.0), naming
+All ask the one backend assistant, `POST /api/assistant` (v9.0.0), naming
 the view they ask from (`api/agents.ts`); the view decides what the model
 reads and which tools it gets.
 

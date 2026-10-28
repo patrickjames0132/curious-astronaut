@@ -1,6 +1,6 @@
 # `agents/orchestrators/assistant`
 
-One assistant for every view (v8.53.0). A question is asked *from*
+One assistant for every view (v9.0.0). A question is asked *from*
 somewhere — a chat with no view open, a paper's Citation Graph, its
 Knowledge Graph course, its Reader — and this package turns "the message,
 and where it was asked" into a workflow, the tools it may use, and the

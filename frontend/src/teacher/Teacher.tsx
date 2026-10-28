@@ -292,7 +292,7 @@ export default function Teacher({
   // the Citation Graph's, or General. An answer is this view's to retry,
   // re-ask or light when its question was asked here: the chat also holds
   // turns asked beside other views, which need their own context.
-  // Without a view of its own (the graph, the cards, Peer Reviews), a paper
+  // Without a view of its own (the graph, the cards, Criticisms), a paper
   // whose graph is loaded asks over that graph, as `useConversation` stamps it.
   const screenTag: TurnTag | undefined = view
     ? paperTag(view.thread, view.tool)

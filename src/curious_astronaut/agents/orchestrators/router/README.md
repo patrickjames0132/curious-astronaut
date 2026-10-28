@@ -207,7 +207,7 @@ with no tool is the Reader.
 
 ## Who uses it
 
-The assistant (`orchestrators/assistant`, v8.53.0), which asks `route` for
+The assistant (`orchestrators/assistant`, v9.0.0), which asks `route` for
 a message typed beside the Citation Graph and `route_reading` for one typed
 in the Reader, and asks neither in a view with only one workflow. Its
 `POST /api/assistant/route` is called by the chat composer before it picks

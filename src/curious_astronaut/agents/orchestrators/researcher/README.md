@@ -299,7 +299,7 @@ view reads them.
 
 ## Who uses it, and how/why
 
-- **`orchestrators/assistant`** (`POST /api/assistant` since v8.53.0; one
+- **`orchestrators/assistant`** (`POST /api/assistant` since v9.0.0; one
   route per view before) — every view's answer is `answer(...)`, per
   `skills/workflows/research.md`: the `citations` view with a graph open
   (seed + visible nodes + provider, and `paper_search=False` since v8.28.0),

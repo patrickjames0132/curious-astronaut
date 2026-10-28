@@ -1,7 +1,7 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-The assistant's routes (v8.53.0): one endpoint for every view, typed-input
+The assistant's routes (v9.0.0): one endpoint for every view, typed-input
 validation at the door, uniform event->SSE serialization, and what each view
 lends the model. The context blocks' own bounds are tested beside them, in
 ``agents/orchestrators/assistant/test_context.py``.

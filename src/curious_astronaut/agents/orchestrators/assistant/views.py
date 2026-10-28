@@ -6,7 +6,7 @@ The screen → tools table: what the assistant may do in each view.
 A question is asked *from* somewhere — a chat with no view open, a paper's
 Citation Graph, its Knowledge Graph course, its Reader — and where it is
 asked decides which workflows can run and whether the researcher may search
-the literature. Until v8.53.0 that knowledge was spread over four routes as
+the literature. Until v9.0.0 that knowledge was spread over four routes as
 a ``paper_search=False`` here and a missing endpoint there; this table is the
 one place it is written down, and ``main.run`` refuses anything it doesn't
 list.

@@ -1,7 +1,7 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-The assistant's routes: one for every view, streaming typed events (v8.53.0).
+The assistant's routes: one for every view, streaming typed events (v9.0.0).
 
 POST /api/assistant/route        -> which workflow a typed message wants, in
                                     the view it was typed in (JSON, not SSE)
@@ -11,7 +11,7 @@ POST /api/assistant/route/place  -> what a message is about: here, General, or
 POST /api/assistant              -> the workflow, streamed: an answer, a
                                     lecture over the graph, or a guided read
 
-Until v8.53.0 there was a route per assistant and per workflow (``/api/ask``,
+Until v9.0.0 there was a route per assistant and per workflow (``/api/ask``,
 ``ask_sources``, ``ask_course``, ``ask_reader``, ``lecture``,
 ``guide_reader``, and ``route`` / ``route_reader``). They differed in what the
 view lent the model and which tools it allowed, which is the

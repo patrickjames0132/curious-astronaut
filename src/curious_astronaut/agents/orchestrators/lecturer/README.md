@@ -179,7 +179,7 @@ say what to take quickly and what to slow down on. Served by
 ## Who uses it, and how/why
 
 - **`orchestrators/assistant`'s `lecture` workflow** (`POST /api/assistant`
-  in the `citations` view; `/api/lecture` before v8.53.0), per
+  in the `citations` view; `/api/lecture` before v9.0.0), per
   `skills/workflows/lecture.md`: pure delegation — it types the payload,
   calls `lecture(seed, nodes, target)` and the route relays the `Beat` stream through
   `streams.terminated`, which appends `Done`/`Error`. The route passes the
