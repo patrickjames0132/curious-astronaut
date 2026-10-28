@@ -177,7 +177,7 @@ describe('nodeRadius', () => {
 describe('citationWindow', () => {
   it('bounds nothing while both knobs rest at their ends', () => {
     // A citer added after the build with fewer citations than any neighbour
-    // (Peer Reviews' 4-citation paper on SAC's graph) must still be drawn.
+    // (Criticisms' 4-citation paper on SAC's graph) must still be drawn.
     expect(citationWindow(0, CITE_SLIDER_STEPS, 8, 5000)).toEqual([0, Infinity])
   })
 

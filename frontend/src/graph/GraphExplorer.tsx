@@ -360,9 +360,9 @@ export default function GraphExplorer({
   }, [tourStage, selectedId, graph, setSelectedId])
 
   // "Show in Citation Graph" from the Reader's citation card (v8.43.0) and
-  // Peer Reviews: select the paper and centre it once the layout has placed
+  // Criticisms: select the paper and centre it once the layout has placed
   // it (a graph just built hasn't yet). Cleared either way, so it acts once.
-  // The paper may not be on the canvas yet either: Peer Reviews adds a citer
+  // The paper may not be on the canvas yet either: Criticisms adds a citer
   // the graph lacks as a discovery, which the discovery effect below pushes
   // into `base` after this one runs, so the node is looked for until placed.
   const focusRequest = useAppSelector((state) => state.workspace.focusRequest)

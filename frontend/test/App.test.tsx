@@ -45,8 +45,10 @@ vi.mock('../src/knowledge/assistant/CourseAssistant', () => ({
 vi.mock('../src/reader/Reader', () => ({
   default: ({ children }: { children: ReactNode }) => <main data-testid="reader">{children}</main>,
 }))
-vi.mock('../src/reviews/PeerReviews', () => ({
-  default: ({ children }: { children: ReactNode }) => <main data-testid="reviews">{children}</main>,
+vi.mock('../src/criticisms/Criticisms', () => ({
+  default: ({ children }: { children: ReactNode }) => (
+    <main data-testid="criticisms">{children}</main>
+  ),
 }))
 vi.mock('../src/reader/ReaderAssistant', () => ({
   default: ({ collapsed, onClose }: { collapsed: boolean; onClose: () => void }) => (
@@ -250,7 +252,7 @@ it('puts “Back to reading” in the ↑’s place after a lesson opened from t
   expect(screen.queryByRole('button', { name: 'Back to reading' })).toBeNull()
 })
 
-it('puts “Back to Peer Reviews” in the ↑’s place after a citing paper shown from them', async () => {
+it('puts “Back to Criticisms” in the ↑’s place after a citing paper shown from them', async () => {
   const store = configureStore({ reducer: { workspace, transcript, explorations } })
   render(
     <Provider store={store}>
@@ -269,10 +271,10 @@ it('puts “Back to Peer Reviews” in the ↑’s place after a citing paper sh
   })
   expect(screen.queryByRole('button', { name: 'Back to this paper’s cards' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Back to reading' })).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'Back to Peer Reviews' }))
-  await screen.findByTestId('reviews')
-  // Back on Peer Reviews the way back is spent, and the app draws no ↑ of its
+  fireEvent.click(screen.getByRole('button', { name: 'Back to Criticisms' }))
+  await screen.findByTestId('criticisms')
+  // Back on Criticisms the way back is spent, and the app draws no ↑ of its
   // own: the card draws it (with Back to top), as the Reader does.
-  expect(screen.queryByRole('button', { name: 'Back to Peer Reviews' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Back to Criticisms' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Back to this paper’s cards' })).toBeNull()
 })

@@ -814,7 +814,7 @@ it('folds the contents away by a drag, and back only by the bump', async () => {
   const { container } = mount(<Reader thread={THREAD} />)
   const contents = await screen.findByRole('navigation', { name: 'Contents' })
   expect(contents.style.width).toBe('248px')
-  const handle = container.querySelector('.reader-contents-handle')!
+  const handle = container.querySelector('.contents-rail-handle')!
 
   // A drag sizes the panel like the other side panels...
   fireEvent.pointerDown(handle, { clientX: 248 })
@@ -835,7 +835,7 @@ it('folds the contents away by a drag, and back only by the bump', async () => {
   expect(screen.queryByRole('navigation', { name: 'Contents' })).toBeNull()
   expect(localStorage.getItem('ca.readerContentsOpen')).toBe('0')
   // Folded, there's no handle to drag open: only the bump brings them back.
-  expect(container.querySelector('.reader-contents-handle')).toBeNull()
+  expect(container.querySelector('.contents-rail-handle')).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Show contents' }))
   expect(screen.getByRole('navigation', { name: 'Contents' }).style.width).toBe('300px')
   expect(localStorage.getItem('ca.readerContentsOpen')).toBe('1')
@@ -1073,8 +1073,8 @@ it('lists the headings the server found when the PDF has no outline, numbers apa
   const contents = await screen.findByRole('navigation', { name: 'Contents' })
   await waitFor(() => expect(contents.querySelectorAll('ol button')).toHaveLength(2))
   const second = contents.querySelectorAll('ol button')[1]
-  expect(second.querySelector('.reader-contents-number')?.textContent).toBe('3.2')
-  expect(second.querySelector('.reader-contents-title')?.textContent).toBe('Attention')
+  expect(second.querySelector('.contents-rail-number')?.textContent).toBe('3.2')
+  expect(second.querySelector('.contents-rail-title')?.textContent).toBe('Attention')
 })
 
 it('jumps to a PDF heading’s place on its page, and keeps the clicked one active', async () => {
@@ -1596,5 +1596,5 @@ it('has one button over the paper: Back to top when scrolled, the ↑ to the car
     .explorations.byId.saved.threads.find((item) => item.id === THREAD.id)
   expect(saved?.tool).toBe('cards')
   // No second Back to top in the contents.
-  expect(document.querySelector('.reader-contents-top')).toBeNull()
+  expect(document.querySelector('.contents-rail-top')).toBeNull()
 })

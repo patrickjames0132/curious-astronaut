@@ -1,6 +1,6 @@
 # `agents.reviewer`
 
-The Peer Reviews card's themes: **what the field objected to in a paper**,
+The Criticisms card's themes: **what the field objected to in a paper**,
 grouped from the sentences in which later papers cite it, every quote a real
 sentence from a real citing paper.
 
@@ -49,7 +49,8 @@ From the 2026-10-24 prototype, on Attention and DDPM:
 ## Where it came from
 
 Prototyped 2026-10-24 (filed from `docs/brainstorm.md` as the Criticism
-card); named Peer Reviews and scoped with Patrick 2026-10-25. The full
+card); named Peer Reviews and scoped with Patrick 2026-10-25, and renamed
+Criticisms 2026-10-27 (the frontend's name; this package keeps its own). The full
 decision record, including why OpenReview's reviews wait for v2, is the
 card's entry in `docs/history.md` (until it ships, `OnePager.md`).
 

@@ -1,7 +1,7 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-The Peer Reviews route (routes/reviews.py): the card for a paper, a 400 for a
+The Criticisms route (routes/reviews.py): the card for a paper, a 400 for a
 body without one, and a 502 when Semantic Scholar or the model fails. The
 service is stubbed; its own tests are in ``services/reviews``.
 

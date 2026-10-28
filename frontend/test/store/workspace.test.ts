@@ -109,7 +109,7 @@ describe('showCiterInGraph', () => {
   }
 
   it('adds a citer the graph lacks, with its citation edge, and focuses it', async () => {
-    // Peer Reviews quotes the most-cited citers; the graph keeps only a cut.
+    // Criticisms quotes the most-cited citers; the graph keeps only a cut.
     const store = storeWith([makeNode('other')])
     const citer = makeNode('CorpusId:2', { rels: ['citation'] })
     await store.dispatch(showCiterInGraph(citer))

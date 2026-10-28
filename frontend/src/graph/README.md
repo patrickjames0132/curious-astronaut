@@ -54,10 +54,10 @@ them. Note the discovery data flow is one-way: teacher → store → explorer
 → `base` — the discovery *lists* live in the workspace slice (grounding,
 Save, and the legend read them there); this folder owns only the sim merge.
 It also acts on **`workspace.focusRequest`** (v8.43.0), the Reader citation
-card's and Peer Reviews' "Show in Citation Graph": it selects that paper
+card's and Criticisms' "Show in Citation Graph": it selects that paper
 (opening its detail panel) and centres it once the layout has placed it, then
 clears the request. It looks for the paper for up to two seconds rather than
-once: Peer Reviews may have just added it as a discovery, and the discovery
+once: Criticisms may have just added it as a discovery, and the discovery
 effect pushes it into `base` after the focus effect has run.
 
 **Focus** dims everything but one set of papers (`model.focusOf`). In
@@ -171,7 +171,7 @@ to anything in this folder.
   out and neither knob idles outside the real range.
 - `citationWindow`: the two knobs' window, where **a knob resting at its end
   bounds nothing** rather than the built graph's own min or max. Found at the
-  Peer Reviews card's review: a 4-citation citer it added to SAC's graph was
+  Criticisms card's review: a 4-citation citer it added to SAC's graph was
   selected but undrawn, under a floor set by the build's least-cited
   neighbour. The same floor hid low-cited papers an Expand added.
 - `formatPubDate`: parsed by hand, not `new Date` — date-only strings parse

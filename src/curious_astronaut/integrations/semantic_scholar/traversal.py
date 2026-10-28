@@ -463,7 +463,7 @@ def citations(paper_id: str, limit: int) -> list[dict]:
 def citing_sentences(paper_id: str, *, limit: int) -> list[dict]:
     """The sentences in which this paper's newest ~1,000 citers cite it, most-cited citer first.
 
-    The Peer Reviews card's **live fallback**, for a paper the corpus can't
+    The Criticisms card's **live fallback**, for a paper the corpus can't
     serve. One page of :data:`_RANK_POOL` citers with their ``contexts``, then
     ranked locally by the citers' citation counts, as :func:`citations` does.
     The page is S2's newest citers, not its most cited, so for a busy paper

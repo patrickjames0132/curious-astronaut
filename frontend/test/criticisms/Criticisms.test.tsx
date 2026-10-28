@@ -1,14 +1,18 @@
 // @vitest-environment jsdom
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
- * Description: The Peer Reviews card — its states, its themes and quotes, and the ways to a citing paper.
+ * Description: The Criticisms card — its states, its numbered criticisms and quotes, its contents, and the ways to a citing paper.
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import { configureStore } from '@reduxjs/toolkit'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import PeerReviews, { emptyReason, forgetGathered, provenance } from '../../src/reviews/PeerReviews'
+import Criticisms, {
+  emptyReason,
+  forgetGathered,
+  provenance,
+} from '../../src/criticisms/Criticisms'
 import workspace from '../../src/store/workspace'
 import transcript from '../../src/store/transcript'
 import explorations, {
@@ -17,7 +21,7 @@ import explorations, {
   type ThreadRecord,
 } from '../../src/store/explorations'
 import * as api from '../../src/api'
-import type { CitingPaper, PeerReviewsCard } from '../../src/api'
+import type { CitingPaper, CriticismsCard } from '../../src/api'
 
 beforeEach(() => forgetGathered())
 afterEach(() => {
@@ -57,7 +61,7 @@ function citer(id: string, title: string, arxivId: string | null = null): Citing
   return { id, arxiv_id: arxivId, title, year: 2020, authors: 'A', citation_count: 1200, url: null }
 }
 
-const CARD: PeerReviewsCard = {
+const CARD: CriticismsCard = {
   source: 'corpus',
   citers: 200,
   sentences: 310,
@@ -91,17 +95,17 @@ function mount() {
   store.dispatch(explorationOpened(record))
   render(
     <Provider store={store}>
-      <PeerReviews thread={THREAD} />
+      <Criticisms thread={THREAD} />
     </Provider>,
   )
   return store
 }
 
 it('gathers the card for the thread’s paper and shows its themes and first quotes', async () => {
-  const fetch = vi.spyOn(api, 'fetchPeerReviews').mockResolvedValue(CARD)
+  const fetch = vi.spyOn(api, 'fetchCriticisms').mockResolvedValue(CARD)
   mount()
   expect(screen.getByText(/Reading what later papers said/)).toBeTruthy()
-  await screen.findByRole('heading', { name: 'Cost grows quadratically with length' })
+  await screen.findByRole('heading', { name: '1Cost grows quadratically with length' })
   expect(fetch).toHaveBeenCalledWith(
     expect.objectContaining({ id: 'CorpusId:1', arxiv_id: '1706.03762', year: 2017 }),
     false,
@@ -116,7 +120,7 @@ it('gathers the card for the thread’s paper and shows its themes and first quo
 
 it('says why there are no themes, and offers a retry on failure', async () => {
   const fetch = vi
-    .spyOn(api, 'fetchPeerReviews')
+    .spyOn(api, 'fetchCriticisms')
     .mockRejectedValueOnce(new Error('Semantic Scholar didn’t answer.'))
     .mockResolvedValueOnce({ ...CARD, themes: [], critiques: 0 })
   mount()
@@ -127,7 +131,7 @@ it('says why there are no themes, and offers a retry on failure', async () => {
 })
 
 it('opens a citing paper as its own thread, by arXiv id when it has one', async () => {
-  vi.spyOn(api, 'fetchPeerReviews').mockResolvedValue(CARD)
+  vi.spyOn(api, 'fetchCriticisms').mockResolvedValue(CARD)
   const seed = vi.spyOn(api, 'fetchPaperDetail').mockRejectedValue(new Error('offline'))
   mount()
   await screen.findByText('Linformer')
@@ -144,7 +148,7 @@ it('describes each source and each empty card honestly', () => {
 })
 
 it('shows a citing paper in the Citation Graph with a way back here, and keeps its place', async () => {
-  vi.spyOn(api, 'fetchPeerReviews').mockResolvedValue(CARD)
+  vi.spyOn(api, 'fetchCriticisms').mockResolvedValue(CARD)
   vi.spyOn(api, 'fetchGraph').mockRejectedValue(new Error('offline'))
   vi.spyOn(api, 'fetchGraphStream').mockRejectedValue(new Error('offline'))
   const store = mount()
@@ -164,11 +168,11 @@ it('shows a citing paper in the Citation Graph with a way back here, and keeps i
 })
 
 it('trades the ↑ to the cards for Back to top once scrolled down', async () => {
-  vi.spyOn(api, 'fetchPeerReviews').mockResolvedValue(CARD)
+  vi.spyOn(api, 'fetchCriticisms').mockResolvedValue(CARD)
   const store = mount()
   await screen.findByText('Linformer')
   expect(screen.queryByRole('button', { name: 'Back to top' })).toBeNull()
-  const page = document.querySelector<HTMLElement>('.reviews-page')!
+  const page = document.querySelector<HTMLElement>('.criticisms-page')!
   page.scrollTop = 600
   fireEvent.scroll(page)
   fireEvent.click(await screen.findByRole('button', { name: 'Back to top' }))
@@ -179,4 +183,54 @@ it('trades the ↑ to the cards for Back to top once scrolled down', async () =>
   expect(record.byId[record.activeId].threads.find((item) => item.id === 'attn')!.tool).toBe(
     'cards',
   )
+})
+
+it('numbers the criticisms and lists them in the contents, going to one on a click', async () => {
+  localStorage.removeItem('ca.criticismsContentsOpen')
+  const second = {
+    ...CARD.themes[0],
+    name: 'Positional encodings don’t extrapolate',
+    summary: 'Lengths unseen in training break it.',
+  }
+  vi.spyOn(api, 'fetchCriticisms').mockResolvedValue({ ...CARD, themes: [CARD.themes[0], second] })
+  mount()
+  await screen.findByRole('heading', { name: '2Positional encodings don’t extrapolate' })
+  const contents = screen.getByRole('navigation', { name: 'Contents' })
+  const entries = Array.from(contents.querySelectorAll('button')).filter(
+    (button) => button.closest('li') !== null,
+  )
+  expect(entries.map((button) => button.textContent)).toEqual([
+    '1Cost grows quadratically with length',
+    '2Positional encodings don’t extrapolate',
+  ])
+  // A click lights the one clicked, whatever the scroll says (jsdom lays
+  // every section at 0), and scrolls the page to it.
+  const page = document.querySelector<HTMLElement>('.criticisms-page')!
+  page.scrollTo = vi.fn()
+  fireEvent.click(entries[0])
+  expect(entries[0].getAttribute('aria-current')).toBe('location')
+  expect(entries[1].getAttribute('aria-current')).toBeNull()
+  expect(page.scrollTo).toHaveBeenCalled()
+  fireEvent.click(entries[1])
+  expect(entries[1].getAttribute('aria-current')).toBe('location')
+})
+
+it('folds the contents away and remembers it, apart from the Reader’s', async () => {
+  localStorage.removeItem('ca.criticismsContentsOpen')
+  localStorage.removeItem('ca.readerContentsOpen')
+  vi.spyOn(api, 'fetchCriticisms').mockResolvedValue(CARD)
+  mount()
+  fireEvent.click(await screen.findByRole('button', { name: 'Hide contents' }))
+  expect(localStorage.getItem('ca.criticismsContentsOpen')).toBe('0')
+  expect(localStorage.getItem('ca.readerContentsOpen')).toBeNull()
+  fireEvent.click(await screen.findByRole('button', { name: 'Show contents' }))
+  expect(localStorage.getItem('ca.criticismsContentsOpen')).toBe('1')
+})
+
+it('draws no contents for an empty card', async () => {
+  vi.spyOn(api, 'fetchCriticisms').mockResolvedValue({ ...CARD, themes: [], critiques: 0 })
+  mount()
+  await screen.findByText(/None of the 310 sentences/)
+  expect(screen.queryByRole('navigation', { name: 'Contents' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Show contents' })).toBeNull()
 })

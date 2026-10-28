@@ -41,9 +41,9 @@ citations) auto-runs on the first course, since v8.14.0; **READER_TOUR**
 menu and the Reader Assistant's 🎓 since v8.38.0, the Text/PDF switch since
 v8.40.0, the Knowledge Graph notes since v8.44.0 (only when a course has
 put some there), the ↑ back)
-auto-runs on the first paper read, since v8.37.0; **REVIEWS_TOUR** (the
-Peer Reviews card: where its critiques come from, the themes and their real
-quotes, the ↑ back) auto-runs on the first one opened. `App.tsx`
+auto-runs on the first paper read, since v8.37.0; **CRITICISMS_TOUR** (the
+Criticisms card: where its critiques come from, the numbered criticisms and
+their real quotes, its contents, the ↑ back) auto-runs on the first one opened. `App.tsx`
 picks the list by which of the six is on screen —
 the same "?" click tours whatever the user is actually looking at. Swapping the `steps` prop mid-run restarts the walk from the new list's
 first stop.

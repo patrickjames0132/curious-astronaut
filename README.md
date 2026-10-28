@@ -14,7 +14,7 @@ for searches and broad questions (start as many as you like with the ＋; each
 is named after its first question), and **Papers**, a thread for each paper
 you open (its ＋ opens a chat with `@` typed, ready to find one). A paper thread opens on its **card home**: the paper (title,
 authors, TL;DR) and a card for each tool that works on it: the **Citation Graph**,
-the **Knowledge Graph**, the **Reader** and **Peer Reviews**. The Citation Graph builds only when you open its card, and clicking a thread in the sidebar always
+the **Knowledge Graph**, the **Reader** and **Criticisms**. The Citation Graph builds only when you open its card, and clicking a thread in the sidebar always
 brings you back to its cards; the graph you left is kept in memory, conversation and all. Each graph
 docks its own AI assistant (🎓): the **Citation Graph Assistant** and the
 **Knowledge Graph Assistant**, which reads the course and its lessons; the cards
@@ -91,15 +91,16 @@ steps go quickly over what you've ticked off in the paper's Knowledge Graph
 course and slow down on what you're still learning. Scrolled down, the button
 over the paper becomes **Back to top**.
 
-**Peer Reviews** is what the field objected to in the paper: the weaknesses
-later papers found, grouped into themes, each quoted word for word from the
-paper that raised it, with how many papers raise it. Not conference reviews:
+**Criticisms** is what the field objected to in the paper: the weaknesses
+later papers found, numbered, each quoted word for word from the paper that
+raised it, with how many papers raise it, and listed in a contents panel on
+the left like the Reader's. Not conference reviews:
 they come from the sentences in which later papers cite this one, read from
 its most-cited citers when the offline corpus is set up (`astronaut corpus
 contexts` builds what it needs), otherwise from its most recent ones, and the
 card says which. Open any citing paper as its own thread, or show it in the
 Citation Graph: often the paper that names a weakness is the one that fixed it.
-From the graph, **Back to Peer Reviews** returns you to the same place in them.
+From the graph, **Back to Criticisms** returns you to the same place in them.
 
 An enlarged figure covers the middle of the app, never the sidebar or a
 docked assistant, so an assistant explaining a figure stays readable beside it.
