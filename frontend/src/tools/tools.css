@@ -102,7 +102,7 @@
   --card-accent: var(--reader-ink);
 }
 .tool-card-reviews {
-  --card-accent: var(--reviews-ink);
+  --card-accent: var(--criticisms-ink);
 }
 /* Individual transforms compose with the entrance animation's transform;
    its forwards fill must not pin the hover lift back at translateY(0). */
@@ -332,7 +332,7 @@
   min-width: 0;
 }
 
-/* Back to top (`ScrollNav`, the Reader's and Peer Reviews'): words alone
+/* Back to top (`ScrollNav`, the Reader's and Criticisms'): words alone
    (Patrick), until the window is narrow enough that the tool-return pill
    shrinks to its icon, which is all it shows. */
 .tool-return.tool-to-top {

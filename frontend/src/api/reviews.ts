@@ -2,8 +2,9 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The Peer Reviews card's call: what the field objected to in a paper, each
- * concern quoted from the later paper that raised it. One JSON request,
+ * The Criticisms card's call: what the field objected to in a paper, each
+ * concern quoted from the later paper that raised it. The route keeps its
+ * first name, `/api/reviews`, as the server's cache does. One JSON request,
  * cached server-side for a month, so reopening the card costs nothing.
  *
  * Authors:
@@ -11,7 +12,7 @@
  */
 
 /** The paper a card is about, as the thread holds it. */
-export interface ReviewedPaper {
+export interface CriticisedPaper {
   id: string
   arxiv_id?: string | null
   title?: string | null
@@ -32,19 +33,19 @@ export interface CitingPaper {
 }
 
 /** One sentence from a citing paper, word for word. */
-export interface ReviewQuote {
+export interface CriticismQuote {
   text: string
   paper: CitingPaper
 }
 
 /** One concern the field raised. */
-export interface ReviewTheme {
+export interface Criticism {
   name: string
   summary: string
   /** How many distinct papers raise it. */
   papers: number
   /** Its sentences, the most-cited paper's first. */
-  quotes: ReviewQuote[]
+  quotes: CriticismQuote[]
 }
 
 /**
@@ -52,7 +53,7 @@ export interface ReviewTheme {
  * corpus's most-cited citers (`corpus`), S2's newest ~1,000 (`live`), or
  * nowhere, because Semantic Scholar couldn't find the paper (null).
  */
-export interface PeerReviewsCard {
+export interface CriticismsCard {
   source: 'corpus' | 'live' | null
   /** Citing papers whose sentences were read. */
   citers: number
@@ -60,11 +61,11 @@ export interface PeerReviewsCard {
   sentences: number
   /** Sentences judged critiques of this paper. */
   critiques: number
-  themes: ReviewTheme[]
+  themes: Criticism[]
 }
 
 /**
- * Gather a paper's Peer Reviews card.
+ * Gather a paper's Criticisms card.
  *
  * @param paper The thread's paper.
  * @param fresh Skip the server's cached card and replace it.
@@ -72,11 +73,11 @@ export interface PeerReviewsCard {
  * @returns The card.
  * @throws With the server's message when Semantic Scholar or the model fails.
  */
-export async function fetchPeerReviews(
-  paper: ReviewedPaper,
+export async function fetchCriticisms(
+  paper: CriticisedPaper,
   fresh = false,
   signal?: AbortSignal,
-): Promise<PeerReviewsCard> {
+): Promise<CriticismsCard> {
   const res = await fetch('/api/reviews', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -84,6 +85,6 @@ export async function fetchPeerReviews(
     signal,
   })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `Could not gather the reviews (${res.status})`)
-  return data as PeerReviewsCard
+  if (!res.ok) throw new Error(data.error || `Could not gather the criticisms (${res.status})`)
+  return data as CriticismsCard
 }

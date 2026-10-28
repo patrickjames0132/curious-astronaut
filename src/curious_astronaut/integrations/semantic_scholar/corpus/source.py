@@ -715,7 +715,7 @@ def citation_relations(
 def citing_sentences(seed_paper: dict, seed_ref: str, *, limit: int) -> list[dict] | None:
     """A paper's most-cited citers with their citing sentences — or None to fall back.
 
-    The Peer Reviews card's corpus path: the citation-count ranking only the
+    The Criticisms card's corpus path: the citation-count ranking only the
     corpus can serve, restricted to citers whose sentences the contexts table
     keeps. Resolves the seed exactly as :func:`citation_relations` does.
 

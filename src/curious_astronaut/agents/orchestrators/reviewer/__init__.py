@@ -1,7 +1,7 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-The reviewer: the Peer Reviews card's themes — what later papers objected to
+The reviewer: the Criticisms card's themes — what later papers objected to
 in a paper, quoted from the sentences in which they cite it.
 
 * ``main``   — the judge and group ``Agent``s, their output models, the

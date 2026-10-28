@@ -10,7 +10,7 @@ orchestrators/
   researcher/     — agentic Q&A, with or without a graph
   lecturer/       — the streaming lecture over the visible graph
   summarizer/     — one-shot paper TL;DRs
-  reviewer/       — the Peer Reviews card: what later papers objected to
+  reviewer/       — the Criticisms card: what later papers objected to
   tutor/          — the knowledge network: prerequisites and their lessons
   router/         — which of the two a typed message wants
 ```

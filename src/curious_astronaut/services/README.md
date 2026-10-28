@@ -27,7 +27,7 @@ Each feature is its own package; see each package's README:
 - **`reader/`** — the Reader card's joins to the rest of the app: its
   bibliography matched to the papers it names (`citations`), for the
   citation cards.
-- **`reviews/`** — the Peer Reviews card: a paper's most-cited citers'
+- **`reviews/`** — the Criticisms card: a paper's most-cited citers'
   citing sentences (the corpus's, else S2's live), judged and grouped by
   the `reviewer` agent into what the field objected to. **The other service
   that depends on `agents/`**, and at the top: building the card is the

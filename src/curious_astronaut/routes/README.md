@@ -301,7 +301,7 @@ same synthesis and never paid for twice; a synthesis needs two or more members
   addresses (and the lessons), after which a saved lesson's web image is a
   404.
 
-## `reviews.py` — the Peer Reviews card
+## `reviews.py` — the Criticisms card
 
 - **`POST /api/reviews`** takes the thread's paper (`id`, plus `arxiv_id`,
   `title`, `authors`, `year`, `url` when known; anything else is dropped)

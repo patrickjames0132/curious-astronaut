@@ -56,8 +56,11 @@ import {
 } from '../store/explorations'
 import { graphFocusRequested, openPaper, openTool } from '../store/workspace'
 import AuthorList from '../ui/AuthorList'
-import { usePresence } from '../ui/usePresence'
-import { useResizablePanel } from '../ui/useResizablePanel'
+import ContentsRail, {
+  useContentsRail,
+  usePinnedEntry,
+  type ContentsEntry,
+} from '../contents/ContentsRail'
 import { Blocks, Inlines } from './ReaderBody'
 import CitationCard, { type CitationActions } from './CitationCard'
 import ConceptCard from './ConceptCard'
@@ -81,10 +84,6 @@ import './reader.css'
 
 /** Sections deeper than this (paragraph headings) stay out of the contents. */
 const CONTENTS_DEPTH = 3
-
-/** Longer than the contents' slide (--motion-panel), in ms: when the
- *  reading pane's glide is over even if its animationend never came. */
-const GLIDE_FALLBACK = 600
 
 /** Room left above a PDF heading a jump lands on, as the text view's
  *  `scroll-padding-top` leaves above its headings. */
@@ -166,17 +165,6 @@ function pdfScale(page: HTMLElement): number {
 const CONTENTS_KEY = 'ca.readerContentsOpen'
 /** The contents' dragged width, remembered the same way. */
 const CONTENTS_WIDTH_KEY = 'ca.readerContentsWidth'
-
-/** The remembered contents state: open unless folded away before.
- * @returns Whether the contents start open.
- */
-function storedContentsOpen(): boolean {
-  try {
-    return localStorage.getItem(CONTENTS_KEY) !== '0'
-  } catch {
-    return true // storage blocked: open, the default
-  }
-}
 
 /** Why the Text button is off, by reason: a paper with only its PDF. */
 const NO_TEXT: Record<ReaderUnavailable, string> = {
@@ -282,55 +270,9 @@ export default function Reader({
   const pageRef = useRef<HTMLDivElement>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [enlarged, setEnlarged] = useState<AnswerFigure | null>(null)
-  const [contentsOpen, setContentsOpen] = useState(storedContentsOpen)
-  // The panel slides like the app's docked panels: out on fold, back in on
-  // reopen — but not on every arrival at the Reader, so only after a toggle.
-  const [contentsToggled, setContentsToggled] = useState(false)
-  const contentsPresence = usePresence(contentsOpen)
-  // Folded by a drag, the panel is already as narrow as it goes: it snaps
-  // away instead of sliding, or it would first jump back to its width.
-  const [contentsSnapped, setContentsSnapped] = useState(false)
-  // The reading pane takes its new width at once and its contents glide
-  // there (a transform), rather than the pane resizing every frame of the
-  // slide: re-laying out a whole paper sixty times a second lagged.
-  const [glide, setGlide] = useState<'open' | 'close' | null>(null)
-  // Ended by its animationend; this catches one that never comes, which
-  // would leave the pane unable to scroll sideways.
-  useEffect(() => {
-    if (!glide) return
-    const timer = window.setTimeout(() => setGlide(null), GLIDE_FALLBACK)
-    return () => window.clearTimeout(timer)
-  }, [glide])
-  const toggleContents = (open: boolean, snap = false) => {
-    setContentsToggled(true)
-    setContentsSnapped(snap)
-    // No glide when motion is reduced: no animation, so nothing would end it.
-    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    setGlide(snap || still ? null : open ? 'open' : 'close')
-    setContentsOpen(open)
-    try {
-      localStorage.setItem(CONTENTS_KEY, open ? '1' : '0')
-    } catch {
-      // storage blocked: the choice lasts for this visit only
-    }
-  }
-  // Resized by dragging its right edge, like the app's other side panels; a
-  // drag well past the floor folds it away. Unlike the explorer rail, a drag
-  // never opens it again: folded, it has no handle, only the bump — so the
-  // two left-hand panels never compete for one pointer (Patrick, 2026-10-23).
-  const contentsPanel = useResizablePanel(CONTENTS_WIDTH_KEY, 248, {
-    min: 180,
-    max: 420,
-    maxFraction: 0.35,
-    side: 'left',
-    fold: {
-      collapsed: !contentsOpen,
-      collapsedWidth: 0,
-      closeAt: 130,
-      openAt: Number.POSITIVE_INFINITY, // never reopened by a drag
-      onToggle: () => toggleContents(false, true),
-    },
-  })
+  // The contents rail (`contents/`): open or folded, its width, and the
+  // glide the reading pane plays as it slides.
+  const rail = useContentsRail(CONTENTS_KEY, CONTENTS_WIDTH_KEY)
 
   useEffect(() => {
     if (!ref) {
@@ -656,23 +598,12 @@ export default function Reader({
   )
 
   // A contents entry clicked stays the active one until the reader scrolls
-  // by hand: two headings close together on a page would otherwise light the
-  // later one, both having passed the top third once the jump lands.
-  const [pinnedId, setPinnedId] = useState<string | null>(null)
+  // by hand.
+  const [pinnedId, setPinnedId] = usePinnedEntry(pageRef)
   // Whether the pane is at the top of the paper: the button over it is the
   // ↑ to the cards there, and Back to top anywhere below.
   const atTop = useAtTop(pageRef, view)
-  useEffect(() => {
-    const pane = pageRef.current
-    if (!pane || !pinnedId) return
-    const release = () => setPinnedId(null)
-    const events = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const
-    for (const name of events) pane.addEventListener(name, release, { passive: true })
-    return () => {
-      for (const name of events) pane.removeEventListener(name, release)
-    }
-  }, [pinnedId])
-  useEffect(() => setPinnedId(null), [view])
+  useEffect(() => setPinnedId(null), [view, setPinnedId])
 
   // The contents follow the reading: the active entry is the last heading
   // that has scrolled past the top third of the page.
@@ -726,6 +657,19 @@ export default function Reader({
     return () => pane.removeEventListener('scroll', update)
   }, [view, pdfInfo, outline])
   const shownActiveId = pinnedId ?? (view === 'pdf' ? outlineActive : activeId)
+  const railEntries = useMemo(
+    () =>
+      contents.map(
+        (section): ContentsEntry => ({
+          id: section.id,
+          level: section.level,
+          number: section.number,
+          title: <Inlines inlines={section.title} />,
+          label: plainText(section.title),
+        }),
+      ),
+    [contents],
+  )
 
   // Where the reader is (v8.44.0): the section or page at the top of the
   // pane and how far into it, kept as they scroll and saved on the thread
@@ -1210,109 +1154,26 @@ export default function Reader({
   return (
     <div
       className="reader"
-      style={{ '--contents-width': `${contentsPanel.width}px` } as CSSProperties}
+      style={{ '--contents-width': `${rail.panel.width}px` } as CSSProperties}
     >
-      {contents.length > 0 && !contentsPresence.present && (
-        <button
-          type="button"
-          className={`reader-contents-folded${contentsToggled ? ' arriving' : ''}`}
-          data-tour="reader-contents"
-          aria-expanded={false}
-          aria-controls="reader-contents"
-          onClick={() => toggleContents(true)}
-          title="Show contents"
-          aria-label="Show contents"
-        >
-          <span className="reader-contents-bump" aria-hidden="true">
-            <svg viewBox="0 0 10 16" width="10" height="16">
-              <path
-                d="M3 3.5 7.5 8 3 12.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-        </button>
-      )}
-      {contents.length > 0 && contentsPresence.present && (
-        <nav
-          className={`reader-contents${contentsToggled ? ' sliding' : ''}${
-            contentsPresence.closing ? (contentsSnapped ? ' closing snap' : ' closing') : ''
-          }${contentsPanel.dragging ? ' dragging' : ''}`}
-          style={{ width: contentsPanel.width }}
-          onAnimationEnd={contentsPresence.onAnimationEnd}
+      {contents.length > 0 && (
+        <ContentsRail
+          rail={rail}
+          entries={railEntries}
+          activeId={shownActiveId}
+          onPick={(id) => {
+            setPinnedId(id)
+            jump(id)
+          }}
           id="reader-contents"
-          aria-label="Contents"
-          data-tour="reader-contents"
-        >
-          {/* The list scrolls inside a frame that doesn't, so the handle on
-              the frame's edge stays put however far down the list is. */}
-          <div className="reader-contents-scroll">
-            <p className="reader-contents-label">Contents</p>
-            <ol>
-              {contents.map((section) => (
-                <li key={section.id} className={`reader-contents-level-${section.level}`}>
-                  <button
-                    type="button"
-                    className={section.id === shownActiveId ? 'active' : undefined}
-                    aria-current={section.id === shownActiveId ? 'location' : undefined}
-                    onClick={() => {
-                      setPinnedId(section.id)
-                      jump(section.id)
-                    }}
-                    title={plainText(section.title)}
-                  >
-                    {section.number && (
-                      <span className="reader-contents-number">{section.number}</span>
-                    )}
-                    <span className="reader-contents-title">
-                      <Inlines inlines={section.title} />
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </div>
-          <div
-            className="reader-contents-handle"
-            onPointerDown={contentsPanel.onHandlePointerDown}
-            title="Drag to resize the contents; drag it narrow to fold them away"
-            aria-hidden="true"
-          />
-          {/* The fold's mirror: the same coral line and bump, on the panel's
-              inside edge, pointing back the way it goes. */}
-          <button
-            type="button"
-            className="reader-contents-hide"
-            aria-expanded={true}
-            aria-controls="reader-contents"
-            onClick={() => toggleContents(false)}
-            title="Hide contents"
-            aria-label="Hide contents"
-          >
-            <svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true">
-              <path
-                d="M7 3.5 2.5 8 7 12.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        </nav>
+          tour="reader-contents"
+        />
       )}
       {/* The shell's overlays go over the reading pane, not the whole
           Reader, so the ↑ back centres over the text, not the contents. */}
       <div
-        className={`reader-main${glide ? ` glide-${glide}` : ''}`}
-        onAnimationEnd={(event) => {
-          if (event.animationName.startsWith('reader-glide')) setGlide(null)
-        }}
+        className={`reader-main${rail.glide ? ` glide-${rail.glide}` : ''}`}
+        onAnimationEnd={(event) => rail.onGlideEnd(event.animationName)}
       >
         {children}
         {/* One button over the paper, two jobs: Back to top scrolled down,

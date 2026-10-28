@@ -1,6 +1,6 @@
 # `services.reviews`
 
-The Peer Reviews card: what the field objected to in a paper, each concern
+The Criticisms card: what the field objected to in a paper, each concern
 quoted from the later paper that raised it. `peer_reviews(paper)` is what
 `POST /api/reviews` calls.
 

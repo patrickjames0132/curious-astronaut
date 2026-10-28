@@ -12,256 +12,25 @@
 
 /* --- contents ------------------------------------------------------------ */
 
-/* The frame: sized by the drag (an inline width, `--contents-width` for the
-   slide), and the handle's anchor. The list scrolls inside it. */
-.reader-contents {
-  --contents-width: 248px;
-  position: relative;
-  flex: none;
-  width: var(--contents-width);
-  box-sizing: border-box;
-  /* The same thin coral line the folded state shows, so open and folded
-     read as one control. */
-  border-right: 3px solid var(--contents-line);
-  transition: border-color var(--motion-pop) var(--ease-rise);
-}
+/* The rail itself is shared (`contents/contents.css`); the Reader lends it
+   its coral. */
 .reader {
-  --contents-line: color-mix(in srgb, var(--reader-ink) 45%, var(--border));
-}
-/* Open: the bump sits on the line's inside, pointing back (‹), and folds the
-   panel away. Above the drag handle, which covers the rest of the edge. */
-.reader-contents-hide {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  z-index: 4;
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 52px;
-  padding: 0;
-  border: 0;
-  translate: 0 -50%;
-  border-radius: 12px 0 0 12px;
-  background: var(--contents-line);
-  color: var(--text-strong);
-  cursor: pointer;
-  transition:
-    background-color var(--motion-pop) var(--ease-rise),
-    width var(--motion-pop) var(--ease-rise);
-}
-.reader-contents-hide:hover {
-  width: 24px;
-  background: var(--reader-ink);
-}
-.reader-contents:has(.reader-contents-hide:hover) {
-  border-right-color: var(--reader-ink);
-}
-.reader-contents-hide:focus-visible {
-  outline: 2px solid var(--reader-ink);
-  outline-offset: 2px;
-}
-.reader-contents-scroll {
-  height: 100%;
-  box-sizing: border-box;
-  padding: 64px 12px 32px 20px;
-  overflow-y: auto;
-}
-.reader-contents.dragging {
-  user-select: none;
-}
-/* The drag handle: the frame's right edge, the explorer rail's handle
-   mirrored onto the text side (shell.css `.rail-handle`). */
-.reader-contents-handle {
-  position: absolute;
-  top: 0;
-  right: -4px;
-  z-index: 3;
-  width: 7px;
-  height: 100%;
-  cursor: col-resize;
-}
-.reader-contents-handle:hover,
-.reader-contents.dragging .reader-contents-handle {
-  background: linear-gradient(
-    to right,
-    transparent 2px,
-    var(--accent) 2px,
-    var(--accent) 5px,
-    transparent 5px
-  );
-}
-/* Folding slides the panel off the left edge and the text glides after it:
-   the docked panels' motion (panel-in / panel-out, --motion-panel),
-   mirrored. Only after a toggle — arriving at the Reader doesn't replay it.
-   All of it moves by transform: the layout changes once, at the start (a
-   closing panel leaves the flow, an opening one takes its width), and the
-   reading pane's contents glide from where they were (`.glide-*` below).
-   Animating the panel's margin instead resized the pane every frame, and
-   re-laying out a whole paper each frame lagged (Patrick, 2026-10-24). */
-.reader-contents.sliding {
-  animation: contents-in var(--motion-panel) var(--ease-rise) both;
-}
-.reader-contents.closing {
-  position: absolute;
-  inset: 0 auto 0 0;
-  z-index: 1;
-  animation: contents-out var(--motion-panel) var(--ease-fade) both;
-  pointer-events: none;
-}
-/* Folded by a drag: gone at once, like the explorer rail's drag-fold. */
-.reader-contents.closing.snap {
-  animation-duration: 1ms;
-}
-@keyframes contents-in {
-  from {
-    translate: calc(-1 * var(--contents-width)) 0;
-    opacity: 0;
-  }
-}
-@keyframes contents-out {
-  to {
-    translate: calc(-1 * var(--contents-width)) 0;
-    opacity: 0;
-  }
+  --contents-ink: var(--reader-ink);
 }
 /* The reading pane's contents (the text or the pages, the ↑ back, the
-   switch) start where the old layout had them, half the panel's width over
-   since they're centred, and glide home. `translate`, not `transform`, so
-   an overlay's own centring transform is left alone; the pane clips sideways
-   meanwhile so the glide can't flash a scrollbar. */
+   switch) glide after the rail (`contents-glide-*`). `translate`, not
+   `transform`, so an overlay's own centring transform is left alone; the
+   pane clips sideways meanwhile so the glide can't flash a scrollbar. */
 .reader-main.glide-open > :not(.reader-page),
 .reader-main.glide-open > .reader-page > * {
-  animation: reader-glide-open var(--motion-panel) var(--ease-rise) both;
+  animation: contents-glide-open var(--motion-panel) var(--ease-rise) both;
 }
 .reader-main.glide-close > :not(.reader-page),
 .reader-main.glide-close > .reader-page > * {
-  animation: reader-glide-close var(--motion-panel) var(--ease-fade) both;
+  animation: contents-glide-close var(--motion-panel) var(--ease-fade) both;
 }
 .reader-main:is(.glide-open, .glide-close) > .reader-page {
   overflow-x: hidden;
-}
-@keyframes reader-glide-open {
-  from {
-    translate: calc(-0.5 * var(--contents-width)) 0;
-  }
-}
-@keyframes reader-glide-close {
-  from {
-    translate: calc(0.5 * var(--contents-width)) 0;
-  }
-}
-.reader-contents-folded:focus-visible .reader-contents-bump {
-  outline: 2px solid var(--reader-ink);
-  outline-offset: 2px;
-}
-
-/* Folded away: a thin line down the left edge with a bump at mid-height
-   holding a › — deliberately unlike the sidebar's icon rail (Patrick,
-   2026-10-23). The line and the bump are one button; the line's hit area is
-   wider than it looks. */
-.reader-contents-folded {
-  position: relative;
-  flex: none;
-  z-index: 1;
-  /* Clear of the explorer rail's handle, which reaches 4px past the rail's
-     edge: a click on the line must never start a rail drag. */
-  margin-left: 4px;
-  width: 14px;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-}
-.reader-contents-folded::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 3px;
-  background: var(--contents-line);
-  transition: background-color var(--motion-pop) var(--ease-rise);
-}
-.reader-contents-bump {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 52px;
-  translate: 0 -50%;
-  border-radius: 0 12px 12px 0;
-  background: var(--contents-line);
-  color: var(--text-strong);
-  transition:
-    background-color var(--motion-pop) var(--ease-rise),
-    width var(--motion-pop) var(--ease-rise);
-}
-/* Appears once the panel has slid away, not over it. */
-.reader-contents-folded.arriving {
-  animation: fade var(--motion-pop) var(--ease-rise) both;
-}
-.reader-contents-folded:hover::before,
-.reader-contents-folded:hover .reader-contents-bump {
-  background: var(--reader-ink);
-}
-.reader-contents-folded:hover .reader-contents-bump {
-  width: 24px;
-}
-
-.reader-contents-label {
-  margin: 0 0 10px 8px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.reader-contents ol {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.reader-contents ol button {
-  display: flex;
-  gap: 8px;
-  width: 100%;
-  padding: 5px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.35;
-  text-align: left;
-  cursor: pointer;
-}
-.reader-contents ol button:hover {
-  background: var(--hover);
-  color: var(--text);
-}
-.reader-contents ol button.active {
-  background: color-mix(in srgb, var(--reader-ink) 12%, transparent);
-  color: var(--text-strong);
-}
-.reader-contents .reader-contents-level-2 button {
-  padding-left: 20px;
-}
-.reader-contents .reader-contents-level-3 button {
-  padding-left: 32px;
-  font-size: 12.5px;
-}
-.reader-contents-number {
-  flex: none;
-  min-width: 2ch;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.reader-contents ol button.active .reader-contents-number {
-  color: var(--reader-ink);
 }
 
 /* --- the page ------------------------------------------------------------ */
@@ -1268,15 +1037,6 @@
   .reader-zoom-fold {
     transition: none;
   }
-  .reader-contents-folded::before,
-  .reader-contents-bump,
-  .reader-contents,
-  .reader-contents-hide {
-    transition: none;
-  }
-  .reader-contents.sliding,
-  .reader-contents.closing,
-  .reader-contents-folded.arriving,
   .reader-page.from-right,
   .reader-page.from-left {
     animation: none;

@@ -1,7 +1,7 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-The Peer Reviews card's route: what the field objected to in a paper, quoted
+The Criticisms card's route: what the field objected to in a paper, quoted
 from the later papers that raised it. Thin over ``services/reviews``, which
 picks the source (the corpus's citing sentences, else S2 live), runs the
 reviewer and caches the card.
@@ -34,7 +34,7 @@ _PAPER_FIELDS = ("id", "arxiv_id", "title", "authors", "year", "url")
 
 @bp.post("/api/reviews")
 def api_reviews() -> ResponseReturnValue:
-    """The Peer Reviews card for one paper.
+    """The Criticisms card for one paper.
 
     Body:
         ``{paper: {id, arxiv_id?, title, authors?, year?, url?}, fresh?}``,
@@ -54,9 +54,9 @@ def api_reviews() -> ResponseReturnValue:
     try:
         card = reviews.peer_reviews(paper, fresh=payload.get("fresh") is True)
     except s2.S2Error:
-        log.warning("peer reviews: S2 failed for %s", paper["id"], exc_info=True)
+        log.warning("criticisms: S2 failed for %s", paper["id"], exc_info=True)
         return jsonify({"error": "Semantic Scholar didn't answer — try again in a moment."}), 502
     except Exception:
-        log.exception("peer reviews failed for %s", paper["id"])
+        log.exception("criticisms failed for %s", paper["id"])
         return jsonify({"error": "The reviews couldn't be gathered — try again."}), 502
     return jsonify(card)

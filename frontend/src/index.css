@@ -32,9 +32,9 @@
      the Reader's own red, not gold, which the Knowledge Graph's notes use there
      (Patrick). */
   --passage-lit: var(--reader-ink);
-  /* The Peer Reviews card's accent: sage, a fourth hue beside the blue, gold
+  /* The Criticisms card's accent: sage, a fourth hue beside the blue, gold
      and coral. */
-  --reviews-ink: #8cc79b;
+  --criticisms-ink: #8cc79b;
   /* The wordmark (.rail-brand): the visor rim's glass blue on dark (7.5:1 on
      the rail), a deeper glass on light (below). */
   --brand: #6fb6ce;
@@ -156,7 +156,7 @@
      the Reader's own red, not gold, which the Knowledge Graph's notes use there
      (Patrick). */
   --passage-lit: var(--reader-ink);
-  --reviews-ink: #2f7543;
+  --criticisms-ink: #2f7543;
   /* Deeper glass, 7.1:1 on the white rail (the rim blue was ~2.3:1). The
      visor glass itself (#12314a) was tried here in v8.7.0 and reverted. */
   --brand: #1d5f7a;

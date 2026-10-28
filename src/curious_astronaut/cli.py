@@ -597,7 +597,7 @@ def corpus_refresh(release_id: str | None, base_id: str | None, activate: bool) 
     )
 
 
-@corpus.command("contexts", help="Build a release's citing-sentences table (Peer Reviews).")
+@corpus.command("contexts", help="Build a release's citing-sentences table (Criticisms).")
 @click.option("--release", "release_id", default=None,
               help="Release id (default: the active CURRENT release).")
 def corpus_contexts(release_id: str | None) -> None:

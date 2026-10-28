@@ -4,7 +4,7 @@
  * Description:
  * A paper thread's card home: the paper at the top, then one card per tool
  * that works on it — the citation graph, (Phase 5b) the knowledge network,
- * the Reader (the paper itself), and Peer Reviews (what the field objected
+ * the Reader (the paper itself), and Criticisms (what the field objected
  * to). Opening a card switches the thread to that tool; clicking the
  * thread in the rail always comes back here (`openThread`).
  *
@@ -121,7 +121,7 @@ const CARDS: ToolCard[] = [
   },
   {
     tool: 'reviews',
-    title: 'Peer Reviews',
+    title: 'Criticisms',
     blurb:
       'What the field objected to: the weaknesses later papers found, each quoted from ' +
       'the paper that raised it.',
