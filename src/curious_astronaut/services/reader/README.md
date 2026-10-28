@@ -58,3 +58,24 @@ figure's caption.
   unreadable is left out, never an error.
 
 Tested with a real SVG rendered by pymupdf (`test_figures.py`).
+
+## `sections.py` — the paper as a placer reads it (v8.54.0)
+
+`paper_sections(paper, source, provider)` is what the margin notes' model
+calls read: the Knowledge Graph placer (`/api/knowledge/place`) and the
+reviewer's pins (`/api/reviews/notes`). Moved out of `routes/knowledge.py`
+when the second one needed it.
+
+- **The text** (`text_sections`): the arXiv render's sections down to
+  `DEPTH` (subsubsections, as deep as the Reader's contents), each with
+  the text of the deeper ones under it folded in. A paragraph heading
+  ("Encoder:") is a section of its own in the document, and its text belongs
+  to the subsection it sits in.
+- **The PDF** (`pdf_sections`), for a paper the Reader can only show as a
+  PDF: its contents entries as `pdf:<n>`, each with the text of the pages it
+  spans (at most `PDF_PAGES`), the reference list left out; empty without a
+  PDF, contents or the `pdf` extra.
+
+Its ids are the Reader's own (document section ids, or the n-th entry of
+`/pdf-contents`), which is what lets a note land where it was placed.
+Tested through both routes (`test_knowledge.py`, `test_reviews.py`).

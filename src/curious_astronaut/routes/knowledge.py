@@ -36,19 +36,17 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from typing import Any, Iterator
+from typing import Any, Iterator, Literal
 
 from flask import Blueprint, Response, jsonify, request
 from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
 
-from .. import optional
 from ..agents import events, factory, streams, traversal
 from ..agents.orchestrators import tutor
 from ..integrations import arxiv
-from ..integrations.arxiv import document as arxiv_document
-from ..services import pdf as pdf_service
 from ..services.graph import Provider
+from ..services.reader import sections as sections_service
 from ..storage import cache
 from .sse import sse, sse_response
 
@@ -573,86 +571,8 @@ def api_synthesis_lesson() -> ResponseReturnValue:
     )
 
 
-#: Sections placed in: down to subsubsections, as deep as the contents list.
-PLACE_DEPTH = 3
 #: The most concepts one placement reads (a course rarely nears it).
 PLACE_CONCEPTS = 120
-#: The most pages one PDF contents entry reads (an appendix can run long).
-PLACE_PDF_PAGES = 3
-
-
-def _place_sections(doc: dict[str, Any]) -> list[tutor.PaperSection]:
-    """The paper's sections as the placer reads them.
-
-    Sections down to ``PLACE_DEPTH``, each with the text of the deeper ones
-    under it folded in: a paragraph heading ("Encoder:", "Label Smoothing")
-    is a section of its own in the document, and its text belongs to the
-    subsection it sits in (Attention's layer normalization is only there).
-
-    Args:
-        doc: The paper's structured document.
-
-    Returns:
-        The sections, in order.
-    """
-    sections: list[tutor.PaperSection] = []
-    for section in doc.get("sections", []):
-        if section.get("level", 9) <= PLACE_DEPTH and section.get("title"):
-            sections.append(
-                tutor.PaperSection(
-                    id=str(section["id"]),
-                    heading=arxiv_document.section_heading(section),
-                    text=arxiv_document.section_text(section),
-                )
-            )
-        elif sections and section.get("level", 0) > PLACE_DEPTH:
-            sections[-1].text += "\n\n" + arxiv_document.section_text(section)
-    return sections
-
-
-def _pdf_place_sections(paper: str, provider: Provider) -> list[tutor.PaperSection]:
-    """A PDF's sections as the placer reads them (v8.44.0, the PDF view).
-
-    The PDF's table of contents (its outline, else the headings found in its
-    text: ``services/pdf/headings.py``), each entry with the text of the
-    pages it spans: from its own page up to the next entry's, or its page
-    alone when the next starts on the same one. Page-coarse, but the placer
-    only needs to know what each section is about.
-
-    Args:
-        paper: The paper's arXiv id, or its provider id.
-        provider: Who to ask for a non-arXiv paper's open-access PDF.
-
-    Returns:
-        ``pdf:<n>`` sections, ``n`` the entry's place in the contents (the
-        Reader's ``/pdf-contents`` lists the same, in the same order), the
-        reference list left out; empty
-        when there's no PDF, no contents, or no ``pdf`` extra.
-    """
-    url = pdf_service.paper_pdf_url(paper, provider)
-    if not url:
-        return []
-    try:
-        entries = pdf_service.get_pdf_contents(url).get("entries") or []
-        pages = pdf_service.get_pdf_pages(url).get("pages") or []
-    except optional.MissingExtra:
-        return []
-    sections: list[tutor.PaperSection] = []
-    for index, entry in enumerate(entries):
-        # The reference list is what's cited, not what the reader needs.
-        if str(entry["title"]).lower().strip() in {"references", "bibliography"}:
-            continue
-        first = int(entry["page"])
-        following = next((int(later["page"]) for later in entries[index + 1 :] if int(later["page"]) > first), None)
-        last = min(following - 1 if following else first, first + PLACE_PDF_PAGES - 1, len(pages))
-        sections.append(
-            tutor.PaperSection(
-                id=f"pdf:{index}",
-                heading=str(entry["title"]),
-                text="\n\n".join(pages[first - 1 : max(last, first)]),
-            )
-        )
-    return sections
 
 
 @bp.post("/api/knowledge/place")
@@ -683,7 +603,7 @@ def api_place() -> ResponseReturnValue:
     payload = request.get_json(silent=True) or {}
     raw_paper = str(payload.get("paper") or "").strip()
     paper = arxiv.extract_id(raw_paper) or raw_paper
-    source = "pdf" if payload.get("source") == "pdf" else "text"
+    source: Literal["text", "pdf"] = "pdf" if payload.get("source") == "pdf" else "text"
     provider: Provider = "openalex" if payload.get("provider") == "openalex" else "s2"
     raw = payload.get("concepts")
     if not isinstance(raw, list) or not paper or (source == "text" and not arxiv.looks_arxiv(paper)):
@@ -692,17 +612,13 @@ def api_place() -> ResponseReturnValue:
     concepts = [name for name in concepts if name][:PLACE_CONCEPTS]
     if not concepts:
         return jsonify({"sections": {}})
-    shape = [PLACE_DEPTH] if source == "text" else ["pdf", provider, PLACE_PDF_PAGES]
+    shape = [sections_service.DEPTH] if source == "text" else ["pdf", provider, sections_service.PDF_PAGES]
     key = "tutor:place:v1:" + _digest([paper, sorted(concepts), *shape])
     cached = cache.get(key)
     if isinstance(cached, dict) and "sections" in cached:
         return jsonify(cached)
     try:
-        if source == "pdf":
-            sections = _pdf_place_sections(paper, provider)
-        else:
-            doc = arxiv.get_document(paper)
-            sections = _place_sections(doc) if doc.get("available") else []
+        sections = sections_service.paper_sections(paper, source, provider)
     except Exception:  # the render or the PDF unreachable: nothing to place in, this time
         log.warning("place: reading %s's %s failed", paper, source, exc_info=True)
         return jsonify({"sections": {}})

@@ -33,7 +33,7 @@ import { getBuildShape, sameBuild, useBuildShape } from './graph/buildShape'
 import { applyConfiguredDefault, setTheme, useTheme } from './ui/theme'
 import { useAppDispatch, useAppSelector } from './store'
 import { errorSet, loadGraph, openTool, providerSet, switchProvider } from './store/workspace'
-import { threadTool, type ThreadTool } from './store/explorations'
+import { threadTool } from './store/explorations'
 import SideBar from './shell/SideBar'
 import { useExplorations } from './shell/useExplorations'
 import './shell/shell.css'
@@ -46,14 +46,8 @@ const ASSISTANT_KEY = 'ca.assistantOpen'
 const COURSE_ASSISTANT_KEY = 'ca.courseAssistantOpen'
 /** The Reader's assistant's open/closed state (v8.38.0). */
 const READER_ASSISTANT_KEY = 'ca.readerAssistantOpen'
-/** The way-back pill's words, by the tool it returns to: the Reader (from a
- *  lesson its notes opened, v8.44.0) or Criticisms (from a citing paper it
- *  showed in the Citation Graph). Both reopen where the reader left off. */
-const RETURN_PILLS: Partial<Record<ThreadTool, { label: string; title: string }>> = {
-  reader: { label: 'Back to reading', title: 'Back to where you were in the paper' },
-  reviews: { label: 'Back to Criticisms', title: 'Back to where you were in the criticisms' },
-}
 import GraphExplorer from './graph/GraphExplorer'
+import ReturnPill from './tools/ReturnPill'
 import Teacher from './teacher/Teacher'
 import Sources from './library/Sources'
 import SettingsModal from './settings/SettingsModal'
@@ -390,28 +384,7 @@ export default function App() {
               side looked like a pair): one click to the same place, which
               that tool keeps, and its own ↑ leads to the cards. */}
           {returnTo && tool === returnTo.from ? (
-            <button
-              type="button"
-              className="tool-return"
-              data-tour="tool-return"
-              data-return={returnTo.tool}
-              onClick={() => void dispatch(openTool(returnTo.tool))}
-              title={RETURN_PILLS[returnTo.tool]?.title ?? 'Back to where you were'}
-              aria-label={RETURN_PILLS[returnTo.tool]?.label ?? 'Back'}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path
-                  d="M6 4 2.5 7.5 6 11M3 7.5h6.5a4 4 0 0 1 0 8H8"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span className="tool-return-label">
-                {RETURN_PILLS[returnTo.tool]?.label ?? 'Back'}
-              </span>
-            </button>
+            <ReturnPill to={returnTo.tool} />
           ) : (
             <button
               type="button"

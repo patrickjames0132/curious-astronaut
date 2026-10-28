@@ -27,6 +27,22 @@ A verdict for an id the judge wasn't given is dropped, and an id it skipped
 counts as not a critique. No sentences means no model call; no critiques
 means no grouping call. Model failures propagate, and the route answers 502.
 
+## Pins for the Reader (v8.54.0)
+
+`place(criticisms, sections)` is a separate call, for the Reader's criticism
+notes once a card exists: the researcher's model reads the paper's sections
+(each cut to its share of `PLACE_CHARS`) and the card's numbered criticisms,
+and for a criticism about something the paper says or does quotes the
+passage it applies to (one sentence or clause, prose only). **Not every
+criticism gets a pin**, and the prompt says a wrong pin is worse than none:
+one about what the paper never tried has nothing in it to point at.
+
+`verify_pins` then keeps a pin only when its criticism and section exist and
+its quote is **in that section's text**, compared as letters and digits
+(`comparable`, as the Reader finds quotes), at most `PLACE_MAX_PINS` a
+criticism and no passage twice, in the paper's order. As with the quotes on
+the card: the model chooses, the paper's own words are what's shown.
+
 ## No agent id of its own
 
 It borrows two: `summarizer` for the judge (the crew's cheapest, and the
@@ -60,4 +76,6 @@ card's entry in `docs/history.md` (until it ships, `OnePager.md`).
 scripted models: the judge's batches and its byline, an invented verdict
 dropped, the grouper seeing critiques only, ids that aren't critiques
 removed from a theme and a theme left empty dropped, and no call when there
-is nothing to judge or nothing to group.
+is nothing to judge or nothing to group; a pin kept only where its quote is
+the section's own words (spacing and case aside), at most two a criticism,
+the placer shown every section and criticism, and no call without either.

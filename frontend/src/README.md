@@ -60,9 +60,12 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │  │                              tables, citations, refs, footnotes
    │  ├─ citation card             reader/CitationCard.tsx — the paper a
    │  │                              citation cites, and ways on (v8.43.0)
-   │  └─ Knowledge Graph notes     reader/ConceptNote.tsx + ConceptCard.tsx —
-   │                                 the course's concepts by the sections
-   │                                 that build on them (v8.44.0)
+   │  ├─ Knowledge Graph notes     reader/ConceptNote.tsx + ConceptCard.tsx —
+   │  │                              the course's concepts by the sections
+   │  │                              that build on them (v8.44.0)
+   │  └─ criticism notes           reader/CriticismNote.tsx + CriticismCard.tsx
+   │                                 — the Criticisms card's criticisms by
+   │                                 the passages they're about (v8.54.0)
    ├─ knowledge network            knowledge/KnowledgeNetwork.tsx — a short
    │  │                              course on the paper's prerequisites
    │  ├─ controls (folded)         knowledge/KnowledgeControls.tsx (2D / 3D /

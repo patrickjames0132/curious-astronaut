@@ -18,6 +18,12 @@
  *   layer, near the heading's height, by its words, and the curve goes
  *   straight there.
  *
+ * **Or tied to a passage** (v8.54.0, the criticism notes): a note with an
+ * anchor (`noteAnchors`) wants its label level with the passage's first
+ * line, and its curve starts at that line: in the text view from the gap
+ * beside the column (never across the text), in the PDF from the passage's
+ * end.
+ *
  * A note under its heading instead (the text view's narrow layout) has no
  * curve, and lets go of any shift it had in the margin: kept, a window
  * narrowed past the margin left it lifted over its own heading. The work is done straight on the DOM, a frame
@@ -43,6 +49,17 @@ interface Point {
   right: number
   middle: number
 }
+
+/** Where a note's passage is on screen: its first line's right edge and
+ *  middle; null when it isn't laid out. */
+export type NoteAnchor = () => Point | null
+
+/**
+ * The passages notes are tied to, by note (`.reader-concepts`) element. A
+ * note registers its own (`CriticismNote`); one without is tied to its
+ * heading.
+ */
+export const noteAnchors = new WeakMap<Element, NoteAnchor>()
 
 /**
  * Where a text-view heading's text ends: its last line's right edge, at that
@@ -105,13 +122,15 @@ function pdfHeadingEnd(holder: HTMLElement): Point | null {
  * @returns The top it wants, on screen.
  */
 function wantedTop(note: HTMLElement, natural: number): number {
+  const anchor = noteAnchors.get(note)?.()
   const heading = note.closest('section')?.querySelector('.reader-section-title')
   const label = note.querySelector('.reader-concepts-label')
-  if (!heading || !label) return natural
-  const headingBox = heading.getBoundingClientRect()
+  if ((!anchor && !heading) || !label) return natural
   const labelBox = label.getBoundingClientRect()
   const noteTop = note.getBoundingClientRect().top
   const labelMiddle = labelBox.top - noteTop + labelBox.height / 2
+  if (anchor) return anchor.middle - labelMiddle
+  const headingBox = heading!.getBoundingClientRect()
   return headingBox.top + headingBox.height / 2 - labelMiddle
 }
 
@@ -157,9 +176,12 @@ export function layOut(pane: HTMLElement) {
     if (!path) continue
     const inMargin = getComputedStyle(holder).position === 'absolute'
     const inPdf = holder.classList.contains('reader-pdf-note')
-    const heading = inPdf
-      ? pdfHeadingEnd(holder)
-      : note.closest('section')?.querySelector('.reader-section-title')
+    const anchor = noteAnchors.get(note)
+    const heading = anchor
+      ? anchor()
+      : inPdf
+        ? pdfHeadingEnd(holder)
+        : note.closest('section')?.querySelector('.reader-section-title')
     const end = heading instanceof Element ? textHeadingEnd(heading) : heading
     const box = note.getBoundingClientRect()
     if (!inMargin || !end || end.right + HEADING_GAP >= box.left) {
@@ -187,6 +209,15 @@ export function layOut(pane: HTMLElement) {
       : end.right
     const turnX =
       Math.min(Math.max(column + HEADING_GAP, end.right + HEADING_GAP), box.left - 4) - box.left
+    // A passage sits inside the text: its curve starts in the gap beside
+    // the column, level with its first line.
+    if (anchor) {
+      path.setAttribute(
+        'd',
+        `M ${turnX} ${fromY} C ${turnX / 2} ${fromY}, ${turnX / 2} ${toY}, 0 ${toY}`,
+      )
+      continue
+    }
     path.setAttribute(
       'd',
       `M ${fromX} ${fromY} H ${turnX} C ${turnX / 2} ${fromY}, ${turnX / 2} ${toY}, 0 ${toY}`,

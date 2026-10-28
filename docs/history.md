@@ -4051,6 +4051,38 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       often family critiques or noise; PDF-extraction artifacts ("(cid:15)",
       ligatures) reach quotes; OpenReview (v2) still waits on the login test.
 
+- [x] **Criticism notes in the Reader** *(v8.54.0; Patrick, 2026-10-27)* —
+      the Criticisms card's criticisms beside the passages they are about,
+      in the Knowledge Graph notes' shape, in sage, labelled **Criticisms**
+      (Patrick's review renamed it from "Criticised for"). Settled with
+      Patrick: a note points at **the passage itself**, not the section's
+      heading; notes show **only once a card has been gathered** (the Reader
+      never starts the half-minute gather); a click opens **a card, then the
+      criticism**.
+      - **Pinned by the reviewer** (`POST /api/reviews/notes`,
+        `services/reviews.notes`, `reviewer.place`): the researcher's model
+        reads the paper's sections and the card's numbered criticisms and
+        quotes the passage a criticism is about, and only one about something
+        the paper says or does ("a wrong pin is worse than none"). Code keeps
+        a pin only where its quote is that section's own words; at most two
+        a criticism; cached with the card. On Attention's card: 3 of 8
+        criticisms pinned to 4 passages in 3.2.3 and 3.5 (quadratic cost,
+        positional encodings, no convolution), the MATH, BLEU and vision
+        ones rightly left out, in ~12s.
+      - **Tied to the passage**: the note finds its quote in its section and
+        registers it (`noteAnchors`, `useMarginNotes`), so it sits level with
+        the passage's first line, stacked with the Knowledge Graph notes, its
+        curve from the gap beside the column. Hover lights the passage in
+        sage. In the PDF view the server finds the quotes in the PDF's words
+        (`/pdf-find`), so the text's pins serve both views.
+      - **The card** (`CriticismCard`): number, headline, papers, summary,
+        the top quote, and **Read in Criticisms**, which opens the card at
+        that criticism (`criticisms/focus.ts`) with **Back to reading** in
+        its ↑'s place — `ScrollNav` now draws the way back too, through a
+        shared `tools/ReturnPill`.
+      - The section reading both placers share moved to
+        `services/reader/sections.py`.
+
 - [x] **Criticisms: the card renamed, numbered, with the Reader's contents**
       *(v8.53.0; filed from `todos.md` 2026-10-27)* — three follow-ups to
       the Peer Reviews card above, shipped together.

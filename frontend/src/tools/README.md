@@ -9,9 +9,12 @@ gallery of launchers: an icon tile, a title and a one-line description.
 ```
 tools/
   ToolCards.tsx — the home: paper header + cards; fetches a missing paper once
-  ScrollNav.tsx — the button over a scrolling tool's page (the Reader, Peer
-                  Reviews): the ↑ at the top, Back to top below, and
+  ScrollNav.tsx — the button over a scrolling tool's page (the Reader,
+                  Criticisms): the ↑ at the top (or the way back, when
+                  opened from another tool), Back to top below, and
                   `useAtTop`, which says which
+  ReturnPill.tsx — the way back to the tool this one was opened from, and
+                  its words (`RETURN_PILLS`); drawn by App.tsx and ScrollNav
   tools.css     — the home, the cards, `.tool-nav` holding `.tool-back` (the
                   ↑ a tool shows to get back here, rendered by App.tsx's
                   overlays) or `.tool-return` in its place (back to the

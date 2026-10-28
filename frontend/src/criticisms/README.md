@@ -14,7 +14,20 @@ Criticisms.tsx — the card: loading, error, empty and listed states, in a
                  contents rail beside it
 criticisms.css — its reading column, the numbers, the glide after the rail,
                  and the sage (--criticisms-ink) accents
+focus.ts       — which criticism to open at, handed over by the Reader's
+                 criticism card
 ```
+
+## From the Reader (v8.54.0)
+
+The Reader notes each criticism beside the passage it is about, once this
+card has been gathered (`reader/README.md`, "The criticism notes"). A
+note's card has **Read in Criticisms**: it hands this card the criticism's
+number (`focusCriticism`), sets `returnTo: { tool: 'reader', from:
+'reviews' }` and opens it. Here, once the criticisms are on the page, the
+card takes the number (`takeFocus`, once) and goes to it as a contents click
+would, lit until the reader scrolls; and `ScrollNav` shows **Back to
+reading** in the ↑'s place, to the same place in the paper.
 
 ## The name
 

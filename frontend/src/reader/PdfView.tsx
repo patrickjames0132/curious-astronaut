@@ -92,6 +92,8 @@ const SETTLE = 200
  * @param props.root The scrolling pane, for drawing ahead of the view.
  * @param props.notes Its margin notes.
  * @param props.lit Rectangles to light on it, in PDF points (v8.45.0).
+ * @param props.marked Rectangles to light in the Criticisms sage: a hovered
+ *   criticism note's passage (v8.54.0).
  * @param props.drawn A box being drawn or drawn on it, in PDF points
  *   (v8.46.0, `useBoxDraw`), or null.
  * @returns The page.
@@ -104,6 +106,7 @@ function PdfPage({
   root,
   notes,
   lit,
+  marked,
   drawn,
 }: {
   pdf: PDFDocumentProxy
@@ -113,6 +116,7 @@ function PdfPage({
   root: RefObject<HTMLElement | null>
   notes: PdfMarginNote[]
   lit: number[][]
+  marked: number[][]
   drawn: number[] | null
 }) {
   const box = useRef<HTMLDivElement>(null)
@@ -199,10 +203,10 @@ function PdfPage({
       }
     >
       <canvas ref={canvas} className="reader-pdf-canvas" aria-hidden="true" />
-      {lit.map(([left, top, right, bottom], index) => (
+      {[...lit, ...marked].map(([left, top, right, bottom], index) => (
         <div
           key={index}
-          className="reader-pdf-lit"
+          className={`reader-pdf-lit${index >= lit.length ? ' criticism' : ''}`}
           aria-hidden="true"
           style={{
             left: left * scale,
@@ -256,6 +260,8 @@ function PdfPage({
  *   the pages (v8.44.0); 1 fits.
  * @param props.lit What a Reader Assistant answer is about, to light as
  *   boxes over the pages (v8.45.0, `usePdfPassages`).
+ * @param props.marked A hovered criticism note's passage, lit in sage
+ *   (v8.54.0).
  * @param props.box A box drawn over a page with ⌥-drag (v8.46.0), or null.
  * @returns The pages, or a loading line.
  */
@@ -269,6 +275,7 @@ export default function PdfView({
   margin = 0,
   zoom = 1,
   lit = NO_PLACES,
+  marked = NO_PLACES,
   box = null,
 }: {
   url: string
@@ -280,6 +287,7 @@ export default function PdfView({
   margin?: number
   zoom?: number
   lit?: PdfPlace[]
+  marked?: PdfPlace[]
   box?: DrawnBox | null
 }) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
@@ -428,6 +436,9 @@ export default function PdfView({
           root={root}
           notes={notes.filter((note) => note.page === index + 1)}
           lit={lit.filter((place) => place.page === index + 1).flatMap((place) => place.rects)}
+          marked={marked
+            .filter((place) => place.page === index + 1)
+            .flatMap((place) => place.rects)}
           drawn={box?.page === index + 1 ? box.rect : null}
         />
       ))}

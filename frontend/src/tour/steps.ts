@@ -373,6 +373,17 @@ export const READER_TOUR: TourStep[] = [
       'brings you back to your place in the paper.',
   },
   {
+    target: '[data-tour="reader-criticisms"]',
+    presentIf: '[data-tour="reader-criticisms"]',
+    title: 'Notes from Criticisms',
+    body:
+      'Once this paper’s Criticisms card has been gathered, a criticism the field raised ' +
+      'about something the paper says or does is noted beside that passage, by its number. ' +
+      'Hover the note to light the passage; click a criticism for its summary and a quote ' +
+      'from the paper that raised it. “Read in Criticisms” opens the card at it, and “Back ' +
+      'to reading” there brings you back here.',
+  },
+  {
     target: '[data-tour="reader-view-switch"]',
     presentIf: '[data-tour="reader-view-switch"]',
     title: 'Text or PDF',

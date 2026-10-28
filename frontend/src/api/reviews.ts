@@ -88,3 +88,50 @@ export async function fetchCriticisms(
   if (!res.ok) throw new Error(data.error || `Could not gather the criticisms (${res.status})`)
   return data as CriticismsCard
 }
+
+/** Where in the paper one criticism applies: a passage, in the paper's words. */
+export interface CriticismPin {
+  /** The card's number for the criticism, from 1. */
+  criticism: number
+  /** The document section id, or `pdf:<n>` for the PDF's n-th contents entry. */
+  section: string
+  /** The passage, word for word from the paper. */
+  quote: string
+}
+
+/** The Reader's criticism notes: the paper's card, if gathered, and its pins. */
+export interface CriticismNotes {
+  card: CriticismsCard | null
+  pins: CriticismPin[]
+}
+
+/**
+ * The Reader's criticism notes (v8.54.0): the paper's Criticisms card, pinned
+ * to the passages it is about. Only a card already gathered: no card, no
+ * notes, and nothing is gathered.
+ *
+ * @param paper The thread's paper (the card's key).
+ * @param target What the Reader reads: the arXiv id (or, for the PDF, a
+ *        provider id too), the text or the PDF, and the provider.
+ * @param target.document The arXiv id or provider id.
+ * @param target.source The text's sections or the PDF's contents.
+ * @param target.provider Who to ask for a non-arXiv paper's PDF.
+ * @param signal Abort the request.
+ * @returns The card and its pins.
+ * @throws When the server fails.
+ */
+export async function fetchCriticismNotes(
+  paper: CriticisedPaper,
+  target: { document: string; source: 'text' | 'pdf'; provider?: string },
+  signal?: AbortSignal,
+): Promise<CriticismNotes> {
+  const res = await fetch('/api/reviews/notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paper, ...target }),
+    signal,
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Could not place the criticisms (${res.status})`)
+  return data as CriticismNotes
+}
