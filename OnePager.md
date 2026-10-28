@@ -1942,6 +1942,17 @@ than deleted so the plan doesn't get re-proposed.
         fixed-variance theme) or a stricter judge prompt. Patrick's call.
       - **Extraction artifacts** in quotes: "(cid:15)" for ε, ligatures
         ("ﬁ"). The ligatures are a cheap normalisation; the cid codes aren't.
+      - **Rename the card to "Criticisms"** *(Patrick, 2026-10-27)*. This
+        undoes the 2026-10-25 call, which went from "Criticism" to "Peer
+        Reviews" partly so v2's OpenReview reviews could share the card's
+        name. Settle how OpenReview reviews fit under "Criticisms" before
+        building v2. The rename touches every help surface: the card's
+        label and help text, tooltips, the tour, and the graph's **Back to
+        Peer Reviews** ↑.
+      - **A table of contents, like the Reader's**, so a long card (e.g.
+        Attention's) can jump to a theme.
+      - **Number the criticisms**, so each one can be referred to (and the
+        table of contents can list them by number).
 - [ ] **Phase 6 — Slides from the lecture** — a deck built by the existing
       agent crew from lecture beats + already-mined paper figures.
       *(Renumbered from the retired audio phase, 2026-08-16. Patrick,
