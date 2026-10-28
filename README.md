@@ -283,6 +283,9 @@ The Vite dev server proxies `/api/*` to Flask.
 
 ## Using it
 
+The ⓘ above each chat bar keeps its context and `@` help available, aligned
+just before the bar's rounded right end.
+
 1. **Find a paper** — everything starts in the **chat bar**; there is no
    separate search box. Ask a research question and the assistant goes
    looking, or **type `@`** to name a paper: suggestions appear as you type,
