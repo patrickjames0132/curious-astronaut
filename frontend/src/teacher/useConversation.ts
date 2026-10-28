@@ -107,7 +107,7 @@ const REF_SEPARATOR = /[\s,]+/
  * @param numberedIds The grounding list's node ids, in numbered order.
  * @returns The marker → node-id map for the turn's clickable chips.
  */
-function resolveGraphRefs(text: string, numberedIds: string[]): Record<string, string> {
+export function resolveGraphRefs(text: string, numberedIds: string[]): Record<string, string> {
   const graphRefs: Record<string, string> = {}
   for (const match of text.matchAll(REF_MARKER)) {
     // A combined marker (`[14, 29]`) resolves each of its indices, so every

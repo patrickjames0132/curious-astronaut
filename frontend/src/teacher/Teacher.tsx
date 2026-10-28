@@ -61,7 +61,13 @@ import {
   type MentionPaper,
   type SearchOptions,
   type TurnTag,
+  routeMessage,
+  routePlace,
+  routeReaderMessage,
 } from '../api'
+import { askAt } from '../assistant/askAt'
+import { askOnArrival, takeArrival } from '../assistant/pendingAsk'
+import { keepChatInView } from '../assistant/keepChatInView'
 import { useAppDispatch, useAppSelector } from '../store'
 import { failedTurnDropped, selectChatKey, selectConversation } from '../store/transcript'
 import { quotedMessage, type PassageQuote } from '../assistant/askAssistant'
@@ -233,14 +239,14 @@ export default function Teacher({
   const pickedCount = useAppSelector((state) => state.workspace.selectedNodeIds.length)
   const {
     hasGraph,
-    asking,
+    asking: conversing,
     error,
     activeChat,
     activeChatBeat,
     onChatBeatClick,
     onChatClick,
     onRefClick,
-    onPaperSeed,
+    onPaperSeed: seedPaper,
     provider,
     send,
     reroute,
@@ -249,6 +255,11 @@ export default function Teacher({
     stopAsk,
     clearChat,
   } = useConversation()
+  // Asking the router where a message is about (stage 4b) is part of
+  // answering it: the bar is busy, as it is while the router picks a
+  // lecture or an answer.
+  const [placing, setPlacing] = useState(false)
+  const asking = conversing || placing
 
   // The other chats in this exploration (`store/chats`), offered as `@` rows
   // above the paper results so a question can carry one along. The chat on
@@ -266,7 +277,17 @@ export default function Teacher({
         : [],
     [explorationRecord, activeKey],
   )
-  const tags = useTurnTags(activeKey, chat)
+  // Leaving a full-screen chat for a paper's view, from the chat itself (a
+  // tag, an answer's link, a placed lecture, a paper opened): the dock opens
+  // there, so the conversation stays in view (`assistant/keepChatInView`).
+  const leaving = () => {
+    if (landing) keepChatInView()
+  }
+  const onPaperSeed = (...args: Parameters<typeof seedPaper>) => {
+    leaving()
+    seedPaper(...args)
+  }
+  const tags = useTurnTags(activeKey, chat, leaving)
   // Where a question asked here is tagged (v9.0.0): the view's paper and tool,
   // the Citation Graph's, or General. An answer is this view's to retry,
   // re-ask or light when its question was asked here: the chat also holds
@@ -475,22 +496,28 @@ export default function Teacher({
     if (view) {
       if (!view.available) return
       const question = attachedMessage(attached, quote ? quotedMessage(typed, quote) : typed)
+      // A passage attached is about the paper it came from: never placed.
+      const placeable = !quote && !attached.some((choice) => choice.kind === 'paper')
+      const passage = quote
       setAttached([])
       setInput('')
       mentions.reset()
       onQuoteClear?.()
       followNextTurn()
-      void dispatch(
-        view.ask({
-          threadId: view.thread.id,
-          question,
-          provider: viewProvider,
-          sourceIds: scopeArg,
-          places: quote?.places,
-          figures: quote?.figures,
-          labels: quote?.labels,
-        }),
-      )
+      const askHere = () =>
+        void dispatch(
+          view.ask({
+            threadId: view.thread.id,
+            question,
+            provider: viewProvider,
+            sourceIds: scopeArg,
+            places: passage?.places,
+            figures: passage?.figures,
+            labels: passage?.labels,
+          }),
+        )
+      if (placeable) void placeOrHere(question, askHere)
+      else askHere()
       return
     }
     const question = attachedMessage(attached, typed)
@@ -532,9 +559,136 @@ export default function Teacher({
       return
     }
     // Anything else: a message whose destination is genuinely unknown. `send`
-    // classifies it and streams from the lecturer or the researcher.
-    void send(question, scopeArg, activeOptions, intent.kind === 'ask' ? intent.mentioned : [])
+    // classifies it and streams from the lecturer or the researcher. First,
+    // where it is about (v9.0.0, stage 4b): a message naming a paper on the
+    // graph points at it, here; anything else may be about another paper.
+    const mentioned = intent.kind === 'ask' ? intent.mentioned : []
+    const askHere = () => void send(question, scopeArg, activeOptions, mentioned)
+    if (mentioned.length || attached.some((choice) => choice.kind === 'paper')) askHere()
+    else void placeOrHere(question, askHere)
   }
+
+  /**
+   * **Where a message is about** (v9.0.0, stage 4b): the view it was typed
+   * in, no view (General), or another of the exploration's papers and one
+   * of its tools. Asked of the router only when the exploration holds a
+   * paper the message could mean besides the one on screen (Patrick: no
+   * model call on every message). Placed elsewhere, it is asked there
+   * (`assistant/askAt`), with that place's context, and the reader is not
+   * moved: its tag is the way there, and its bubble offers to ask it where
+   * it was typed instead.
+   *
+   * @param question The message, as it will be sent.
+   * @param askHere Ask it where it was typed.
+   */
+  const placeOrHere = async (question: string, askHere: () => void) => {
+    const papers = explorationRecord?.threads.filter((thread) => thread.identity) ?? []
+    if (!papers.some((paper) => paper.id !== screenTag?.threadId)) {
+      askHere()
+      return
+    }
+    const screenPaper = screenTag
+      ? papers.findIndex((paper) => paper.id === screenTag.threadId) + 1
+      : 0
+    setPlacing(true)
+    const placed = await routePlace(
+      question,
+      papers.map((paper) => paper.title),
+      { paper: screenPaper || null, tool: screenTag?.tool ?? null },
+    )
+    const elsewhere =
+      placed.place === 'general'
+        ? undefined
+        : placed.place === 'paper' && placed.paper && papers[placed.paper - 1]
+          ? paperTag(papers[placed.paper - 1], placed.tool ?? 'reader')
+          : screenTag
+    if (sameTag(elsewhere, screenTag)) {
+      setPlacing(false)
+      askHere()
+      return
+    }
+    // **To be taught, it goes there** (Patrick, 2026-10-27): a lecture or a
+    // guided read lights its graph or its paper as it goes, so it is given
+    // where it is about. The panel moves, and the one that arrives asks it
+    // through the ordinary path (`assistant/pendingAsk`).
+    if (elsewhere && elsewhere.tool !== 'knowledge') {
+      const taught =
+        elsewhere.tool === 'graph'
+          ? (await routeMessage(question)).target === 'lecture'
+          : (await routeReaderMessage(question)).target === 'guide'
+      if (taught) {
+        setPlacing(false)
+        leaving()
+        askOnArrival(activeKey, elsewhere, question)
+        void dispatch(openTag({ tag: elsewhere, chatId: activeKey }))
+        return
+      }
+    }
+    setPlacing(false)
+    void dispatch(
+      askAt(elsewhere, {
+        threadId: '',
+        question,
+        provider,
+        sourceIds: scopeArg,
+        placedFrom: screenTag ?? 'general',
+      }),
+    )
+  }
+
+  /**
+   * Ask a placed question again where it was typed (the bubble's correction,
+   * v9.0.0, stage 4b): the reader's own choice, so it isn't placed again.
+   * The original exchange stays, as a re-routed lecture's does.
+   *
+   * @param index The question's turn.
+   */
+  const askInstead = (index: number) => {
+    const question = chat[index]
+    const typedAt = question?.placedFrom
+    if (!question || !typedAt) return
+    const target = typedAt === 'general' ? undefined : typedAt
+    followNextTurn()
+    if (!sameTag(target, screenTag)) {
+      void dispatch(askAt(target, { threadId: '', question: question.text, provider }))
+      return
+    }
+    askOnScreen(question.text)
+  }
+
+  /**
+   * Ask a question where the panel is, through the ordinary path: the view's
+   * own asking, or the Citation Graph's and a chat's (`useConversation`).
+   *
+   * @param question The question.
+   */
+  const askOnScreen = (question: string) => {
+    if (view)
+      void dispatch(
+        view.ask({
+          threadId: view.thread.id,
+          question,
+          provider: viewProvider,
+          sourceIds: scopeArg,
+        }),
+      )
+    else void send(question, scopeArg, activeOptions, [])
+  }
+
+  // A lecture placed on this view from another (`placeOrHere`) is asked once
+  // the view is ready to be taught over: its graph built, its paper loaded.
+  const ready = view ? view.available : hasGraph
+  const arrivalTag = screenTag ? `${screenTag.threadId}:${screenTag.tool}` : ''
+  useEffect(() => {
+    if (!ready || !arrivalTag) return
+    const question = takeArrival(activeKey, screenTag)
+    if (question === null) return
+    followNextTurn()
+    askOnScreen(question)
+    // Keyed on what is on screen and whether it's ready; the rest is read
+    // as it stands when the question goes out.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, arrivalTag, activeKey])
 
   const onAsk = (event: FormEvent) => {
     event.preventDefault()
@@ -1026,6 +1180,7 @@ export default function Teacher({
   // navigation's own resets have happened by then: the highlight clears on
   // a thread switch and a graph load (`store/highlight`).
   const goLight = (index: number, tag: TurnTag, light: () => void) => {
+    leaving()
     anchorTurn(activeKey, index)
     void dispatch(openTag({ tag, chatId: activeKey })).then(light)
   }
@@ -1084,6 +1239,19 @@ export default function Teacher({
     }
     return {}
   }
+
+  // A question the router placed elsewhere offers to be asked where it was
+  // typed (stage 4b), while nothing else is being asked.
+  const placedInstead = (message: ChatMsg, index: number) =>
+    message.role === 'user' && message.placedFrom && !asking
+      ? {
+          label: tagLabel(
+            explorationRecord,
+            message.placedFrom === 'general' ? undefined : message.placedFrom,
+          ),
+          onAsk: () => askInstead(index),
+        }
+      : undefined
 
   // **Filtered by where it was asked** (v9.0.0, stage 4a): once a chat
   // crosses views, a menu over it picks one place, and only the exchanges
@@ -1164,6 +1332,7 @@ export default function Teacher({
           onPaperSeed={onPaperSeed}
           provider={viewProvider}
           onEnlarge={setLightbox}
+          askInstead={placedInstead(message, index)}
           turn={index}
           {...elsewhere(message, index)}
         />
@@ -1233,6 +1402,7 @@ export default function Teacher({
               }
             : undefined
         }
+        askInstead={placedInstead(message, index)}
         turn={index}
         {...elsewhere(message, index)}
       />

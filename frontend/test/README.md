@@ -19,6 +19,9 @@ test/
     DockChatPicker.test.tsx   — the dock's chat picker: switch, start one,
                                 delete in two clicks, never a paper (v9.0.0)
     AssistantLauncher.test.tsx — the 🎓 opens the assistant (v9.0.0)
+    askAt.test.ts             — asking where the router placed a question:
+                                General, a parked graph, a graph built
+                                quietly (v9.0.0, stage 4b)
     useTurnTags.test.tsx      — a tag shows once a chat crosses views; a
                                 clicked one anchors its question, once (v9.0.0)
   detail/
@@ -76,7 +79,11 @@ test/
     crossView.test.tsx        — a chat across views, over a real store: the
                                 Showing menu, an answer from another view
                                 linking there and lighting it, and a folded
-                                lecture staying folded across a remount (v9.0.0)
+                                lecture staying folded across a remount; a
+                                question placed on another paper and asked
+                                back where it was typed; a placed lecture
+                                taken to its graph and given there; following
+                                the chat to a paper keeps it in view (v9.0.0)
     HopDots.test.tsx          — the shared indicator's accessibility contract
     ScopePicker.test.tsx      — the controlled open/close contract (popover
                                 only when `open`; trigger and ✕ report via

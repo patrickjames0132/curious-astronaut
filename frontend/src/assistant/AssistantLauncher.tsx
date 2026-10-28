@@ -4,9 +4,10 @@
  * Description:
  * The floating 🎓 that opens the assistant while it is closed (v9.0.0, the
  * OnePager's "One assistant", stage 3): one button over every view, where
- * each tool used to keep a 🎓 of its own. It sits in the top-right corner,
- * where those were, clear of the find bars the views keep at the bottom
- * right. It was draggable, with its spot remembered and a ↺ to put it back,
+ * each tool used to keep a 🎓 of its own. It sits in the top-right corner
+ * of the view's canvas (the shell's overlay layer), where those were, clear
+ * of the find bars the views keep at the bottom right and of the graphs'
+ * detail panels beside their canvas. It was draggable, with its spot remembered and a ↺ to put it back,
  * for one round of testing; Patrick preferred it staying put.
  *
  * Authors:

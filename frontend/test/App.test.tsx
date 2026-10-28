@@ -214,3 +214,21 @@ it('puts “Back to Peer Reviews” in the ↑’s place after a citing paper sh
   expect(screen.queryByRole('button', { name: 'Back to Peer Reviews' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Back to this paper’s cards' })).toBeNull()
 })
+
+it('opens the dock when the full-screen chat takes the reader to a paper (v9.0.0)', async () => {
+  const { KEEP_CHAT_EVENT } = await import('../src/assistant/keepChatInView')
+  const store = configureStore({ reducer: { workspace, transcript, explorations } })
+  render(
+    <Provider store={store}>
+      <App />
+    </Provider>,
+  )
+  await act(async () => {
+    await store.dispatch(loadGraph({ seed: 'paper' }))
+  })
+  expect(screen.getByTestId('teacher').dataset.collapsed).toBe('true')
+  act(() => {
+    window.dispatchEvent(new Event(KEEP_CHAT_EVENT))
+  })
+  expect(screen.getByTestId('teacher').dataset.collapsed).toBe('false')
+})

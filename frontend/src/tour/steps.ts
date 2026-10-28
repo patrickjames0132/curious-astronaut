@@ -123,7 +123,10 @@ export const HOME_TOUR: TourStep[] = [
       'course or its Reader, the assistant talks in the chat you were last in, and each ' +
       'question there is tagged with where you asked it — click a tag to go back. An answer ' +
       'asked from another paper’s view takes you there when you click it, its citations or ' +
-      'its quotes, and lights them there; once a chat spans several places, the Showing menu ' +
+      'its quotes, and lights them there. Ask about another paper by name and the question goes ' +
+      'there, answered from that paper while you stay put (ask for a lecture on it and you go ' +
+      'there to be taught); “Ask from … instead” under its tag ' +
+      'asks it where you typed it. Once a chat spans several places, the Showing menu ' +
       'at its top shows only the questions asked from one. Type @ and pick another chat to ' +
       'bring it into the one you are in.',
   },

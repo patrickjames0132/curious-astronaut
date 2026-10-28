@@ -55,6 +55,7 @@ const RETURN_PILLS: Partial<Record<ThreadTool, { label: string; title: string }>
 import GraphExplorer from './graph/GraphExplorer'
 import Teacher, { type AssistantDock } from './teacher/Teacher'
 import AssistantLauncher from './assistant/AssistantLauncher'
+import { KEEP_CHAT_EVENT } from './assistant/keepChatInView'
 import Sources from './library/Sources'
 import SettingsModal from './settings/SettingsModal'
 import Tour from './tour/Tour'
@@ -126,7 +127,8 @@ export default function App() {
   // **Closed by default, and remembered** like the rail (Patrick, 2026-10-09:
   // it should stay hidden until asked for — a docked chat beside a canvas is
   // clutter until it is wanted). Closed, the floating 🎓 opens it, and so do
-  // the highlight menus' Explain and Chat. A chat is unaffected: there the
+  // the highlight menus' Explain and Chat, and the full-screen chat taking
+  // the reader to a paper (`assistant/keepChatInView`). A chat is unaffected: there the
   // assistant is the landing surface and never collapses.
   const [assistantOpen, setAssistantOpen] = useState(
     () => localStorage.getItem(ASSISTANT_KEY) === '1',
@@ -286,6 +288,13 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(DOCK_KEY, dock)
   }, [dock])
+  // The full-screen chat taking the reader to a paper opens the dock there,
+  // so the conversation stays in view (`assistant/keepChatInView`).
+  useEffect(() => {
+    const open = () => setAssistantOpen(true)
+    window.addEventListener(KEEP_CHAT_EVENT, open)
+    return () => window.removeEventListener(KEEP_CHAT_EVENT, open)
+  }, [])
 
   // The saved-graph list in the rail, and which of them is on screen. The id
   // is tracked here rather than in the store because it is a fact about this
@@ -310,6 +319,12 @@ export default function App() {
   const returnTo = activeThread?.returnTo
   const overlays = (
     <>
+      {/* The 🎓 that opens the assistant while it is closed (v9.0.0): one
+          for every view, in the view's own layer, top-right of its canvas.
+          Not over the body: the graphs' detail panels are siblings of their
+          canvas, and a body-anchored 🎓 sat on their ✕ and options
+          (Patrick, as it did once before). */}
+      {paperThread && !assistantOpen && <AssistantLauncher onOpen={() => setAssistantOpen(true)} />}
       {/* Dim whatever is behind — a graph mid-re-seed, or the chat you were
           reading. The card alone was only ever legible against an empty canvas;
           over live content it has to push that content back to read at all. */}
@@ -549,9 +564,6 @@ export default function App() {
               quote={quote?.threadId === activeThread?.id ? quote : null}
               onQuoteClear={() => setQuote(null)}
             />
-            {paperThread && !assistantOpen && (
-              <AssistantLauncher onOpen={() => setAssistantOpen(true)} />
-            )}
             {/* In General the chat is the middle: enlarged figures cover it,
               not the rail. */}
             {!paperThread && <div className="figure-layer" ref={setFigureLayer} />}

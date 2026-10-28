@@ -182,6 +182,29 @@ model
 failure answers. Served by `POST /api/assistant/route` in the `reader`
 view.
 
+## Where a message is about (v9.0.0)
+
+`place.py` makes the third decision, for the one assistant (the OnePager's
+"One assistant", stage 4b): what a message is about. The view it was typed
+in (`here`), no view (`general`: a search, a broad question, small talk),
+or another of the exploration's papers (`paper`, by its number in the list
+it was shown) and which of its tools: its Citation Graph for citations and
+lineage, its Knowledge Graph course for what to learn first, its Reader for
+what the paper says. The answer is the question's tag, and the view it
+names is the one whose context the answer gets, open or not. Served by
+`POST /api/assistant/route/place`.
+
+The client asks only when it could matter: an exploration with no paper but
+the one on screen has nowhere else to point (Patrick, 2026-10-26: no model
+call on every message), and a question with a passage or a paper attached
+is about that. **Every failure keeps it here**, for the reason the other
+routers answer: a question kept where it was typed costs the reader one
+click on its correction ("Ask from … instead" on the bubble), where one
+sent elsewhere by mistake costs an answer about the wrong paper. The prompt
+says so, and the output is read as sensibly as it can be: a paper number it
+was never shown, or the paper and view already open, stays here; a paper
+with no tool is the Reader.
+
 ## Who uses it
 
 The assistant (`orchestrators/assistant`, v8.53.0), which asks `route` for

@@ -420,17 +420,19 @@
   color: var(--accent);
 }
 
-/* The floating 🎓 that opens the assistant (v9.0.0,
-   `assistant/AssistantLauncher`): one over every view, in the top-right
-   corner where each tool once kept its own, clear of the views' find bars
-   at the bottom right. It pops in as the assistant slides away, the same
-   entrance as the app's popovers, so the way back appears where it left. */
+/* The 🎓 that opens the assistant (v9.0.0, `assistant/AssistantLauncher`):
+   one for every view, in the view's own overlay layer, top-right of its
+   canvas, where each tool once kept its own, clear of the find bars at the
+   bottom right. In the canvas, not over the body, and under the view's own
+   panels: the graphs' detail panels sit beside their canvas, and a
+   body-anchored 🎓 covered their ✕ and options (Patrick). It pops in as the
+   assistant slides away, the same entrance as the app's popovers. */
 .assistant-launcher {
   animation: pop var(--motion-pop) var(--ease-rise) both;
   position: absolute;
   top: 10px;
   right: 12px;
-  z-index: 25;
+  z-index: 6;
   width: 40px;
   height: 40px;
   display: grid;

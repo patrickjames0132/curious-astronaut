@@ -274,6 +274,7 @@ export default function ChatMessage({
   onQuick,
   tagLabel,
   onTagOpen,
+  askInstead,
   turn,
   // Defaults open: a caller that forgets to manage this shows the lecture
   // rather than silently hiding it, which is the right way round to fail.
@@ -317,6 +318,9 @@ export default function ChatMessage({
   tagLabel?: string
   /** Go where it was asked (undefined: the tag is plain text). */
   onTagOpen?: () => void
+  /** The router placed this question elsewhere (v9.0.0, stage 4b): ask it
+   *  where it was typed instead, named by `label`. */
+  askInstead?: { label: string; onAsk: () => void }
   /** Its index in the chat, so the panel can find it again however the chat
    *  is filtered (`data-turn`). */
   turn?: number
@@ -444,6 +448,22 @@ export default function ChatMessage({
             <TagText label={tagLabel} />
           </span>
         ))}
+      {tagLabel && askInstead && (
+        // The router's choice of place is visible and correctable, as its
+        // choice of lecture or answer is: one click asks it where it was
+        // typed, beside the answer it got where it was placed.
+        <button
+          type="button"
+          className="chat-tag-instead"
+          onClick={(event) => {
+            event.stopPropagation()
+            askInstead.onAsk()
+          }}
+          title={`The assistant took this to be about where its tag says; ask it from ${askInstead.label} instead`}
+        >
+          Ask from {askInstead.label} instead
+        </button>
+      )}
       <AttachedChips
         chips={attached.map((item, index) => {
           const threadId = item.kind === 'thread' ? borrowedId(item.title) : undefined

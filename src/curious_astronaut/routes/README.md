@@ -402,6 +402,7 @@ Thin wrappers over `services/sources`. Points worth knowing:
 | --- | --- |
 | `POST /api/assistant/route` | which workflow a typed message wants, in the view it was typed in (**JSON, not SSE**): `{message, view: {kind}}` in, `{workflow, framing, scope, year_from, year_to}` out |
 | `POST /api/assistant/route/papers` | which graph papers a lecture request named (**JSON**) |
+| `POST /api/assistant/route/place` | what a message is about (v9.0.0, stage 4b): `{message, papers: [title], screen: {paper, tool}}` in, `{place: 'here'\|'general'\|'paper', paper, tool}` out, always 200 (`router.route_place`; any failure keeps it here) |
 | `POST /api/assistant` | the workflow, streamed: an answer, a lecture over the graph, or a guided read of the paper in the Reader. `{workflow?, question?, view: {kind, ...}, provider?, source_ids?, history?, thread_context?, quick?, model?}` |
 
 **One assistant since v8.53.0.** Until then there was a route per assistant

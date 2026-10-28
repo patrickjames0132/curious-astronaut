@@ -6,6 +6,8 @@ The assistant's routes: one for every view, streaming typed events (v8.53.0).
 POST /api/assistant/route        -> which workflow a typed message wants, in
                                     the view it was typed in (JSON, not SSE)
 POST /api/assistant/route/papers -> which graph papers a lecture request named (JSON)
+POST /api/assistant/route/place  -> what a message is about: here, General, or
+                                    another of the exploration's papers (JSON)
 POST /api/assistant              -> the workflow, streamed: an answer, a
                                     lecture over the graph, or a guided read
 
@@ -127,6 +129,42 @@ def api_assistant_route_papers() -> ResponseReturnValue:
             continue
     ids = router.resolve_papers(message if isinstance(message, str) else "", papers)
     return jsonify({"ids": ids})
+
+
+@bp.post("/api/assistant/route/place")
+def api_assistant_route_place() -> ResponseReturnValue:
+    """Say what a message is about, before it is asked (v9.0.0, stage 4b).
+
+    The view on screen, no view (General), or another of the exploration's
+    papers and which of its tools; the answer is the question's tag, and the
+    view it names is the one whose context the answer gets. The client asks
+    only when the exploration has another paper the message could mean.
+
+    Body:
+        ``{message: str, papers: [title, ...], screen: {paper: n|null, tool:
+        'graph'|'knowledge'|'reader'|null}}`` — the exploration's papers, the
+        open one's number in that list (from 1), and its view.
+
+    Returns:
+        ``{place: 'here'|'general'|'paper', paper: n|null, tool}``
+        (``router.PlaceRoute``), always HTTP 200: every failure, and every
+        malformed body, keeps the question where it was asked.
+    """
+    payload = request.get_json(silent=True) or {}
+    message = payload.get("message")
+    raw_papers = payload.get("papers")
+    papers = [title for title in raw_papers if isinstance(title, str)] if isinstance(raw_papers, list) else []
+    raw_screen = payload.get("screen")
+    screen: dict = raw_screen if isinstance(raw_screen, dict) else {}
+    paper = screen.get("paper")
+    tool = screen.get("tool")
+    decision = router.route_place(
+        message if isinstance(message, str) else "",
+        papers,
+        screen_paper=paper if isinstance(paper, int) and not isinstance(paper, bool) else None,
+        screen_tool=tool if isinstance(tool, str) else None,
+    )
+    return jsonify(decision.model_dump())
 
 
 @bp.post("/api/assistant")

@@ -19,6 +19,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   resolveRoutedPapers,
   routeMessage,
+  routePlace,
   routeReaderMessage,
   streamAsk,
   streamAskCourse,
@@ -269,5 +270,37 @@ describe('one assistant, asked from each view (v8.53.0)', () => {
       },
     )
     expect([tokens, cited, done]).toEqual([['Hi'], [['seed01']], true])
+  })
+})
+
+describe('routePlace (v9.0.0, stage 4b)', () => {
+  it('sends the papers and the screen, and keeps it here on any failure', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ place: 'paper', paper: 2, tool: 'graph' }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    expect(await routePlace('and Atari?', ['A', 'B'], { paper: 1, tool: 'reader' })).toEqual({
+      place: 'paper',
+      paper: 2,
+      tool: 'graph',
+    })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      message: 'and Atari?',
+      papers: ['A', 'B'],
+      screen: { paper: 1, tool: 'reader' },
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 500 })),
+    )
+    expect((await routePlace('x', ['A'], { paper: null, tool: null })).place).toBe('here')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('offline')
+      }),
+    )
+    expect((await routePlace('x', ['A'], { paper: null, tool: null })).place).toBe('here')
   })
 })

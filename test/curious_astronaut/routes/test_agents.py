@@ -782,3 +782,35 @@ class TestCapabilities:
         monkeypatch.setattr(router, "route_reading", lambda message: pytest.fail("routed"))
         body = {"message": "lecture me on everything", "view": {"kind": kind}}
         assert client.post("/api/assistant/route", json=body).json["workflow"] == "answer"
+
+
+class TestPlaceEndpoint:
+    """``POST /api/assistant/route/place`` (v9.0.0, stage 4b): what a message is
+    about, and as unable to fail as the other routes: a bad body keeps it here."""
+
+    def test_it_passes_the_papers_and_screen_and_returns_the_place(self, client, monkeypatch):
+        from curious_astronaut.agents.orchestrators import router
+
+        seen: list = []
+
+        def capture(message, papers, screen_paper=None, screen_tool=None):
+            seen.append((message, papers, screen_paper, screen_tool))
+            return router.PlaceRoute(place="paper", paper=2, tool="graph")
+
+        monkeypatch.setattr(router, "route_place", capture)
+        body = {
+            "message": "and the Atari paper's references?",
+            "papers": ["Attention", "Atari", 7],
+            "screen": {"paper": 1, "tool": "reader"},
+        }
+        response = client.post("/api/assistant/route/place", json=body)
+        assert response.get_json() == {"place": "paper", "paper": 2, "tool": "graph"}
+        assert seen == [("and the Atari paper's references?", ["Attention", "Atari"], 1, "reader")]
+
+    @pytest.mark.parametrize(
+        "body", [{}, {"message": 3}, {"message": "x", "papers": "nope", "screen": [1]}, None]
+    )
+    def test_a_malformed_body_stays_here(self, client, body):
+        response = client.post("/api/assistant/route/place", json=body)
+        assert response.status_code == 200
+        assert response.get_json() == {"place": "here", "paper": None, "tool": None}

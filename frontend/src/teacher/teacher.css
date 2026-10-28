@@ -1557,6 +1557,23 @@
 button.chat-tag {
   cursor: pointer;
 }
+/* The router placed the question elsewhere (v9.0.0, stage 4b): ask it
+   where it was typed instead. Quiet, like "Answer it instead". */
+.chat-tag-instead {
+  display: block;
+  margin: -2px 0 6px;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.chat-tag-instead:hover {
+  color: var(--text-strong);
+}
 button.chat-tag:hover {
   color: var(--text);
   text-decoration: underline;

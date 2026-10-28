@@ -14,8 +14,15 @@ and the dock's controls. Until stage 3 the course (v8.25.0) and the Reader
 assistant/
   views.ts            — what a view lends the one assistant (AssistantView):
                         its words, how it asks, what its answers light
-  askAssistant.ts     — the course's and the Reader's stream engine (a thunk),
-                        Stop and Clear, the passage messages
+  askAssistant.ts     — the stream engine (`streamAnswer`, a thunk), the
+                        course's and the Reader's asking through it, Stop and
+                        Clear, the passage messages
+  askAt.ts            — asking a question in a view that isn't on screen,
+                        or in General, where the router placed it (stage 4b)
+  pendingAsk.ts       — a placed lecture, waiting for the panel that arrives
+                        at its view to ask it (stage 4b)
+  keepChatInView.ts   — the full-screen chat, taking the reader to a paper,
+                        asks the shell to open the dock there
   inFlight.ts         — the answer in flight in each chat, shared with
                         teacher/useConversation (v9.0.0)
   useTurnTags.ts      — a question's tag as its bubble shows it, and the
@@ -26,8 +33,8 @@ assistant/
                         menu to switch to another or start one, and with two
                         chats or more a 🗑 that deletes it, in two clicks
                         (v9.0.0)
-  AssistantLauncher.tsx — the 🎓 in the top-right corner: opens it while
-                        closed (v9.0.0)
+  AssistantLauncher.tsx — the 🎓 top-right of the view's canvas: opens it
+                        while closed (v9.0.0)
 ```
 
 The views' own layers are thin:
@@ -81,6 +88,30 @@ reads and which tools it gets.
   first, keeps the turn in view, then lights it, through the same highlight
   the view would have set itself (`store/highlight`; `reader/askReader`'s
   `answerLight` and `beatLight`).
+- **The router decides where a question is about** (stage 4b). Before a
+  question goes out, `teacher/Teacher` asks `api.routePlace` whether it is
+  about the view it was typed in, no view, or another of the exploration's
+  papers and its tool, but only when there is another paper it could mean,
+  and never for one with a passage or a paper attached. Placed elsewhere,
+  it is asked there (`askAt`) with that place's context, and the reader is
+  not moved: the course and the Reader read their paper off its thread, and
+  a Citation Graph not on screen is the one parked from the last visit or
+  built quietly (Patrick: build or reuse it, 2026-10-26), its finds waiting
+  on that paper. Its bubble says where it was typed (`ChatMsg.placedFrom`)
+  and offers to ask it there instead, as a re-routed lecture offers the
+  answer. `streamAnswer` is the one stream engine all of this runs on.
+  **A lecture goes there** (Patrick, 2026-10-27): placed on another paper's
+  Citation Graph or Reader and read as a lecture or a guided read, the
+  question can't be answered off-screen, since it lights its graph or paper
+  as it goes. So the panel goes to that view (the one exception to never
+  moving it unasked: being taught is asking to be shown), the question
+  waits in `pendingAsk`, and the panel that arrives asks it through the
+  ordinary path once its graph is built or its paper loaded.
+- **Following the chat to a paper keeps it in view** (Patrick,
+  2026-10-27). Full screen, a tag, an answer's link, a placed lecture or a
+  paper opened from the chat moves to a paper's view, where the dock is
+  closed by default; so it opens (`keepChatInView`, a window event the shell
+  listens for). The rail's own navigation leaves the dock as it was.
 - **Filtered by where it was asked** (`TagFilter.tsx`). Once a chat holds
   questions from two places or more, "Showing: All ▾" at its top picks one,
   and only the exchanges asked there show: each tool's conversation, back

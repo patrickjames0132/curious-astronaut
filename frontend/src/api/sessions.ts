@@ -50,6 +50,13 @@ export interface ChatMsg {
    * turns only.
    */
   tag?: TurnTag
+  /**
+   * Where the question was typed, when the router decided it was about
+   * somewhere else (v9.0.0, stage 4b): the view on screen then, or
+   * `'general'` for a chat. The bubble offers to ask it there instead.
+   * Absent when it was asked where it was typed. User turns only.
+   */
+  placedFrom?: TurnTag | 'general'
   /** Answer requested via Quick response; available before its first token. */
   quickResponse?: boolean
   /** Explicitly attached sibling discussions, with stable navigation ids. */

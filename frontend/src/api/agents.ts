@@ -329,6 +329,47 @@ export async function resolveRoutedPapers(
   }
 }
 
+/** What a message is about (v9.0.0, stage 4b): the view it was typed in,
+ *  no view (General), or another of the exploration's papers and its tool. */
+export interface PlaceRoute {
+  place: 'here' | 'general' | 'paper'
+  /** The paper's number in the list sent, from 1. */
+  paper: number | null
+  tool: 'graph' | 'knowledge' | 'reader' | null
+}
+
+/**
+ * Ask what a message is about (`POST /api/assistant/route/place`). Never
+ * rejects: any failure keeps the question where it was typed.
+ *
+ * @param message The message as typed.
+ * @param papers The exploration's paper titles, numbered from 1 in order.
+ * @param screen The open paper's number and view; nulls in a chat.
+ * @param screen.paper The open paper's number, or null.
+ * @param screen.tool The open view's tool, or null.
+ * @param signal Aborts a superseded message's routing.
+ * @returns The place, `here` on any failure.
+ */
+export async function routePlace(
+  message: string,
+  papers: string[],
+  screen: { paper: number | null; tool: string | null },
+  signal?: AbortSignal,
+): Promise<PlaceRoute> {
+  const here: PlaceRoute = { place: 'here', paper: null, tool: null }
+  try {
+    const res = await fetch('/api/assistant/route/place', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, papers, screen }),
+      signal,
+    })
+    return res.ok ? ((await res.json()) as PlaceRoute) : here
+  } catch {
+    return here
+  }
+}
+
 /** Where a message to the Reader Assistant goes (v8.50.0): a lecture on
  *  the paper, or an answer. */
 export interface ReaderRoute {

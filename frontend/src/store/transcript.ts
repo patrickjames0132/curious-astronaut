@@ -167,6 +167,8 @@ export interface TurnExtras {
   labels?: string[]
   /** Where the question was asked (v9.0.0); absent for General. */
   tag?: TurnTag
+  /** Where it was typed, when the router placed it elsewhere (v9.0.0). */
+  placedFrom?: TurnTag | 'general'
 }
 
 type Timed = Keyed & { at: number; quick?: boolean } & TurnExtras
@@ -446,11 +448,12 @@ const transcriptSlice = createSlice({
       reducer(state, action: PayloadAction<string, string, Timed>) {
         const conversation = target(state, action.meta.key)
         if (!conversation) return
-        const { places, figures, labels, tag } = action.meta
+        const { places, figures, labels, tag, placedFrom } = action.meta
         conversation.chat.push({
           role: 'user',
           text: action.payload,
           ...(tag && { tag }),
+          ...(placedFrom && { placedFrom }),
           ...(places && { places }),
           ...(figures && { boxedFigures: figures }),
           ...(labels?.length && { labels }),

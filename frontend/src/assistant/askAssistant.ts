@@ -30,13 +30,15 @@
 
 import { nanoid } from '@reduxjs/toolkit'
 import type {
-  AskSourcesHandlers,
+  AskHandlers,
   Beat,
+  Discovery,
   HistoryTurn,
   LectureHandlers,
   PdfPlace,
   Provider,
   ThreadContext,
+  TurnTag,
 } from '../api'
 import type { AppDispatch, RootState } from '../store'
 import { paperTag } from '../store/chats'
@@ -45,6 +47,7 @@ import {
   answerFailed,
   chatBeatAdded,
   chatCleared,
+  citedSet,
   conversationEnsured,
   figureAdded,
   paperRefsSet,
@@ -87,9 +90,7 @@ export interface AssistantBody {
  * null when the tool has nothing to ask over yet (no course; no readable
  * paper), in which case nothing is asked.
  */
-export type PrepareAsk = (
-  thread: ThreadRecord,
-) => ((body: AssistantBody, handlers: AskSourcesHandlers) => Promise<void>) | null
+export type PrepareAsk = (thread: ThreadRecord) => SendAnswer | null
 
 /** What one question to a docked assistant needs. */
 export interface AssistantQuestion {
@@ -115,6 +116,21 @@ export interface AssistantQuestion {
   /** The labels the passage covers (v8.48.0), kept on the user turn so
    *  either of the Reader's views can light it. Not sent. */
   labels?: string[]
+  /** Where it was typed, when the router placed it elsewhere (v9.0.0,
+   *  stage 4b): kept on the user turn, for its correction. */
+  placedFrom?: TurnTag | 'general'
+}
+
+/** One answer's stream call, given the request's body and its handlers. */
+export type SendAnswer = (body: AssistantBody, handlers: AskHandlers) => Promise<void>
+
+/** What an answer over a graph adds to the bookkeeping (v9.0.0, stage 4b:
+ *  the Citation Graph asked from another view). */
+export interface GraphAnswer {
+  /** Papers found mid-answer, for the graph they belong to. */
+  onDiscovery?: (discovery: Discovery) => void
+  /** The finished answer's prose, to resolve its `[n]` markers. */
+  onAnswered?: (text: string) => void
 }
 
 /**
@@ -150,12 +166,36 @@ export function clearAssistantChat(key: string) {
  */
 export function askAssistant(tool: AssistantTool, request: AssistantQuestion, prepare: PrepareAsk) {
   return async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
-    const { threadId, question, provider, sourceIds } = request
     const thread = Object.values(getState().explorations.byId)
       .flatMap((record) => record.threads)
-      .find((item) => item.id === threadId)
+      .find((item) => item.id === request.threadId)
     const send = thread ? prepare(thread) : null
     if (!thread || !send) return
+    await dispatch(streamAnswer(paperTag(thread, tool), request, send))
+  }
+}
+
+/**
+ * Stream one answer into the dock's chat, its question tagged with where it
+ * was asked: the docked tools' asking (`askAssistant`), and since v9.0.0
+ * (stage 4b) a question the router placed in a view that isn't on screen,
+ * or in General (`assistant/askAt`).
+ *
+ * @param tag Where it was asked; undefined for General.
+ * @param request The question.
+ * @param send Its stream call.
+ * @param graph What an answer over a graph adds, when it is one.
+ * @returns The thunk; it settles when the answer has ended, however it ended.
+ */
+export function streamAnswer(
+  tag: TurnTag | undefined,
+  request: AssistantQuestion,
+  send: SendAnswer,
+  graph: GraphAnswer = {},
+) {
+  return async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
+    const { question, provider, sourceIds } = request
+    const tool = tag?.tool ?? 'general'
     const key = selectChatKey(getState())
     // Supersede whatever this chat was answering, from whichever view: a new
     // message means the reader has moved on from the last one.
@@ -170,13 +210,15 @@ export function askAssistant(tool: AssistantTool, request: AssistantQuestion, pr
         places: request.places,
         figures: request.figures,
         labels: request.labels,
-        tag: paperTag(thread, tool),
+        tag,
+        placedFrom: request.placedFrom,
       }),
     )
     dispatch(turnContextSet(borrowedChats(getState(), question, key), key))
     let failed = false
     let failure = 'This answer stopped before it finished.'
     let produced = false
+    let prose = ''
     try {
       await send(
         {
@@ -194,9 +236,12 @@ export function askAssistant(tool: AssistantTool, request: AssistantQuestion, pr
           signal: ctrl.signal,
           onToken: (token) => {
             produced = true
+            prose += token
             dispatch(tokenAppended(token, key))
           },
           onTrace: (trace) => dispatch(traceAdded(trace, key)),
+          onDiscovery: graph.onDiscovery,
+          onCited: (ids) => dispatch(citedSet(ids, key)),
           onFigure: (figure) => dispatch(figureAdded(figure, key)),
           onSourceRefs: (refs) => dispatch(sourceRefsSet(refs, key)),
           onProvenance: (provenance) => dispatch(provenanceSet(provenance, key)),
@@ -207,6 +252,7 @@ export function askAssistant(tool: AssistantTool, request: AssistantQuestion, pr
           },
         },
       )
+      graph.onAnswered?.(prose)
       if (!failed && !ctrl.signal.aborted) dispatch(turnCompleted(key))
     } catch (error) {
       if (!ctrl.signal.aborted) failure = error instanceof Error ? error.message : String(error)

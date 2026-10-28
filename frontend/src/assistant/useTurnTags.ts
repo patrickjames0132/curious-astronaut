@@ -68,12 +68,15 @@ export interface TurnTagProps {
  *
  * @param chatKey The chat's key: where a General tag leads.
  * @param chat The chat's turns.
+ * @param onLeave Told before a tag is followed away (the full-screen chat
+ *   keeps itself in view, `keepChatInView`).
  * @returns For a turn and its index, its tag's label and where a click goes;
  *   nothing for an answer, or while the chat hasn't crossed views.
  */
 export function useTurnTags(
   chatKey: string,
   chat: ChatMsg[],
+  onLeave?: () => void,
 ): (message: ChatMsg, index: number) => TurnTagProps {
   const dispatch = useAppDispatch()
   const record = useAppSelector((state) => state.explorations.byId[state.explorations.activeId])
@@ -89,11 +92,12 @@ export function useTurnTags(
         onTagOpen: gone
           ? undefined
           : () => {
+              onLeave?.()
               anchorTurn(chatKey, index)
               void dispatch(openTag({ tag, chatId: chatKey }))
             },
       }
     },
-    [chatKey, crosses, dispatch, record],
+    [chatKey, crosses, dispatch, record, onLeave],
   )
 }
