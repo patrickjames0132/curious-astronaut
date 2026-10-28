@@ -26,7 +26,8 @@ Each feature is its own package; see each package's README:
   uploaded PDFs and web pages.
 - **`reader/`** — the Reader card's joins to the rest of the app: its
   bibliography matched to the papers it names (`citations`), for the
-  citation cards.
+  citation cards; the paper's sections as a placer reads them
+  (`sections`), for the margin notes.
 - **`reviews/`** — the Criticisms card: a paper's most-cited citers'
   citing sentences (the corpus's, else S2's live), judged and grouped by
   the `reviewer` agent into what the field objected to. **The other service

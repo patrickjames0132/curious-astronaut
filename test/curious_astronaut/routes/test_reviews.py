@@ -52,3 +52,32 @@ def test_route_reports_a_failed_source_or_model_as_502(client, monkeypatch):
 
     monkeypatch.setattr(reviews, "peer_reviews", model_down)
     assert client.post("/api/reviews", json={"paper": PAPER}).status_code == 502
+
+
+def test_notes_route_passes_the_paper_and_what_the_reader_reads(client, monkeypatch):
+    seen = []
+
+    def notes(paper, document, source, provider):
+        seen.append((paper, document, source, provider))
+        return {"card": CARD, "pins": []}
+
+    monkeypatch.setattr(reviews, "notes", notes)
+    body = {"paper": PAPER, "document": "https://arxiv.org/abs/1706.03762", "source": "pdf",
+            "provider": "openalex"}
+    assert client.post("/api/reviews/notes", json=body).get_json() == {"card": CARD, "pins": []}
+    paper, document, source, provider = seen[0]
+    assert paper["id"] == "CorpusId:1" and (document, source, provider) == ("1706.03762", "pdf", "openalex")
+
+
+def test_notes_route_rejects_a_text_without_an_arxiv_id(client):
+    assert client.post("/api/reviews/notes", json={"paper": PAPER, "document": "W123"}).status_code == 400
+    assert client.post("/api/reviews/notes", json={"paper": PAPER}).status_code == 400
+
+
+def test_notes_route_answers_502_when_the_model_fails(client, monkeypatch):
+    def notes(*_args):
+        raise RuntimeError("model down")
+
+    monkeypatch.setattr(reviews, "notes", notes)
+    response = client.post("/api/reviews/notes", json={"paper": PAPER, "document": "1706.03762"})
+    assert response.status_code == 502

@@ -198,7 +198,8 @@
 .reader-concepts-label {
   color: var(--muted);
 }
-.reader-concept {
+.reader-concept,
+.reader-criticism {
   display: inline-flex;
   align-items: baseline;
   max-width: 100%;
@@ -215,6 +216,63 @@
 .reader-concept:focus-visible,
 .reader-concept[aria-expanded='true'] {
   background: color-mix(in srgb, var(--knowledge-paper-ink) 18%, transparent);
+}
+
+/* The criticism notes (v8.54.0): the Knowledge Graph notes' shape in the
+   Criticisms card's sage, each chip led by its criticism's number. Tied to
+   a passage rather than a heading (`useMarginNotes`), which lights in sage
+   while the note is hovered. */
+.reader-criticisms.reader-concepts {
+  border-left-color: color-mix(in srgb, var(--criticisms-ink) 70%, transparent);
+}
+.reader-criticism {
+  gap: 5px;
+  border-color: color-mix(in srgb, var(--criticisms-ink) 60%, var(--border));
+}
+.reader-criticism:hover,
+.reader-criticism:focus-visible,
+.reader-criticism[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--criticisms-ink) 18%, transparent);
+}
+.reader-criticism-number {
+  flex: none;
+  color: var(--criticisms-ink);
+  font-variant-numeric: tabular-nums;
+}
+.reader-cite-card-title .reader-criticism-number {
+  margin-right: 8px;
+}
+.reader-criticisms.reader-concepts:hover .reader-concepts-link path,
+.reader-criticisms.reader-concepts:has(:focus-visible) .reader-concepts-link path {
+  stroke: var(--criticisms-ink);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--criticisms-ink) 70%, transparent));
+}
+.reader-text-lit.criticism,
+.reader-pdf-lit.criticism {
+  background: color-mix(in srgb, var(--criticisms-ink) 36%, transparent);
+}
+/* Its card: the citation card in sage, as the concept card is in gold. */
+.reader-cite-card.reader-criticism-card {
+  border-color: color-mix(in srgb, var(--criticisms-ink) 45%, var(--border));
+}
+.reader-cite-card.reader-criticism-card.pinned,
+.reader-cite-card.reader-criticism-card:focus-within {
+  border-color: color-mix(in srgb, var(--criticisms-ink) 75%, var(--border));
+}
+.reader-criticism-quote {
+  margin: 4px 0 8px;
+  padding-left: 10px;
+  border-left: 3px solid color-mix(in srgb, var(--criticisms-ink) 55%, var(--border));
+  color: var(--text);
+  font-size: 13px;
+  font-style: italic;
+}
+.reader-criticism-quote cite {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
 }
 /* One line, an ellipsis when it won't fit; the tooltip has the whole name. */
 .reader-concept-name {

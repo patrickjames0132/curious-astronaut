@@ -13,6 +13,7 @@ import Criticisms, {
   forgetGathered,
   provenance,
 } from '../../src/criticisms/Criticisms'
+import { focusCriticism } from '../../src/criticisms/focus'
 import workspace from '../../src/store/workspace'
 import transcript from '../../src/store/transcript'
 import explorations, {
@@ -233,4 +234,34 @@ it('draws no contents for an empty card', async () => {
   await screen.findByText(/None of the 310 sentences/)
   expect(screen.queryByRole('navigation', { name: 'Contents' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Show contents' })).toBeNull()
+})
+
+it('opens at the criticism a Reader note asked for, with the way back to reading', async () => {
+  vi.spyOn(api, 'fetchCriticisms').mockResolvedValue(CARD)
+  const scrollTo = vi.fn()
+  Element.prototype.scrollTo = scrollTo as unknown as typeof Element.prototype.scrollTo
+  focusCriticism('CorpusId:1', 1)
+  const store = configureStore({ reducer: { workspace, transcript, explorations } })
+  const thread = { ...THREAD, returnTo: { tool: 'reader' as const, from: 'reviews' as const } }
+  const record = newExploration('saved')
+  record.threads.push(thread)
+  record.activeThreadId = thread.id
+  store.dispatch(explorationOpened(record))
+  render(
+    <Provider store={store}>
+      <Criticisms thread={thread} />
+    </Provider>,
+  )
+  await screen.findByRole('heading', { name: '1Cost grows quadratically with length' })
+  await waitFor(() => expect(scrollTo).toHaveBeenCalled())
+  const entry = screen.getByTitle('Cost grows quadratically with length')
+  expect(entry.getAttribute('aria-current')).toBe('location')
+  // The way back takes the ↑'s place, and goes back to the paper.
+  fireEvent.click(screen.getByRole('button', { name: 'Back to reading' }))
+  const saved = store.getState().explorations
+  await waitFor(() =>
+    expect(saved.byId[saved.activeId].threads.find((item) => item.id === 'attn')!.tool).toBe(
+      'reader',
+    ),
+  )
 })

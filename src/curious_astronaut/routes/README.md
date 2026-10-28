@@ -314,6 +314,13 @@ same synthesis and never paid for twice; a synthesis needs two or more members
   cites yet, and one whose citers only use it are all answers the card
   words honestly. 400 is a body without `paper.id`; 502 is S2 or the model
   failing, with S2's failure named so the reader knows to wait.
+- **`POST /api/reviews/notes`** (v8.54.0) is the Reader's criticism notes:
+  the thread's paper (the card's key) and what the Reader reads
+  (`document`, an arXiv id, or a provider id with `source: "pdf"`), answered
+  with `{card, pins: [{criticism, section, quote}]}` from
+  `services/reviews.notes`. **It never gathers a card**: no card, `{card:
+  null, pins: []}` and no model call. 400 for a body without `paper.id` or
+  `document` (or a text that isn't on arXiv), 502 when the placer fails.
 
 ## `sessions.py` — explorations
 

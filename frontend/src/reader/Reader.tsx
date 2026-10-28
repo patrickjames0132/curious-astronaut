@@ -29,6 +29,7 @@ import {
   fetchPdfPassage,
   pdfUrl,
   type AnswerFigure,
+  type CriticisedPaper,
   type PdfPlace,
   type PaperDetails,
   type ReaderDocument,
@@ -65,6 +66,10 @@ import { Blocks, Inlines } from './ReaderBody'
 import CitationCard, { type CitationActions } from './CitationCard'
 import ConceptCard from './ConceptCard'
 import ConceptNote from './ConceptNote'
+import CriticismCard from './CriticismCard'
+import CriticismNote, { criticismOf, type CriticismLight } from './CriticismNote'
+import { useCriticismNotes, useCriticismPdfNotes } from './useCriticismNotes'
+import { focusCriticism } from '../criticisms/focus'
 import { conceptOf, pdfContentsNotes, textNotesInPdf, useConceptNotes } from './useConceptNotes'
 import { useAnchoredCard } from './useAnchoredCard'
 import { useMarginNotes } from './useMarginNotes'
@@ -457,6 +462,49 @@ export default function Reader({
       (first, second) => (courseRank.get(first) ?? Infinity) - (courseRank.get(second) ?? Infinity),
     )
   const conceptCard = useAnchoredCard(pageRef, '.reader-concept')
+  // The criticism notes (v8.54.0): the Criticisms card's criticisms beside
+  // the passages they are about, pinned by the reviewer; nothing until that
+  // card has been gathered (Patrick). Pinned in the text's sections, or in
+  // the PDF's contents for a paper with only its PDF; the PDF view finds the
+  // passages in the PDF's own words either way.
+  const seed = thread.data.graph_ref?.seed
+  const criticisedId = thread.paper?.id ?? seed?.id
+  const criticisedArxiv = thread.paper?.arxiv_id ?? seed?.arxiv_id ?? null
+  const criticisedPaper = useMemo<CriticisedPaper | null>(
+    () =>
+      criticisedId
+        ? {
+            id: criticisedId,
+            arxiv_id: criticisedArxiv,
+            title: thread.paper?.title ?? seed?.title ?? null,
+            authors: thread.paper?.authors ?? null,
+            year: thread.paper?.year ?? null,
+            url: thread.paper?.url ?? null,
+          }
+        : null,
+    // The paper by its id: the thread's objects change identity on saves.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [criticisedId, criticisedArxiv],
+  )
+  const criticismSource = textAvailable ? 'text' : doc && !doc.available ? 'pdf' : null
+  const { criticisms, notes: criticismNotes } = useCriticismNotes(
+    criticisedPaper,
+    ref && criticismSource ? { document: ref, source: criticismSource, provider } : null,
+  )
+  const criticismsBySection = useMemo(() => {
+    const bySection = new Map<string, typeof criticismNotes>()
+    if (criticismSource !== 'text') return bySection
+    for (const note of criticismNotes)
+      bySection.set(note.section, [...(bySection.get(note.section) ?? []), note])
+    return bySection
+  }, [criticismNotes, criticismSource])
+  const criticismPdfNotes = useCriticismPdfNotes(
+    view === 'pdf' && ref ? { ref, provider } : null,
+    criticismNotes,
+  )
+  const criticismCard = useAnchoredCard(pageRef, '.reader-criticism')
+  // A hovered note's passage, lit in sage.
+  const [criticismLight, setCriticismLight] = useState<CriticismLight | null>(null)
   // **Give Lecture** (v8.50.0): a lecture on the whole paper, from the
   // Reader Assistant, each step lit in the paper as it's taught. By the
   // paper's title, outside the assistant (Patrick): under it in the text, and
@@ -570,21 +618,67 @@ export default function Reader({
     pdfContents,
     conceptCard.controls,
   ])
+  const criticismMargin = useMemo<PdfMarginNote[]>(
+    () =>
+      view !== 'pdf'
+        ? []
+        : criticismPdfNotes.map((note) => {
+            const [place] = note.places
+            return {
+              key: `criticism:${note.key}`,
+              page: place.page,
+              top: Math.max(0, (place.rects[0]?.[1] ?? 0) - 4),
+              title: '',
+              node: (
+                <CriticismNote
+                  slot={`pdf:${note.key}`}
+                  numbers={note.numbers}
+                  criticisms={criticisms}
+                  quote={note.quote}
+                  places={note.places}
+                  card={criticismCard.controls}
+                  onLight={setCriticismLight}
+                />
+              ),
+            }
+          }),
+    [view, criticismPdfNotes, criticisms, criticismCard.controls],
+  )
   const pdfNotes = useMemo(
-    () => (lectureNote ? [lectureNote, ...conceptNotes] : conceptNotes),
-    [lectureNote, conceptNotes],
+    () => [...(lectureNote ? [lectureNote] : []), ...conceptNotes, ...criticismMargin],
+    [lectureNote, conceptNotes, criticismMargin],
   )
   const closeConcept = conceptCard.close
   useEffect(() => closeConcept(), [view, ref, closeConcept])
+  const closeCriticism = criticismCard.close
+  useEffect(() => {
+    closeCriticism()
+    setCriticismLight(null)
+  }, [view, ref, closeCriticism])
   // Stacked so they never overlap, each tied to its heading by a curve.
   useMarginNotes(
     pageRef,
     view === 'pdf'
       ? pdfNotes.map((note) => note.key).join(',')
-      : view === 'text' && course
-        ? [...notes.keys()].join(',')
+      : view === 'text'
+        ? [...(course ? [...notes.keys()] : []), ...criticismNotes.map((note) => note.key)].join(
+            ',',
+          )
         : '',
   )
+  const openCriticism = criticismCard.card
+  const openCriticismNumber = openCriticism ? criticismOf(openCriticism.id) : null
+  // A hovered note's passage in the text, as boxes behind it like a lit
+  // answer's; in the PDF, as places the pages draw.
+  const criticismBoxes = useMemo(
+    () =>
+      criticismLight && 'ranges' in criticismLight && articleRef.current
+        ? boxesOf(criticismLight.ranges, articleRef.current)
+        : [],
+    [criticismLight],
+  )
+  const criticismPlaces =
+    criticismLight && 'places' in criticismLight ? criticismLight.places : undefined
   const openConcept = conceptCard.card
   // The card's id is the chip's (its note and its concept): the concept alone.
   const openConceptId = openConcept ? conceptOf(openConcept.id) : null
@@ -1006,6 +1100,7 @@ export default function Reader({
         zoom={zoom}
         box={view === 'pdf' ? box : null}
         lit={pdfLit}
+        marked={criticismPlaces}
       />
     )
   } else if (view === 'pdf' && doc?.available) {
@@ -1059,7 +1154,7 @@ export default function Reader({
     body = (
       <ReaderLinksContext.Provider value={links}>
         <article
-          className={`reader-article${course && notes.size ? ' has-notes' : ''}`}
+          className={`reader-article${(course && notes.size) || criticismsBySection.size ? ' has-notes' : ''}`}
           ref={articleRef}
         >
           {view === 'text' && box && (
@@ -1073,6 +1168,14 @@ export default function Reader({
           )}
           {textLit.map((box, index) => (
             <div key={index} className="reader-text-lit" aria-hidden="true" style={box} />
+          ))}
+          {criticismBoxes.map((box, index) => (
+            <div
+              key={`criticism:${index}`}
+              className="reader-text-lit criticism"
+              aria-hidden="true"
+              style={box}
+            />
           ))}
           <header className="reader-header">
             <h1>{title ? <Inlines inlines={title} /> : fallbackTitle}</h1>
@@ -1116,6 +1219,17 @@ export default function Reader({
                     card={conceptCard.controls}
                   />
                 )}
+                {criticismsBySection.get(section.id)?.map((note) => (
+                  <CriticismNote
+                    key={note.key}
+                    slot={note.key}
+                    numbers={note.numbers}
+                    criticisms={criticisms}
+                    quote={note.quote}
+                    card={criticismCard.controls}
+                    onLight={setCriticismLight}
+                  />
+                ))}
                 <Blocks blocks={section.blocks} />
               </section>
             )
@@ -1180,6 +1294,8 @@ export default function Reader({
             the ↑ to the cards at the top (`tools/ScrollNav`). */}
         <ScrollNav
           atTop={atTop}
+          thread={thread}
+          tool="reader"
           paperTitle={thread.title}
           topTitle="Back to the top of the paper"
           onTop={() => {
@@ -1211,6 +1327,29 @@ export default function Reader({
               onClose={citationCard.close}
               onPointerEnter={citationCard.keep}
               onPointerLeave={citationCard.release}
+            />
+          )}
+          {openCriticism && openCriticismNumber && criticisms[openCriticismNumber - 1] && (
+            <CriticismCard
+              number={openCriticismNumber}
+              criticism={criticisms[openCriticismNumber - 1]}
+              pinned={openCriticism.pinned}
+              placement={openCriticism.placement}
+              onOpen={() => {
+                closeCriticism()
+                if (criticisedId) focusCriticism(criticisedId, openCriticismNumber)
+                // The Criticisms card then offers the way back here.
+                dispatch(
+                  threadReturnSet({
+                    id: thread.id,
+                    returnTo: { tool: 'reader', from: 'reviews' },
+                  }),
+                )
+                void dispatch(openTool('reviews'))
+              }}
+              onClose={closeCriticism}
+              onPointerEnter={criticismCard.keep}
+              onPointerLeave={criticismCard.release}
             />
           )}
           {openConcept && openConceptId && course && (

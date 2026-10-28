@@ -60,6 +60,26 @@ to live, and would have quoted that week's 4-citation papers for a month. `fresh
 replaces the entry. Bump `_CACHE_VERSION` when the payload or the reviewer's
 prompts change.
 
+## The criticism notes (v8.54.0)
+
+`notes(paper, document, source, provider)` is the Reader's margin notes: the
+cached card, pinned by `reviewer.place` to the passages it is about, as
+`{card, pins}`. Two rules:
+
+- **Never a gather.** `cached(paper)` reads the card's cache and nothing
+  else (a live card only while a day old), so opening the Reader costs no
+  half-minute gather (Patrick: notes only once a card exists). No card or no
+  criticisms: no pins, no model call.
+- **Pinned once per card.** The pins are cached as long as a card is, under
+  `reviews:pins:v1:<digest>` of the card's key, the document, the source
+  (and provider, for the PDF) and the criticisms' names, so a card gathered
+  again (new criticisms) is pinned again and the same card never is. A
+  render or PDF that won't open is nothing to pin to, this time, and isn't
+  cached.
+
+The sections are `services/reader/sections.py`'s, the same the Knowledge
+Graph placer reads.
+
 ## The one service that imports an agent at the top
 
 `services/search/naming` reaches into `agents/` through a function-local
@@ -72,5 +92,7 @@ reviewer's job, and its only consumer is the route that needs it.
 `test/curious_astronaut/services/reviews/test_reviews.py`, with both sources
 and the reviewer stubbed: `s2_ref`'s order, ids becoming quotes from real
 citers ordered by citation count, the live fallback, a paper S2 can't name
-(and a 404) answered without a model call, and the cache with `fresh`. The
+(and a 404) answered without a model call, and the cache with `fresh`; the
+notes needing a card already gathered, pinned once per card and source, and
+none for a card without criticisms. The
 route's own tests are in `test/curious_astronaut/routes/test_reviews.py`.

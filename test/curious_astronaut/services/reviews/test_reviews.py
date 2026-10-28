@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 
 from curious_astronaut.agents.orchestrators import reviewer
+from curious_astronaut.agents.orchestrators.tutor import PaperSection
 from curious_astronaut.integrations import semantic_scholar as s2
 from curious_astronaut.services import reviews
 
@@ -130,3 +131,51 @@ def test_a_live_card_is_kept_a_day_at_most(calls, monkeypatch):
     monkeypatch.setattr(reviews, "LIVE_CACHE_SECONDS", -1)
     reviews.peer_reviews(PAPER)
     assert len(calls["review"]) == 2
+
+
+CARD = {"source": "corpus", "citers": 2, "sentences": 3, "critiques": 2,
+        "themes": [{"name": "Quadratic cost", "summary": "It scales badly.", "papers": 1, "quotes": []}]}
+
+
+@pytest.fixture()
+def placing(monkeypatch):
+    """Stub the sections and the placer; record what was asked."""
+    seen: dict = {"sections": [], "place": []}
+
+    def paper_sections(document, source, provider):
+        seen["sections"].append((document, source, provider))
+        return [PaperSection(id="S3", heading="3 Attention", text="Attention is quadratic in length.")]
+
+    def place(criticisms, sections):
+        seen["place"].append(criticisms)
+        return [reviewer.Pin(criticism=1, section="S3", quote="Attention is quadratic in length.")]
+
+    monkeypatch.setattr(reviews.reader_sections, "paper_sections", paper_sections)
+    monkeypatch.setattr(reviews.reviewer, "place", place)
+    return seen
+
+
+def test_notes_need_a_card_already_gathered(placing, calls):
+    # No card yet: nothing gathered, nothing placed.
+    assert reviews.notes(PAPER, "1706.03762", "text", "s2") == {"card": None, "pins": []}
+    assert calls["review"] == [] and placing["place"] == []
+
+
+def test_notes_pin_the_cached_card_once(placing):
+    reviews.cache.set(reviews.cache_key(PAPER), CARD)
+    first = reviews.notes(PAPER, "1706.03762", "text", "s2")
+    assert first["card"] == CARD
+    assert first["pins"] == [{"criticism": 1, "section": "S3", "quote": "Attention is quadratic in length."}]
+    assert placing["place"][0][0].number == 1 and placing["place"][0][0].name == "Quadratic cost"
+    # The same card again: from the cache, no second placement.
+    assert reviews.notes(PAPER, "1706.03762", "text", "s2") == first
+    assert len(placing["place"]) == 1
+    # The PDF is pinned on its own.
+    reviews.notes(PAPER, "1706.03762", "pdf", "s2")
+    assert placing["sections"][-1] == ("1706.03762", "pdf", "s2") and len(placing["place"]) == 2
+
+
+def test_a_card_with_no_criticisms_has_no_notes(placing):
+    reviews.cache.set(reviews.cache_key(PAPER), {**CARD, "themes": []})
+    assert reviews.notes(PAPER, "1706.03762", "text", "s2")["pins"] == []
+    assert placing["place"] == []

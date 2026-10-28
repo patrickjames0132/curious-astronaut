@@ -20,6 +20,12 @@ for word; the models choose and group, they never write a quote.
 Model failures propagate (the route answers 502); a verdict missing from a
 batch counts as not a critique.
 
+**Pins** (v8.54.0, ``place``): a third, separate call for the Reader's margin
+notes, once a card exists. The strong model reads the paper's sections and
+pins a criticism to the passage it is about, quoting it; code keeps a pin
+only when its criticism and section exist and its quote is really in that
+section's text, so a note always points at the paper's own words.
+
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
 """
@@ -34,6 +40,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent
 
 from ... import factory, streams
+from ..tutor import PaperSection
 from .config import (
     GROUP_AGENT_ID,
     GROUP_SYSTEM_PROMPT,
@@ -42,6 +49,11 @@ from .config import (
     JUDGE_CONCURRENCY,
     JUDGE_SYSTEM_PROMPT,
     MAX_THEMES,
+    PLACE_AGENT_ID,
+    PLACE_CHARS,
+    PLACE_MAX_PINS,
+    PLACE_MIN_CHARS,
+    PLACE_SYSTEM_PROMPT,
 )
 
 log = logging.getLogger(__name__)
@@ -113,10 +125,39 @@ class Review(BaseModel):
     judged: int
 
 
+class Pin(BaseModel):
+    """Where in the paper one criticism applies (see ``PLACE_SYSTEM_PROMPT``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    criticism: int
+    section: str
+    quote: str
+
+
+class Pins(BaseModel):
+    """The placer's structured output."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    pins: list[Pin]
+
+
+class Criticism(BaseModel):
+    """One of a card's criticisms, as the placer is told about it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    number: int
+    name: str
+    summary: str
+
+
 # No model at construction: each run passes `factory.model_for`, so a blank
 # config can't stop the app booting and a settings edit needs no restart.
 judge_agent: Agent[None, Judgements] = Agent(output_type=Judgements, instructions=[JUDGE_SYSTEM_PROMPT])
 group_agent: Agent[None, Themes] = Agent(output_type=Themes, instructions=[GROUP_SYSTEM_PROMPT])
+place_agent: Agent[None, Pins] = Agent(output_type=Pins, instructions=[PLACE_SYSTEM_PROMPT])
 
 
 def _target_line(target: Target) -> str:
@@ -252,3 +293,86 @@ def review(target: Target, sentences: list[Sentence]) -> Review:
     if not sentences:
         return Review(themes=[], critiques=0, judged=0)
     return streams.run(_review(target, sentences))
+
+
+def comparable(text: str) -> str:
+    """Text reduced to what a quote check reads: lowercase letters and digits.
+
+    The frontend finds a quote the same way (``reader/passages.ts``), so a
+    pin this keeps is one the Reader can find.
+
+    Args:
+        text: Any text.
+
+    Returns:
+        Its letters and digits, lowercased; ligatures spelled out.
+    """
+    spelled = text.replace("ﬁ", "fi").replace("ﬂ", "fl").replace("ﬀ", "ff").replace("ﬃ", "ffi").replace("ﬄ", "ffl")
+    return "".join(char for char in spelled.lower() if char.isalnum())
+
+
+def verify_pins(pins: Pins, criticisms: list[Criticism], sections: list[PaperSection]) -> list[Pin]:
+    """Keep only pins that point at the paper's own words.
+
+    Args:
+        pins: The placer's output.
+        criticisms: The card's criticisms, by number.
+        sections: The sections it was shown.
+
+    Returns:
+        Pins whose criticism and section exist and whose quote is in that
+        section's text (compared as :func:`comparable`), at most
+        ``PLACE_MAX_PINS`` a criticism and one per passage, in the paper's
+        order; each one dropped is logged.
+    """
+    numbers = {criticism.number for criticism in criticisms}
+    texts = {section.id: comparable(section.heading + " " + section.text) for section in sections}
+    order = {section.id: index for index, section in enumerate(sections)}
+    kept: list[Pin] = []
+    per_criticism: dict[int, int] = {}
+    seen: set[tuple[int, str]] = set()
+    for pin in pins.pins:
+        quote = " ".join(pin.quote.split())
+        wanted = comparable(quote)
+        if pin.criticism not in numbers or pin.section not in texts or len(wanted) < 12:
+            log.info("reviewer: dropped pin %s in %r", pin.criticism, pin.section)
+            continue
+        if wanted not in texts[pin.section]:
+            log.info("reviewer: pin %s quotes text not in %r: %r", pin.criticism, pin.section, quote)
+            continue
+        if (pin.criticism, wanted) in seen or per_criticism.get(pin.criticism, 0) >= PLACE_MAX_PINS:
+            continue
+        seen.add((pin.criticism, wanted))
+        per_criticism[pin.criticism] = per_criticism.get(pin.criticism, 0) + 1
+        kept.append(Pin(criticism=pin.criticism, section=pin.section, quote=quote))
+    return sorted(kept, key=lambda pin: (order[pin.section], pin.criticism))
+
+
+def place(criticisms: list[Criticism], sections: list[PaperSection]) -> list[Pin]:
+    """Pin a card's criticisms to the passages of the paper they are about.
+
+    One structured call over the paper's sections, each cut to its share of
+    ``PLACE_CHARS`` so a long paper still fits, then :func:`verify_pins`.
+
+    Args:
+        criticisms: The card's criticisms, numbered as the card numbers them.
+        sections: The paper's sections, in order.
+
+    Returns:
+        The verified pins; none (and no model call) without criticisms or
+        sections. A criticism with nothing in the paper to point at has none.
+
+    Raises:
+        Exception: Model failures propagate; the route answers 502.
+    """
+    if not criticisms or not sections:
+        return []
+    share = max(PLACE_MIN_CHARS, PLACE_CHARS // len(sections))
+    parts = ["THE PAPER'S SECTIONS:\n"]
+    for section in sections:
+        text = section.text[:share] + (" …" if len(section.text) > share else "")
+        parts.append(f"\n[{section.id}] {section.heading}\n{text}\n")
+    parts.append("\nTHE CRITICISMS:\n")
+    parts.extend(f"{criticism.number}. {criticism.name}: {criticism.summary}\n" for criticism in criticisms)
+    result = streams.run(place_agent.run("".join(parts), model=factory.model_for(PLACE_AGENT_ID)))
+    return verify_pins(result.output, criticisms, sections)

@@ -24,6 +24,7 @@ import json
 from curious_astronaut.agents import events
 from curious_astronaut.agents.orchestrators import tutor
 from curious_astronaut.routes import knowledge
+from curious_astronaut.services.reader import sections
 
 ITEM = {"title": "Playing Atari", "kind": "paper", "paper_id": "dqn"}
 
@@ -504,7 +505,7 @@ def test_a_pdf_only_paper_is_placed_in_its_pdfs_contents(client, monkeypatch):
     contents entries, each with the pages it spans, the reference list left out."""
     asked = []
     monkeypatch.setattr(
-        knowledge.pdf_service, "paper_pdf_url", lambda ref, provider: asked.append((ref, provider)) or "https://x/p.pdf"
+        sections.pdf_service, "paper_pdf_url", lambda ref, provider: asked.append((ref, provider)) or "https://x/p.pdf"
     )
     entries = [
         {"title": "1 Introduction", "level": 1, "page": 1},
@@ -513,9 +514,9 @@ def test_a_pdf_only_paper_is_placed_in_its_pdfs_contents(client, monkeypatch):
         {"title": "References", "level": 1, "page": 4},
         {"title": "A Appendix", "level": 1, "page": 5},
     ]
-    monkeypatch.setattr(knowledge.pdf_service, "get_pdf_contents", lambda url: {"source": "headings", "entries": entries})
+    monkeypatch.setattr(sections.pdf_service, "get_pdf_contents", lambda url: {"source": "headings", "entries": entries})
     pages = ["page one", "page two", "page three", "page four", "page five"]
-    monkeypatch.setattr(knowledge.pdf_service, "get_pdf_pages", lambda url: {"available": True, "pages": pages})
+    monkeypatch.setattr(sections.pdf_service, "get_pdf_pages", lambda url: {"available": True, "pages": pages})
     seen = []
 
     def place(sections, concepts):
@@ -539,11 +540,11 @@ def test_a_pdf_only_paper_is_placed_in_its_pdfs_contents(client, monkeypatch):
 
 
 def test_a_pdf_placement_without_the_pdf_extra_is_empty(client, monkeypatch):
-    monkeypatch.setattr(knowledge.pdf_service, "paper_pdf_url", lambda ref, provider: "https://x/p.pdf")
+    monkeypatch.setattr(sections.pdf_service, "paper_pdf_url", lambda ref, provider: "https://x/p.pdf")
 
     def missing(url):
-        raise knowledge.optional.MissingExtra("pdf", "fitz")
+        raise sections.optional.MissingExtra("pdf", "fitz")
 
-    monkeypatch.setattr(knowledge.pdf_service, "get_pdf_contents", missing)
+    monkeypatch.setattr(sections.pdf_service, "get_pdf_contents", missing)
     body = {"paper": "1412.6980", "concepts": ["Momentum"], "source": "pdf"}
     assert client.post("/api/knowledge/place", json=body).get_json() == {"sections": {}}
