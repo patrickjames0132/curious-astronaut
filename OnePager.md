@@ -1927,6 +1927,13 @@ than deleted so the plan doesn't get re-proposed.
         every frame would re-lay them out dozens of times per flip; each
         view probably needs its own move (hold the old size and fade or
         slide to the new, or ease the canvas's fit).
+      - **Animate full screen into a tool** (Patrick, 2026-10-27). Leaving
+        a full-screen chat for a paper's view (a tag, an answer's link, a
+        placed lecture, a paper opened) swaps the page for the tool and
+        docks the chat in one step. The chat could shrink into its dock
+        while the tool comes in, the same per-view question as the item
+        above: each tool arrives differently (a graph builds, the Reader
+        loads its paper, the cards are a page).
 
 
 - [ ] **Peer Reviews: v2 and polish** — follow-ups to the card shipped in
