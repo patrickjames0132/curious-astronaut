@@ -98,9 +98,9 @@ it('opens the Reader card', () => {
   expect(onOpen).toHaveBeenCalledWith('reader')
 })
 
-it('opens the Peer Reviews card', () => {
+it('opens the Criticisms card', () => {
   const { onOpen } = mount(paperThread(true))
-  fireEvent.click(screen.getByRole('button', { name: /Peer Reviews/ }))
+  fireEvent.click(screen.getByRole('button', { name: /Criticisms/ }))
   expect(onOpen).toHaveBeenCalledWith('reviews')
 })
 

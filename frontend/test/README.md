@@ -87,10 +87,16 @@ test/
                                 highlight menu's Explain, Simplify and Chat
                                 into the Reader Assistant (v8.38.0), and the
                                 PDF view with pdf.js stubbed (v8.40.0)
-  reviews/
-    PeerReviews.test.tsx      — the Peer Reviews card: the request for the
-                                thread's paper, themes and their quotes, the
-                                retry, honest empty states, and Open
+  contents/
+    ContentsRail.test.tsx     — the shared contents rail: entries by
+                                number, the active one, a pick, folding under
+                                its own key
+  criticisms/
+    Criticisms.test.tsx       — the Criticisms card: the request for the
+                                thread's paper, numbered criticisms and their
+                                quotes, the contents (listed, clicked, folded
+                                apart from the Reader's, absent when empty),
+                                the retry, honest empty states, and Open
   tools/
     ToolCards.test.tsx        — the card home's paper header, its four
                                 cards, and the one-time paper fetch

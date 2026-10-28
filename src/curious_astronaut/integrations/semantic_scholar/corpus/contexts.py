@@ -5,7 +5,7 @@ Keep the sentences in which citing papers cite a paper: the corpus's contexts ta
 
 The raw ``citations`` dataset carries, per edge, the sentence(s) where the
 citing paper cites the cited one (``contexts``). Ingest drops them: the graph
-only needs the edge. The Peer Reviews card needs them, and it needs them for
+only needs the edge. The Criticisms card needs them, and it needs them for
 the *most-cited* citers, which is the ranking only the corpus can serve (the
 live endpoint returns citers newest-first). So this module stores them, in a
 table of its own beside ``citations``:

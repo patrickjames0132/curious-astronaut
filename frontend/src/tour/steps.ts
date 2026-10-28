@@ -14,8 +14,8 @@
  * on the first one; {@link GRAPH_TOUR} covers the graph tools and auto-runs
  * on the first graph; {@link KNOWLEDGE_TOUR} covers the knowledge network and
  * auto-runs on the first course; {@link READER_TOUR} covers the Reader and
- * auto-runs on the first paper read; {@link REVIEWS_TOUR} covers the Peer
- * Reviews card and auto-runs on the first one opened. `App.tsx` picks the
+ * auto-runs on the first paper read; {@link CRITICISMS_TOUR} covers the
+ * Criticisms card and auto-runs on the first one opened. `App.tsx` picks the
  * list (and the seen-flag) by which of the six is on screen.
  * One more list, {@link SETTINGS_TOUR}, belongs to the settings modal, which
  * mounts it itself (the ? beside its ✕): its steps *stage* the section or
@@ -41,7 +41,8 @@ export const TOUR_KEYS = {
   knowledge: 'curious_astronaut.tour.knowledge',
   /** The Reader — the first paper read. */
   reader: 'curious_astronaut.tour.reader',
-  /** The Peer Reviews card — the first one opened. */
+  /** The Criticisms card — the first one opened. Its key keeps the card's
+   *  first name, as its tool id does. */
   reviews: 'curious_astronaut.tour.reviews',
   /** The graph-tools tour — first graph. */
   graph: 'curious_astronaut.tour.graph',
@@ -171,27 +172,27 @@ export const CARDS_TOUR: TourStep[] = [
     body:
       'The Citation Graph maps the papers this one built on and the ones it spawned. The ' +
       'Knowledge Graph is a short course on the ideas you need to ' +
-      'know first. The Reader is the paper itself. Peer Reviews gathers what later papers ' +
+      'know first. The Reader is the paper itself. Criticisms gathers what later papers ' +
       'objected to in it. Clicking the thread in the sidebar ' +
       'always brings you back to these cards, and so does the ↑ at the top of each tool.',
   },
 ]
 
 /**
- * The Peer Reviews card: where its critiques come from, the themes and their
- * quotes, and the way back to the cards.
+ * The Criticisms card: where its critiques come from, the numbered criticisms
+ * and their quotes, the contents, and the way back to the cards.
  */
-export const REVIEWS_TOUR: TourStep[] = [
+export const CRITICISMS_TOUR: TourStep[] = [
   {
-    target: '[data-tour="reviews"]',
+    target: '[data-tour="criticisms"]',
     title: 'What the field objected to',
     body:
       'Not conference reviews: the weaknesses later papers found in this one, gathered from ' +
-      'the sentences in which they cite it. Each concern is a heading, with how many papers ' +
-      'raise it and a short summary.',
+      'the sentences in which they cite it. Each criticism is a numbered heading, with how ' +
+      'many papers raise it and a short summary.',
   },
   {
-    target: '[data-tour="reviews-source"]',
+    target: '[data-tour="criticisms-source"]',
     title: 'Where they come from',
     body:
       'This line says what was read. Usually that’s the most-cited papers that cite this ' +
@@ -199,7 +200,7 @@ export const REVIEWS_TOUR: TourStep[] = [
       'corpus, it’s the most recent citers instead, and the line says so.',
   },
   {
-    target: '[data-tour="reviews-themes"]',
+    target: '[data-tour="criticisms-list"]',
     title: 'Every quote is real',
     body:
       'Each quote is the citing paper’s own sentence, word for word. Open a citing paper as ' +
@@ -207,11 +208,20 @@ export const REVIEWS_TOUR: TourStep[] = [
       'a weakness is also the one that fixed it.',
   },
   {
+    target: '[data-tour="criticisms-contents"]',
+    title: 'Contents',
+    body:
+      'Every criticism by its number, following along as you read. Click one to go straight ' +
+      'there. Drag the panel’s right edge to resize it. The bump on that edge folds it away ' +
+      'to a thin line at the left (so does dragging it narrow enough); the line’s bump brings ' +
+      'it back.',
+  },
+  {
     target: '[data-tour="tool-back"]',
     presentIf: '[data-tour="tool-back"]',
     title: 'Back up to the paper’s cards',
     body:
-      'At the top of the reviews, the ↑ over them takes you back up to this paper’s cards ' +
+      'At the top of the criticisms, the ↑ over them takes you back up to this paper’s cards ' +
       'and its other tools. Scrolled down, it becomes “Back to top”.',
   },
 ]
@@ -567,10 +577,10 @@ export const GRAPH_TOUR: TourStep[] = [
   {
     target: '[data-tour="tool-return"][data-return="reviews"]',
     presentIf: '[data-tour="tool-return"][data-return="reviews"]',
-    title: 'Back to Peer Reviews',
+    title: 'Back to Criticisms',
     body:
-      'You came here from Peer Reviews to see a citing paper. This takes you back to the ' +
-      'same place in the reviews; their own ↑ leads up to the paper’s cards.',
+      'You came here from Criticisms to see a citing paper. This takes you back to the ' +
+      'same place in the criticisms; their own ↑ leads up to the paper’s cards.',
   },
   {
     target: '[data-tour="tool-back"]',

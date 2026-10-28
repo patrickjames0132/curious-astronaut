@@ -6,7 +6,7 @@
  * the top of the page, the ↑ up to the paper's cards; scrolled down, a
  * **Back to top** pill back up the page. The other tools' ↑ alone, floating
  * over a scrolled page, read as "back to the top". Drawn by the tools whose
- * page scrolls, the Reader and Peer Reviews; the app leaves its own ↑ out
+ * page scrolls, the Reader and Criticisms; the app leaves its own ↑ out
  * for them.
  *
  * Authors:

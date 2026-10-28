@@ -440,7 +440,7 @@ export const openTool = createAsyncThunk<void, ThreadTool, { state: NavigationSt
 
 /**
  * Show a paper that cites this one in its Citation Graph, selected and
- * centred, building the graph first when it isn't yet. Peer Reviews quotes a
+ * centred, building the graph first when it isn't yet. Criticisms quotes a
  * paper's most-cited citers, and the graph keeps only a cut of them (on
  * Attention, 6 of a card's 13), so a citer it lacks is added, with the
  * citation edge to the seed it has by construction, the way an expansion

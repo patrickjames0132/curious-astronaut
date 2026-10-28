@@ -553,41 +553,19 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
   theme their black ink and transparent backgrounds would vanish. SVG panels
   are shown through `<img>`, where their scripts never run, and the figure
   proxy sandboxes them if opened directly (`routes/README.md`).
-- **Open and folded mirror each other.** Open, the panel's right edge is the
-  same thin coral line (`--contents-line`) with a bump on its inside at
-  mid-height holding a `‹` that folds the panel (with the slide); folded,
-  the line moves to the left edge and its bump's `›` brings the panel back.
-  The open bump sits on the non-scrolling frame, above the drag handle that
-  covers the rest of the edge.
-- **The contents resize and fold by dragging, and reopen by the bump.**
-  Their right edge is a drag handle (`ui/useResizablePanel`, the side
-  panels' hook, `side: 'left'`; width remembered in `ca.readerContentsWidth`),
-  and dragging well past the 180px floor folds them away to a thin coral
-  line down the left edge with a bump at mid-height holding a `›`. Unlike the
-  explorer rail, **a drag never reopens them** (`openAt: Infinity`, and the
-  folded line has no handle): only a click on the line or bump does. Both
-  left-hand panels opening by a drag on neighbouring edges would fight over
-  one pointer (Patrick, 2026-10-23). The line sits 4px in from the rail's
-  edge to clear the rail's own handle. The handle lives on a frame that
-  doesn't scroll, with the list scrolling inside it; the first version's
-  `|←` button sat in the scrolling list and was gone once you scrolled down,
-  which is what the drag replaced. Folded by a drag, the panel snaps away
-  (`.snap`) since it's already at its floor; reopening slides it in like the
-  docked panels (`--motion-panel`, their keyframes mirrored, `ui/usePresence`
-  holding it through an exit). **It all moves by transform**: the layout
-  changes once at the start (a closing panel leaves the flow, an opening
-  one takes its width) and the reading pane's contents glide from where
-  they were (`.glide-open`/`.glide-close`, half the panel's width, since
-  they're centred). The first version animated the panel's margin, which
-  resized the pane every frame and re-laid out the whole paper each time;
-  the fold lagged in both views. The look is deliberately unlike the
-  sidebar's 56px icon rail. Open or folded is remembered
-  (`ca.readerContentsOpen`), and the panel stays at every window width.
+- **The contents rail is shared** (`contents/ContentsRail`, since the
+  Criticisms card wanted one too, 2026-10-27): its look, the fold, the drag
+  and the slide are told in `contents/README.md`. The Reader lends it the
+  coral (`--contents-ink`), its entries (the sections to depth 3, or the
+  PDF's outline) and which is active, remembers it under
+  `ca.readerContentsOpen` / `ca.readerContentsWidth`, and plays the glide on
+  `.reader-main` (`.glide-open`/`.glide-close`, the shared
+  `contents-glide-*` keyframes).
 - **The shell's overlays sit over the reading pane** (`.reader-main`), not
   the whole Reader, so the ↑ back to the cards centres over the text, not
   over text and contents together, and stays put as the text scrolls. Since
   v8.50.0 the Reader draws that button itself (the app leaves it out for
-  the Reader; the shared `tools/ScrollNav` since Peer Reviews wanted it too): the ↑ within 120px of the top (`AT_TOP`), and below that a
+  the Reader; the shared `tools/ScrollNav` since Criticisms wanted it too): the ↑ within 120px of the top (`AT_TOP`), and below that a
   **Back to top** pill, words alone until the pane is narrow and then just
   its icon, gliding back to the top. It replaced the contents panel's own
   Back to top. (A ←

@@ -52,7 +52,7 @@ download.py  — resumable, checkpointed shard downloader (URL-expiry-aware)
      ↓
 ingest.py    — DuckDB: JSONL.gz → Parquet (papers + arXiv index; citations bucketed)
      ↓
-contexts.py  — the citing sentences of well-cited citers (the Peer Reviews card)
+contexts.py  — the citing sentences of well-cited citers (the Criticisms card)
      ↓
 refresh.py   — the next release from the current one + S2's weekly diffs
      ↓
@@ -205,11 +205,11 @@ copies. Ingest stores upstream's rows verbatim; the query collapses them.
 remove the grouping — the fixture ships an overlapping batch precisely so the
 landmark tests fail if you do. See **Upstream** in `docs/bugs.md`.
 
-### The citing sentences (`contexts.py`, the Peer Reviews card)
+### The citing sentences (`contexts.py`, the Criticisms card)
 
 The raw `citations` dataset carries a fourth thing per edge that ingest used
 to drop: **`contexts`**, the sentence(s) in which the citing paper cites the
-cited one. The Peer Reviews card reads them for a paper's *most-cited*
+cited one. The Criticisms card reads them for a paper's *most-cited*
 citers, the ranking only the corpus can serve, so since the card shipped
 they're kept in a table of their own, bucketed on `citedcorpusid` like
 `citations` (`citationid`, `citingcorpusid`, `citedcorpusid`, `contexts`;
@@ -290,7 +290,7 @@ The edge's `isinfluential` rides through phase 1 and is stitched back on in
 Python; `latest_bands` re-sorts its hydrated winners by date in Python to keep
 the one-phase query's `publicationdate DESC NULLS LAST` order.
 
-`citing_sentences(seed_paper, seed_ref, limit=…)` is the Peer Reviews card's
+`citing_sentences(seed_paper, seed_ref, limit=…)` is the Criticisms card's
 entry point: the paper's most-cited citers that have a kept sentence, with
 their sentences (grouped per citer, whitespace-normalised, deduplicated),
 two-phase like the landmarks. It returns **None** when the release has no

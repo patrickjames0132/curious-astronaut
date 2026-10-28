@@ -1,7 +1,7 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-The Peer Reviews card's service (services/reviews): which source answers,
+The Criticisms card's service (services/reviews): which source answers,
 how verified ids become quotes from real citing papers, and the cache.
 Both sources and the reviewer are stubbed; no network, no model.
 

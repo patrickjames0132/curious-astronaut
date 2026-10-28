@@ -4051,6 +4051,33 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
       often family critiques or noise; PDF-extraction artifacts ("(cid:15)",
       ligatures) reach quotes; OpenReview (v2) still waits on the login test.
 
+- [x] **Criticisms: the card renamed, numbered, with the Reader's contents**
+      *(v8.53.0; filed from `todos.md` 2026-10-27)* — three follow-ups to
+      the Peer Reviews card above, shipped together.
+      - **Renamed Criticisms** (Patrick, 2026-10-27), undoing the
+        2026-10-25 call that named it Peer Reviews partly so OpenReview's
+        reviews could share the name. Settled with Patrick: they will join
+        **this** card at v2 (conference reviews are criticisms too). The
+        rename reaches everything that says it — the card, its label, the
+        tour, tooltips, **Back to Criticisms**, the frontend's files
+        (`criticisms/Criticisms.tsx`), the backend's docstrings, log lines
+        and CLI help, the READMEs — and stops at what would break saved
+        state: the tool id `'reviews'`, `/api/reviews`, `services/reviews`
+        and the `reviewer` agent, the month-long card cache and the tour's
+        seen-flag keep the first name.
+      - **Numbered**: each criticism's number in sage before its headline,
+        so one can be named by it.
+      - **A table of contents just like the Reader's** — literally: the
+        Reader's contents rail moved out of `Reader.tsx` into a shared
+        `contents/` package (`ContentsRail`, `useContentsRail`,
+        `usePinnedEntry`, `contents.css`), which both now use, the host
+        lending its accent (`--contents-ink`), entries and active entry. The
+        card lists its criticisms by number, lights the one being read,
+        jumps on a click, folds, drags and slides as the Reader's does, and
+        remembers its state apart from the Reader's
+        (`ca.criticismsContentsOpen` / `Width`). Drawn only when there are
+        criticisms. The tour gained a Contents step.
+
 - [x] **The Knowledge Graph pyramid, and a ring while a lesson is written**
       *(v8.42.0)* — a third view beside 2D and 3D (course controls → View →
       **Pyramid**) that stacks the course in rows: foundations at the bottom,

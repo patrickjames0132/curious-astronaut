@@ -47,11 +47,11 @@ const COURSE_ASSISTANT_KEY = 'ca.courseAssistantOpen'
 /** The Reader's assistant's open/closed state (v8.38.0). */
 const READER_ASSISTANT_KEY = 'ca.readerAssistantOpen'
 /** The way-back pill's words, by the tool it returns to: the Reader (from a
- *  lesson its notes opened, v8.44.0) or Peer Reviews (from a citing paper it
+ *  lesson its notes opened, v8.44.0) or Criticisms (from a citing paper it
  *  showed in the Citation Graph). Both reopen where the reader left off. */
 const RETURN_PILLS: Partial<Record<ThreadTool, { label: string; title: string }>> = {
   reader: { label: 'Back to reading', title: 'Back to where you were in the paper' },
-  reviews: { label: 'Back to Peer Reviews', title: 'Back to where you were in the Peer Reviews' },
+  reviews: { label: 'Back to Criticisms', title: 'Back to where you were in the criticisms' },
 }
 import GraphExplorer from './graph/GraphExplorer'
 import Teacher from './teacher/Teacher'
@@ -64,12 +64,12 @@ import {
   HOME_TOUR,
   KNOWLEDGE_TOUR,
   READER_TOUR,
-  REVIEWS_TOUR,
+  CRITICISMS_TOUR,
   TOUR_KEYS,
 } from './tour/steps'
 import ToolCards from './tools/ToolCards'
 import Reader from './reader/Reader'
-import PeerReviews from './reviews/PeerReviews'
+import Criticisms from './criticisms/Criticisms'
 import KnowledgeNetwork from './knowledge/KnowledgeNetwork'
 import CourseAssistant from './knowledge/assistant/CourseAssistant'
 import { FigureLayerContext } from './figures/figureLayer'
@@ -244,7 +244,7 @@ export default function App() {
   // tour (the search surface) auto-runs once on first launch, the CARDS tour
   // on the first card home, the GRAPH tour (the graph tools) on the first
   // graph, the KNOWLEDGE tour on the first course, the READER tour on the
-  // first paper read, the REVIEWS tour on the first Peer Reviews. Each phase auto-runs once ever (its own localStorage flag); the
+  // first paper read, the CRITICISMS tour on the first Criticisms card. Each phase auto-runs once ever (its own localStorage flag); the
   // header's "?" re-runs the current phase any time.
   const hasGraph = showGraph && graph.nodes.length > 0
   const tourPhase = hasGraph
@@ -263,7 +263,7 @@ export default function App() {
     cards: CARDS_TOUR,
     knowledge: KNOWLEDGE_TOUR,
     reader: READER_TOUR,
-    reviews: REVIEWS_TOUR,
+    reviews: CRITICISMS_TOUR,
     home: HOME_TOUR,
   }[tourPhase]
   const [tourOpen, setTourOpen] = useState(false)
@@ -378,14 +378,14 @@ export default function App() {
           over live content it has to push that content back to read at all. */}
       {/* The way back from a tool to its paper's cards. Rendered for the tool
           rather than the graph, so a build that failed still has an exit. */}
-      {/* Not over the Reader or Peer Reviews: their pages scroll, so they
+      {/* Not over the Reader or Criticisms: their pages scroll, so they
           draw their own (`tools/ScrollNav`), the ↑ at the top and Back to
           top below it (Patrick: a lone ↑ floating over a scrolled page read
           as "back to the top"). */}
       {paperThread && tool !== 'cards' && tool !== 'reader' && tool !== 'reviews' && (
         <div className="tool-nav">
           {/* Where a tool was opened from another for one thing (a concept's
-              lesson from the Reader, a citing paper from Peer Reviews), the
+              lesson from the Reader, a citing paper from Criticisms), the
               way back takes the ↑'s place (v8.44.0, Patrick: the two side by
               side looked like a pair): one click to the same place, which
               that tool keeps, and its own ↑ leads to the cards. */}
@@ -579,9 +579,9 @@ export default function App() {
                     {overlays}
                   </Reader>
                 ) : tool === 'reviews' && activeThread ? (
-                  <PeerReviews key={`reviews:${epoch}`} thread={activeThread}>
+                  <Criticisms key={`reviews:${epoch}`} thread={activeThread}>
                     {overlays}
-                  </PeerReviews>
+                  </Criticisms>
                 ) : (
                   <div className="tool-pending">{overlays}</div>
                 )}

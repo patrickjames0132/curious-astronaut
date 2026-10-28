@@ -130,7 +130,7 @@ export function citationThreshold(
  * The citation counts a neighbour must fall inside to be drawn, for the
  * slider's two knobs. A knob resting at its end is no bound at all, not the
  * built graph's own least- or most-cited paper: a paper added after the build
- * (an Expand, a citer shown from Peer Reviews) can lie outside that range,
+ * (an Expand, a citer shown from Criticisms) can lie outside that range,
  * and was hidden by a slider nobody had touched.
  *
  * @param low The lower knob's position (0…CITE_SLIDER_STEPS).

@@ -1,7 +1,7 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-The Peer Reviews card: what the field objected to in a paper, each concern
+The Criticisms card: what the field objected to in a paper, each concern
 quoted from the later paper that raised it.
 
 The sentences come from Semantic Scholar's citation contexts, the sentence
@@ -146,7 +146,7 @@ def _citer_card(node: dict) -> dict:
 
 
 def build(paper: dict) -> dict[str, Any]:
-    """The Peer Reviews card for one paper, uncached.
+    """The Criticisms card for one paper, uncached.
 
     Args:
         paper: The paper's graph node.
@@ -234,7 +234,7 @@ def _stale_live(paper: dict, key: str) -> bool:
 
 
 def peer_reviews(paper: dict, *, fresh: bool = False) -> dict[str, Any]:
-    """The Peer Reviews card for one paper, from the cache when it's there.
+    """The Criticisms card for one paper, from the cache when it's there.
 
     Args:
         paper: The paper's graph node.

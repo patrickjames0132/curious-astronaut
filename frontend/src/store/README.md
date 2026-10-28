@@ -46,7 +46,7 @@ its card home or a tool a card opened. `ThreadRecord.tool` remembers which
 (and since v8.40.0 `ThreadRecord.readerView`, the Reader's Text/PDF choice;
 since v8.44.0 `readerPlace`, where the reader was in the paper, and
 `returnTo`, a way back to the tool that opened this one (the Reader, from a
-lesson or a cited paper on the graph it opened, v8.49.0; Peer Reviews, from a
+lesson or a cited paper on the graph it opened, v8.49.0; Criticisms, from a
 citing paper it showed in the Citation Graph), which lasts only
 while the thread stays on the tool it was set for); `threadTool()`
 reads it, returning null for General and `'graph'` for a thread saved before
@@ -65,7 +65,7 @@ thread for it. `workspace.openRequestId` marks a lookup in flight; anything
 that replaces the workspace meanwhile drops it, and that is how a late lookup
 knows it was superseded. `workspace.focusRequest` (v8.43.0) is a paper the
 Citation Graph should select and centre once it shows, asked for by the
-Reader's citation card (`graphFocusRequested`) and by Peer Reviews through
+Reader's citation card (`graphFocusRequested`) and by Criticisms through
 `showCiterInGraph`, which builds the graph if needed and first adds a citer
 the graph lacks (with its citation edge to the seed) as a discovery, so the
 button always lands on the paper; `GraphExplorer` clears it once it has acted.

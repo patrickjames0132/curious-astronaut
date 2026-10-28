@@ -1,0 +1,262 @@
+/* The contents rail (`ContentsRail.tsx`), shared by the Reader and the
+   Criticisms card. The host sets `--contents-ink`, its accent, and
+   `--contents-width` (the rail's width, for its page's glide) on an
+   ancestor. */
+
+/* The frame: sized by the drag (an inline width, `--contents-width` for the
+   slide), and the handle's anchor. The list scrolls inside it. */
+.contents-rail {
+  --contents-width: 248px;
+  position: relative;
+  flex: none;
+  width: var(--contents-width);
+  box-sizing: border-box;
+  /* The same thin line the folded state shows, so open and folded
+     read as one control. */
+  border-right: 3px solid var(--contents-line);
+  transition: border-color var(--motion-pop) var(--ease-rise);
+}
+/* Open: the bump sits on the line's inside, pointing back (‹), and folds the
+   panel away. Above the drag handle, which covers the rest of the edge. */
+.contents-rail-hide {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  translate: 0 -50%;
+  border-radius: 12px 0 0 12px;
+  background: var(--contents-line);
+  color: var(--text-strong);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-pop) var(--ease-rise),
+    width var(--motion-pop) var(--ease-rise);
+}
+.contents-rail-hide:hover {
+  width: 24px;
+  background: var(--contents-ink);
+}
+.contents-rail:has(.contents-rail-hide:hover) {
+  border-right-color: var(--contents-ink);
+}
+.contents-rail-hide:focus-visible {
+  outline: 2px solid var(--contents-ink);
+  outline-offset: 2px;
+}
+.contents-rail-scroll {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 64px 12px 32px 20px;
+  overflow-y: auto;
+}
+.contents-rail.dragging {
+  user-select: none;
+}
+/* The drag handle: the frame's right edge, the explorer rail's handle
+   mirrored onto the text side (shell.css `.rail-handle`). */
+.contents-rail-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  z-index: 3;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+}
+.contents-rail-handle:hover,
+.contents-rail.dragging .contents-rail-handle {
+  background: linear-gradient(
+    to right,
+    transparent 2px,
+    var(--accent) 2px,
+    var(--accent) 5px,
+    transparent 5px
+  );
+}
+/* Folding slides the panel off the left edge and the text glides after it:
+   the docked panels' motion (panel-in / panel-out, --motion-panel),
+   mirrored. Only after a toggle — arriving at the page doesn't replay it.
+   All of it moves by transform: the layout changes once, at the start (a
+   closing panel leaves the flow, an opening one takes its width), and the
+   host page's contents glide from where they were (`contents-glide-*`
+   below). Animating the panel's margin instead resized the pane every
+   frame, and re-laying out a whole paper each frame lagged (Patrick,
+   2026-10-24). */
+.contents-rail.sliding {
+  animation: contents-in var(--motion-panel) var(--ease-rise) both;
+}
+.contents-rail.closing {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 1;
+  animation: contents-out var(--motion-panel) var(--ease-fade) both;
+  pointer-events: none;
+}
+/* Folded by a drag: gone at once, like the explorer rail's drag-fold. */
+.contents-rail.closing.snap {
+  animation-duration: 1ms;
+}
+@keyframes contents-in {
+  from {
+    translate: calc(-1 * var(--contents-width)) 0;
+    opacity: 0;
+  }
+}
+@keyframes contents-out {
+  to {
+    translate: calc(-1 * var(--contents-width)) 0;
+    opacity: 0;
+  }
+}
+.contents-rail-folded:focus-visible .contents-rail-bump {
+  outline: 2px solid var(--contents-ink);
+  outline-offset: 2px;
+}
+
+/* Folded away: a thin line down the left edge with a bump at mid-height
+   holding a › — deliberately unlike the sidebar's icon rail (Patrick,
+   2026-10-23). The line and the bump are one button; the line's hit area is
+   wider than it looks. */
+.contents-rail-folded {
+  position: relative;
+  flex: none;
+  z-index: 1;
+  /* Clear of the explorer rail's handle, which reaches 4px past the rail's
+     edge: a click on the line must never start a rail drag. */
+  margin-left: 4px;
+  width: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.contents-rail-folded::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--contents-line);
+  transition: background-color var(--motion-pop) var(--ease-rise);
+}
+.contents-rail-bump {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 52px;
+  translate: 0 -50%;
+  border-radius: 0 12px 12px 0;
+  background: var(--contents-line);
+  color: var(--text-strong);
+  transition:
+    background-color var(--motion-pop) var(--ease-rise),
+    width var(--motion-pop) var(--ease-rise);
+}
+/* Appears once the panel has slid away, not over it. */
+.contents-rail-folded.arriving {
+  animation: fade var(--motion-pop) var(--ease-rise) both;
+}
+.contents-rail-folded:hover::before,
+.contents-rail-folded:hover .contents-rail-bump {
+  background: var(--contents-ink);
+}
+.contents-rail-folded:hover .contents-rail-bump {
+  width: 24px;
+}
+
+.contents-rail-label {
+  margin: 0 0 10px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.contents-rail ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.contents-rail ol button {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+.contents-rail ol button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.contents-rail ol button.active {
+  background: color-mix(in srgb, var(--contents-ink) 12%, transparent);
+  color: var(--text-strong);
+}
+.contents-rail .contents-rail-level-2 button {
+  padding-left: 20px;
+}
+.contents-rail .contents-rail-level-3 button {
+  padding-left: 32px;
+  font-size: 12.5px;
+}
+.contents-rail-number {
+  flex: none;
+  min-width: 2ch;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.contents-rail ol button.active .contents-rail-number {
+  color: var(--contents-ink);
+}
+
+.contents-rail,
+.contents-rail-folded {
+  --contents-line: color-mix(in srgb, var(--contents-ink) 45%, var(--border));
+}
+
+/* The host's page glides after the rail as it makes or gives back room:
+   its contents start where the old layout had them, half the rail's width
+   over since they're centred, and glide home. Each host applies these to
+   its own page (`.glide-open` / `.glide-close` off `useContentsRail`). */
+@keyframes contents-glide-open {
+  from {
+    translate: calc(-0.5 * var(--contents-width)) 0;
+  }
+}
+@keyframes contents-glide-close {
+  from {
+    translate: calc(0.5 * var(--contents-width)) 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contents-rail-folded::before,
+  .contents-rail-bump,
+  .contents-rail,
+  .contents-rail-hide {
+    transition: none;
+  }
+  .contents-rail.sliding,
+  .contents-rail.closing,
+  .contents-rail-folded.arriving {
+    animation: none;
+  }
+}
