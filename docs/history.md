@@ -5330,6 +5330,13 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Chat information icon aligned before the rounded bar end** *(v8.53.1)* —
+      the shared composer notes row has 38px of right padding instead of
+      12px, moving its ⓘ left by 26px. It now sits above the bar's straight
+      edge just before its curved right cap, across General, Citation Graph,
+      Knowledge Graph and Reader chats. Tooltip behavior and keyboard access
+      stay the same. Approved by Patrick, 2026-10-27.
+
 - [x] **Paper card homes fade up in a quick cascade** *(v8.49.1)* — the
       paper title, authors and summary now rise and fade in together, with
       the tool cards resolving from the background in sequence. Separate
