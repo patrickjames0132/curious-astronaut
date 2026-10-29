@@ -234,7 +234,7 @@ completes, so it shows none.
   that's in (on the docked icon too) (`.chip-badge`, `search.css`), as Paper filters wears its
   applied count — the same badge the graph's nodes wear for hidden
   children. Where it sits depends on the panel's shape: docked, it is a round
-  icon inside the bar beside 🗑, never lit (its badge says it's narrowed),
+  icon inside the bar, never lit (its badge says it's narrowed),
   with no row under the bar at all; on the landing chat it is a labelled chip in the row under the
   bar, beside the paper filters. The filters are the landing chat's alone:
   docked, nothing searches papers — the assistant's `citations` view runs
@@ -319,3 +319,7 @@ the heading, close control and Settings default stay outside the scrolling list.
 Quick responses in General and Citation Graph chats retain “Answered as a
 question” and the completed answer’s “Lecture on it instead” action, alongside
 the Quick response status. The routing label is stamped before streaming.
+
+The composer leaves deletion to the chat controls: the dock's bin beside the
+chat name, or the full-screen chat's rail menu. There is no trash button in
+the message bar, leaving more room for typing.
