@@ -316,7 +316,7 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
     presentIf: '[data-tour="assistant-btn"]',
     title: 'The assistant, beside the course',
     body:
-      'The floating 🎓 opens the assistant beside the course. It reads the whole course: every concept, ' +
+      'The floating astronaut opens the assistant beside the course. It reads the whole course: every concept, ' +
       'what each needs, what you have checked off, and the lessons written so far. Ask what a ' +
       'concept means, how two connect, or what to study next. It talks in the chat you were ' +
       'last in, as every view’s assistant does; type @ to bring another chat into a question. ' +
@@ -396,7 +396,7 @@ export const READER_TOUR: TourStep[] = [
     presentIf: '[data-tour="assistant-btn"]',
     title: 'The assistant, beside the paper',
     body:
-      'The floating 🎓 opens the assistant beside the paper. It reads the paper, starting with the ' +
+      'The floating astronaut opens the assistant beside the paper. It reads the paper, starting with the ' +
       'section you’re in, and searches your library and the web only when a question reaches ' +
       'past it. It talks in the chat you were last in, as every view’s assistant does; type @ ' +
       'to bring another chat into a question. The 📚 in its bar picks which of your sources ' +
@@ -430,7 +430,7 @@ export const READER_TOUR: TourStep[] = [
  * (re-sequenced with Patrick, v5.22.0): the top-left controls panel walked
  * top-to-bottom through its last row ("Open a paper"), then the
  * bottom-right find control, then the detail panel (a whole-panel overview
- * stop, then its sections), then the teacher — the 🎓 that opens it (only
+ * stop, then its sections), then the teacher — the astronaut that opens it (only
  * while it is tucked away; the Knowledge Graph's course assistant has its own
  * 🎓, introduced by the knowledge tour), the source scope under the ask
  * bar, then the bar itself, which carries two stops: what the researcher does
@@ -664,8 +664,10 @@ export const GRAPH_TOUR: TourStep[] = [
     target: '[data-tour="assistant-btn"]',
     title: 'The assistant, when you want it',
     body:
-      'The floating 🎓 opens the assistant — one assistant beside every view, the graph, the ' +
+      'The floating astronaut opens the assistant — one assistant beside every view, the graph, the ' +
       'course and the Reader alike; ✕ tucks it away again, and it stays the way you leave it. ' +
+      'Drag the astronaut anywhere over the view and it stays there; the ↺ beside it on hover ' +
+      'puts it back in the corner. ' +
       'The assistant docks on the right or ' +
       'along the bottom: the button by its ✕ moves it. It ' +
       'talks in the chat you were last in, so a conversation can follow you across papers; ' +

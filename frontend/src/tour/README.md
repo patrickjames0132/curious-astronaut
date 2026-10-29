@@ -31,7 +31,7 @@ data-source dropdown, and the three header drawers — Library, Assistant,
 Sessions) auto-runs on first launch, before any paper is open;
 **CARDS_TOUR** (a paper thread's card home: the paper and its tool cards)
 auto-runs on the first card home, since v8.13.0; **GRAPH_TOUR** (the graph
-tools, the ↑ back up to the cards, the detail panel, the 🎓 that opens the
+tools, the ↑ back up to the cards, the detail panel, the astronaut that opens the
 assistant — which docks on the Citation Graph alone — the lectures, the Q&A
 researcher) auto-runs when the first
 graph lands; **KNOWLEDGE_TOUR** (the graph's colours and gestures, the

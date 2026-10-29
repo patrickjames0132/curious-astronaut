@@ -13,7 +13,7 @@
  * either its **card home** (`tools/ToolCards`) or the tool a card opened.
  * Since v9.0.0 (the OnePager's "One assistant", stage 3) **one assistant**
  * docks beside every view, against the right edge or the bottom, or waits
- * behind a floating 🎓 when closed; each view lends it its words and how it
+ * behind a floating astronaut when closed; each view lends it its words and how it
  * asks (`assistant/views`). The `Teacher` element stays at one position in
  * the tree across all of it.
  * Thread navigation remounts the graph and chat with distinct keys; their
@@ -126,7 +126,7 @@ export default function App() {
   // v8.25.0's course, v8.38.0's Reader).
   // **Closed by default, and remembered** like the rail (Patrick, 2026-10-09:
   // it should stay hidden until asked for — a docked chat beside a canvas is
-  // clutter until it is wanted). Closed, the floating 🎓 opens it, and so do
+  // clutter until it is wanted). Closed, the floating astronaut opens it, and so do
   // the highlight menus' Explain and Chat, and the full-screen chat taking
   // the reader to a paper (`assistant/keepChatInView`). A chat is unaffected: there the
   // assistant is the landing surface and never collapses.
@@ -319,7 +319,7 @@ export default function App() {
   const returnTo = activeThread?.returnTo
   const overlays = (
     <>
-      {/* The 🎓 that opens the assistant while it is closed (v9.0.0): one
+      {/* The astronaut that opens the assistant while it is closed (v9.0.0): one
           for every view, in the view's own layer, top-right of its canvas.
           Not over the body: the graphs' detail panels are siblings of their
           canvas, and a body-anchored 🎓 sat on their ✕ and options
@@ -553,7 +553,7 @@ export default function App() {
               navigation while their durable state stays with the thread. */}
             {/* One assistant for every view (v9.0.0): the landing chat with
                 no paper open, else docked beside the paper's view (right or
-                bottom) and closable to the floating 🎓. */}
+                bottom) and closable to the floating astronaut. */}
             <Teacher
               key={`teacher:${epoch}`}
               landing={!paperThread}

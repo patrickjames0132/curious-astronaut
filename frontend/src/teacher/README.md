@@ -3,7 +3,7 @@
 **The one assistant** (v9.0.0, the OnePager's "One assistant", stage 3).
 One composer serves chats and every view of a paper: full screen as a
 chat's landing surface, else **docked beside the view**, against the right
-edge or along the bottom (the header's dock button), and behind the floating 🎓 when
+edge or along the bottom (the header's dock button), and behind the floating astronaut when
 closed (`assistant/AssistantLauncher`). Below 900px it covers the view
 instead of squeezing it, and Esc from inside puts it away. Until stage 3 it
 docked beside the Citation Graph only (since v8.15.0), and the Knowledge

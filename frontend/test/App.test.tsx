@@ -104,7 +104,7 @@ it('replaces the explorer rather than accumulating sibling panels when threads c
   }
 })
 
-it('docks one assistant beside every view of a paper, behind one 🎓 when closed (v9.0.0)', async () => {
+it('docks one assistant beside every view of a paper, behind one launcher when closed (v9.0.0)', async () => {
   const store = configureStore({ reducer: { workspace, transcript, explorations } })
   render(
     <Provider store={store}>
@@ -120,12 +120,12 @@ it('docks one assistant beside every view of a paper, behind one 🎓 when close
   await act(async () => {
     await store.dispatch(loadGraph({ seed: 'paper' }))
   })
-  // Beside a paper it starts tucked away, with the 🎓 to open it.
+  // Beside a paper it starts tucked away, with the astronaut to open it.
   expect(teacher().dataset.collapsed).toBe('true')
   fireEvent.click(opener()!)
   expect(teacher().dataset.collapsed).toBe('false')
 
-  // Open beside every view, one panel throughout, no 🎓 while it is.
+  // Open beside every view, one panel throughout, no astronaut while it is.
   for (const tool of ['cards', 'knowledge', 'reader', 'reviews', 'graph'] as const) {
     await act(async () => {
       await store.dispatch(openTool(tool))
@@ -134,7 +134,7 @@ it('docks one assistant beside every view of a paper, behind one 🎓 when close
     expect(opener()).toBeNull()
     expect(screen.getAllByTestId('teacher')).toHaveLength(1)
   }
-  // Closed, the 🎓 is back, over whichever view.
+  // Closed, the astronaut is back, over whichever view.
   fireEvent.click(screen.getByRole('button', { name: 'Close assistant' }))
   expect(teacher().dataset.collapsed).toBe('true')
   await act(async () => {

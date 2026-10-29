@@ -3,7 +3,7 @@
 **One assistant for every view** (v9.0.0, the OnePager's "One assistant",
 stage 3). The panel itself is `teacher/Teacher`: a chat's landing surface,
 else docked beside whatever view of a paper is open, against the right edge
-or along the bottom, and behind a floating 🎓 when closed. This package
+or along the bottom, and behind a floating astronaut when closed. This package
 holds what that one panel is built from beyond the Citation Graph's own
 asking (`teacher/useConversation`): the engine the Knowledge Graph and the
 Reader ask through, the shape a view lends the panel, the chat it talks in,
@@ -34,7 +34,7 @@ assistant/
                         menu to switch to another or start one, and with two
                         chats or more a 🗑 that deletes it, in two clicks
                         (v9.0.0)
-  AssistantLauncher.tsx — the 🎓 top-right of the view's canvas: opens it
+  AssistantLauncher.tsx — the astronaut, top-right until dragged of the view's canvas: opens it
                         while closed (v9.0.0)
 ```
 
@@ -145,11 +145,26 @@ reads and which tools it gets.
   graph, the course and the paper are wider than they are tall, so a bottom
   dock costs them less. Below 900px it covers the view instead of
   squeezing it, and Esc from inside puts it away.
-- **One 🎓, in the corner** (`AssistantLauncher`). Each tool kept a 🎓 in
-  its top-right corner; now one sits there over every view (Patrick: the
-  bottom right is where the views keep their find bars). It was draggable
-  for one round, its spot remembered and a ↺ to put it back; Patrick
-  preferred it staying put.
+- **One launcher, in the corner, movable** (`AssistantLauncher`). Each tool
+  kept a 🎓 in its top-right corner; now one starts there over every view
+  (Patrick: the bottom right is where the views keep their find bars). The
+  🎓 was draggable for one round and Patrick preferred it staying put; with
+  the astronaut he brought dragging back. Dragged, it stays where it was
+  left (`ca.launcherSpot`, its distance from the canvas's top-right corner,
+  clamped by the stylesheet so a smaller canvas never loses it), and a ↺ on
+  hover puts it back. A press that moves under 4px is still a click.
+- **The astronaut floats only when reached for** (Patrick). The launcher is
+  the project's astronaut, 96px and free of a box: a still frame
+  (`public/astronaut-still.png`) until the pointer is over it, when it
+  swaps to the animation (`public/astronaut.webp`); a click or the pointer
+  leaving stills it again, and reduced motion keeps it still. On the light
+  page it wears a thin ink outline and a firmer shadow, or its pale suit
+  fades into the white (Patrick, over a painted disc behind it). Both were cut
+  from Patrick's generated video (its painted background removed frame by
+  frame, the tether trimmed), the still being the animation's first frame
+  so the swap doesn't jump. It moves the moment it is hovered (Patrick): the
+  video's still opening and long rests are cut to a beat, its doubled
+  frames dropped, and the motion runs 1.5× the video's speed (a 3.3s loop).
 
 ## What an answer can light (v8.45.0)
 
@@ -189,7 +204,7 @@ supersedes the other engine's answer in the same chat;
 `test/teacher/transcript/ChatMessage.test.tsx` the tag on the bubble; and
 `test/store/chats.test.ts` and `test/store/threads.test.ts` the dock's chat,
 listing, saving and where a tag goes; `test/assistant/AssistantLauncher.test.tsx`
-that the 🎓 opens it; and
+that the astronaut opens it; and
 `test/App.test.tsx` one assistant beside every view, docked right or bottom.
 
 Quick response stamps `ChatMsg.quickResponse` when the replacement turn starts,

@@ -427,27 +427,81 @@
    panels: the graphs' detail panels sit beside their canvas, and a
    body-anchored 🎓 covered their ✕ and options (Patrick). It pops in as the
    assistant slides away, the same entrance as the app's popovers. */
-.assistant-launcher {
+/* Dragged elsewhere (Patrick), its spot is an inline top/right the component
+   clamps with `--launcher-size`, so a canvas that shrinks never loses it. */
+.assistant-launcher-wrap {
+  --launcher-size: 96px;
   animation: pop var(--motion-pop) var(--ease-rise) both;
   position: absolute;
   top: 10px;
   right: 12px;
   z-index: 6;
-  width: 40px;
-  height: 40px;
+  width: var(--launcher-size);
+  height: var(--launcher-size);
+}
+.assistant-launcher {
+  width: 100%;
+  height: 100%;
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--panel);
-  box-shadow: 0 4px 14px var(--shadow);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: grab;
+  /* Dragging it mustn't scroll or zoom the page on a touch screen. */
+  touch-action: none;
 }
-.assistant-launcher:hover {
-  border-color: var(--accent);
+.assistant-launcher-wrap.dragging .assistant-launcher {
+  cursor: grabbing;
+}
+/* Back to the corner, once moved: shown on hover, like a panel's ✕. Tucked
+   against the helmet's top-left: the image has empty room around the
+   astronaut (it is drawn at 24–77 × 24–85 of its 96px), and a chip in the
+   image's own corner floated off on its own. */
+.assistant-launcher-home {
+  position: absolute;
+  top: 10px;
+  left: 8px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px var(--shadow);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.assistant-launcher-wrap:hover .assistant-launcher-home,
+.assistant-launcher-home:focus-visible {
+  opacity: 1;
+}
+.assistant-launcher-home:hover {
+  color: var(--text-strong);
+}
+/* The astronaut stands free of a box (Patrick): a soft shadow lifts it off
+   whatever the canvas shows behind it. */
+.assistant-launcher img {
+  width: var(--launcher-size);
+  height: var(--launcher-size);
+  filter: drop-shadow(0 3px 6px var(--shadow));
+  pointer-events: none;
+}
+/* On the light page the pale astronaut fades into white, so it gets a thin
+   ink edge and a firmer shadow there (Patrick picked it over a disc behind
+   it); dark mode keeps the soft shadow alone. */
+:root[data-theme='light'] .assistant-launcher img {
+  filter: drop-shadow(0 0 0.6px rgba(11, 21, 36, 0.85)) drop-shadow(0 0 0.6px rgba(11, 21, 36, 0.6))
+    drop-shadow(0 3px 5px rgba(11, 21, 36, 0.25));
+}
+.assistant-launcher:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* --- still working --- */
@@ -499,7 +553,8 @@
      which the reader needs either way. */
   .rail-working-dot,
   .rail-item,
-  .assistant-launcher {
+  .assistant-launcher-wrap,
+  .assistant-launcher-home {
     animation: none;
     transition: none;
   }

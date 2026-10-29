@@ -502,7 +502,7 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
 - **The assistant is the one assistant, beside the Reader.** Since v9.0.0
   (stage 3 of the OnePager's "One assistant") there is one panel for every
   view (`teacher/Teacher`), docked right or along the bottom, behind the
-  floating 🎓 when closed; `useReaderView.ts` and `askReader.ts` give it the
+  floating astronaut when closed; `useReaderView.ts` and `askReader.ts` give it the
   Reader's words and what to send (`assistant/views`). It talks in the
   dock's chat (`store/chats`; until v9.0.0 a Reader chat of its own), and
   only the answers to questions asked beside this paper's Reader light

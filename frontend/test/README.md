@@ -18,7 +18,7 @@ test/
                                 the other engine's answer there (v9.0.0)
     DockChatPicker.test.tsx   — the dock's chat picker: switch, start one,
                                 delete in two clicks, never a paper (v9.0.0)
-    AssistantLauncher.test.tsx — the 🎓 opens the assistant (v9.0.0)
+    AssistantLauncher.test.tsx — the astronaut opens the assistant, floating on hover (v9.0.0)
     askAt.test.ts             — asking where the router placed a question:
                                 General, a parked graph, a graph built
                                 quietly (v9.0.0, stage 4b)

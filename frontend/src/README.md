@@ -34,7 +34,7 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 thread shows its card home or the tool a
    │                                 card opened, with one assistant docked
    │                                 beside it (right or bottom) or behind
-   │                                 the floating 🎓 (v9.0.0), talking in the
+   │                                 the floating astronaut (v9.0.0), talking in the
    │                                 dock's chat (store/chats.ts).
    │                                 Teacher stays at one position in the tree
    │                                 across all three, so the switch never
@@ -83,7 +83,7 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 their words and asking (assistant/views.ts:
    │                                 knowledge/assistant/useCourseView.ts,
    │                                 reader/useReaderView.ts)
-   ├─ the floating 🎓              assistant/AssistantLauncher.tsx — opens
+   ├─ the floating astronaut       assistant/AssistantLauncher.tsx — opens
    │                                 it while it is closed; dragged anywhere
    ├─ graph area                   graph/GraphExplorer.tsx
    │  ├─ overlays (from the shell): loading / error, and the ↑ back up to

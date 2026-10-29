@@ -151,6 +151,14 @@
      white paper inside a watercolour brush edge (lifted from the first, square
      version of the painting and remapped onto an ellipse), and `multiply`
      turns the paper into exactly the page colour.
+   Since v9.0.0 both hold Patrick's newer painting, the launcher's astronaut:
+   it was painted as a patch on paper, so its paper is laid over a ground of
+   its own deepest colour for the dark cut, where the pale washes along the
+   brush edge (a white rim on navy, Patrick) give way to that ground too,
+   stars and tether kept; and the light cut keeps the earlier oval whole,
+   its grey and lavender washes where the paint thinned over the paper
+   included (they are what makes it read as a hole through the page, Patrick,
+   over a crisp torn edge that was tried), the new painting inside them.
    A theme switch on the empty landing replays the entrance for the picture,
    greeting and bar together — see the theme effect in Teacher.tsx. */
 .landing-hero {
