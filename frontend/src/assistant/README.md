@@ -34,7 +34,8 @@ assistant/
                         its questions were asked (v9.0.0, stage 4a)
   DockChatPicker.tsx  — the line under the docked panel's title: its chat, a
                         menu to switch to another or start one, and with two
-                        chats or more a 🗑 that deletes it, in two clicks
+                        chats or more a 🗑 that expands right into a compact
+                        confirmation; a second click deletes it
                         (v9.0.0)
   AssistantLauncher.tsx — the astronaut, top-right until dragged of the view's canvas: opens it
                         while closed (v9.0.0)
@@ -213,3 +214,7 @@ Quick response stamps `ChatMsg.quickResponse` when the replacement turn starts,
 before streaming begins. All chat transcripts show a muted “Quick response”
 label with a colored bolt beside the clock immediately, retaining it on the
 finished/saved turn. Its tooltip says “Answered from the model’s own knowledge.”
+
+The dock's trash button expands right into **Delete this chat?**, replacing
+the icon with compact text, the Reader’s theme-aware red outline and hover tint. A second click deletes. Escape, a click elsewhere,
+four seconds, or switching chats dismisses it. Reduced motion skips the animation.

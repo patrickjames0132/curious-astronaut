@@ -463,17 +463,6 @@
 .teacher-chat-delete:hover {
   color: var(--text-strong);
 }
-/* Asked once: the second click deletes. */
-.teacher-chat-delete.confirming {
-  width: auto;
-  height: auto;
-  padding: 1px 7px;
-  font: inherit;
-  font-size: 11px;
-  color: #f78ca0;
-  border: 1px solid currentColor;
-  white-space: nowrap;
-}
 .teacher-chat-pop {
   left: 0;
   right: auto;
@@ -1408,9 +1397,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* The submit. Still `> button` and not `button` even though the form holds
-   nothing else now: cheap insurance, and the pair below (`.ask-clear`) reads
-   as one set with it. */
+/* The submit button; nested picker buttons keep their own styles. */
 .teacher-ask > button {
   display: inline-flex;
   align-items: center;
@@ -1427,32 +1414,7 @@
   line-height: 1;
   cursor: pointer;
 }
-.teacher-ask > button.ask-clear {
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border-radius: 50%;
-  border-color: transparent;
-  background: transparent;
-  color: var(--muted);
-}
-/* Both buttons are 34px; the hover fill just has to be solid enough to read
-   as the same circle. `--hover` (5% white) is so faint that a low-contrast
-   disc looks smaller than the solid accent one beside it — an optical
-   difference, not a geometric one. */
-.teacher-ask > button.ask-clear:hover,
-.teacher-ask > button.ask-clear:focus-visible {
-  background: color-mix(in srgb, var(--text) 14%, transparent);
-  color: var(--text-strong);
-}
-.teacher-ask > button.ask-clear svg {
-  width: 19px;
-  height: 19px;
-  display: block;
-}
-
-/* 📚 Library inside a docked bar (v8.28.0), dressed like the 🗑 beside it: a
+/* 📚 Library inside a docked bar (v8.28.0), kept compact: a
    34px transparent circle that fills on hover, so the bar's controls read as
    one set. The label goes — the tooltip carries name and state — and so
    does the accent an off-default scope lights the chip with: in here a lit
@@ -1891,4 +1853,59 @@ button.chat-tag:hover {
 /* The glyph sits on the text baseline by default and read low beside 📚. */
 .model-glyph {
   display: block;
+}
+
+/* The dock's bin expands right into a compact confirmation. */
+.expandable-delete {
+  position: relative;
+  overflow: hidden;
+  transition:
+    width 180ms ease-out,
+    border-radius 180ms ease-out,
+    background 150ms;
+}
+.delete-icon,
+.delete-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inset: 0;
+  transition:
+    transform 180ms ease-out,
+    opacity 180ms ease-out;
+}
+.delete-label {
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-100%);
+}
+.expandable-delete.confirming .delete-icon {
+  opacity: 0;
+}
+.expandable-delete.confirming .delete-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+.teacher-chat-delete.confirming {
+  width: 124px;
+  border: 1px solid var(--reader-ink);
+  border-radius: 6px;
+  color: var(--reader-ink);
+  background: transparent;
+}
+.teacher-chat-delete.confirming:hover {
+  background: color-mix(in srgb, var(--reader-ink) 16%, transparent);
+  border-color: var(--reader-ink);
+  color: var(--reader-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .expandable-delete,
+  .delete-icon,
+  .delete-label {
+    transition: none;
+  }
 }

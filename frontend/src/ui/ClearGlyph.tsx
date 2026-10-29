@@ -2,8 +2,7 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * The bin glyph: the composer's Clear (v8.25.0, from `teacher/Teacher`) and,
- * since v9.0.0, deleting the docked chat (`assistant/DockChatPicker`). Drawn
+ * The bin glyph for deleting the docked chat (`assistant/DockChatPicker`). Drawn
  * in `currentColor`, so it takes the colour of whatever button wears it.
  *
  * Authors:

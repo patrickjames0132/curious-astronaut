@@ -10,7 +10,7 @@
  *
  * With two chats or more, a 🗑 beside it deletes the docked chat (Patrick),
  * and the dock falls back to the first chat left. Two clicks, as the rail's
- * ⋮ → Delete is: the first asks "Delete this chat?" in place, the second
+ * ⋮ → Delete is: the first expands the bin right into "Delete this chat?", the second
  * deletes, and it backs off after a few seconds or a click elsewhere. A
  * conversation has no undo, and a lone bin is one stray click away.
  *
@@ -50,10 +50,18 @@ export default function DockChatPicker({ chatId }: { chatId: string }) {
     const away = (event: PointerEvent) => {
       if (!deleteRef.current?.contains(event.target as Node)) setConfirming(false)
     }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation()
+        setConfirming(false)
+      }
+    }
     document.addEventListener('pointerdown', away)
+    document.addEventListener('keydown', escape, true)
     return () => {
       window.clearTimeout(backOff)
       document.removeEventListener('pointerdown', away)
+      document.removeEventListener('keydown', escape, true)
     }
   }, [confirming])
   // A different chat docked is a different question.
@@ -102,30 +110,34 @@ export default function DockChatPicker({ chatId }: { chatId: string }) {
             ▾
           </span>
         </button>
-        {chats.length > 1 &&
-          (confirming ? (
-            <button
-              ref={deleteRef}
-              type="button"
-              className="teacher-chat-delete confirming"
-              onClick={() => {
-                setConfirming(false)
-                void dispatch(deleteThread(current.key))
-              }}
-            >
-              Delete this chat?
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="teacher-chat-delete"
-              onClick={() => setConfirming(true)}
-              title="Delete this chat"
-              aria-label="Delete this chat"
-            >
+        {chats.length > 1 && (
+          <button
+            ref={deleteRef}
+            type="button"
+            className={`teacher-chat-delete expandable-delete${confirming ? ' confirming' : ''}`}
+            onClick={() => {
+              if (!confirming) {
+                setConfirming(true)
+                return
+              }
+              setConfirming(false)
+              void dispatch(deleteThread(current.key))
+            }}
+            title={
+              confirming
+                ? 'Delete this chat and all its messages. This cannot be undone.'
+                : 'Delete this chat — asks for confirmation'
+            }
+            aria-label={confirming ? 'Delete this chat?' : 'Delete this chat'}
+          >
+            <span className="delete-icon" aria-hidden="true">
               <ClearGlyph />
-            </button>
-          ))}
+            </span>
+            <span className="delete-label" aria-hidden="true">
+              Delete this chat?
+            </span>
+          </button>
+        )}
       </div>
       {popover.present && (
         <div

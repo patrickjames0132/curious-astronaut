@@ -1004,6 +1004,15 @@
 
 ### AI teacher & lectures
 
+- [x] **Chat deletion: one expanding confirmation** *(v9.0.1)* — the
+      dock's bin expands right into **Delete this chat?**, replacing its icon
+      with compact text, the Reader's theme-aware red outline and hover tint.
+      A second click deletes; Escape, a click elsewhere, four seconds or a
+      chat switch retracts the button. Reduced motion skips the animation.
+      Removed the composer's separate clear-chat bin to leave more typing
+      space; chat deletion stays beside the dock's chat name and in the
+      full-screen chat's rail menu. (Patrick, 2026-10-28.)
+
 - [x] **One assistant: chats own the conversation, views lend it context** *(v9.0.0)* —
       Patrick's idea (2026-10-24), redesigned from the ground up with Claude
       (2026-10-26). Today a paper thread is a *view* (cards, Citation Graph,

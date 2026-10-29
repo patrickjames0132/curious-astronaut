@@ -109,7 +109,6 @@ import { useResizablePanel } from '../ui/useResizablePanel'
 import { useTheme } from '../ui/theme'
 import { usePresence } from '../ui/usePresence'
 import SendGlyph from '../ui/SendGlyph'
-import ClearGlyph from '../ui/ClearGlyph'
 import './teacher.css'
 
 /**
@@ -257,7 +256,6 @@ export default function Teacher({
     retryAnswer,
     quickAnswer,
     stopAsk,
-    clearChat,
   } = useConversation()
   // Asking the router where a message is about (stage 4b) is part of
   // answering it: the bar is busy, as it is while the router picks a
@@ -1145,8 +1143,7 @@ export default function Teacher({
   // touching their choice about it.
   //
   // Keyed by turn index, like `activeChatBeat`. Indices move when a failed
-  // turn is dropped, so the map is cleared whenever the conversation is (see
-  // `clearConversation`) rather than tracked through every mutation — a stale
+  // turn is dropped; overrides are not tracked through every mutation. A stale
   // entry would fold the wrong lecture, and the cost of being wrong here is a
   // caret the reader clicks once.
   //
@@ -1171,13 +1168,6 @@ export default function Teacher({
       [index]: !(openByReader[index] ?? index === newestLecture),
     })
     refold((count) => count + 1)
-  }
-
-  /** Clear the conversation, and the fold choices that addressed its turns. */
-  const clearConversation = () => {
-    lectureFolds.delete(activeKey)
-    refold((count) => count + 1)
-    clearChat()
   }
 
   // The conversation's turns, rendered identically wherever they land — in
@@ -1666,23 +1656,6 @@ export default function Teacher({
           {/* Model first, then 📚 (Patrick, v8.33.0), as in the landing row. */}
           {!landing && modelPicker}
           {!landing && sourcePicker}
-          {/* Clear, inside the bar beside the send rather than floating above the
-              transcript — same round shape and size, but muted rather than
-              accent: it's the destructive one, and it shouldn't compete with the
-              control you actually came here to press. Contextual, as it always
-              was: with a lecture on screen it clears that instead of the chat,
-              which the tooltip says since the icon can't. */}
-          {chat.length > 0 && (
-            <button
-              type="button"
-              className="ask-clear"
-              onClick={clearConversation}
-              title="Clear the chat — start a fresh conversation"
-              aria-label="Clear chat"
-            >
-              <ClearGlyph />
-            </button>
-          )}
           {/* One button, two jobs. While an answer streams it shows the same
               hopping dots the lecture buttons wear — and hovering turns it into a
               stop, so the control that says "working" is also the one that ends
