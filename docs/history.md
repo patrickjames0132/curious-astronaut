@@ -5527,6 +5527,25 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **The landing painting: Nova with a tractor beam** *(v9.0.2)* — Patrick
+      repainted the landing astronaut with glowing rings and a jet beneath
+      it. Both cuts are rebuilt the v8.6.0 way: **dark** is the painting as
+      painted, under the unchanged elliptical CSS mask, and **light** puts it
+      inside the earlier oval's brush rim and washes. **Two dead ends, recorded
+      so nobody repeats them.** (1) Letting the beam break out of the oval
+      (rings over the rim, jet running past the canvas into extra height,
+      dark's fade baked into alpha so a mask wouldn't swallow it) was built and
+      rejected in favour of the simple look. (2) The first version of the
+      painting was a patch on white paper, and no dark cut of it looked right:
+      a near-black ground left a dark moat, blurring the paint's edge outward
+      dragged paper in as a white rim, the pale edge washes read as a halo, and
+      even matching the old cut's ground (`rgb(22, 23, 59)`) with edge colours
+      extended into the corners still showed the patch. What fixed it was
+      repainting with the nebula running to the edges, so the dark cut needs
+      no processing at all. Same 840×469 WebPs; the source JPGs stay out of
+      the repo. *(Patrick's ask, 2026-10-29; browser-tested and approved the
+      same day.)*
+
 - [x] **Chat information icon aligned before the rounded bar end** *(v8.53.1)* —
       the shared composer notes row has 38px of right padding instead of
       12px, moving its ⓘ left by 26px. It now sits above the bar's straight
