@@ -112,7 +112,7 @@ it('docks one assistant beside every view of a paper, behind one launcher when c
     </Provider>,
   )
   const teacher = () => screen.getByTestId('teacher')
-  const opener = () => screen.queryByRole('button', { name: 'Open the assistant' })
+  const opener = () => screen.queryByRole('button', { name: 'Open Nova' })
   // A chat: the assistant is the landing surface, never collapsed.
   expect(teacher().dataset.collapsed).toBe('false')
   expect(opener()).toBeNull()

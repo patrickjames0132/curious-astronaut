@@ -108,7 +108,7 @@ const SECTIONS = [
     icon: '🎓',
     label: 'Agents',
     blurb:
-      'The AI teacher: the crew that writes lectures, answers questions, teaches the Knowledge Graph, and scouts papers and the web. Two halves — which vendors Curious Astronaut can reach, and which model each agent runs on. Every agent picks its own, so running the lecturer on a free local model while the web scout stays on a cloud one is a normal setup.',
+      "Nova's crew: the agents behind Nova that write lectures, answer questions, teach the Knowledge Graph, and scout papers and the web. Two halves — which vendors Curious Astronaut can reach, and which model each agent runs on. Every agent picks its own, so running the lecturer on a free local model while the web scout stays on a cloud one is a normal setup.",
     pages: [
       { id: 'providers', label: 'Model Providers' },
       { id: 'agents', label: 'Agent Settings' },
@@ -120,7 +120,7 @@ const SECTIONS = [
     icon: '📚',
     label: 'Library',
     blurb:
-      'Your library — uploaded PDFs and fetched web pages — made searchable on this machine: how the text is cut into passages, the local model that embeds them, and how many passages a search hands the assistant. Nothing here calls an API; the text never leaves the computer.',
+      'Your library — uploaded PDFs and fetched web pages — made searchable on this machine: how the text is cut into passages, the local model that embeds them, and how many passages a search hands Nova. Nothing here calls an API; the text never leaves the computer.',
     pages: [
       { id: 'general', label: 'General' },
       { id: 'embedding', label: 'Embedding' },
@@ -1594,7 +1594,7 @@ const ROW_DEFS: RowDef[] = [
     section: 'sources',
     page: 'retrieval',
     label: 'Passages per search',
-    hint: "How many passages one search of the library returns — to the assistant's search_sources tool during research, and to the Library's own search. More is more grounding and a longer prompt.",
+    hint: "How many passages one search of the library returns — to Nova's search_sources tool during research, and to the Library's own search. More is more grounding and a longer prompt.",
     tour: 'settings-search-k',
     control: (draft, edit) => (
       <SourcesNumber draft={draft} edit={edit} group="retrieval" field="search_k" min={1} />

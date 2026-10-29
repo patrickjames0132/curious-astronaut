@@ -95,7 +95,7 @@ export default function DockChatPicker({ chatId }: { chatId: string }) {
           onClick={() => setOpen(!open)}
           aria-haspopup="true"
           aria-expanded={open}
-          title="The chat every view's assistant talks in: switch to another, or start one"
+          title="The chat Nova talks in, beside every view: switch to another, or start one"
         >
           In <strong>{current.label}</strong>
           <span className="teacher-chat-caret" aria-hidden="true">

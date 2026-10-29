@@ -24,13 +24,13 @@ beforeEach(() => {
 it('opens the assistant on a click', () => {
   const onOpen = vi.fn()
   render(<AssistantLauncher onOpen={onOpen} />)
-  fireEvent.click(screen.getByRole('button', { name: 'Open the assistant' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open Nova' }))
   expect(onOpen).toHaveBeenCalledOnce()
 })
 
 it('floats while the pointer is over it, and stills on leaving or a click', () => {
   const { container } = render(<AssistantLauncher onOpen={() => {}} />)
-  const button = screen.getByRole('button', { name: 'Open the assistant' })
+  const button = screen.getByRole('button', { name: 'Open Nova' })
   const image = () => container.querySelector('img')?.getAttribute('src')
   expect(image()).toBe('/astronaut-still.png')
   fireEvent.pointerEnter(button)
@@ -60,7 +60,7 @@ function onCanvas(onOpen: () => void = () => {}) {
   Object.defineProperty(wrap, 'offsetWidth', { get: () => 72 })
   canvas.getBoundingClientRect = () => new DOMRect(0, 0, 600, 400)
   wrap.getBoundingClientRect = () => new DOMRect(516, 10, 72, 72)
-  return { button: screen.getByRole('button', { name: 'Open the assistant' }), wrap }
+  return { button: screen.getByRole('button', { name: 'Open Nova' }), wrap }
 }
 
 it('moves where it is dragged, remembers it, and doesn’t open', () => {
@@ -92,7 +92,7 @@ it('treats a press that barely moves as a click, and goes home on ↺', () => {
   fireEvent.pointerUp(button, { pointerId: 1 })
   fireEvent.click(button)
   expect(onOpen).toHaveBeenCalledOnce()
-  fireEvent.click(screen.getByRole('button', { name: 'Put the assistant back in the corner' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Put Nova back in the corner' }))
   expect(wrap.style.top).toBe('')
   expect(localStorage.getItem('ca.launcherSpot')).toBeNull()
 })

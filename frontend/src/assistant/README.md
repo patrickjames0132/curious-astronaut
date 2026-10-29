@@ -1,7 +1,9 @@
 # `src/assistant`
 
 **One assistant for every view** (v9.0.0, the OnePager's "One assistant",
-stage 3). The panel itself is `teacher/Teacher`: a chat's landing surface,
+stage 3), called **Nova** wherever the UI names it: the panel's title, the
+launcher, the tooltips and the tour (the code keeps saying "assistant").
+The panel itself is `teacher/Teacher`: a chat's landing surface,
 else docked beside whatever view of a paper is open, against the right edge
 or along the bottom, and behind a floating astronaut when closed. This package
 holds what that one panel is built from beyond the Citation Graph's own

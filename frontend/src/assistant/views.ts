@@ -23,8 +23,6 @@ import type { AssistantQuestion } from './askAssistant'
 
 /** What a view's assistant says. */
 export interface AssistantCopy {
-  /** The panel's title, e.g. "Knowledge Graph Assistant". */
-  title: string
   /** Shown in an empty chat: what to ask, and what the highlight menu does. */
   hint: string
   /** The line over the bar saying what is asked about. */

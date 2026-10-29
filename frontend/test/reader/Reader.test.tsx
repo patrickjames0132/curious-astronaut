@@ -1164,7 +1164,7 @@ it('lights what an answer is about when it finishes, and goes there when clicked
     handlers.onToken('As it says, ⟦the dominant models⟧ are recurrent.')
   })
   const { store } = mount(<Teacher />)
-  const box = screen.getByPlaceholderText('Ask about this paper, or @ another chat…')
+  const box = screen.getByPlaceholderText('Ask Nova about this paper, or @ another chat…')
   fireEvent.change(box, { target: { value: 'What came before?' } })
   fireEvent.submit(box.closest('form')!)
   const passages = () => store.getState().highlight.passages

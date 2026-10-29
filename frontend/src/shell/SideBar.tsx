@@ -431,7 +431,7 @@ export default function SideBar({
           className="rail-item"
           data-tour="library-btn"
           onClick={onOpenLibrary}
-          title="Your library — books, PDFs, and pages the assistant can search"
+          title="Your library — books, PDFs, and pages Nova can search"
         >
           <span className="rail-glyph" aria-hidden="true">
             📚

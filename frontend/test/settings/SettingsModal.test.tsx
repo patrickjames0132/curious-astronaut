@@ -442,7 +442,7 @@ describe('SettingsModal', () => {
     // before dropping the reader into one side of it.
     expect(screen.queryByDisplayValue('sk-test')).toBeNull()
     expect(screen.queryByLabelText('Vendor')).toBeNull()
-    expect(await screen.findByText(/The AI teacher/)).toBeTruthy()
+    expect(await screen.findByText(/Nova's crew/)).toBeTruthy()
     // And both ways in are offered.
     expect(screen.getAllByText('Model Providers').length).toBe(2)
   })

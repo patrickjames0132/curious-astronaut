@@ -86,7 +86,8 @@ SYSTEM_PROMPT = (
     "all their numbers as papers.\n"
     "A paper the reader already has open is 'here', whatever its view, unless "
     "the message is about it together with another. Never invent a paper "
-    "number."
+    "number. The assistant is called Nova: 'Nova' in a message is the "
+    "assistant's name, never a paper."
 )
 
 # No model at construction: passed per run by `factory.model_for`.

@@ -995,7 +995,7 @@ it('chats about a highlighted passage: attached to the bar, sent with the questi
   expect(attached.textContent).toContain('“Bellman backup”')
   expect(attached.textContent).toContain('From the lesson on Q-learning')
   expect(ask).not.toHaveBeenCalled()
-  const bar = screen.getByRole('textbox', { name: 'Ask the Knowledge Graph Assistant a question' })
+  const bar = screen.getByRole('textbox', { name: 'Ask Nova a question' })
   expect(document.activeElement).toBe(bar)
   // Backspace in the empty bar lets it go; Chat again brings it back.
   fireEvent.keyDown(bar, { key: 'Backspace' })

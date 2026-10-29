@@ -880,8 +880,7 @@ export default function KnowledgePanel({
             actions={[
               {
                 label: 'Explain',
-                title:
-                  'Ask the Knowledge Graph Assistant to explain this, without adding anything to the graph',
+                title: 'Ask Nova to explain this, without adding anything to the graph',
                 onPick: (passage) => {
                   clearSelection()
                   onExplain(passage)
@@ -898,8 +897,7 @@ export default function KnowledgePanel({
               },
               {
                 label: 'Chat',
-                title:
-                  'Open the Knowledge Graph Assistant with this passage attached, and ask anything about it',
+                title: 'Start a chat with Nova about this passage',
                 onPick: (passage) => {
                   clearSelection()
                   onChat(passage)

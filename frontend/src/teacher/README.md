@@ -242,9 +242,10 @@ completes, so it shows none.
   `@words` there is just text in a message — and `Teacher` neither shows the
   filters docked nor sends them (`activeOptions`).
 
-The panel's title is "Citation Graph Assistant" since v8.25.0 ("AI Teacher &
-Discovery" until then), matching the "Knowledge Graph Assistant" beside the
-course.
+The panel's title is **"Nova — your AI research assistant"** in every view since v9.0.0, the astronaut's
+name (Patrick); every place the UI said "the assistant" says Nova now. It was
+"Citation Graph Assistant" from v8.25.0 ("AI Teacher & Discovery" until
+then), beside a "Knowledge Graph Assistant" and a "Reader Assistant".
 
 ## Docked: closing and reopening
 

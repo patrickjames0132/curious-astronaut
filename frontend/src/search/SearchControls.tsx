@@ -191,7 +191,7 @@ export default function SearchControls({
         className={`bar-toggle ${activeCount ? 'on' : ''}`}
         data-tour="search-filters"
         onClick={() => onOpenChange(!open)}
-        title="Paper filters — limit which papers a search can find, by publication year or field of study. They bind the assistant's own paper searches and a search you start with @, never your library."
+        title="Paper filters — limit which papers a search can find, by publication year or field of study. They bind Nova's own paper searches and a search you start with @, never your library."
       >
         {/* A funnel, drawn rather than borrowed from the emoji table: docked in
             the side panel the labels collapse away and this is all that's
@@ -262,8 +262,8 @@ export default function SearchControls({
           )}
           <div className="filter-foot">
             <span className="filter-hint">
-              Applies to every paper search — the assistant’s own, and one you start with @.
-              Citation links on the graph are never filtered.
+              Applies to every paper search — Nova’s own, and one you start with @. Citation links
+              on the graph are never filtered.
             </span>
             {activeCount > 0 && (
               <button className="link-btn" onClick={() => onOptions(DEFAULT_SEARCH_OPTIONS)}>

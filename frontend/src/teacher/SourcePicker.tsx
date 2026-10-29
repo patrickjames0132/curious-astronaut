@@ -55,8 +55,8 @@ export default function SourcePicker({
         heading: 'Search in',
         allHint: 'All sources are searched.',
         someHint: 'Only the checked sources are searched.',
-        noneHint: "No sources selected — the assistant won't search your library.",
-        buttonTitle: 'choose which of your uploaded books, PDFs and pages the assistant may search',
+        noneHint: "No sources selected — Nova won't search your library.",
+        buttonTitle: 'choose which of your uploaded books, PDFs and pages Nova may search',
       }}
     />
   )

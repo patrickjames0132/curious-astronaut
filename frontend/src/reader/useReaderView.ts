@@ -130,9 +130,8 @@ export function useReaderView(thread: ThreadRecord | undefined): AssistantView |
             ask: askOrGuideReader,
             passages,
             copy: {
-              title: 'Reader Assistant',
               hint:
-                'Ask about the paper: what a passage means, where a symbol comes from, why a step ' +
+                'Ask Nova about the paper: what a passage means, where a symbol comes from, why a step ' +
                 'follows. Highlight text (or ⌥-drag a box over an equation or figure) ' +
                 'and choose Explain or Simplify to ask about it here, or ' +
                 'Chat to attach it and ask anything. For a lecture on the whole paper, press Give ' +
@@ -145,7 +144,7 @@ export function useReaderView(thread: ThreadRecord | undefined): AssistantView |
                 'lecture lights each step as you go: Back and Next on the step you’re on. It talks ' +
                 'in the chat you were last in (switch it under the title); type @ to bring in ' +
                 'another chat.',
-              placeholder: 'Ask about this paper, or @ another chat…',
+              placeholder: 'Ask Nova about this paper, or @ another chat…',
               className: 'reader-assistant',
             },
           }

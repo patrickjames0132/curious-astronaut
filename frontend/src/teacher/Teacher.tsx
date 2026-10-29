@@ -1060,16 +1060,16 @@ export default function Teacher({
   // alone send nothing (v8.29.0), and a greyed Send shouldn't be the only
   // sign of why.
   const askPlaceholder = quote
-    ? 'Ask anything about this passage…'
+    ? 'Ask Nova anything about this passage…'
     : attached.length
-      ? 'Now ask your question about what you attached…'
+      ? 'Now ask Nova about what you attached…'
       : view
         ? view.copy.placeholder
         : hasGraph
-          ? 'Ask about these papers or for a lecture; @ a paper or chat…'
+          ? 'Ask Nova about these papers or for a lecture; @ a paper or chat…'
           : libraryItems.length > 0
-            ? 'Ask your books, PDFs or the literature; @ a paper or chat…'
-            : 'Ask a research question, or @ a paper or chat…'
+            ? 'Ask Nova about your books, PDFs or the literature; @ a paper or chat…'
+            : 'Ask Nova a research question, or @ a paper or chat…'
 
   // The one-line "Answers also draw on …" note above the ask bar, naming the
   // 📚 picker's state. It had a second half until v7.21.0 — "the lecture
@@ -1445,7 +1445,8 @@ export default function Teacher({
     : dock === 'bottom'
       ? ({ height: size, '--panel-height': `${size}px` } as CSSProperties)
       : ({ width: size, '--panel-width': `${size}px` } as CSSProperties)
-  const title = view ? view.copy.title : hasGraph ? 'Citation Graph Assistant' : 'Ask the assistant'
+  // One name in every view (v9.0.0, Patrick): the astronaut, Nova.
+  const title = 'Nova — your AI research assistant'
   return (
     <section
       ref={sectionRef}
@@ -1477,26 +1478,16 @@ export default function Teacher({
                   type="button"
                   className="link-btn dock-flip"
                   onClick={() => moveDock(dock === 'right' ? 'bottom' : 'right')}
-                  title={
-                    dock === 'right'
-                      ? 'Dock the assistant along the bottom'
-                      : 'Dock the assistant on the right'
-                  }
+                  title={dock === 'right' ? 'Dock Nova along the bottom' : 'Dock Nova on the right'}
                   aria-label={
-                    dock === 'right'
-                      ? 'Dock the assistant along the bottom'
-                      : 'Dock the assistant on the right'
+                    dock === 'right' ? 'Dock Nova along the bottom' : 'Dock Nova on the right'
                   }
                 >
                   <DockGlyph to={dock === 'right' ? 'bottom' : 'right'} />
                 </button>
               )}
               {onClose && (
-                <button
-                  className="link-btn"
-                  onClick={onClose}
-                  aria-label="Close the assistant panel"
-                >
+                <button className="link-btn" onClick={onClose} aria-label="Close Nova">
                   ✕
                 </button>
               )}
@@ -1544,17 +1535,18 @@ export default function Teacher({
                 src="/curious-astronaut-light.webp"
                 alt=""
               />
-              <h1 className="landing-greeting">What do you want to explore?</h1>
+              {/* Nova introduces itself where people meet it first (v9.0.0, Patrick). */}
+              <h1 className="landing-greeting">Hi, I’m Nova! What do you want to explore?</h1>
             </>
           ) : hasGraph ? (
             <div className="teacher-hint">
-              Ask a question about the papers on the graph — or ask for a lecture on them, on the
+              Ask Nova about the papers on the graph — or ask for a lecture on them, on the
               references, or on a paper by name.
             </div>
           ) : (
             <div className="teacher-hint">
-              Ask a question and I’ll answer straight from your uploaded sources — books, PDFs, and
-              pages — citing them by page. No graph needed.
+              Ask Nova a question, answered straight from your uploaded sources — books, PDFs, and
+              pages — and cited by page. No graph needed.
             </div>
           ))}
         {(error || searchError) && <div className="teacher-error">{error ?? searchError}</div>}
@@ -1664,9 +1656,7 @@ export default function Teacher({
             onKeyDown={onInputKeyDown}
             rows={1}
             placeholder={askPlaceholder}
-            aria-label={
-              view ? `Ask the ${view.copy.title} a question` : 'Ask the assistant a question'
-            }
+            aria-label="Ask Nova a question"
           />
           {/* Docked, 📚 Library rides inside the bar as one round icon beside
               🗑 (v8.28.0): the 340px panel has no room for a labelled row

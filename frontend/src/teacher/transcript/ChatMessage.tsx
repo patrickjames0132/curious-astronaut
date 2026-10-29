@@ -488,7 +488,7 @@ export default function ChatMessage({
             event.stopPropagation()
             askInstead.onAsk()
           }}
-          title={`The assistant took this to be about where its tag says; ask it from ${askInstead.label} instead`}
+          title={`Nova took this to be about where its tag says; ask it from ${askInstead.label} instead`}
         >
           Ask from {askInstead.label} instead
         </button>

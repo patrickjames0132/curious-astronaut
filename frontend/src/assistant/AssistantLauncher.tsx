@@ -175,8 +175,8 @@ export default function AssistantLauncher({ onOpen }: { onOpen: () => void }) {
         onPointerCancel={onPointerUp}
         onPointerEnter={() => setFloating(!stillOnly)}
         onPointerLeave={() => setFloating(false)}
-        title="The assistant — click to ask about what's on screen, drag to move it"
-        aria-label="Open the assistant"
+        title="Ask Nova"
+        aria-label="Open Nova"
       >
         <img
           src={(floating || dragging) && !stillOnly ? FLOATING : STILL}
@@ -192,8 +192,8 @@ export default function AssistantLauncher({ onOpen }: { onOpen: () => void }) {
             setSpot(null)
             storeSpot(null)
           }}
-          title="Put the astronaut back in the corner"
-          aria-label="Put the assistant back in the corner"
+          title="Put Nova back in the corner"
+          aria-label="Put Nova back in the corner"
         >
           {/* Drawn rather than the ↺ character, which sat small and off
               centre in its ring at this size. */}

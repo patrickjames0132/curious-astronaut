@@ -92,3 +92,7 @@ def test_a_bridge_naming_one_paper_is_about_it_and_none_stays_here():
         place="paper", paper=2, tool="reader"
     )
     assert decide({"place": "papers", "papers": []}) == router.HERE
+
+
+def test_the_router_knows_nova_is_the_assistant_not_a_paper():
+    assert "'Nova' in a message is the assistant's name, never a paper" in place.SYSTEM_PROMPT
