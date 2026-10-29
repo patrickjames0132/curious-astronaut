@@ -336,7 +336,8 @@ agents/
   library_figures.py ← the show_source_figure core (resolve/dedupe/slot)
   skills/            ← shared: skills.md files any sub-agent's config may load
     numbered-papers.md      the index-not-id grounding protocol
-    teaching-voice.md       the "sharp, friendly teacher" persona rules
+    teaching-voice.md       the "sharp, friendly teacher" persona rules, and
+                            its name, Nova (v9.0.0), which every voice answers to
     citation-discipline.md  ground only in provided/read material; never invent
     figures.md              real figures only; <<FIG n>> marker placement
     workflows/              ← the orchestrator's playbooks, one per intent

@@ -15,17 +15,28 @@ is named after its first question), and **Papers**, a thread for each paper
 you open (its ＋ opens a chat with `@` typed, ready to find one). A paper thread opens on its **card home**: the paper (title,
 authors, TL;DR) and a card for each tool that works on it: the **Citation Graph**,
 the **Knowledge Graph**, the **Reader** and **Criticisms**. The Citation Graph builds only when you open its card, and clicking a thread in the sidebar always
-brings you back to its cards; the graph you left is kept in memory, conversation and all. Each graph
-docks its own AI assistant (🎓): the **Citation Graph Assistant** and the
-**Knowledge Graph Assistant**, which reads the course and its lessons; the cards
-have none. The
+brings you back to its cards; the graph you left is kept in memory.
+
+**Nova**, your AI research assistant (the little astronaut in the corner, since
+v9.0.0), is one assistant beside every view: a chat's whole page when no paper
+is open, docked beside a paper's cards, Citation Graph, Knowledge Graph or
+Reader otherwise (on the right or along the bottom; ✕ tucks Nova back into the
+astronaut, which you can drag anywhere). **Chats own the conversation; views
+lend it context.** A paper keeps no chat of its own: Nova talks in the chat you
+were last in, and a menu under the panel's title switches chats. Each question
+is tagged with where you asked it, General or `<paper> › <tool>`, and the tag is
+a link back there; once a chat spans places, its **Showing** menu filters it to
+one. Ask about another paper in the exploration and Nova answers from that
+paper's view while you stay put (ask to be taught and you go there); ask about
+several at once, comparing or connecting them, and Nova reads them side by
+side. The
 **Knowledge Graph** is a short course on the ideas a paper rests on: the paper
 at the centre, the concepts it needs around it. Double-click any concept to
 break it down further, click one for a lesson written for this course (opening on a picture of the idea itself, with real images from
 your library, papers and the web where they help, each credited, or ⚡ Quick response for the lesson
-alone; highlight a passage to **Explain** it in the assistant,
-**Expand** it into a new concept, or **Chat** about it, attached to the
-assistant's bar for a question of your own; the lesson's ⋮ menu rewrites it, hides the
+alone; highlight a passage to **Explain** it with Nova,
+**Expand** it into a new concept, or **Chat** about it, attached to
+Nova's bar for a question of your own; the lesson's ⋮ menu rewrites it, hides the
 concept or deletes it for good, and a red count on a node shows what's hidden
 beneath it, back with a double-click), and tick off
 what you already know (shift-click or alt-drag to tick off several at once, or 🔍 find concepts
@@ -65,22 +76,21 @@ render (arXiv couldn't convert them, or they aren't on arXiv but have an
 open-access PDF) open straight in it. The PDF zooms (− and + beside the
 switch), its contents are its own bookmarks, else the section headings found
 in its text, and the highlight
-menu and assistant work on it too, reading the PDF page by page. Highlight any
+menu and Nova work on it too, reading the PDF page by page. Highlight any
 passage, an equation or part of one included, and choose **Explain**,
-**Simplify** or **Chat**: the **Reader Assistant** (🎓, docked on the right)
-answers from the paper itself, starting with the section you're in, and
-searches your library and the web only when a question reaches past it. It
-keeps its own chat, listed in `@` as "Paper › Reader". An answer lights up
+**Simplify** or **Chat**: Nova answers from the paper itself, starting with the
+section you're in, and searches your library and the web only when a question
+reaches past it. An answer lights up
 what it's about: the passage you highlighted (in the PDF, exactly where you
 dragged, across columns and pages), and any of the paper's words it quotes,
 underlined in red, one at a time when you click them. Clicking the answer
 goes back to its passage, in either view, and switching views keeps it in
-sight. In the PDF the assistant also gets a picture of what you highlighted,
+sight. In the PDF Nova also gets a picture of what you highlighted,
 so it reads an equation as typeset. For what won't select as text, an
 equation, a figure, a table, hold ⌥ (Alt) and drag a box over it and ask
-about it the same way. In the PDF the assistant sees a picture of the box; in
-the text the box takes the whole equations and figures it touches, and the
-assistant gets their LaTeX and sees the figures themselves. A passage asked
+about it the same way. In the PDF Nova sees a picture of the box; in
+the text the box takes the whole equations and figures it touches, and
+Nova gets their LaTeX and sees the figures themselves. A passage asked
 about in one view lights in the other too, by its figure and equation
 numbers, and when part of it has no place there a note says so, with the
 other view a click away. The ⓘ beside the switch sums up the controls.
@@ -222,7 +232,7 @@ the API-key values may be left blank. For the **full value-by-value reference**
 The two **data-source keys are completely optional** — Curious Astronaut explores the graph
 fully without them, just on tighter public rate limits. The **Anthropic key is
 the one that unlocks the AI teacher** (lectures, research Q&A, library chat); the
-graph explorer runs fine without it, but the Assistant panel needs it.
+graph explorer runs fine without it, but Nova needs it.
 
 - **`providers.s2.api_key`** — **optional.** A free
   [Semantic Scholar API key](https://www.semanticscholar.org/product/api) is
@@ -392,7 +402,7 @@ just before the bar's rounded right end.
    per seed); turn **"Size graphs automatically" off** in Settings ▸ Graph to
    have it ship everything it can and size the bands yourself, and each filter
    chip gains a **count slider** to trim how many of that relation you see.
-4. **Learn** (the 🎓 Assistant panel):
+4. **Learn** (Nova's panel):
    - **Lecture** — a narrated tour of the papers **you have on screen**,
      oldest first, over the graph as you built it (lectures never expand it —
      only the research agent does). Ask for it in the chat bar: *"lecture me
@@ -502,7 +512,7 @@ just before the bar's rounded right end.
      loaded. So any turn answered over a graph other than the one you are
      looking at says *"From the “…” graph"* at the top, which is the difference
      between a dead link and an answer that explains itself.
-   - **No graph open? Then the assistant *is* the page.** Curious Astronaut opens on a
+   - **No paper open? Then Nova *is* the page.** Curious Astronaut opens on a
      centred chat bar — no graph and no uploaded library required — and the
      same agent answers seedless, searching your library through its tools
      rather than being handed passages, so a greeting stays a greeting and a
@@ -510,9 +520,9 @@ just before the bar's rounded right end.
      clicking one **maps that paper** — builds its graph, with nothing selected
      on it — and the conversation comes with you rather than being cleared, so a
      survey answer is a doorway into the graph instead of a list of links out
-     to someone else's site. When a graph appears the chat collapses into the
-     side panel beside it (and a 🎓 button at the top-right of the canvas
-     brings it back) without dropping the thread or your place in it.
+     to someone else's site. When a paper opens the chat docks beside it (and
+     the astronaut at the top-right of the canvas brings it back) without
+     dropping the conversation or your place in it.
 5. **Your sources** (📚) — drop in PDFs (parallel, with live embedding
    progress) or paste URLs; scope any conversation to a subset of them.
 6. **Explorations** — every sitting saves itself, so there is no Save button:

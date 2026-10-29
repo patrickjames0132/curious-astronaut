@@ -8,8 +8,8 @@ shapes, and SSE frames; components above it deal in types.
 ```
 api/
   sse.ts       — the shared text/event-stream reader (internal plumbing)
-  agents.ts    — streaming lecture / Q&A / library chat, plus `routeMessage`
-                 (routes/agents.py)
+  agents.ts    — streaming lecture / Q&A / library chat, plus `routeMessage`:
+                 all one assistant, each naming its view (routes/agents.py)
   search.ts    — direct search (SSE), field vocabulary (routes/search.py)
   graph.ts     — graph, expand, links between papers, paper detail, figures,
                  code links, category tags (routes/graph.py)
@@ -57,7 +57,17 @@ api/
   `progress` → callback (coarse build stage), `done` → the graph, `error` →
   thrown — so the "Building graph…" overlay shows a real bar. `fetchGraph` (the
   plain GET) remains for non-streaming callers.
-- **`sse.ts` exists because `EventSource` is GET-only.** The three agent
+- **One assistant behind every agent stream (v9.0.0).** `streamAsk`,
+  `streamAskSources`, `streamAskCourse`, `streamAskReader`, `streamLecture`
+  and `streamGuideReader` all post to `/api/assistant`, each naming the
+  view it asks from (`AssistantView`: `citations`, `general`, `knowledge`,
+  `reader`) and, for a lecture or a guided read, the workflow; one
+  `relayAssistant` hands every frame to whichever handler the caller gave.
+  The functions keep the shapes the panels already called, so stage 1 of
+  the OnePager's "One assistant" changed no caller; `routeMessage` and
+  `routeReaderMessage` are `/api/assistant/route` in the graph's and the
+  Reader's view.
+- **`sse.ts` exists because `EventSource` is GET-only.** The agent
   streams are POSTs answering `text/event-stream`, so the reader hand-decodes
   frames from `fetch`. Malformed frames are skipped, never fatal; a non-OK
   response throws with the server's JSON `error` before any streaming.
@@ -77,8 +87,8 @@ api/
   as each one lands, then the authoritative `result`. The `SearchOptions` it
   sends are enforced in the scout's deps server-side, so they cannot be
   widened by anything the model writes — which is why the same object is also
-  sent on `/api/ask` (one filter set for the whole chat bar, not one per
-  mode).
+  sent as the assistant's `general` view (one filter set for the whole chat
+  bar, not one per mode).
 - **The detail-panel category tags are server-labelled.** `fetchCategories`
   hits a dedicated per-paper endpoint (`/api/paper/<ref>/categories`) that
   returns each arXiv tag already labelled, so the client does no code→name

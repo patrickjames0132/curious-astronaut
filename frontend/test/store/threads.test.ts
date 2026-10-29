@@ -12,21 +12,19 @@ import workspace, {
   loadGraph,
   nodeSelectionSet,
   openPaper,
+  openTag,
   openThread,
   openTool,
   seedPaper,
   switchProvider,
 } from '../../src/store/workspace'
 import * as api from '../../src/api'
-import transcript, {
-  conversationEnsured,
-  tokenAppended,
-  turnStarted,
-} from '../../src/store/transcript'
+import transcript, { selectChatKey, tokenAppended, turnStarted } from '../../src/store/transcript'
 import explorations, {
   awaitsTitle,
   explorationOpened,
   newExploration,
+  type ThreadRecord,
   threadReaderPlaceSet,
   threadRenamed,
   threadReturnSet,
@@ -34,6 +32,7 @@ import explorations, {
   threadToolSet,
 } from '../../src/store/explorations'
 import { migrateExploration, explorationBody } from '../../src/store/threadPersistence'
+import { paperTag } from '../../src/store/chats'
 import type { GraphResponse, SavedSession } from '../../src/api'
 
 vi.mock('../../src/api', async (original) => ({
@@ -342,7 +341,7 @@ describe('switching the data source', () => {
 })
 
 describe('legacy migration', () => {
-  it('splits stamped pairs by provider and preserves every unstamped turn without mutating the saved blob', () => {
+  it('keeps every turn in the chat, tagged with the paper its answer was stamped with, without mutating the saved blob', () => {
     const saved = {
       id: 'old',
       name: 'Learning',
@@ -365,22 +364,24 @@ describe('legacy migration', () => {
     } as SavedSession
     const original = JSON.stringify(saved)
     const migrated = migrateExploration(saved)
-    expect(
-      migrated.threads
-        .find((thread) => thread.identity === 's2:DQN')
-        ?.data.chat.map((turn) => turn.text),
-    ).toEqual(['old unstamped', 'old answer', 'unanswered'])
-    expect(
-      migrated.threads
-        .find((thread) => thread.identity === 'openalex:DQN')
-        ?.data.chat.map((turn) => turn.text),
-    ).toEqual(['new question', 'new answer'])
+    const paper = (identity: string) =>
+      migrated.threads.find((thread) => thread.identity === identity)!
+    const general = migrated.threads.find((thread) => !thread.identity)!
+    expect(general.data.chat.map((turn) => [turn.text, turn.tag?.threadId])).toEqual([
+      ['old unstamped', paper('s2:DQN').id],
+      ['old answer', undefined],
+      ['new question', paper('openalex:DQN').id],
+      ['new answer', undefined],
+      ['unanswered', undefined],
+    ])
+    expect(paper('s2:DQN').data.chat).toEqual([])
+    expect(migrated.chatId).toBe(general.id)
     expect(JSON.stringify(saved)).toBe(original)
   })
   it('round-trips all threads and does not erase a failed graph rebuild reference', async () => {
     const store = makeStore()
     await store.dispatch(loadGraph({ seed: 'DQN' }))
-    store.dispatch(turnStarted('question'))
+    store.dispatch(turnStarted('question', selectChatKey(store.getState())))
     await store.dispatch(loadGraph({ seed: 'PPO' }))
     const state = store.getState()
     const record = state.explorations.byId[state.explorations.activeId]
@@ -391,65 +392,44 @@ describe('legacy migration', () => {
       data: body,
     } as SavedSession)
     expect(restored.threads).toHaveLength(3)
-    expect(restored.threads.find((thread) => thread.identity === 's2:DQN')?.data.chat[0].text).toBe(
-      'question',
-    )
+    expect(restored.threads.find((thread) => !thread.identity)?.data.chat[0].text).toBe('question')
+    expect(restored.chatId).toBe(record.chatId)
     expect(restored.threads.every((thread) => !thread.workspace)).toBe(true)
   })
 
-  it("saves a thread's Knowledge Graph chat beside its own and restores it (v8.25.0)", async () => {
-    const store = makeStore()
-    await store.dispatch(loadGraph({ seed: 'DQN' }))
-    const threadId = store.getState().transcript.activeKey
-    store.dispatch(turnStarted('graph question'))
-    store.dispatch(conversationEnsured(`${threadId}:knowledge`))
-    store.dispatch(turnStarted('course question', `${threadId}:knowledge`))
-    store.dispatch(tokenAppended('course answer', `${threadId}:knowledge`))
-    const state = store.getState()
-    const body = explorationBody(state, state.explorations.byId[state.explorations.activeId])
-    const saved = body.exploration!.threads.find((thread) => thread.id === threadId)!
-    expect(saved.data.chat[0].text).toBe('graph question')
-    expect(saved.courseChat?.chat.map((turn) => turn.text)).toEqual([
-      'course question',
-      'course answer',
+  it("drops an 8.x save's paper chats rather than reading them (v9.0.0, no migration)", () => {
+    const paperChat = [{ role: 'user' as const, text: 'graph question' }]
+    const saved = {
+      id: 'x',
+      name: 'Old',
+      data: {
+        layout: 'timeline',
+        chat: [],
+        exploration: {
+          version: 1,
+          activeThreadId: 'p',
+          threads: [
+            { id: 'c', title: 'Chat', identity: null, data: { chat: [], layout: 'timeline' } },
+            {
+              id: 'p',
+              title: 'DQN',
+              identity: 's2:DQN',
+              data: { chat: paperChat, layout: 'force' },
+              summary: 'About the graph.',
+              courseChat: { chat: paperChat },
+              readerChat: { chat: paperChat },
+            },
+          ],
+        },
+      },
+    } as unknown as SavedSession
+    const paper = migrateExploration(saved).threads[1] as ThreadRecord & Record<string, unknown>
+    expect(paper.data.chat).toEqual([])
+    expect([paper.summary, paper.courseChat, paper.readerChat]).toEqual([
+      undefined,
+      undefined,
+      undefined,
     ])
-    // Opened again in a fresh sitting, each chat lands under its own key.
-    const fresh = makeStore()
-    fresh.dispatch(
-      explorationOpened(
-        migrateExploration({ id: body.id, name: body.name, data: body } as SavedSession),
-      ),
-    )
-    const conversations = fresh.getState().transcript.byKey
-    expect(conversations[threadId].chat[0].text).toBe('graph question')
-    expect(conversations[`${threadId}:knowledge`].chat[1].text).toBe('course answer')
-  })
-
-  it("saves a thread's Reader chat as readerChat and restores it (v8.38.0)", async () => {
-    const store = makeStore()
-    await store.dispatch(loadGraph({ seed: 'DQN' }))
-    const threadId = store.getState().transcript.activeKey
-    store.dispatch(conversationEnsured(`${threadId}:reader`))
-    store.dispatch(turnStarted('reader question', `${threadId}:reader`))
-    store.dispatch(tokenAppended('reader answer', `${threadId}:reader`))
-    const state = store.getState()
-    const body = explorationBody(state, state.explorations.byId[state.explorations.activeId])
-    const saved = body.exploration!.threads.find((thread) => thread.id === threadId)!
-    expect(saved.readerChat?.chat.map((turn) => turn.text)).toEqual([
-      'reader question',
-      'reader answer',
-    ])
-    // A thread with no Knowledge Graph chat saves none.
-    expect(saved.courseChat).toBeUndefined()
-    const fresh = makeStore()
-    fresh.dispatch(
-      explorationOpened(
-        migrateExploration({ id: body.id, name: body.name, data: body } as SavedSession),
-      ),
-    )
-    expect(fresh.getState().transcript.byKey[`${threadId}:reader`].chat[1].text).toBe(
-      'reader answer',
-    )
   })
 })
 
@@ -535,5 +515,41 @@ describe('the Reader’s way back (v8.44.0)', () => {
       threadReaderPlaceSet({ id, place: { view: 'text', at: 'S3.SS2', fraction: 0.4 } }),
     )
     expect(activeThread(store).readerPlace).toEqual({ view: 'text', at: 'S3.SS2', fraction: 0.4 })
+  })
+})
+
+describe('the dock’s chat (v9.0.0)', () => {
+  it('follows the chat last opened, stays put when a paper opens, and falls back when deleted', async () => {
+    const store = makeStore()
+    store.dispatch(explorationOpened(newExploration('explore')))
+    const first = activeThread(store).id
+    await store.dispatch(newGeneralChat())
+    const second = activeThread(store).id
+    const record = () => store.getState().explorations.byId.explore
+    expect(record().chatId).toBe(second)
+    await store.dispatch(openPaper({ seed: 'DQN' }))
+    expect(record().chatId).toBe(second)
+    expect(selectChatKey(store.getState())).toBe(second)
+    await store.dispatch(deleteThread(second))
+    expect(selectChatKey(store.getState())).toBe(first)
+  })
+
+  it('goes where a question was asked: its paper’s tool, or its chat', async () => {
+    const store = makeStore()
+    store.dispatch(explorationOpened(newExploration('explore')))
+    const chat = activeThread(store).id
+    await store.dispatch(openPaper({ seed: 'DQN' }))
+    const paper = activeThread(store)
+    await store.dispatch(activateThread(chat))
+    await store.dispatch(openTag({ tag: paperTag(paper, 'reader'), chatId: chat }))
+    expect(activeThread(store).id).toBe(paper.id)
+    expect(threadTool(activeThread(store))).toBe('reader')
+    await store.dispatch(openTag({ chatId: chat }))
+    expect(activeThread(store).id).toBe(chat)
+    // A paper deleted since goes nowhere.
+    await store.dispatch(
+      openTag({ tag: { threadId: 'gone', title: 'Gone', tool: 'graph' }, chatId: chat }),
+    )
+    expect(activeThread(store).id).toBe(chat)
   })
 })

@@ -10,7 +10,7 @@
  * Since v8.45.0 it also holds the Reader's lit passages: the paper's words a
  * Reader Assistant answer is about, which the assistant sets (an answer
  * finishing, an answer or a quote clicked) and the Reader shows. Clearing
- * that Reader's chat puts them out.
+ * the chat puts them out.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -19,7 +19,6 @@
 import { createSelector, createSlice } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
 import type { PdfPlace } from '../api'
-import { chatKey } from './chats'
 import { explorationOpened, threadActivated } from './explorations'
 import { chatCleared } from './transcript'
 import { loadGraph, restoreSession, workspaceCleared } from './workspace'
@@ -27,7 +26,7 @@ import { loadGraph, restoreSession, workspaceCleared } from './workspace'
 /** The passages lit in a thread's Reader (v8.45.0). */
 export interface LitPassages {
   threadId: string
-  /** The answer they belong to (its index in the Reader's chat), if any. */
+  /** The answer they belong to (its index in the dock's chat), if any. */
   answer: number | null
   /** The beat of a guided read they are (v8.50.0), when they are one. */
   beat?: number | null
@@ -84,10 +83,11 @@ const highlightSlice = createSlice({
       .addCase(loadGraph.fulfilled, () => initialState)
       .addCase(restoreSession.fulfilled, () => initialState)
       .addCase(workspaceCleared, () => initialState)
-      // Clearing the Reader's chat clears what its answers lit (Patrick).
-      .addCase(chatCleared, (state, action) => {
-        const lit = state.passages
-        if (lit && action.meta.key === chatKey(lit.threadId, 'reader')) state.passages = null
+      // Clearing the chat clears what its answers lit (Patrick). Since
+      // v9.0.0 the Reader's answers live in the dock's chat, the one a clear
+      // beside the Reader empties.
+      .addCase(chatCleared, (state) => {
+        state.passages = null
       })
   },
 })

@@ -1,10 +1,9 @@
 # `src/store`
 
 The store separates an exploration, its threads, and the workspace currently
-on screen. A thread owns one graph (or no graph for General) and its
-transcript; since v8.25.0 a paper thread's Knowledge Graph has a transcript of
-its own too (see "Chats" below).
-Opening another graph changes the active thread; it never replaces the graph
+on screen. A paper thread owns one graph and its other views; a chat owns a
+transcript, and since v9.0.0 only chats do (see "Chats own the conversation"
+below). Opening another graph changes the active thread; it never replaces the graph
 beneath an unrelated conversation. This deliberately reverses v7.10.0: the
 continuity that release protected now belongs to the parent exploration.
 
@@ -117,11 +116,12 @@ filter state, but recalculates physics; coordinates are not saved.
 
 ## Conversations and streaming
 
-`transcript.ts` keys conversations by chat (`chats.ts`: a thread's id, or
-`<threadId>:knowledge` for its course's). Every stream captures that key
-before starting and dispatches to it explicitly. A background answer continues
-writing to its own conversation. Its discoveries wait in `pendingDiscoveries`
-until the thread is displayed; they also participate in saves while it is away.
+`transcript.ts` keys conversations by chat (`chats.ts`: a chat's own id).
+Every stream captures that key before starting and dispatches to it
+explicitly. A background answer continues writing to its own conversation.
+Its discoveries belong to the paper it was asked about, not the chat: when
+that paper isn't on screen they wait in its entry's `pendingDiscoveries`
+until it is displayed; they also participate in saves while it is away.
 Deleting an exploration drops every owned conversation, so late events have
 nowhere to land.
 
@@ -142,38 +142,48 @@ Lectures live in `ChatMsg.beats`, not in a separate lecture slot. `teacher/histo
 converts completed prose and beats into model history and strips figure markers.
 The same conversion is used for normal sends, retries and borrowed discussion.
 
-## Chats: a thread and a tool (v8.25.0)
+## Chats own the conversation; views lend it context (v9.0.0)
 
-Once the Knowledge Graph got its own assistant, a thread held two
-conversations, so `chats.ts` names the unit everything conversational
-addresses: a **chat**, a thread plus a tool (`ChatTool`: `graph` or
-`knowledge`).
+An exploration is **a set of papers plus several chats** (the OnePager's
+"One assistant", stage 2a). `chats.ts` says which is which:
 
-- **Keys.** The Citation Graph's chat (and General's) keeps the thread's id
-  as its transcript key, so nothing written before needs migrating; the
-  Knowledge Graph's is `<threadId>:knowledge` (`chatKey` / `chatOf`).
-  `transcript.activeKey` still means the active *thread*: the course's chat
-  is never "active", it is always addressed by its key
-  (`conversationEnsured` makes sure it exists before a stream writes).
-- **Storage.** The Citation Graph's chat stays where it was (`data.chat`,
-  `summary`, `summarizedThrough`); the course's is `ThreadRecord.courseChat`
-  and, since v8.38.0, the Reader's is `ThreadRecord.readerChat`, both listed
-  once in `chats.ts`'s `SIDE_CHAT_FIELDS` and looped over everywhere below
-  (`{chat, summary?, summarizedThrough?}`), seeded into the transcript with
-  the thread (`seedThread`) and written back by `explorationBody`.
-  `threadSummarized` takes a `tool`, and clearing either chat drops its own
-  summary. Deleting a thread or exploration drops both conversations.
-- **References.** `explorationChats` lists an exploration's chats: each
-  thread's own, and a paper thread's Knowledge Graph chat once it has a
-  course or turns. A chat's label is what the `@` list shows and a mention
-  carries: `@thread[PPO › Knowledge Graph]`, `@thread[PPO › Citation
-  Graph]`, `@thread[General]`. `mentionsChat` still reads a bare
-  `@thread[PPO]` (a message sent before v8.25.0) as PPO's Citation Graph
-  chat. `teacher/history.ts` builds the sibling index per chat from these,
-  and a mentioned course chat brings its course's outline
-  (`knowledge/assistant/context.ts`). A `Context from` link carries the chat's
-  key, and `openChat` opens its thread and, for a course chat, the Knowledge
-  Graph.
+- **A chat** is a thread with no paper (`identity: null`). It holds the
+  conversation: its transcript is keyed by its own id (`data.chat`,
+  `summary` and `summarizedThrough` when saved), and it is what `@`
+  references, what the sibling index lists, and what the rail's Chats group
+  shows.
+- **A paper thread** is a view: its cards, Citation Graph, course, Reader and
+  reviews, with all their view state. It holds **no conversation**. Its
+  transcript entry exists only for `pendingDiscoveries`, the papers its graph
+  found while it wasn't on screen.
+- **The dock's chat** is `ExplorationRecord.chatId`, the chat you were last
+  in: opening a chat sets it, opening a paper keeps it (`threadActivated`),
+  the docked panel's chat picker switches it without leaving the view
+  (`dockChatSet`, `workspace.newDockChat`; `assistant/DockChatPicker`), and
+  deleting it falls back to the first chat (`dockChatId`). Every view's
+  docked assistant talks in it. `selectChatKey` is the conversation on
+  screen: the active chat, or beside a paper, the dock's chat.
+  `transcript.activeKey` still means the **thread on screen**, a chat or a
+  paper, which the graph's parking and a stale load's check rely on.
+- **Every question is tagged** with where it was asked (`ChatMsg.tag`,
+  `TurnTag`): a paper thread and its tool, or no tag for General. A label
+  reads the paper's current title (`tagLabel`), falling back to the title
+  stamped on the tag once the paper is deleted. `workspace.openTag` goes
+  there: the paper on that tool, or the chat itself. A question about
+  several papers at once (stage 4c) is tagged `across`, naming each of
+  them (`acrossTag`, `tagPapers`); with no one view to go to, its tag
+  opens a paper's cards.
+- **One answer in flight per chat**, whichever view asked
+  (`assistant/inFlight`): both stream engines share a chat now, so a new
+  question supersedes whatever the chat was answering.
+
+Until v9.0.0 a paper thread held a chat per tool instead (v8.25.0: its own,
+the Citation Graph's; `courseChat`, `<threadId>:knowledge`; and since
+v8.38.0 `readerChat`, `<threadId>:reader`), addressed by `chatKey`/`chatOf`
+and labelled `PPO › Knowledge Graph`. There is no migration (Patrick: v9.0.0
+is a major release, and nobody else had installed it): an 8.x save's paper
+chats and summaries are dropped on load (`threadPersistence`'s
+`chatsOwnTheConversation`) rather than read wrong.
 
 ## Persistence and migration
 
@@ -214,9 +224,13 @@ citations highlight their node on the canvas.
 ## Verification
 
 `test/store/threads.test.ts` covers graph identity, General, selection restoration,
-background token ownership, migration and serialization (a course chat
-saved and restored beside its thread's own); `chats.test.ts` covers chat
-keys, labels, which chats an exploration offers, and old and new mentions. Transcript tests cover
+background token ownership, migration and serialization (a legacy save's
+turns kept in its chat and tagged, an 8.x save's paper chats dropped), the
+dock's chat following the chat last opened, and a tag going where it was
+asked; `chats.test.ts` covers which threads are chats, the dock's chat, which
+chats an exploration offers, mentions, and tag labels;
+`test/assistant/askAssistant.test.ts` a docked question landing tagged in
+the dock's chat and superseding the other engine's answer. Transcript tests cover
 the keyed stream reducers. Shell tests cover write ordering, teardown recovery,
 read-only legacy opening, deletion and preserving names. Build with `npm run build`
 and run the offline suite with `npm test`.

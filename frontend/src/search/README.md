@@ -127,8 +127,8 @@ places the pair in the chip row directly under the landing chat's ask bar
 (`.ask-tools`), which anchors the filter popover. **The General chat's
 alone, since v8.28.0**, and labelled **Paper filters** (just "Filters" until
 then, beside a "📚 All sources" chip readers couldn't tell it apart from).
-Docked over a graph the assistant no longer searches papers — `/api/ask`
-runs the researcher without `find_papers` — so the filters would bind only a
+Docked over a graph the assistant no longer searches papers — the
+`citations` view runs the researcher without `find_papers` — so the filters would bind only a
 bare-Enter `@` search, and `Teacher` sends the defaults there instead
 (`activeOptions`) so filters left set on the landing chat can't narrow it
 out of sight. The funnel's history: v7.11.0 took it out of the bar with

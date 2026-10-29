@@ -1,26 +1,25 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-AI-teacher routes: one endpoint per agent, each streaming typed events.
+The assistant's routes: one for every view, streaming typed events (v9.0.0).
 
-POST /api/route        -> which assistant a typed message wants (JSON, not SSE)
-POST /api/route/papers -> which graph papers a lecture request named (JSON)
-POST /api/lecture      -> streamed AI lecture over the visible graph
-POST /api/ask          -> the research agent, streamed over the visible graph
-POST /api/ask_sources  -> streamed chat with no graph open (library + search)
-POST /api/ask_course   -> the Knowledge Graph's assistant: the researcher,
-                          graph-free, over a thread's course (v8.25.0)
-POST /api/route_reader -> whether a Reader message wants a guided read (JSON)
-POST /api/guide_reader -> the guided read: a lecture of the paper in the Reader
-POST /api/ask_reader   -> the Reader's assistant: the researcher, graph-free,
-                          over the paper being read (v8.38.0)
+POST /api/assistant/route        -> which workflow a typed message wants, in
+                                    the view it was typed in (JSON, not SSE)
+POST /api/assistant/route/papers -> which graph papers a lecture request named (JSON)
+POST /api/assistant/route/place  -> what a message is about: here, General, or
+                                    another of the exploration's papers (JSON)
+POST /api/assistant              -> the workflow, streamed: an answer, a
+                                    lecture over the graph, or a guided read
 
-Each endpoint validates the request, builds typed inputs, and hands off to
-the agent that serves it; the typed event stream comes back as SSE
+Until v9.0.0 there was a route per assistant and per workflow (``/api/ask``,
+``ask_sources``, ``ask_course``, ``ask_reader``, ``lecture``,
+``guide_reader``, and ``route`` / ``route_reader``). They differed in what the
+view lent the model and which tools it allowed, which is the
+``agents.orchestrators.assistant`` package's business now; these routes
+validate, relay and set status codes. The event stream comes back as SSE
 frames named by each event's ``type`` tag (``model_dump`` minus the tag),
 always terminated by ``done`` or ``error``. The client owns the persisted
-transcript and sends completed history on every request. Agents receive
-history; neither agents nor routes maintain a competing copy.
+transcript and sends completed history on every request.
 
 (This module is ``routes/agents.py``, the route face of the ``agents``
 package — a deliberate name-cousin, different full paths.)
@@ -38,17 +37,8 @@ from flask import Blueprint, jsonify, request
 from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
 
-from .. import optional
 from ..agents import events, streams
-from ..agents.orchestrators import lecturer, researcher, router
-from ..config import config
-from ..integrations import arxiv
-from ..integrations.arxiv import document as arxiv_document
-from ..services import pdf as pdf_service
-from ..services import search as search_service
-from ..services.graph import Node, Provider, resolve_provider
-from ..services.pdf import passages as pdf_passages
-from ..services.reader import figures as reader_figures
+from ..agents.orchestrators import assistant, router
 from .sse import sse, sse_response
 
 bp = Blueprint("agents", __name__)
@@ -58,135 +48,6 @@ bp = Blueprint("agents", __name__)
 # current_app there raises RuntimeError and kills the stream before the
 # `error` event the frontend waits for can be sent.
 log = logging.getLogger(__name__)
-
-def _opt_filters(payload: dict, provider: Provider) -> dict:
-    """Parse the optional paper-discovery filters from a request body.
-
-    The chat bar carries one set of filters for both of its modes, so the same
-    year window and field restriction a direct search would apply also reach
-    the researcher — which forwards them to every scout it sends out. They
-    scope *discovery* only; citation hops ignore them (see ``ResearcherDeps``).
-
-    Args:
-        payload: The parsed JSON body.
-        provider: The resolved graph provider, for validating field values
-            against the right vocabulary.
-
-    Returns:
-        ``{year_from, year_to, fields}`` ready to splat into
-        ``researcher.answer``. Absent, blank, or non-numeric years become
-        None; unknown field values are dropped.
-    """
-
-    def year(name: str) -> int | None:
-        """Read one optional year from the payload.
-
-        Args:
-            name: The key to read (``year_from`` / ``year_to``).
-
-        Returns:
-            The year as an int, or None when absent or unparseable.
-        """
-        raw = payload.get(name)
-        if isinstance(raw, int):
-            return raw
-        try:
-            return int(str(raw).strip())
-        except (TypeError, ValueError):
-            return None
-
-    raw_fields = payload.get("fields")
-    fields = [str(value) for value in raw_fields] if isinstance(raw_fields, list) else []
-    return {
-        "year_from": year("year_from"),
-        "year_to": year("year_to"),
-        "fields": search_service.valid_fields(provider, fields),
-    }
-
-
-def _opt_source_ids(payload: dict) -> list[str] | None:
-    """Parse the optional ``source_ids`` scope from a request body.
-
-    Args:
-        payload: The parsed JSON body.
-
-    Returns:
-        The library source ids to scope the answer to. ``None`` when the key
-        is absent or malformed — no scope, so the whole library is searched.
-        A **present** ``source_ids`` array yields exactly its string entries,
-        including an **empty list** — an explicit "no sources selected" that
-        searches nothing rather than everything.
-    """
-    raw = payload.get("source_ids")
-    if not isinstance(raw, list):
-        return None
-    return [source_id for source_id in raw if isinstance(source_id, str) and source_id]
-
-
-def _opt_quick(payload: dict) -> bool:
-    """Whether a request asks for a quick response (v8.30.0).
-
-    Every chat bar's ⚡ Quick response re-asks a question with ``quick: true``:
-    the researcher answers with no tools (see ``researcher.answer``). Only a
-    literal ``true`` counts, so a stray truthy value can't strip the tools.
-
-    Args:
-        payload: The parsed JSON body.
-
-    Returns:
-        True only for ``"quick": true``.
-    """
-    return payload.get("quick") is True
-
-
-def _opt_model(payload: dict) -> str | None:
-    """The researcher model a chat bar picked for its conversation (v8.33.0).
-
-    The bar's picker overrides the researcher's configured model for one
-    conversation; Settings keeps the default. Anything that isn't a
-    ``"provider:model"`` string naming a vendor the factory knows is ignored,
-    so a malformed value falls back to the configured model rather than
-    failing the answer. A known but unconfigured vendor still reaches the
-    factory, which reports it as an answer error, as it does for config.
-
-    Args:
-        payload: The parsed JSON body.
-
-    Returns:
-        The override, or None for the configured model.
-    """
-    raw = payload.get("model")
-    if not isinstance(raw, str) or ":" not in raw:
-        return None
-    vendor, name = raw.split(":", 1)
-    if not name.strip() or vendor not in type(config.llm.providers).model_fields:
-        return None
-    return raw
-
-
-def _node(raw: dict) -> Node:
-    """Build a typed ``Node`` from a frontend node payload.
-
-    Strict about the core shape, tolerant about baggage: exactly the model's
-    fields are picked out of the dict (the force-graph renderer mutates node
-    objects with simulation fields — ``x``, ``vy``, ``index``, ... — and
-    ``extra="forbid"`` would reject every real payload), and the graph
-    annotations default (``rels``/``is_seed``) since discovered nodes may
-    not carry them.
-
-    Args:
-        raw: One node dict from the request body.
-
-    Returns:
-        The validated ``Node``.
-
-    Raises:
-        ValidationError: When the core fields are missing/malformed.
-    """
-    data = {name: raw[name] for name in Node.model_fields if name in raw}
-    data.setdefault("rels", [])
-    data.setdefault("is_seed", False)
-    return Node.model_validate(data)
 
 
 def _relay(workflow: Iterable[events.Event]) -> Iterator[str]:
@@ -206,47 +67,45 @@ def _relay(workflow: Iterable[events.Event]) -> Iterator[str]:
         yield sse("error", {"message": "The teacher hit an unexpected error."})
 
 
-@bp.post("/api/route")
-def api_route() -> ResponseReturnValue:
-    """Say which assistant a typed message wants, before anything is streamed.
+@bp.post("/api/assistant/route")
+def api_assistant_route() -> ResponseReturnValue:
+    """Say which workflow a typed message wants, before anything is streamed.
 
-    The one endpoint here that is **not** SSE, because it produces a decision
-    rather than an answer: the client uses it to pick between
-    ``/api/lecture`` and ``/api/ask`` and then streams from the one it picked.
-    Two round trips rather than one, deliberately — folding the choice into a
-    single streaming endpoint would mean a second implementation of both
-    workflows' event relays, to save a few milliseconds on localhost.
+    Not SSE, because it produces a decision rather than an answer: the client
+    may have work to do between the two. On the Citation Graph a lecture's
+    scope is resolved against the graph on screen, which only the client
+    holds, so the decision and the stream stay two round trips.
 
     Body:
-        ``{message: str}`` — the message as typed, mentions and all.
+        ``{message: str, view: {kind}}`` — the message as typed, mentions and
+        all, and the view it was typed in.
 
     Returns:
-        ``{target: 'lecture'|'answer', framing: 'summary'|'history', scope:
-        'screen'|'references'|'citations'|'seed'|'named'|'graph', year_from: int|null,
-        year_to: int|null}``, always HTTP 200.
-        A blank message, a missing key, a dead model and an unparseable
-        classification all come back as the researcher (see
-        ``router.route``): this endpoint sits in front of every message the
+        ``{workflow: 'answer'|'lecture'|'guide', framing, scope, year_from,
+        year_to}`` (``assistant.AssistantRoute``), always HTTP 200. A blank
+        message, an unknown view, a dead model and an unparseable
+        classification all answer: this sits in front of every message the
         reader sends, so failing it would break asking questions in order to
-        protect a routing nicety. ``scope`` is which papers a lecture is
-        about, as far as the message says; ``named`` means the message
-        pointed at specific papers and ``/api/route/papers`` can say which.
-        The years are a period the message limited it to, on top of the scope.
+        protect a routing nicety. ``scope`` and the years are which papers a
+        lecture is about, as far as the message says; ``named`` means
+        ``/api/assistant/route/papers`` can say which.
     """
     payload = request.get_json(silent=True) or {}
     message = payload.get("message")
-    decision = router.route(message if isinstance(message, str) else "")
+    decision = assistant.route(
+        message if isinstance(message, str) else "", assistant.view_kind(payload.get("view"))
+    )
     return jsonify(decision.model_dump())
 
 
-@bp.post("/api/route/papers")
-def api_route_papers() -> ResponseReturnValue:
+@bp.post("/api/assistant/route/papers")
+def api_assistant_route_papers() -> ResponseReturnValue:
     """Say which of the graph's papers a lecture request named.
 
-    The second half of routing, split out so the graph's paper list crosses
-    the wire only for the messages that need it: ``/api/route`` reads the
-    message alone, and a client calls this only when it answered ``scope:
-    'named'``. Plain JSON like its sibling — a decision, not a stream.
+    The second half of routing on the Citation Graph, split out so the
+    graph's paper list crosses the wire only for the messages that need it:
+    ``/api/assistant/route`` reads the message alone, and a client calls this
+    only when it answered ``scope: 'named'``.
 
     Body:
         ``{message: str, papers: [{id, title, year?, authors?}]}`` — every
@@ -256,9 +115,8 @@ def api_route_papers() -> ResponseReturnValue:
 
     Returns:
         ``{ids: [paper id, ...]}`` in the order the message named them, always
-        HTTP 200. Empty when nothing matched — and on every failure, for the
-        reason ``/api/route`` never fails: the client already has to handle
-        "nothing matched", so a dead model is just that case again.
+        HTTP 200. Empty when nothing matched — and on every failure, since the
+        client already has to handle "nothing matched".
     """
     payload = request.get_json(silent=True) or {}
     message = payload.get("message")
@@ -273,695 +131,65 @@ def api_route_papers() -> ResponseReturnValue:
     return jsonify({"ids": ids})
 
 
-@bp.post("/api/lecture")
-def api_lecture() -> ResponseReturnValue:
-    """Stream a lecture over the reader's scoped graph as SSE ``beat`` events.
+@bp.post("/api/assistant/route/place")
+def api_assistant_route_place() -> ResponseReturnValue:
+    """Say what a message is about, before it is asked (v9.0.0, stage 4b).
+
+    The view on screen, no view (General), or another of the exploration's
+    papers and which of its tools; the answer is the question's tag, and the
+    view it names is the one whose context the answer gets. The client asks
+    only when the exploration has another paper the message could mean.
 
     Body:
-        ``{seed: {node fields}, nodes: [scoped node objects], framing?:
-        summary|history, target?: {node fields}}``. ``nodes`` is the subject
-        of the lecture — whatever the reader has on screen after their filters
-        and selection — so the route passes it through untouched. ``framing``
-        is the reader's one remaining choice (how to tell it, not which papers
-        to tell it about); an unknown value falls back to ``summary`` rather
-        than 400-ing, since a framing is a preference and refusing the whole
-        lecture over one is a worse answer. A ``target`` asks for the bridge
-        lecture instead. Since v7.17.0 there is no ``mode``: an old client
-        still sending one is ignored rather than refused, since the field no
-        longer selects anything.
+        ``{message: str, papers: [title, ...], screen: {paper: n|null, tool:
+        'graph'|'knowledge'|'reader'|null}}`` — the exploration's papers, the
+        open one's number in that list (from 1), and its view.
 
     Returns:
-        An SSE stream of ``beat`` frames ``{heading, text, node_ids}``,
-        ending with ``done`` or ``error``. A lecture narrates the scoped
-        nodes as-is — it never expands the graph, so no ``trace`` or
-        ``discovery`` frames appear. HTTP 400 for missing/malformed nodes.
-    """
-    payload = request.get_json(silent=True) or {}
-    raw_nodes = payload.get("nodes")
-    if not isinstance(raw_nodes, list) or not raw_nodes:
-        return jsonify({"error": "nodes must be a non-empty list"}), 400
-    raw_target = payload.get("target")
-    framing: lecturer.Framing = "history" if payload.get("framing") == "history" else "summary"
-    try:
-        seed = _node(payload.get("seed") or {})
-        nodes = [_node(raw) for raw in raw_nodes]
-        target = _node(raw_target) if raw_target else None
-    except ValidationError:
-        return jsonify({"error": "seed/nodes are malformed"}), 400
-
-    return sse_response(
-        _relay(
-            streams.terminated(
-                lecturer.lecture(seed=seed, nodes=nodes, target=target, framing=framing)
-            )
-        )
-    )
-
-
-
-@bp.post("/api/route_reader")
-def api_route_reader() -> ResponseReturnValue:
-    """Say whether a message to the Reader Assistant wants a guided read
-    (v8.50.0), before anything is streamed; the client then streams from
-    ``/api/guide_reader`` or ``/api/ask_reader``, as the graph's chat does
-    with ``/api/route``.
-
-    Body:
-        ``{message: str}``.
-
-    Returns:
-        ``{target: 'guide'|'answer'}``, always HTTP 200: any failure answers
-        (``router.route_reading``).
+        ``{place: 'here'|'general'|'paper'|'papers', paper: n|null, tool,
+        papers: [n, ...]}`` (``router.PlaceRoute``; ``papers`` lists a
+        bridge question's papers), always HTTP 200: every failure, and every
+        malformed body, keeps the question where it was asked.
     """
     payload = request.get_json(silent=True) or {}
     message = payload.get("message")
-    return jsonify(router.route_reading(message if isinstance(message, str) else "").model_dump())
+    raw_papers = payload.get("papers")
+    papers = [title for title in raw_papers if isinstance(title, str)] if isinstance(raw_papers, list) else []
+    raw_screen = payload.get("screen")
+    screen: dict = raw_screen if isinstance(raw_screen, dict) else {}
+    paper = screen.get("paper")
+    tool = screen.get("tool")
+    decision = router.route_place(
+        message if isinstance(message, str) else "",
+        papers,
+        screen_paper=paper if isinstance(paper, int) and not isinstance(paper, bool) else None,
+        screen_tool=tool if isinstance(tool, str) else None,
+    )
+    return jsonify(decision.model_dump())
 
 
-def _names(raw: object) -> list[str]:
-    """A request's list of concept names, checked and capped.
-
-    Args:
-        raw: The field.
-
-    Returns:
-        Up to 60 of its strings, each cut to 120 characters.
-    """
-    if not isinstance(raw, list):
-        return []
-    return [item.strip()[:120] for item in raw[:60] if isinstance(item, str) and item.strip()]
-
-
-@bp.post("/api/guide_reader")
-def api_guide_reader() -> ResponseReturnValue:
-    """Stream a guided read of the paper open in the Reader (v8.50.0).
-
-    A lecture of the paper, beat by beat in its own order, each beat naming
-    the passage it teaches (its exact words and any label, "(3)",
-    "Figure 2") for the Reader to light (``lecturer.guided_read``). It reads
-    the paper as the Reader Assistant does (``_reading_context``).
+@bp.post("/api/assistant")
+def api_assistant() -> ResponseReturnValue:
+    """Run what a message asked for, in the view it was asked from, as SSE.
 
     Body:
-        ``{paper, section?, title?, known?: [str], learning?: [str],
-        provider?}`` — ``paper``, ``section`` and ``title`` as for
-        ``/api/ask_reader``; ``known`` and ``learning`` the course's concepts
-        the student has and hasn't checked off. Always the whole paper.
+        ``{workflow?, question?, view: {kind, ...}, provider?, source_ids?,
+        history?, thread_context?, quick?, model?}`` — see
+        ``assistant.run``; each view's own fields are listed in the assistant
+        package's README.
 
     Returns:
-        An SSE stream of ``beat`` events, then ``done`` (or ``error``); HTTP
-        400 when the paper has no readable text.
+        An SSE stream ending in ``done`` or ``error``. An answer sends
+        ``trace``, ``discovery`` (on the Citation Graph), ``figure``,
+        ``source_refs``, ``token``, ``cited``, ``paper_refs`` and
+        ``provenance`` frames; a lecture or a guided read sends ``beat``
+        frames (a lecture may lead with ``source_refs``). HTTP 400, with
+        ``{error}``, for an unknown view, a workflow the view doesn't offer,
+        or a view missing what its workflow needs.
     """
     payload = request.get_json(silent=True) or {}
-    provider = resolve_provider(payload.get("provider"))
-    reading, error = _reading_context(
-        payload.get("paper"), payload.get("section"), provider, payload.get("title")
-    )
-    if not reading:
-        return jsonify({"error": error}), 400
-    return sse_response(
-        _relay(
-            streams.terminated(
-                lecturer.guided_read(
-                    reading,
-                    known=_names(payload.get("known")),
-                    learning=_names(payload.get("learning")),
-                )
-            )
-        )
-    )
-
-
-#: The most course items laid out for a prompt; a course is a few dozen.
-COURSE_ITEMS = 200
-#: The open lesson is shown whole up to this many characters…
-OPEN_LESSON_CHARS = 12000
-#: …and every other written lesson up to this many, its opening.
-LESSON_EXCERPT_CHARS = 1200
-#: The whole course block's ceiling, lessons included.
-COURSE_CHARS = 40000
-#: The section being read is shown whole up to this many characters…
-OPEN_SECTION_CHARS = 20000
-#: …and the reading block, the whole paper in order after it, stops here. Most
-#: papers fit whole: "Attention Is All You Need" is about 30,000.
-READING_CHARS = 60000
-
-
-#: Where the Reader is in a PDF: ``page:<n>`` (1-based), in place of a section id.
-PAGE_PREFIX = "page:"
-
-
-def _reading_context(
-    paper: object, section: object, provider: Provider, title: object = None
-) -> tuple[str, str]:
-    """Lay the paper open in the Reader out for the researcher's prompt.
-
-    Built here rather than sent by the client, which only names the paper and
-    where it is: the server already holds the text (the Reader fetched it to
-    show it), and a page of paper is too much to post with every question.
-    Two sources (v8.40.0): the structured document (v8.38.0) when the Reader
-    shows the text, and the PDF's text page by page when it shows the PDF,
-    or when the paper has no HTML render at all.
-
-    Args:
-        paper: The paper's arXiv id, or its provider node id for a paper not
-            on arXiv.
-        section: Where the reader is: a section id, ``page:<n>`` in the PDF
-            view, or None.
-        provider: Who to ask for a non-arXiv paper's open-access PDF.
-        title: The paper's title, for a PDF (which carries no reliable one).
-
-    Returns:
-        ``(block, error)``: the reading block, or '' with what to tell the
-        reader when there is nothing to read from.
-    """
-    if not isinstance(paper, str) or not paper.strip():
-        return "", "This paper has no text the assistant can read."
-    in_pdf = isinstance(section, str) and section.startswith(PAGE_PREFIX)
-    if not in_pdf:
-        block = _document_context(paper, section)
-        if block:
-            return block, ""
-    return _pdf_context(paper, section if in_pdf else None, provider, title)
-
-
-def _pdf_context(paper: str, section: object, provider: Provider, title: object) -> tuple[str, str]:
-    """The paper laid out from its PDF's text, page by page (v8.40.0).
-
-    Args:
-        paper: The paper's arXiv id or provider node id.
-        section: ``page:<n>`` for the page in view, or None.
-        provider: Who to ask for a non-arXiv paper's open-access PDF.
-        title: The paper's title, as the client knows it.
-
-    Returns:
-        ``(block, error)`` as for ``_reading_context``.
-    """
-    ref = arxiv.extract_id(paper) or paper.strip()
-    url = pdf_service.paper_pdf_url(ref, provider)
-    if not url:
-        return "", "This paper has no text the assistant can read."
-    if not optional.available("pdf"):
-        return "", (
-            "Reading a PDF needs the pdf extra, which this install doesn't have: "
-            "uv sync --extra pdf"
-        )
-    pages = pdf_service.get_pdf_pages(url).get("pages") or []
-    if not any(pages):
-        return "", "This paper's PDF has no text the assistant can read (it may be scanned)."
-    opened = 0
-    if isinstance(section, str):
-        digits = section[len(PAGE_PREFIX):]
-        opened = int(digits) if digits.isdigit() and 1 <= int(digits) <= len(pages) else 0
-    name = _clip(title, 300) or "the paper"
-    block = f"THE PAPER BEING READ: {name!r}, as its PDF ({len(pages)} pages).\n"
-    if opened:
-        block += f"\nTHE PAGE THEY ARE READING: page {opened}\n\n{pages[opened - 1][:OPEN_SECTION_CHARS]}\n"
-    block += "\nTHE PAPER'S TEXT, page by page:\n"
-    for number, page in enumerate(pages, start=1):
-        if number == opened:
-            block += f"\n--- page {number} ---\n(shown above)\n"
-            continue
-        text = f"\n--- page {number} ---\n{page}\n"
-        if len(block) + len(text) > READING_CHARS:
-            block += "\n(The rest of the paper is cut for length.)"
-            break
-        block += text
-    return block[:READING_CHARS], ""
-
-
-def _highlight_context(paper: object, provider: Provider, raw: object) -> tuple[str, list[bytes]]:
-    """A passage highlighted in the Reader's PDF view, read and pictured (v8.45.0).
-
-    The browser reads a PDF highlight out of order, and an equation's glyphs
-    spell nothing, so the Reader sends where the highlight is and the
-    question carries the PDF's own words there and a picture of it
-    (``services/pdf/passages.py``).
-
-    Args:
-        paper: The paper's arXiv id or provider node id.
-        provider: Who to ask for a non-arXiv paper's open-access PDF.
-        raw: The request's ``places``.
-
-    Returns:
-        ``(block, images)``: a prompt block saying what was highlighted and
-        that it's pictured, and the PNGs; ``("", [])`` without places, or
-        when the PDF can't be read (the question still quotes the passage).
-    """
-    places = pdf_passages.clean_places(raw)
-    if not places or not isinstance(paper, str) or not optional.available("pdf"):
-        return "", []
-    url = pdf_service.paper_pdf_url(arxiv.extract_id(paper) or paper.strip(), provider)
-    if not url:
-        return "", []
     try:
-        path = pdf_service.fetch_pdf(url)
-        words = pdf_passages.passage_at(path, places)["text"]
-        images = pdf_passages.render_places(path, places)
-    except pdf_service.PdfError:
-        log.warning("highlight context failed for %s", paper, exc_info=True)
-        return "", []
-    pages = ", ".join(str(place["page"]) for place in places)
-    block = (
-        f"\n\nTHE PASSAGE THEY HIGHLIGHTED, on page {pages} of the PDF, is pictured in the "
-        f"image{'s' if len(images) > 1 else ''} sent with their question. Read it from the "
-        "picture: a PDF's text spells an equation as loose glyphs. Its words, as the PDF "
-        f"holds them: {words or '(none: it is a figure or an equation)'}"
-    )
-    return (block, images) if images else ("", [])
-
-
-def _document_context(paper: str, section: object) -> str:
-    """The paper laid out from its structured document (v8.38.0).
-
-    Args:
-        paper: The paper's arXiv id, as the Reader asked for its document.
-        section: The id of the section being read, or None.
-
-    Returns:
-        The reading block — title, abstract, outline, the section being read
-        whole, then the rest of the paper in order under ``READING_CHARS`` —
-        or '' when the paper has no readable document.
-    """
-    if not arxiv.looks_arxiv(arxiv.extract_id(paper) or paper):
-        return ""
-    try:
-        doc = arxiv.get_document(arxiv.extract_id(paper) or paper)
-    except Exception:  # ar5iv down: nothing to read from, as with no render
-        log.warning("reading context fetch failed for %s", paper, exc_info=True)
-        return ""
-    if not doc.get("available"):
-        return ""
-    sections = doc.get("sections", [])
-    title = arxiv_document.inline_text(doc.get("title", []))
-    block = f"THE PAPER BEING READ: {title!r}\n"
-    abstract = "\n\n".join(arxiv_document.block_text(item) for item in doc.get("abstract", []))
-    if abstract:
-        block += f"\nAbstract: {abstract}\n"
-    outline = [
-        "  " * (item["level"] - 1) + arxiv_document.section_heading(item)
-        for item in sections
-        if item.get("level", 4) <= 3 and item.get("title")
-    ]
-    if outline:
-        block += "\nOutline:\n" + "\n".join(outline) + "\n"
-    opened = next((item for item in sections if item.get("id") == section), None)
-    if opened is not None:
-        block += (
-            f"\nTHE SECTION THEY ARE READING: {arxiv_document.section_heading(opened)}\n\n"
-            + arxiv_document.section_text(opened)[:OPEN_SECTION_CHARS]
-            + "\n"
-        )
-    block += "\nTHE PAPER'S TEXT, in order:\n"
-    for item in sections:
-        if opened is not None and item is opened:
-            block += f"\n## {arxiv_document.section_heading(item)}\n(shown above)\n"
-            continue
-        text = "\n" + arxiv_document.section_text(item) + "\n"
-        if len(block) + len(text) > READING_CHARS:
-            block += "\n(The rest of the paper is cut for length.)"
-            break
-        block += text
-    return block[:READING_CHARS]
-
-
-def _clip(value: object, limit: int) -> str:
-    """A string field from the client, or '' when it is not one, cut to a limit.
-
-    Args:
-        value: The raw field.
-        limit: The most characters kept.
-
-    Returns:
-        The string, at most ``limit`` characters.
-    """
-    return value[:limit] if isinstance(value, str) else ""
-
-
-def _course_line(item: dict) -> str:
-    """One course item as an outline line: its kind, check-off and links.
-
-    Args:
-        item: ``{title, kind, known?, needs?: [{title, why}], members?:
-            [titles], toward?}`` from the client.
-
-    Returns:
-        The line, with an indented line per prerequisite.
-    """
-    kind = _clip(item.get("kind"), 20) or "concept"
-    line = f"- {_clip(item.get('title'), 200)} ({kind})"
-    if item.get("known") is True:
-        line += " [checked off as known]"
-    members = [_clip(member, 200) for member in item.get("members") or []][:12]
-    if members:
-        line += f": combines {', '.join(members)} toward {_clip(item.get('toward'), 200)}"
-    for need in (item.get("needs") or [])[:20]:
-        if isinstance(need, dict):
-            line += f"\n    needs {_clip(need.get('title'), 200)}: {_clip(need.get('why'), 300)}"
-    return line
-
-
-def _course_context(raw: object, lessons: bool = True) -> str:
-    """Lay a Knowledge Graph course out for the researcher's prompt (v8.25.0).
-
-    The client sends the course as structure; the bounds are kept here, as
-    for sibling threads, so a large course cannot crowd out the question.
-
-    Args:
-        raw: ``{paper, open?, items: [{title, kind, known?, needs?,
-            members?, toward?, lesson?}]}``.
-        lessons: Include the lessons; False gives the outline alone (a
-            course attached from another chat).
-
-    Returns:
-        The course block, or '' when ``raw`` is not a course.
-    """
-    if not isinstance(raw, dict) or not isinstance(raw.get("items"), list):
-        return ""
-    items = [item for item in raw["items"][:COURSE_ITEMS] if isinstance(item, dict)]
-    block = f"THE COURSE, on the paper {_clip(raw.get('paper'), 300)!r}:\n"
-    block += "\n".join(_course_line(item) for item in items)
-    if not lessons:
-        return block[:COURSE_CHARS]
-    opened = _clip(raw.get("open"), 200)
-    for item in items:
-        if opened and item.get("title") == opened:
-            text = _clip(item.get("lesson"), OPEN_LESSON_CHARS)
-            block += f"\n\nTHE LESSON THE STUDENT HAS OPEN: {opened}\n"
-            block += text or "(not written yet)"
-    written = [
-        item
-        for item in items
-        if item.get("title") != opened and isinstance(item.get("lesson"), str) and item["lesson"]
-    ]
-    if written:
-        block += "\n\nOTHER LESSONS WRITTEN SO FAR (their openings):"
-        for item in written:
-            block += f"\n\n## {_clip(item.get('title'), 200)}\n"
-            block += _clip(item.get("lesson"), LESSON_EXCERPT_CHARS)
-    return block[:COURSE_CHARS]
-
-
-def _sibling_context(payload: dict) -> str:
-    """Bound explicitly labelled background material from sibling threads.
-
-    Args:
-        payload: Request containing an index and optionally mentioned histories.
-
-    Returns:
-        A bounded context string; empty when no siblings were supplied.
-    """
-    raw = payload.get("thread_context")
-    if not isinstance(raw, list):
-        return ""
-    sections: list[str] = []
-    remaining = 24000
-    for item in raw[:max(0, config.server.history_turns * 2)]:
-        if not isinstance(item, dict) or not isinstance(item.get("title"), str):
-            continue
-        summary = item.get("summary", "")
-        summary = summary[:1500] if isinstance(summary, str) else ""
-        section = f"From sibling thread {item['title'][:200]!r}:\n{summary}"
-        # A Knowledge Graph chat brings its course's outline along (v8.25.0):
-        # its turns are about a course, and read poorly without it.
-        course = _course_context(item.get("course"), lessons=False)
-        if item.get("mentioned") is True and course:
-            section += "\nIts course:\n" + course
-        if item.get("mentioned") is True:
-            turns = _resumed_history(item)
-            section += "\nExplicitly attached discussion:\n" + "\n".join(
-                f"{turn['role']}: {turn['content']}" for turn in turns
-            )
-        sections.append(section[:remaining])
-        remaining -= len(sections[-1])
-        if remaining <= 0:
-            break
-    return "\n\n".join(sections)
-
-
-def _resumed_history(payload: dict) -> list[dict]:
-    """Validate and cap the completed history supplied by the client.
-
-    Args:
-        payload: Request body containing optional role/content turns.
-
-    Returns:
-        Valid turns within the configured history window.
-    """
-    raw = payload.get("history")
-    if not isinstance(raw, list):
-        return []
-    clean = [
-        {"role": turn["role"], "content": turn["content"]}
-        for turn in raw
-        if isinstance(turn, dict)
-        and turn.get("role") in {"user", "assistant"}
-        and isinstance(turn.get("content"), str)
-        and turn["content"].strip()
-    ]
-    keep = config.server.history_turns * 2
-    return clean[-keep:] if keep else []
-
-
-@bp.post("/api/ask")
-def api_ask() -> ResponseReturnValue:
-    """Answer a question grounded in the visible graph, streamed as SSE.
-
-    The researcher reads papers via tool use. The client supplies completed
-    history for the active thread on every request, including lecture prose.
-
-    Body:
-        ``{question, seed, nodes, provider?, source_ids?,
-        history?, quick?, model?}`` — ``provider`` (``s2``/``openalex``) matches the
-        graph's backend so the researcher's expand/hydrate use it (it has no
-        paper search here since v8.28.0, so the bar's filters aren't read);
-        ``quick: true`` answers with no tools, now (a quick response,
-        v8.30.0; the same on every ``ask`` route); ``model`` is the chat
-        bar's ``"provider:model"`` pick for the researcher (``_opt_model``,
-        v8.33.0; likewise on every ``ask`` route);
-        ``source_ids`` scopes the library search to a subset of uploaded
-        sources. ``history`` is the client's own copy of the conversation,
-        validated and bounded by ``_resumed_history`` on every request.
-
-        A ``lectures`` field used to ride along here, carrying every lecture
-        the reader had played so the researcher could build on it. It went in
-        v7.21.0 with the frontend's lecture slot: a lecture is a chat turn
-        now, so it reaches the agent through ``history`` like any other turn.
-
-    Returns:
-        An SSE stream: ``trace`` frames (tool steps), ``discovery`` frames
-        (papers + edges to merge into the live graph), ``figure`` frames,
-        ``token`` prose, one ``cited`` frame (``{node_ids}``), then ``done``
-        or ``error``. HTTP 400 when the question or nodes are
-        missing/malformed.
-    """
-    payload = request.get_json(silent=True) or {}
-    question = (payload.get("question") or "").strip()
-    if not question:
-        return jsonify({"error": "question is required"}), 400
-    raw_nodes = payload.get("nodes")
-    if not isinstance(raw_nodes, list) or not raw_nodes:
-        return jsonify({"error": "nodes must be a non-empty list"}), 400
-    try:
-        seed = _node(payload.get("seed") or {})
-        nodes = [_node(raw) for raw in raw_nodes]
-    except ValidationError:
-        return jsonify({"error": "seed/nodes are malformed"}), 400
-    source_ids = _opt_source_ids(payload)
-    provider = resolve_provider(payload.get("provider"))
-    history = _resumed_history(payload)
-
-    return sse_response(
-        _relay(
-            streams.terminated(
-                researcher.answer(
-                    question=question,
-                    seed=seed,
-                    nodes=nodes,
-                    history=history,
-                    sibling_context=_sibling_context(payload),
-                    source_ids=source_ids,
-                    provider=provider,
-                    # The Citation Graph assistant works from the graph and
-                    # doesn't search papers past it (v8.28.0), so the bar's
-                    # paper filters, which only ever bound that search, aren't
-                    # read here either.
-                    paper_search=False,
-                    quick=_opt_quick(payload),
-                    model=_opt_model(payload),
-                )
-            ),
-        )
-    )
-
-
-@bp.post("/api/ask_sources")
-def api_ask_sources() -> ResponseReturnValue:
-    """Answer a question purely from the user's local library, streamed as SSE.
-
-    The graph-free chat — the same researcher as ``/api/ask``, run with no
-    seed and no numbered papers, so it reaches for the library (and, if it
-    needs to, Semantic Scholar) through its tools rather than having
-    passages pushed at it. History is supplied by the client, just as for
-    graph-thread questions.
-
-    Body:
-        ``{question, history?, thread_context?, provider?, source_ids?,
-        quick?, model?}`` — ``provider``
-        (``s2``/``openalex``) is the backend the agent's paper search runs
-        against, sent by the header's Data source dropdown exactly as
-        ``/api/ask`` does; ``source_ids`` scopes retrieval to a subset of
-        sources.
-
-    Returns:
-        An SSE stream: a ``source_refs`` frame when a library is in play,
-        ``trace`` frames as the agent searches, ``token`` prose interleaved
-        with any ``figure`` frames, then ``cited`` + ``provenance``, then
-        ``done`` or ``error``. HTTP 400 when the question is missing.
-    """
-    payload = request.get_json(silent=True) or {}
-    question = (payload.get("question") or "").strip()
-    if not question:
-        return jsonify({"error": "question is required"}), 400
-    source_ids = _opt_source_ids(payload)
-    # The graph-free chat has no graph to inherit a backend from, so the
-    # provider rides on the request like everything else here. Omitting it
-    # (as this route did until v6.14.0) doesn't leave the agent backend-less
-    # — it silently pins it to the default, which is how a chat under the
-    # OpenAlex dropdown ended up searching Semantic Scholar and handing back
-    # citations no OpenAlex seed build could resolve.
-    provider = resolve_provider(payload.get("provider"))
-    history = _resumed_history(payload)
-
-    return sse_response(
-        _relay(
-            streams.terminated(
-                researcher.answer(
-                    question=question,
-                    history=history,
-                    sibling_context=_sibling_context(payload),
-                    source_ids=source_ids,
-                    provider=provider,
-                    quick=_opt_quick(payload),
-                    model=_opt_model(payload),
-                    **_opt_filters(payload, provider),
-                )
-            ),
-        )
-    )
-
-
-@bp.post("/api/ask_reader")
-def api_ask_reader() -> ResponseReturnValue:
-    """Answer a question about the paper open in the Reader (v8.38.0).
-
-    The Reader's own assistant: the same researcher as ``/api/ask_course``,
-    graph-free, with the paper laid out where a course would be
-    (``_reading_context``). Its tools reach the library and the web, not the
-    literature (``paper_search=False``): finding papers is the General
-    chat's job, and the paper's Citation Graph is one card away.
-
-    Body:
-        ``{question, paper, section?, title?, places?, figures?, history?,
-        thread_context?, provider?, source_ids?, quick?, model?}`` —
-        ``paper`` the arXiv id (or provider id) the Reader read, ``section``
-        the section in view or ``page:<n>`` in the PDF view (v8.40.0),
-        ``title`` the paper's title for a PDF, ``places`` where a passage
-        highlighted in the PDF view is (v8.45.0, ``_highlight_context``),
-        ``figures`` the image sources of figures boxed in the text view
-        (v8.48.0, ``services/reader/figures.py``); the rest as for
-        ``/api/ask_sources``.
-
-    Returns:
-        An SSE stream as for ``/api/ask_sources``. HTTP 400 when the question
-        is missing or the paper has no readable text.
-    """
-    payload = request.get_json(silent=True) or {}
-    question = (payload.get("question") or "").strip()
-    if not question:
-        return jsonify({"error": "question is required"}), 400
-    provider = resolve_provider(payload.get("provider"))
-    reading, error = _reading_context(
-        payload.get("paper"), payload.get("section"), provider, payload.get("title")
-    )
-    if not reading:
-        return jsonify({"error": error}), 400
-    highlight, images = _highlight_context(payload.get("paper"), provider, payload.get("places"))
-    # Figures boxed in the text view (v8.48.0): their images, which the
-    # question's own words (their captions) can't show.
-    figures = reader_figures.figure_pngs(payload.get("figures"))
-    if figures:
-        highlight += (
-            f"\n\nTHE FIGURE{'S' if len(figures) > 1 else ''} THEY BOXED in the paper's text "
-            f"{'are' if len(figures) > 1 else 'is'} pictured in the image"
-            f"{'s' if len(figures) > 1 else ''} sent with their question; the passage they "
-            "quote gives the caption. Read the figure from the picture."
-        )
-        images = [*images, *figures]
-
-    return sse_response(
-        _relay(
-            streams.terminated(
-                researcher.answer(
-                    question=question,
-                    history=_resumed_history(payload),
-                    sibling_context=_sibling_context(payload),
-                    source_ids=_opt_source_ids(payload),
-                    provider=provider,
-                    reading=reading + highlight,
-                    paper_search=False,
-                    quick=_opt_quick(payload),
-                    model=_opt_model(payload),
-                    images=images,
-                )
-            ),
-        )
-    )
-
-
-@bp.post("/api/ask_course")
-def api_ask_course() -> ResponseReturnValue:
-    """Answer a question about a thread's Knowledge Graph course (v8.25.0).
-
-    The course's own assistant: the same researcher as ``/api/ask_sources``,
-    graph-free, with the course laid out where a graph would be (its
-    concepts, what each needs, the reader's check-offs, and the lessons
-    written so far, the open one whole). Its tools reach the library and the
-    web; not the literature, since v8.28.0 (``paper_search=False``).
-
-    Body:
-        ``{question, course, history?, thread_context?, provider?,
-        source_ids?, quick?, model?}`` — ``course`` as ``_course_context`` reads it; the rest
-        as for ``/api/ask_sources``.
-
-    Returns:
-        An SSE stream as for ``/api/ask_sources``. HTTP 400 when the question
-        or the course is missing.
-    """
-    payload = request.get_json(silent=True) or {}
-    question = (payload.get("question") or "").strip()
-    if not question:
-        return jsonify({"error": "question is required"}), 400
-    course = _course_context(payload.get("course"))
-    if not course:
-        return jsonify({"error": "course is required"}), 400
-    provider = resolve_provider(payload.get("provider"))
-
-    return sse_response(
-        _relay(
-            streams.terminated(
-                researcher.answer(
-                    question=question,
-                    history=_resumed_history(payload),
-                    sibling_context=_sibling_context(payload),
-                    source_ids=_opt_source_ids(payload),
-                    provider=provider,
-                    course=course,
-                    # Like the Citation Graph assistant's (v8.28.0): the course
-                    # is the map here, and finding papers is the General chat's.
-                    paper_search=False,
-                    quick=_opt_quick(payload),
-                    model=_opt_model(payload),
-                )
-            ),
-        )
-    )
+        workflow = assistant.run(payload)
+    except assistant.RequestError as error:
+        return jsonify({"error": str(error)}), 400
+    return sse_response(_relay(streams.terminated(workflow)))

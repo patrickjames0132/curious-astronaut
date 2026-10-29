@@ -11,13 +11,15 @@ import { Provider, useSelector } from 'react-redux'
 import { afterEach, expect, it, vi } from 'vitest'
 import { useState } from 'react'
 import KnowledgeNetwork from '../../src/knowledge/KnowledgeNetwork'
-import CourseAssistant from '../../src/knowledge/assistant/CourseAssistant'
-import type { LessonQuote } from '../../src/knowledge/assistant/askCourse'
+import Teacher from '../../src/teacher/Teacher'
+import { lessonSource } from '../../src/knowledge/assistant/askCourse'
+import type { PassageQuote } from '../../src/assistant/askAssistant'
+import highlightReducer from '../../src/store/highlight'
 import library from '../../src/store/library'
 import { KnowledgeNavigationHelp } from '../../src/knowledge/KnowledgeControls'
 import type { KnowledgeGraphProps } from '../../src/knowledge/KnowledgeGraph'
 import workspace from '../../src/store/workspace'
-import transcript from '../../src/store/transcript'
+import transcript, { selectConversation } from '../../src/store/transcript'
 import explorations, {
   explorationOpened,
   newExploration,
@@ -956,7 +958,9 @@ it('chats about a highlighted passage: attached to the bar, sent with the questi
   const ask = vi.spyOn(api, 'streamAskCourse').mockImplementation(async (_body, handlers) => {
     handlers.onToken('Because it bootstraps.')
   })
-  const store = configureStore({ reducer: { workspace, transcript, explorations, library } })
+  const store = configureStore({
+    reducer: { workspace, transcript, explorations, library, highlight: highlightReducer },
+  })
   const record = newExploration('saved')
   record.threads.push({ ...structuredClone(THREAD), knowledge: openLessonCourse() })
   record.activeThreadId = THREAD.id
@@ -966,20 +970,16 @@ it('chats about a highlighted passage: attached to the bar, sent with the questi
     const thread = useSelector((state: ReturnType<typeof store.getState>) =>
       state.explorations.byId.saved.threads.find((item) => item.id === THREAD.id),
     )!
-    const [quote, setQuote] = useState<(LessonQuote & { seq: number }) | null>(null)
+    const [quote, setQuote] = useState<(PassageQuote & { seq: number }) | null>(null)
     return (
       <>
         <KnowledgeNetwork
           thread={thread}
-          onAssistant={(next) => next && setQuote({ ...next, seq: Date.now() })}
+          onAssistant={(next) =>
+            next && setQuote({ text: next.text, from: lessonSource(next.lesson), seq: Date.now() })
+          }
         />
-        <CourseAssistant
-          thread={thread}
-          collapsed={false}
-          onClose={() => {}}
-          quote={quote}
-          onQuoteClear={() => setQuote(null)}
-        />
+        <Teacher quote={quote} onQuoteClear={() => setQuote(null)} />
       </>
     )
   }
@@ -995,7 +995,7 @@ it('chats about a highlighted passage: attached to the bar, sent with the questi
   expect(attached.textContent).toContain('“Bellman backup”')
   expect(attached.textContent).toContain('From the lesson on Q-learning')
   expect(ask).not.toHaveBeenCalled()
-  const bar = screen.getByRole('textbox', { name: 'Ask the Knowledge Graph Assistant a question' })
+  const bar = screen.getByRole('textbox', { name: 'Ask Nova a question' })
   expect(document.activeElement).toBe(bar)
   // Backspace in the empty bar lets it go; Chat again brings it back.
   fireEvent.keyDown(bar, { key: 'Backspace' })
@@ -1007,9 +1007,7 @@ it('chats about a highlighted passage: attached to the bar, sent with the questi
   fireEvent.change(bar, { target: { value: 'Why is it called a backup?' } })
   fireEvent.keyDown(bar, { key: 'Enter' })
   await waitFor(() =>
-    expect(
-      store.getState().transcript.byKey['dqn:knowledge'].chat.map((turn) => turn.text),
-    ).toEqual([
+    expect(selectConversation(store.getState()).chat.map((turn) => turn.text)).toEqual([
       'About this passage from the lesson on Q-learning:\n\n“Bellman backup”\n\nWhy is it called a backup?',
       'Because it bootstraps.',
     ]),
@@ -1044,9 +1042,7 @@ it('explains a highlighted passage in the course assistant without touching the 
   fireEvent.mouseDown(screen.getByRole('button', { name: 'Explain' }))
   expect(opened).toHaveBeenCalled()
   await waitFor(() =>
-    expect(
-      store.getState().transcript.byKey['dqn:knowledge'].chat.map((turn) => turn.text),
-    ).toEqual([
+    expect(selectConversation(store.getState()).chat.map((turn) => turn.text)).toEqual([
       'Explain this passage from the lesson on Q-learning:\n\n“Bellman backup”',
       'It is the update.',
     ]),

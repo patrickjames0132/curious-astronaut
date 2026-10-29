@@ -20,7 +20,7 @@ import explorations, {
   newExploration,
   type ThreadRecord,
 } from '../../src/store/explorations'
-import transcript from '../../src/store/transcript'
+import transcript, { selectConversation } from '../../src/store/transcript'
 import workspace from '../../src/store/workspace'
 import library from '../../src/store/library'
 import highlightReducer, { passagesLit } from '../../src/store/highlight'
@@ -885,9 +885,7 @@ it('explains a highlighted passage in the Reader Assistant, from its section', a
   fireEvent.mouseDown(screen.getByRole('button', { name: 'Explain' }))
   expect(opened).toHaveBeenCalledWith()
   await waitFor(() =>
-    expect(
-      store.getState().transcript.byKey['attention:reader'].chat.map((turn) => turn.text),
-    ).toEqual([
+    expect(selectConversation(store.getState()).chat.map((turn) => turn.text)).toEqual([
       'Explain this passage from section 1, Introduction:\n\n“Recurrent networks”',
       'They process tokens one at a time.',
     ]),
@@ -1060,7 +1058,7 @@ it('asks about a PDF highlight in the PDF’s own words, sending and keeping whe
     places: snapped,
   })
   // The turn keeps them: its answer lights them, a retry sends them again.
-  expect(store.getState().transcript.byKey['attention:reader'].chat[0].places).toEqual(snapped)
+  expect(selectConversation(store.getState()).chat[0].places).toEqual(snapped)
   // @ts-expect-error -- jsdom's Range has none; this test gave it one.
   delete Range.prototype.getClientRects
 })
@@ -1164,12 +1162,12 @@ it('slides the arriving view in from its button’s side', async () => {
 })
 
 it('lights what an answer is about when it finishes, and goes there when clicked', async () => {
-  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const { default: Teacher } = await import('../../src/teacher/Teacher')
   vi.spyOn(api, 'streamAskReader').mockImplementation(async (_body, handlers) => {
     handlers.onToken('As it says, ⟦the dominant models⟧ are recurrent.')
   })
-  const { store } = mount(<ReaderAssistant thread={THREAD} collapsed={false} onClose={() => {}} />)
-  const box = screen.getByPlaceholderText('Ask about this paper, or @ another chat…')
+  const { store } = mount(<Teacher />)
+  const box = screen.getByPlaceholderText('Ask Nova about this paper, or @ another chat…')
   fireEvent.change(box, { target: { value: 'What came before?' } })
   fireEvent.submit(box.closest('form')!)
   const passages = () => store.getState().highlight.passages
@@ -1189,18 +1187,13 @@ it('lights what an answer is about when it finishes, and goes there when clicked
 })
 
 it('lights only the highlighted passage for an answer to one, its quotes one at a time', async () => {
-  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const { default: Teacher } = await import('../../src/teacher/Teacher')
   vi.spyOn(api, 'streamAskReader').mockImplementation(async (_body, handlers) => {
     handlers.onToken('It says ⟦the dominant models⟧ are recurrent.')
   })
   const places = [{ page: 3, rects: [[10, 20, 30, 40]] }]
   const { store } = mount(
-    <ReaderAssistant
-      thread={THREAD}
-      collapsed={false}
-      onClose={() => {}}
-      quote={{ text: 'Recurrent networks', from: 'page 3', places, seq: 1 }}
-    />,
+    <Teacher quote={{ text: 'Recurrent networks', from: 'page 3', places, seq: 1 }} />,
   )
   const box = screen.getByRole('textbox')
   fireEvent.change(box, { target: { value: 'Why?' } })
@@ -1257,7 +1250,7 @@ it('asks about a box drawn over the PDF with ⌥-drag, by its place', async () =
     question: 'Explain this passage from page 2:\n\n“J(π) = Σ E[r]”',
     places: box,
   })
-  expect(store.getState().transcript.byKey['attention:reader'].chat[0].places).toEqual(box)
+  expect(selectConversation(store.getState()).chat[0].places).toEqual(box)
   expect(screen.queryByRole('toolbar', { name: 'Boxed area' })).toBeNull()
   expect(menu.isConnected).toBe(false)
 })
@@ -1347,7 +1340,7 @@ it('asks about a box over the text by the whole elements it takes, a figure as i
   expect(body.figures).toEqual(['/api/figure_proxy?src=x'])
   expect(body.places).toBeUndefined()
   expect(read).not.toHaveBeenCalled()
-  const turn = store.getState().transcript.byKey['attention:reader'].chat[0]
+  const turn = selectConversation(store.getState()).chat[0]
   expect(turn.boxedFigures).toEqual(body.figures)
   expect(document.querySelector('.reader-text-box')).toBeNull()
 })
@@ -1465,13 +1458,11 @@ it('gives a lecture on the paper from the button by its title, its first beat li
       passage: 'mapping a query',
     }),
   )
-  expect(store.getState().transcript.byKey['attention:reader'].chat[0].text).toBe(
-    'Give me a lecture on this paper',
-  )
+  expect(selectConversation(store.getState()).chat[0].text).toBe('Give me a lecture on this paper')
 })
 
 it('lectures when asked in the chat, and steps beat by beat, one place each', async () => {
-  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const { default: Teacher } = await import('../../src/teacher/Teacher')
   const guide = vi.spyOn(api, 'streamGuideReader').mockImplementation(async (_body, handlers) => {
     handlers.onBeat({
       heading: 'Queries',
@@ -1490,14 +1481,14 @@ it('lectures when asked in the chat, and steps beat by beat, one place each', as
   })
   const route = vi.spyOn(api, 'routeReaderMessage').mockResolvedValue({ target: 'guide' })
   const answer = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
-  const { store } = mount(<ReaderAssistant thread={THREAD} collapsed={false} onClose={() => {}} />)
+  const { store } = mount(<Teacher />)
   // The panel has no lecture button of its own: that's by the title.
   expect(screen.queryByRole('button', { name: /Guide me|Give Lecture/ })).toBeNull()
   const box = screen.getByRole('textbox')
   fireEvent.change(box, { target: { value: 'take me through it all' } })
   fireEvent.submit(box.closest('form')!)
   await waitFor(() => expect(guide).toHaveBeenCalled())
-  const chat = () => store.getState().transcript.byKey['attention:reader'].chat
+  const chat = () => selectConversation(store.getState()).chat
   await waitFor(() => expect(chat()[0].text).toBe('take me through it all'))
   const lit = () => store.getState().highlight.passages
   // It followed itself to its last beat as it was written.
@@ -1528,17 +1519,10 @@ it('lectures when asked in the chat, and steps beat by beat, one place each', as
 })
 
 it('never routes a question about an attached passage', async () => {
-  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const { default: Teacher } = await import('../../src/teacher/Teacher')
   const route = vi.spyOn(api, 'routeReaderMessage')
   const answer = vi.spyOn(api, 'streamAskReader').mockResolvedValue()
-  mount(
-    <ReaderAssistant
-      thread={THREAD}
-      collapsed={false}
-      onClose={() => {}}
-      quote={{ text: 'Recurrent networks', from: 'section 1', seq: 1 }}
-    />,
-  )
+  mount(<Teacher quote={{ text: 'Recurrent networks', from: 'section 1', seq: 1 }} />)
   const box = screen.getByRole('textbox')
   fireEvent.change(box, { target: { value: 'walk me through this' } })
   fireEvent.submit(box.closest('form')!)
@@ -1547,7 +1531,7 @@ it('never routes a question about an attached passage', async () => {
 })
 
 it('follows a lecture beat by beat as it is written, until the reader takes over', async () => {
-  const { default: ReaderAssistant } = await import('../../src/reader/ReaderAssistant')
+  const { default: Teacher } = await import('../../src/teacher/Teacher')
   let resume: () => void = () => {}
   const paused = new Promise<void>((resolve) => {
     resume = resolve
@@ -1559,7 +1543,7 @@ it('follows a lecture beat by beat as it is written, until the reader takes over
     await paused
     handlers.onBeat({ heading: 'Three', text: 'Third.', node_ids: [], quote: 'third words' })
   })
-  const { store } = mount(<ReaderAssistant thread={THREAD} collapsed={false} onClose={() => {}} />)
+  const { store } = mount(<Teacher />)
   const lit = () => store.getState().highlight.passages
   const box = screen.getByRole('textbox')
   fireEvent.change(box, { target: { value: 'lecture me' } })
@@ -1570,9 +1554,7 @@ it('follows a lecture beat by beat as it is written, until the reader takes over
   fireEvent.click(await screen.findByRole('button', { name: '‹ Back' }))
   expect(lit()).toMatchObject({ beat: 0 })
   resume()
-  await waitFor(() =>
-    expect(store.getState().transcript.byKey['attention:reader'].chat[1].beats).toHaveLength(3),
-  )
+  await waitFor(() => expect(selectConversation(store.getState()).chat[1].beats).toHaveLength(3))
   expect(lit()).toMatchObject({ beat: 0, passage: 'first words' })
 })
 

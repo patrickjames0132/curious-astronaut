@@ -3,7 +3,10 @@
  *
  * Description:
  * The AI teacher: streaming lecture, and agentic Q&A with a graph or without.
- * Each is a `text/event-stream` POST decoded through the shared readSSE.
+ * Since v9.0.0 every one of them is the one assistant (`POST /api/assistant`)
+ * asked from a different view: the functions here keep the shapes the panels
+ * call and say which view they ask from. Each is a `text/event-stream` POST
+ * decoded through the shared readSSE.
  *
  * (Named `agents` to match the backend's `routes/agents.py` and the `agents`
  * package behind it — every stream here is a workflow of the agents
@@ -16,6 +19,144 @@
 import { readSSE } from './sse'
 import type { GraphNode, GraphEdge, Provider } from './graph'
 import type { PdfPlace } from './reader'
+
+/**
+ * Where a question is asked from (v9.0.0), and what that view lends the
+ * assistant. The backend reads the view to decide which workflows may run
+ * and which tools the researcher gets (its screen → tools table,
+ * `agents/orchestrators/assistant/views.py`): only `general` searches the
+ * literature, only `citations` lectures over a graph, only `reader` gives a
+ * guided read.
+ */
+export type AssistantView =
+  | {
+      kind: 'general'
+      /** The bar's paper filters, which bound the researcher's paper search. */
+      year_from?: number
+      year_to?: number
+      fields?: string[]
+    }
+  | {
+      kind: 'citations'
+      seed: GraphNode
+      /** The graph in scope: what the reader has on screen. */
+      nodes: GraphNode[]
+      framing?: LectureFraming
+      /** A lecture bridging the seed to this paper. */
+      bridge?: GraphNode
+    }
+  | { kind: 'knowledge'; course: CourseContext }
+  /** Several of the exploration's papers at once (v9.0.0, a bridge
+   *  question): two or more, the first heading the context. */
+  | { kind: 'papers'; papers: GraphNode[] }
+  | {
+      kind: 'reader'
+      paper: string
+      section?: string | null
+      title?: string
+      places?: PdfPlace[]
+      figures?: string[]
+      /** A guided read's student: the course's concepts checked off, and not. */
+      known?: string[]
+      learning?: string[]
+    }
+
+/** What a question can set running: an answer, a lecture over the graph, or
+ *  a guided read of the paper in the Reader. */
+export type AssistantWorkflow = 'answer' | 'lecture' | 'guide'
+
+/** One request to the assistant: the view, and what rides beside it. */
+interface AssistantRequest {
+  workflow?: AssistantWorkflow
+  question?: string
+  view: AssistantView
+  provider?: Provider
+  source_ids?: string[]
+  history?: HistoryTurn[]
+  thread_context?: ThreadContext[]
+  quick?: boolean
+  model?: string
+}
+
+/** The assistant's decision on a typed message (`POST /api/assistant/route`). */
+interface AssistantRoute {
+  workflow: AssistantWorkflow
+  framing: LectureFraming
+  scope: LectureScope
+  year_from: number | null
+  year_to: number | null
+}
+
+/**
+ * Ask the assistant which workflow a message wants in the view it was typed
+ * in. Never rejects: every failure is null, and the callers answer.
+ *
+ * @param message The message as typed.
+ * @param kind The view it was typed in.
+ * @param signal Aborts a superseded message's routing.
+ * @returns The decision, or null on any failure.
+ */
+async function routeAssistant(
+  message: string,
+  kind: AssistantView['kind'],
+  signal?: AbortSignal,
+): Promise<AssistantRoute | null> {
+  try {
+    const res = await fetch('/api/assistant/route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, view: { kind } }),
+      signal,
+    })
+    return res.ok ? ((await res.json()) as AssistantRoute) : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Post one request to the assistant.
+ *
+ * @param request The view, the workflow and what rides beside them.
+ * @param signal Aborts the stream.
+ * @returns The response, an SSE stream when it's ok.
+ */
+async function postAssistant(request: AssistantRequest, signal?: AbortSignal): Promise<Response> {
+  return fetch('/api/assistant', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  })
+}
+
+/** Every handler any of the assistant's workflows may call. */
+type StreamHandlers = Partial<AskHandlers> & Partial<LectureHandlers>
+
+/**
+ * Relay the assistant's stream to whichever handlers the caller gave. An
+ * answer's frames and a lecture's never mix, so one relay serves both.
+ *
+ * @param res The assistant's response.
+ * @param handlers The caller's handlers; a frame without one is dropped.
+ */
+async function relayAssistant(res: Response, handlers: StreamHandlers): Promise<void> {
+  await readSSE(res, (event, data) => {
+    if (event === 'token') handlers.onToken?.((data as { text: string }).text)
+    else if (event === 'beat') handlers.onBeat?.(data as Beat)
+    else if (event === 'trace') handlers.onTrace?.(data as TraceEvent)
+    else if (event === 'discovery') handlers.onDiscovery?.(data as Discovery)
+    else if (event === 'figure') handlers.onFigure?.(data as AnswerFigure)
+    else if (event === 'cited') handlers.onCited?.((data as { node_ids: string[] }).node_ids)
+    else if (event === 'source_refs')
+      handlers.onSourceRefs?.((data as { refs: Record<string, SourceRef> }).refs)
+    else if (event === 'provenance') handlers.onProvenance?.(data as ProvenanceEvent)
+    else if (event === 'paper_refs')
+      handlers.onPaperRefs?.((data as { refs: Record<string, PaperRef> }).refs)
+    else if (event === 'done') handlers.onDone?.()
+    else if (event === 'error') handlers.onError?.((data as { message: string }).message)
+  })
+}
 
 /**
  * One beat of a lecture: a paragraph of narration bound to the graph nodes
@@ -121,11 +262,12 @@ const ANSWER: MessageRoute = {
 }
 
 /**
- * Ask the backend which assistant a typed message wants.
+ * Ask the backend which assistant a message typed beside the Citation Graph
+ * wants.
  *
- * Plain JSON, not SSE: this produces a *decision*, and the caller then streams
- * from whichever endpoint it names. Two round trips, deliberately — see
- * `POST /api/route`.
+ * Plain JSON, not SSE: this produces a *decision*, and the caller then
+ * resolves a lecture's scope against the graph before streaming. Two round
+ * trips, deliberately — see `POST /api/assistant/route`.
  *
  * **Never rejects.** A dead model, a network failure and an unroutable message
  * all come back as `answer`, because this call sits in front of every message
@@ -139,18 +281,10 @@ const ANSWER: MessageRoute = {
  * @returns The route, falling back to `answer` on any failure.
  */
 export async function routeMessage(message: string, signal?: AbortSignal): Promise<MessageRoute> {
-  try {
-    const res = await fetch('/api/route', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
-      signal,
-    })
-    if (!res.ok) return ANSWER
-    return (await res.json()) as MessageRoute
-  } catch {
-    return ANSWER
-  }
+  const decision = await routeAssistant(message, 'citations', signal)
+  if (!decision) return ANSWER
+  const { workflow, ...route } = decision
+  return { ...route, target: workflow === 'lecture' ? 'lecture' : 'answer' }
 }
 
 /** One graph paper as the name resolver sees it: what a reader names it *by*. */
@@ -182,7 +316,7 @@ export async function resolveRoutedPapers(
   signal?: AbortSignal,
 ): Promise<string[]> {
   try {
-    const res = await fetch('/api/route/papers', {
+    const res = await fetch('/api/assistant/route/papers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, papers }),
@@ -198,6 +332,50 @@ export async function resolveRoutedPapers(
   }
 }
 
+/** What a message is about (v9.0.0, stage 4b): the view it was typed in,
+ *  no view (General), another of the exploration's papers and its tool, or
+ *  several papers at once (stage 4c). */
+export interface PlaceRoute {
+  place: 'here' | 'general' | 'paper' | 'papers'
+  /** The paper's number in the list sent, from 1. */
+  paper: number | null
+  tool: 'graph' | 'knowledge' | 'reader' | null
+  /** A bridge question's papers, by number, two or more (`papers` only). */
+  papers?: number[]
+}
+
+/**
+ * Ask what a message is about (`POST /api/assistant/route/place`). Never
+ * rejects: any failure keeps the question where it was typed.
+ *
+ * @param message The message as typed.
+ * @param papers The exploration's paper titles, numbered from 1 in order.
+ * @param screen The open paper's number and view; nulls in a chat.
+ * @param screen.paper The open paper's number, or null.
+ * @param screen.tool The open view's tool, or null.
+ * @param signal Aborts a superseded message's routing.
+ * @returns The place, `here` on any failure.
+ */
+export async function routePlace(
+  message: string,
+  papers: string[],
+  screen: { paper: number | null; tool: string | null },
+  signal?: AbortSignal,
+): Promise<PlaceRoute> {
+  const here: PlaceRoute = { place: 'here', paper: null, tool: null, papers: [] }
+  try {
+    const res = await fetch('/api/assistant/route/place', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, papers, screen }),
+      signal,
+    })
+    return res.ok ? ((await res.json()) as PlaceRoute) : here
+  } catch {
+    return here
+  }
+}
+
 /** Where a message to the Reader Assistant goes (v8.50.0): a lecture on
  *  the paper, or an answer. */
 export interface ReaderRoute {
@@ -206,8 +384,9 @@ export interface ReaderRoute {
 
 /**
  * Ask whether a message to the Reader Assistant wants a guided read
- * (`POST /api/route_reader`, v8.50.0). Never rejects: any failure answers,
- * as {@link routeMessage} does for the graph's chat.
+ * (v8.50.0; the assistant's route in the `reader` view since v9.0.0). Never
+ * rejects: any failure answers, as {@link routeMessage} does for the graph's
+ * chat.
  *
  * @param message The message as typed.
  * @param signal Aborts a superseded message's routing.
@@ -217,19 +396,8 @@ export async function routeReaderMessage(
   message: string,
   signal?: AbortSignal,
 ): Promise<ReaderRoute> {
-  const answer: ReaderRoute = { target: 'answer' }
-  try {
-    const res = await fetch('/api/route_reader', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
-      signal,
-    })
-    if (!res.ok) return answer
-    return (await res.json()) as ReaderRoute
-  } catch {
-    return answer
-  }
+  const decision = await routeAssistant(message, 'reader', signal)
+  return { target: decision?.workflow === 'guide' ? 'guide' : 'answer' }
 }
 
 /**
@@ -257,22 +425,17 @@ export async function streamGuideReader(
   },
   handlers: LectureHandlers,
 ): Promise<void> {
-  const res = await fetch('/api/guide_reader', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: handlers.signal,
-  })
+  const { provider, ...view } = body
+  const res = await postAssistant(
+    { workflow: 'guide', provider, view: { kind: 'reader', ...view } },
+    handlers.signal,
+  )
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string }
     handlers.onError?.(data.error ?? 'The guided read couldn’t start.')
     return
   }
-  await readSSE(res, (event, data) => {
-    if (event === 'beat') handlers.onBeat(data as Beat)
-    else if (event === 'done') handlers.onDone?.()
-    else if (event === 'error') handlers.onError?.((data as { message: string }).message)
-  })
+  await relayAssistant(res, handlers)
 }
 
 /** Callbacks for {@link streamLecture}. Optional ones may be omitted. */
@@ -312,19 +475,12 @@ export async function streamLecture(
   },
   handlers: LectureHandlers,
 ): Promise<void> {
-  const res = await fetch('/api/lecture', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: handlers.signal,
-  })
-  await readSSE(res, (event, data) => {
-    if (event === 'beat') handlers.onBeat(data as Beat)
-    else if (event === 'source_refs')
-      handlers.onSourceRefs?.((data as { refs: Record<string, SourceRef> }).refs)
-    else if (event === 'done') handlers.onDone?.()
-    else if (event === 'error') handlers.onError?.((data as { message: string }).message)
-  })
+  const { target, ...view } = body
+  const res = await postAssistant(
+    { workflow: 'lecture', view: { kind: 'citations', ...view, bridge: target } },
+    handlers.signal,
+  )
+  await relayAssistant(res, handlers)
 }
 
 /**
@@ -502,26 +658,31 @@ export async function streamAsk(
   },
   handlers: AskHandlers,
 ): Promise<void> {
-  const res = await fetch('/api/ask', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: handlers.signal,
-  })
-  await readSSE(res, (event, data) => {
-    if (event === 'token') handlers.onToken((data as { text: string }).text)
-    else if (event === 'trace') handlers.onTrace?.(data as TraceEvent)
-    else if (event === 'discovery') handlers.onDiscovery?.(data as Discovery)
-    else if (event === 'figure') handlers.onFigure?.(data as AnswerFigure)
-    else if (event === 'cited') handlers.onCited((data as { node_ids: string[] }).node_ids)
-    else if (event === 'source_refs')
-      handlers.onSourceRefs?.((data as { refs: Record<string, SourceRef> }).refs)
-    else if (event === 'provenance') handlers.onProvenance?.(data as ProvenanceEvent)
-    else if (event === 'paper_refs')
-      handlers.onPaperRefs?.((data as { refs: Record<string, PaperRef> }).refs)
-    else if (event === 'done') handlers.onDone?.()
-    else if (event === 'error') handlers.onError?.((data as { message: string }).message)
-  })
+  const { seed, nodes, ...rest } = body
+  const res = await postAssistant(
+    { ...rest, view: { kind: 'citations', seed, nodes } },
+    handlers.signal,
+  )
+  await relayAssistant(res, handlers)
+}
+
+/**
+ * Stream an answer across several papers at once (v9.0.0, stage 4c: a
+ * bridge question). The researcher reads them as numbered peers, and may
+ * read and expand them; it searches nothing.
+ *
+ * @param body What the answer is asked with: the question, the papers, and
+ *        what every answer carries (`streamAsk`'s).
+ * @param handlers Event callbacks; `onDiscovery` is told of the papers an
+ *        expand numbers past them.
+ */
+export async function streamAcross(
+  body: Omit<Parameters<typeof streamAsk>[0], 'seed' | 'nodes'> & { papers: GraphNode[] },
+  handlers: AskHandlers,
+): Promise<void> {
+  const { papers, ...rest } = body
+  const res = await postAssistant({ ...rest, view: { kind: 'papers', papers } }, handlers.signal)
+  await relayAssistant(res, handlers)
 }
 
 /**
@@ -648,29 +809,19 @@ export async function streamAskSources(
     /** The chat bar's researcher model pick, `"provider:model"` (v8.33.0);
      *  absent, the model Settings configures. */
     model?: string
+    /** The bar's paper filters, bounding the researcher's paper search. */
+    year_from?: number
+    year_to?: number
+    fields?: string[]
   },
   handlers: AskSourcesHandlers,
 ): Promise<void> {
-  const res = await fetch('/api/ask_sources', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: handlers.signal,
-  })
-  await readSSE(res, (event, data) => {
-    if (event === 'token') handlers.onToken((data as { text: string }).text)
-    // Every trace is a tool step now — the one-shot retrieval summary went
-    // away with the librarian in v6.7.0.
-    else if (event === 'trace') handlers.onTrace?.(data as TraceEvent)
-    else if (event === 'figure') handlers.onFigure?.(data as AnswerFigure)
-    else if (event === 'source_refs')
-      handlers.onSourceRefs?.((data as { refs: Record<string, SourceRef> }).refs)
-    else if (event === 'provenance') handlers.onProvenance?.(data as ProvenanceEvent)
-    else if (event === 'paper_refs')
-      handlers.onPaperRefs?.((data as { refs: Record<string, PaperRef> }).refs)
-    else if (event === 'done') handlers.onDone?.()
-    else if (event === 'error') handlers.onError?.((data as { message: string }).message)
-  })
+  const { year_from, year_to, fields, ...rest } = body
+  const res = await postAssistant(
+    { ...rest, view: { kind: 'general', year_from, year_to, fields } },
+    handlers.signal,
+  )
+  await relayAssistant(res, handlers)
 }
 
 /** Explicitly attributed sibling memory, bounded again by the server. One
@@ -733,7 +884,11 @@ export async function streamAskCourse(
   },
   handlers: AskSourcesHandlers,
 ): Promise<void> {
-  await streamGraphFreeAsk('/api/ask_course', body, handlers)
+  const { course, ...rest } = body
+  await relayAssistant(
+    await postAssistant({ ...rest, view: { kind: 'knowledge', course } }, handlers.signal),
+    handlers,
+  )
 }
 
 /**
@@ -770,38 +925,12 @@ export async function streamAskReader(
   },
   handlers: AskSourcesHandlers,
 ): Promise<void> {
-  await streamGraphFreeAsk('/api/ask_reader', body, handlers)
-}
-
-/**
- * Post to one of the graph-free assistants' routes and relay its events.
- * The Knowledge Graph's and the Reader's differ only in what they send.
- *
- * @param path The route.
- * @param body The request body.
- * @param handlers Event handlers; see {@link AskSourcesHandlers}.
- */
-async function streamGraphFreeAsk(
-  path: string,
-  body: object,
-  handlers: AskSourcesHandlers,
-): Promise<void> {
-  const res = await fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: handlers.signal,
-  })
-  await readSSE(res, (event, data) => {
-    if (event === 'token') handlers.onToken((data as { text: string }).text)
-    else if (event === 'trace') handlers.onTrace?.(data as TraceEvent)
-    else if (event === 'figure') handlers.onFigure?.(data as AnswerFigure)
-    else if (event === 'source_refs')
-      handlers.onSourceRefs?.((data as { refs: Record<string, SourceRef> }).refs)
-    else if (event === 'provenance') handlers.onProvenance?.(data as ProvenanceEvent)
-    else if (event === 'paper_refs')
-      handlers.onPaperRefs?.((data as { refs: Record<string, PaperRef> }).refs)
-    else if (event === 'done') handlers.onDone?.()
-    else if (event === 'error') handlers.onError?.((data as { message: string }).message)
-  })
+  const { paper, section, title, places, figures, ...rest } = body
+  await relayAssistant(
+    await postAssistant(
+      { ...rest, view: { kind: 'reader', paper, section, title, places, figures } },
+      handlers.signal,
+    ),
+    handlers,
+  )
 }

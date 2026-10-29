@@ -9,7 +9,21 @@ test/
   api/
     agents.test.ts            — `routeMessage` never rejects: it fronts every
                                 message, so a dead backend routes to `answer`;
-                                `resolveRoutedPapers` likewise matches nothing
+                                `resolveRoutedPapers` likewise matches nothing;
+                                which view each function asks the one
+                                assistant from (v9.0.0)
+  assistant/
+    askAssistant.test.ts      — a docked question lands in the dock's chat,
+                                tagged with its paper and tool, and supersedes
+                                the other engine's answer there (v9.0.0)
+    DockChatPicker.test.tsx   — the dock's chat picker: switch, start one,
+                                delete in two clicks, never a paper (v9.0.0)
+    AssistantLauncher.test.tsx — the astronaut opens the assistant, floating on hover (v9.0.0)
+    askAt.test.ts             — asking where the router placed a question:
+                                General, a parked graph, a graph built
+                                quietly (v9.0.0, stage 4b)
+    useTurnTags.test.tsx      — a tag shows once a chat crosses views; a
+                                clicked one anchors its question, once (v9.0.0)
   detail/
     DetailPanel.test.tsx      — the joint loading gate: one skeleton set, one
                                 reveal, once every fetch has answered
@@ -45,7 +59,10 @@ test/
                                 routed lecture landing on its own chat turn
     threads.test.ts           — thread ownership, legacy migration, and the
                                 card home: a paper opens on its cards with no
-                                graph, which builds in place when opened
+                                graph, which builds in place when opened; the
+                                dock's chat, and where a tag goes (v9.0.0)
+    chats.test.ts             — chats and papers, the dock's chat, mentions,
+                                and tag labels (v9.0.0)
     workspace.test.ts         — hand-picked selection, and the default scope
                                 (selection outranks filters)
   scope/
@@ -59,12 +76,21 @@ test/
                                 the carets, tour staging, which of its two
                                 homes the 📚 source picker renders in, and
                                 what Enter does with the @ dropdown open
+    crossView.test.tsx        — a chat across views, over a real store: the
+                                Showing menu, an answer from another view
+                                linking there and lighting it, and a folded
+                                lecture staying folded across a remount; a
+                                question placed on another paper and asked
+                                back where it was typed; a placed lecture
+                                taken to its graph and given there; following
+                                the chat to a paper keeps it in view (v9.0.0)
     HopDots.test.tsx          — the shared indicator's accessibility contract
     ScopePicker.test.tsx      — the controlled open/close contract (popover
                                 only when `open`; trigger and ✕ report via
                                 `onOpenChange`)
     transcript/ChatMessage.test.tsx — a turn the router placed: beats where the
-                                prose goes, and the one-click correction
+                                prose goes, and the one-click correction; a
+                                question's tag, a link or plain text (v9.0.0)
     transcript/remarkCite.test.ts — [n] markers → citeref nodes, on mdast
     transcript/AnswerMarkdown.test.tsx — clickable `[n]` chips, end to end
     transcript/provenance.test.ts — the grounding line's honest cases

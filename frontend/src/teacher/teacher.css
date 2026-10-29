@@ -48,6 +48,47 @@
 .teacher.reopening {
   animation: panel-in var(--motion-panel) var(--ease-rise) both;
 }
+/* Docked along the bottom (v9.0.0, Patrick: as PyCharm docks a tool window).
+   The body turns to a column (`.shell-body.dock-bottom`, app.css), the panel
+   takes the full width at the height it was dragged to, and it slides down
+   and up rather than out to the side. */
+.teacher.dock-bottom {
+  width: auto;
+  border-left: 0;
+  border-top: 1px solid var(--border);
+}
+.teacher.dock-bottom.closing {
+  animation-name: panel-out-bottom;
+}
+.teacher.dock-bottom.reopening {
+  animation-name: panel-in-bottom;
+}
+.dock-flip {
+  display: grid;
+  place-items: center;
+  padding: 2px;
+}
+/* A narrow window gives the view no room to share (v9.0.0): the docked panel
+   covers it instead, against its edge, and ✕ or Esc goes back to the view.
+   The breakpoint is `NARROW_QUERY` in Teacher.tsx. */
+@media (max-width: 900px) {
+  .teacher.dock-right:not(.landing) {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    box-shadow: -8px 0 24px var(--shadow);
+  }
+  .teacher.dock-bottom:not(.landing) {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    box-shadow: 0 -8px 24px var(--shadow);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .teacher.closing,
   .teacher.reopening {
@@ -110,6 +151,14 @@
      white paper inside a watercolour brush edge (lifted from the first, square
      version of the painting and remapped onto an ellipse), and `multiply`
      turns the paper into exactly the page colour.
+   Since v9.0.0 both hold Patrick's newer painting, the launcher's astronaut:
+   it was painted as a patch on paper, so its paper is laid over a ground of
+   its own deepest colour for the dark cut, where the pale washes along the
+   brush edge (a white rim on navy, Patrick) give way to that ground too,
+   stars and tether kept; and the light cut keeps the earlier oval whole,
+   its grey and lavender washes where the paint thinned over the paper
+   included (they are what makes it read as a hole through the page, Patrick,
+   over a crisp torn edge that was tried), the new painting inside them.
    A theme switch on the empty landing replays the entrance for the picture,
    greeting and bar together — see the theme effect in Teacher.tsx. */
 .landing-hero {
@@ -349,6 +398,103 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
+}
+/* Which chat a docked panel talks in, and the menu to switch (v9.0.0,
+   `assistant/DockChatPicker`): every view's dock shares the chat you were
+   last in. */
+.teacher-chat {
+  margin-top: 4px;
+}
+.teacher-chat-btn {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  max-width: 100%;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.teacher-chat-btn strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--text);
+}
+.teacher-chat-btn:hover strong {
+  color: var(--text-strong);
+}
+.teacher-chat-caret {
+  flex-shrink: 0;
+  font-size: 10px;
+}
+/* The chat's name and, with two chats or more, the 🗑 that deletes it. */
+.teacher-chat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.teacher-chat-row .teacher-chat-btn {
+  min-width: 0;
+}
+.teacher-chat-delete {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.teacher-chat-delete svg {
+  width: 14px;
+  height: 14px;
+}
+.teacher-chat-delete:hover {
+  color: var(--text-strong);
+}
+/* Asked once: the second click deletes. */
+.teacher-chat-delete.confirming {
+  width: auto;
+  height: auto;
+  padding: 1px 7px;
+  font: inherit;
+  font-size: 11px;
+  color: #f78ca0;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.teacher-chat-pop {
+  left: 0;
+  right: auto;
+  transform-origin: top left;
+}
+.teacher-chat-new {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 4px 2px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+.teacher-chat-new:hover {
+  color: var(--text-strong);
 }
 /* Source-scope selector in the assistant header — a button opening a checkbox
    popover that pins the library search to a subset of sources (or all). */
@@ -1389,6 +1535,141 @@
   cursor: default;
 }
 
+/* Where a question was asked (v9.0.0, `assistant/useTurnTags`): General, or
+   a paper and its tool, as breadcrumbs. Quiet like the lines below it; a
+   link back there when the paper still exists. */
+.chat-tag {
+  display: flex;
+  max-width: 100%;
+  margin: 0 0 6px;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  text-align: left;
+  white-space: nowrap;
+}
+/* A long title gives way, never the tool: "Citation Gra…" hid the part that
+   says where the question was asked. */
+.chat-tag-paper {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-tag-tool {
+  flex-shrink: 0;
+  white-space: pre;
+}
+button.chat-tag {
+  cursor: pointer;
+}
+/* The router placed the question elsewhere (v9.0.0, stage 4b): ask it
+   where it was typed instead. Quiet, like "Answer it instead". */
+.chat-tag-instead {
+  display: block;
+  margin: -2px 0 6px;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.chat-tag-instead:hover {
+  color: var(--text-strong);
+}
+button.chat-tag:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+/* A question about several papers (v9.0.0, stage 4c): each title is a link
+   to its own paper, and the titles share what room there is. */
+.chat-tag-link {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.chat-tag-link:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+/* The chat filtered by where its questions were asked (v9.0.0,
+   `assistant/TagFilter`): one line, "Showing: All ▾", that stays at the top
+   of the transcript while it scrolls, its menu grouping the places by paper.
+   (A row of chips until Patrick asked what happens when they pile up: they
+   wrapped into rows over the transcript.) A sticky child sticks *below* its
+   scroller's padding (`.teacher-scroll`, 12px 16px), which left a band above
+   it where turns scrolled past in the open (the 2026-08-16 bug again), so
+   the line takes the padding over: it sticks at -12px and bleeds across the
+   sides, covering that band. */
+.tag-filter {
+  position: sticky;
+  top: -12px;
+  z-index: 2;
+  max-width: none;
+  margin: -12px -16px 10px;
+  padding: 10px 16px 8px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.teacher.landing .tag-filter {
+  background: var(--bg);
+}
+.tag-filter-btn {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  max-width: 100%;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tag-filter-showing {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.tag-filter-btn:hover {
+  color: var(--text-strong);
+}
+/* As on a bubble's tag: a long title gives way before the tool, which is
+   what tells one paper's places apart. */
+.tag-filter-btn .chat-tag-paper {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tag-filter-btn .chat-tag-tool {
+  flex-shrink: 0;
+  white-space: pre;
+}
+.tag-filter-pop {
+  left: 16px;
+  right: auto;
+  width: 280px;
+  transform-origin: top left;
+}
+/* A paper's title over its tools, said once. */
+.tag-filter-paper {
+  padding: 8px 4px 2px;
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-borrowed {
   font-size: 11px;
   color: var(--muted);
@@ -1403,8 +1684,8 @@
   margin-left: 4px;
   font: inherit;
 }
-/* A passage a lesson's Chat attached to the Knowledge Graph Assistant's bar
-   (v8.26.0, `knowledge/assistant/CourseAssistant.tsx`): a quote card over
+/* A passage a highlight's Chat attached to the assistant's bar (v8.26.0, a
+   lesson's; v8.38.0, the Reader's; `teacher/Teacher`): a quote card over
    the pill, the accent stripe on its left, cut to three lines, with its
    lesson under it and a ✕ to let it go. */
 .course-quote {

@@ -24,6 +24,11 @@ def test_skill_loads_prompt_ready_markdown():
     assert prompts.skill("teaching-voice").startswith("# Teaching voice")
 
 
+def test_every_teaching_voice_knows_its_name_is_nova():
+    """v9.0.0: the assistant is Nova, so "Hi Nova" is a greeting it answers."""
+    assert "Your name is Nova" in prompts.skill("teaching-voice")
+
+
 def test_unknown_skill_fails_loudly():
     with pytest.raises(FileNotFoundError):
         prompts.skill("no-such-skill")

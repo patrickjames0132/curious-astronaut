@@ -32,7 +32,8 @@ reader/
   askReader.ts    — the Reader Assistant's asking: what it sends, the
                     section in view, how a highlight's action is worded,
                     and the lecture (guideReader, askOrGuideReader, beatLight)
-  ReaderAssistant.tsx — the docked assistant: the shared panel with the Reader's words
+  useReaderView.ts — what the Reader lends the one assistant: its words, its
+                    asking, and the passages its answers light (v9.0.0)
   PdfView.tsx     — the PDF view: pages sized up front, drawn near the view,
                     notes in the margin beside them
   pdf.ts          — pdf.js, loaded on first use, and a PDF's outline as pages
@@ -69,12 +70,13 @@ assistant.
   height is found in page 1's text layer by its words, and the PDF always
   keeps the margin's room so the pages don't shift when it appears). A typed
   message goes through `askOrGuideReader`: the Reader's router
-  (`/api/route_reader`) says lecture or answer. A question about an attached
+  (`/api/assistant/route` in the `reader` view) says lecture or answer. A question about an attached
   passage is never routed. Always the whole paper: a lecture on one section
   was tried and dropped (Patrick).
 - **A lecture turn**: `guideReader` streams the beats into the chat as one
   turn (`lectureAssistant`), the lecturer writing them over the paper as the
-  assistant reads it (`/api/guide_reader`, `lecturer.guided_read`), told
+  assistant reads it (`/api/assistant`'s `guide` workflow,
+  `lecturer.guided_read`), told
   the course's check-offs (`courseNames`). Each beat names its passage, its
   exact words and any label ("(1)", "Figure 2").
 - **One place per beat** (`beatLight`): a beat about **a whole section**
@@ -223,7 +225,7 @@ stay lit until something else is chosen.
   won't flow inline, and the words after a quote broke onto their own line); a stray marker (a quote still
   streaming) never shows. A question asked from a highlight already knows
   its passage ("Explain this passage from …: “…”"), so that's lit too.
-- **What lights it, and when** (`ReaderAssistant`, `store/highlight`'s
+- **What lights it, and when** (`useReaderView`, `store/highlight`'s
   `passages`): **an answer stands for the passage its question was asked
   about**, exactly as highlighted, and an answer to a typed question for its
   quotes (Patrick, 2026-10-25: clicking the answer lit bits of its quotes,
@@ -550,14 +552,17 @@ its bar, for a question of the reader's own. There's no Expand: in the
 Knowledge Graph it adds a concept, and the Reader has no graph to add to
 (Patrick, 2026-10-24).
 
-- **The assistant is the Knowledge Graph's, generalized.** The panel and
-  stream engine are `../assistant/`, shared; `ReaderAssistant.tsx` and
-  `askReader.ts` give it the Reader's words and what to send. It keeps its
-  own chat (`<thread>:reader`, saved as `ThreadRecord.readerChat`) and docks
-  in the top-right corner kept free for it, behind a 🎓 when closed.
+- **The assistant is the one assistant, beside the Reader.** Since v9.0.0
+  (stage 3 of the OnePager's "One assistant") there is one panel for every
+  view (`teacher/Teacher`), docked right or along the bottom, behind the
+  floating astronaut when closed; `useReaderView.ts` and `askReader.ts` give it the
+  Reader's words and what to send (`assistant/views`). It talks in the
+  dock's chat (`store/chats`; until v9.0.0 a Reader chat of its own), and
+  only the answers to questions asked beside this paper's Reader light
+  passages in it (`AnswerPassages.owns`).
 - **It reads the paper, not a summary.** `askReader` sends only the arXiv id
   and the section in view; the server lays the paper out from the document
-  it cached for the Reader (`routes/agents.py`, `_reading_context`): the
+  it cached for the Reader (`assistant/context.py`, `reading_context`): the
   section in view whole, then the rest of the paper as it fits. It searches
   the library and the web only when a question reaches past the paper, and
   never the literature (Patrick's choice: paper + library + web).
@@ -623,8 +628,9 @@ Knowledge Graph it adds a concept, and the Reader has no graph to add to
   its icon, gliding back to the top. It replaced the contents panel's own
   Back to top. (A ←
   was tried and dropped; `tools/README.md` has the story.) The top-right
-  corner is kept free on purpose: it's where the app's assistants dock and
-  reopen (`.pane-assistant`), and where the Reader's will.
+  corner was kept free for the Reader's own 🎓 until v9.0.0; the one
+  assistant's 🎓 floats wherever the reader leaves it
+  (`assistant/AssistantLauncher`).
 - **The contents stop at subsubsections.** Paragraph headings ("Encoder:")
   are LaTeXML sections too, but listing them makes the rail a second copy of
   the text. The active entry is the last heading above the top third of the

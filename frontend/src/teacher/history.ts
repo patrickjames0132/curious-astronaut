@@ -4,16 +4,9 @@
  * Authors: Charles Patrick James <charles.patrick.james@gmail.com>
  */
 import type { ChatMsg, HistoryTurn, ThreadContext } from '../api'
-import { courseOutline } from '../knowledge/assistant/context'
-import { isCurrentMap } from '../knowledge/model'
 import type { RootState } from '../store'
-import {
-  chatSummary,
-  chatTurns,
-  explorationChats,
-  mentionsChat,
-  type ChatEntry,
-} from '../store/chats'
+import { chatTurns, explorationChats, mentionsChat, type ChatEntry } from '../store/chats'
+import { selectChatKey } from '../store/transcript'
 
 /** Render one completed turn, including lecture prose.
  * @param message The saved or live transcript turn.
@@ -55,9 +48,7 @@ export function conversationHistory(chat: ChatMsg[]): HistoryTurn[] {
 
 /**
  * The other chats in the active exploration a message can reference: every
- * chat but the one asking (`store/chats`), so the Knowledge Graph's
- * assistant can read the Citation Graph's chat in its own thread, and the
- * other way round (v8.25.0).
+ * chat but the one asking (`store/chats`; since v9.0.0 papers hold none).
  *
  * @param state Current store.
  * @param currentKey The asking chat's key.
@@ -66,40 +57,33 @@ export function conversationHistory(chat: ChatMsg[]): HistoryTurn[] {
 export function otherChats(state: RootState, currentKey: string): ChatEntry[] {
   const record = state.explorations.byId[state.explorations.activeId]
   if (!record) return []
-  return explorationChats(record, state.transcript).filter((chat) => chat.key !== currentKey)
+  return explorationChats(record).filter((chat) => chat.key !== currentKey)
 }
 
 /** Build a sibling index and attach only explicitly mentioned discussions.
- * One entry per chat since v8.25.0, not per thread: a paper thread's
- * Citation Graph and Knowledge Graph each have their own, and a mentioned
- * Knowledge Graph chat brings its course's outline.
  * @param state Current store, read before starting the turn.
  * @param question User message with optional @thread references.
- * @param currentKey The asking chat's key; the active thread's own by default.
+ * @param currentKey The asking chat's key; the chat on screen by default.
  * @returns Labelled sibling context for the request.
  */
 export function siblingContext(
   state: RootState,
   question: string,
-  currentKey: string = state.explorations.byId[state.explorations.activeId]?.activeThreadId ?? '',
+  currentKey: string = selectChatKey(state),
 ): ThreadContext[] {
   return otherChats(state, currentKey)
     .map((chat) => {
       const mentioned = mentionsChat(question, chat)
-      const course =
-        mentioned && chat.tool === 'knowledge' && isCurrentMap(chat.thread.knowledge)
-          ? courseOutline(chat.thread.knowledge)
-          : undefined
       return {
         title: chat.label,
-        summary: chatSummary(chat.thread, chat.tool).summary ?? 'No summary available yet.',
+        summary: chat.thread.summary ?? 'No summary available yet.',
         mentioned,
         history: mentioned
-          ? conversationHistory(chatTurns(state.transcript, chat.thread, chat.tool)).map(
-              (turn) => ({ ...turn, content: turn.content.slice(0, 12000) }),
-            )
+          ? conversationHistory(chatTurns(state.transcript, chat.thread)).map((turn) => ({
+              ...turn,
+              content: turn.content.slice(0, 12000),
+            }))
           : undefined,
-        ...(course && { course }),
       }
     })
     .sort((left, right) => Number(right.mentioned) - Number(left.mentioned))

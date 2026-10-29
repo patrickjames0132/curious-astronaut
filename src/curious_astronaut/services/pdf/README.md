@@ -230,7 +230,7 @@ pymupdf's words, which come in reading order with their boxes:
   `POST /api/paper/<ref>/pdf-passage`; the Reader quotes these words, not
   the browser's.
 - **`passage_at(path, places)`**: the words whose centers sit in some
-  rectangles, the same way; what `/api/ask_reader` reads a highlight's
+  rectangles, the same way; what the assistant's `reader` view reads a highlight's
   places with, and what a box drawn over the PDF (v8.46.0, ⌥-drag) is read
   by.
 - **`find_quotes(path, quotes)`**: each quote's places, matched by letters
@@ -239,7 +239,7 @@ pymupdf's words, which come in reading order with their boxes:
   `POST /api/paper/<ref>/pdf-find`.
 - **`render_places(path, places)`**: a PNG per page and column of a
   highlight (the box around that column's rectangles, padded), sent to the model with the question by
-  `/api/ask_reader` so it reads an equation from the picture.
+  the assistant's `reader` view so it reads an equation from the picture.
 
 - **`label_places(path, floats, labels)` / `labels_in(path, floats, places)`**
   (v8.48.0): the labels both of the Reader's views share, "Figure 1",

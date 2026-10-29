@@ -10,7 +10,7 @@
  *
  * Six phases, because the app has six first-times: {@link HOME_TOUR}
  * covers the search surface and auto-runs on first launch, before any paper
- * is open; {@link CARDS_TOUR} covers a paper thread's card home and auto-runs
+ * is open; {@link CARDS_TOUR} covers a paper thread's card home (and meets Nova) and auto-runs
  * on the first one; {@link GRAPH_TOUR} covers the graph tools and auto-runs
  * on the first graph; {@link KNOWLEDGE_TOUR} covers the knowledge network and
  * auto-runs on the first course; {@link READER_TOUR} covers the Reader and
@@ -56,7 +56,7 @@ export const HOME_TOUR: TourStep[] = [
     target: '[data-tour="ask"]',
     title: 'Start here',
     body:
-      'One box for everything. Ask a research question and the assistant goes looking — ' +
+      'One box for everything. Ask a research question and Nova goes looking — ' +
       'through the literature, and through your own uploaded sources if you have any. ' +
       'Or paste an arXiv id or URL to open that paper straight away. No graph or ' +
       'library needed to begin; just saying hello stays a conversation.',
@@ -68,8 +68,7 @@ export const HOME_TOUR: TourStep[] = [
     title: 'Type @ to name a paper or a thread',
     body:
       'Start any word with @ and suggestions appear as you type: this exploration’s ' +
-      'other discussions first (a paper’s Citation Graph and Knowledge Graph chats each ' +
-      'listed), then papers. In a chat the top row is “Search for …”: press ' +
+      'other chats first, then papers. In a chat the top row is “Search for …”: press ' +
       'Enter and Curious Astronaut searches properly for what you typed and lists what it ' +
       'found. Arrow down onto a paper or chat and Enter attaches it as a chip over the bar, ' +
       'for the question you type next; Backspace in an empty bar lets the last chip go. To ' +
@@ -81,10 +80,10 @@ export const HOME_TOUR: TourStep[] = [
     title: 'Paper filters',
     body:
       'Restrict a paper search to a publication-year window, a field of study, or ' +
-      'both. These are hard limits, not hints — and they apply to the assistant’s own ' +
+      'both. These are hard limits, not hints — and they apply to Nova’s own ' +
       'searches too, not just the direct lookup. They narrow papers, never your library ' +
       '(that’s the 📚 Library chip beside them), and they live here, on ' +
-      'your chats: over a graph the assistant works from the graph instead of searching. ' +
+      'your chats: over a graph Nova works from the graph instead of searching. ' +
       'Citation links on the graph are never filtered: those are edges somebody ' +
       'actually wrote.',
   },
@@ -102,7 +101,7 @@ export const HOME_TOUR: TourStep[] = [
     target: '[data-tour="library-btn"]',
     title: 'Your library',
     body:
-      'Bring your own material: textbooks, PDFs, web pages. The assistant can search it, ' +
+      'Bring your own material: textbooks, PDFs, web pages. Nova can search it, ' +
       'cite passages by page, and pull figures out of your uploaded PDFs into its ' +
       'answers, right alongside the papers on the graph.',
   },
@@ -113,7 +112,7 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'Drop in many PDFs at once (or paste a URL) — each ingests with its own progress ' +
       'row. Everything is chunked and embedded locally: your books never leave this ' +
-      'machine. Remove a source any time; the assistant only ever cites what’s here.',
+      'machine. Remove a source any time; Nova only ever cites what’s here.',
   },
   {
     target: '[data-tour="assistant-panel"]',
@@ -121,9 +120,18 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'Click a paper citation to highlight it on the current graph. A graph icon opens ' +
       'that paper in its own thread — onto its graph if you are already on one, onto its ' +
-      'cards otherwise. Your chats stay available for searches and broad questions; ' +
-      'each paper thread keeps its own conversation. Type @ and pick another discussion to bring it ' +
-      'into the one you are in.',
+      'cards otherwise. A paper keeps no conversation of its own: beside its graph, its ' +
+      'course or its Reader, Nova talks in the chat you were last in, and each ' +
+      'question there is tagged with where you asked it — click a tag to go back. An answer ' +
+      'asked from another paper’s view takes you there when you click it, its citations or ' +
+      'its quotes, and lights them there. Ask about another paper by name and the question goes ' +
+      'there, answered from that paper while you stay put (ask for a lecture on it and you go ' +
+      'there to be taught); ask about several at once — compare them, connect them — and it is ' +
+      'answered across those papers, each title in its tag a link to that paper. ' +
+      '“Ask from … instead” under its tag ' +
+      'asks it where you typed it. Once a chat spans several places, the Showing menu ' +
+      'at its top shows only the questions asked from one. Type @ and pick another chat to ' +
+      'bring it into the one you are in.',
   },
   {
     target: '[data-tour="rail"]',
@@ -131,9 +139,9 @@ export const HOME_TOUR: TourStep[] = [
     body:
       'Every exploration saves itself — there is no Save button. Ask a question or open ' +
       'a paper and a row appears here, named after what you were asking about and kept ' +
-      'up to date as you work. Its threads nest underneath in two groups: Chats, for broad ' +
-      'questions and searches, each named after its first question; and Papers, one ' +
-      'discussion per paper you open. Chats’ ＋ starts another chat, so one can keep its ' +
+      'up to date as you work. Its threads nest underneath in two groups: Chats, your ' +
+      'conversations, each named after its first question; and Papers, one per paper you ' +
+      'open, to read and explore. Chats’ ＋ starts another chat, so one can keep its ' +
       'search results while you talk about something else; Papers’ ＋ opens a chat with @ ' +
       'typed, ready to find a paper. Use the carets to fold them, and each ⋮ menu to ' +
       'rename or delete a thread (the last chat stays), or re-summarize a chat whose ' +
@@ -175,6 +183,19 @@ export const CARDS_TOUR: TourStep[] = [
       'know first. The Reader is the paper itself. Criticisms gathers what later papers ' +
       'objected to in it. Clicking the thread in the sidebar ' +
       'always brings you back to these cards, and so does the ↑ at the top of each tool.',
+  },
+  {
+    // Nova from the first paper on (v9.0.0, Patrick): the launcher is
+    // already here on the cards, so it is met before any tool is opened.
+    target: '[data-tour="assistant-btn"]',
+    presentIf: '[data-tour="assistant-btn"]',
+    title: 'Meet Nova',
+    body:
+      'The floating astronaut is Nova: your AI assistant! Click to open Nova beside these ' +
+      'cards or any tool — the graph, the course, the Reader — and ask about this paper, ' +
+      'or ask Nova to compare it with the others you have open. Nova talks in the chat you ' +
+      'were last in, so the conversation follows you from paper to paper. Drag the astronaut ' +
+      'anywhere you like; the ↺ on hover puts it back.',
   },
 ]
 
@@ -298,21 +319,21 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
     title: 'Highlight a passage',
     body:
       'Select a word or a passage in a finished lesson and a small menu appears over it. ' +
-      '“Explain” asks the Knowledge Graph Assistant about it, without adding anything to the graph. ' +
+      '“Explain” asks Nova about it, without adding anything to the graph. ' +
       '“Expand” adds the idea it names as a new concept this lesson’s item needs (or links ' +
       'it, if the course already has it), ready to open and learn in turn. “Chat” opens the ' +
-      'assistant with the passage attached to its bar, so you can ask anything about it.',
+      'Nova with the passage attached to its bar, so you can ask anything about it.',
   },
   {
-    target: '[data-tour="course-assistant-btn"]',
-    presentIf: '[data-tour="course-assistant-btn"]',
-    title: 'The Knowledge Graph Assistant',
+    target: '[data-tour="assistant-btn"]',
+    presentIf: '[data-tour="assistant-btn"]',
+    title: 'Nova, beside the course',
     body:
-      'The 🎓 opens an assistant beside the course. It reads the whole course: every concept, ' +
+      'The floating astronaut is Nova: your AI assistant! Click to open Nova beside the course. Nova reads the whole course: every concept, ' +
       'what each needs, what you have checked off, and the lessons written so far. Ask what a ' +
-      'concept means, how two connect, or what to study next. It keeps its own chat, apart from ' +
-      'the Citation Graph’s; type @ to bring that one, or any other in this exploration, into ' +
-      'a question. The 📚 in its bar picks which of your sources it may search.',
+      'concept means, how two connect, or what to study next. It talks in the chat you were ' +
+      'last in, as it does beside every view; type @ to bring another chat into a question. ' +
+      'The 📚 in its bar picks which of your sources it may search.',
   },
   {
     target: '[data-tour="tool-return"][data-return="reader"]',
@@ -355,11 +376,11 @@ export const READER_TOUR: TourStep[] = [
     title: 'Highlight a passage',
     body:
       'Select a word, a sentence or an equation and a small menu appears over it. ' +
-      '“Explain” asks the Reader Assistant what it means, “Simplify” asks for it in plain ' +
-      'words, and “Chat” opens the assistant with the passage attached to its bar, so you ' +
+      '“Explain” asks Nova what it means, “Simplify” asks for it in plain ' +
+      'words, and “Chat” opens Nova with the passage attached to its bar, so you ' +
       'can ask anything about it. For what won’t select as text, a figure, a whole equation ' +
       'or a table, hold ⌥ (Alt) and drag a box over it: the same menu asks about it, and the ' +
-      'assistant sees it, a picture of it in the PDF, its LaTeX and images in the text.',
+      'Nova sees it, a picture of it in the PDF, its LaTeX and images in the text.',
   },
   {
     target: '[data-tour="reader-notes"]',
@@ -390,19 +411,20 @@ export const READER_TOUR: TourStep[] = [
     body:
       'Switch between the paper’s text (typeset equations, live citations) and its PDF, ' +
       'the original layout. The choice is remembered for this paper. A paper with no ' +
-      'text opens as its PDF, and the highlight menu and the assistant work on either. In ' +
+      'text opens as its PDF, and the highlight menu and Nova work on either. In ' +
       'the PDF, − and + beside it zoom, and the percentage goes back to fitting the width. ' +
       'The ⓘ at its end sums up the controls.',
   },
   {
-    target: '[data-tour="reader-assistant-btn"]',
-    presentIf: '[data-tour="reader-assistant-btn"]',
-    title: 'The Reader Assistant',
+    target: '[data-tour="assistant-btn"]',
+    presentIf: '[data-tour="assistant-btn"]',
+    title: 'Nova, beside the paper',
     body:
-      'The 🎓 opens an assistant beside the paper. It reads the paper, starting with the ' +
+      'The floating astronaut is Nova: your AI assistant! Click to open Nova beside the paper. Nova reads the paper, starting with the ' +
       'section you’re in, and searches your library and the web only when a question reaches ' +
-      'past it. It keeps its own chat, apart from this paper’s graphs’; type @ to bring one of ' +
-      'those into a question. The 📚 in its bar picks which of your sources it may search. ' +
+      'past it. Nova talks in the chat you were last in, as it does beside every view; type @ ' +
+      'to bring another chat into a question. The 📚 in its bar picks which of your sources ' +
+      'it may search. ' +
       'The paper’s words it quotes light up in the paper; click an answer, or one of its ' +
       'quotes, to go there, and Esc to put the light out. Ask it for a lecture and it gives ' +
       'one on the whole paper, as Give Lecture On Paper does.',
@@ -412,7 +434,7 @@ export const READER_TOUR: TourStep[] = [
     presentIf: '[data-tour="reader-lecture"]',
     title: 'Give Lecture On Paper',
     body:
-      'A lecture on the whole paper, in the Reader Assistant: the paper taught step by step ' +
+      'A lecture on the whole paper, from Nova: the paper taught step by step ' +
       'in its own order, each step lit in the paper as you go. Back and Next on the step ' +
       'you’re on, or click any step. In the PDF it sits in the margin by the title.',
   },
@@ -432,7 +454,7 @@ export const READER_TOUR: TourStep[] = [
  * (re-sequenced with Patrick, v5.22.0): the top-left controls panel walked
  * top-to-bottom through its last row ("Open a paper"), then the
  * bottom-right find control, then the detail panel (a whole-panel overview
- * stop, then its sections), then the teacher — the 🎓 that opens it (only
+ * stop, then its sections), then the teacher — the astronaut that opens it (only
  * while it is tucked away; the Knowledge Graph's course assistant has its own
  * 🎓, introduced by the knowledge tour), the source scope under the ask
  * bar, then the bar itself, which carries two stops: what the researcher does
@@ -536,7 +558,7 @@ export const GRAPH_TOUR: TourStep[] = [
       'Release unpins every node you dragged and re-settles a drifted layout — without ' +
       'moving your zoom. Fit re-centers the whole graph. Refresh rebuilds this ' +
       'paper’s neighborhood fresh from the data provider. Clear drops every highlight ' +
-      'at once — your hand-picked papers and the assistant’s glow alike (Esc does the ' +
+      'at once — your hand-picked papers and Nova’s glow alike (Esc does the ' +
       'same).',
   },
   {
@@ -544,7 +566,7 @@ export const GRAPH_TOUR: TourStep[] = [
     stage: 'controls',
     title: 'Hand-pick what it answers over',
     body:
-      'Hold ⌥ Alt and drag a box around papers to add them to the assistant’s scope — ' +
+      'Hold ⌥ Alt and drag a box around papers to add them to Nova’s scope — ' +
       'sweep several clusters to build one. ⇧ Shift-click toggles a single paper. ' +
       'Drag any ringed paper and the whole selection moves with it, pinned where you ' +
       'drop it. ' +
@@ -571,10 +593,10 @@ export const GRAPH_TOUR: TourStep[] = [
     body:
       'Click the 🔍 and type part of a title or author. The matching papers light up ' +
       'and everything else dims — all on your screen, nothing is fetched. Pressing ' +
-      'Enter (or “select” in the find bar) adds every match to the assistant’s ' +
+      'Enter (or “select” in the find bar) adds every match to Nova’s ' +
       'scope. Esc or ✕ clears the find and tucks it away. This only searches what is ' +
       'already drawn — to pull NEW papers in, expand a paper from its detail panel, or ' +
-      'ask in the chat bar in the assistant panel.',
+      'ask in the chat bar in Nova’s panel.',
   },
   {
     target: '[data-tour="tool-return"][data-return="reader"]',
@@ -664,11 +686,17 @@ export const GRAPH_TOUR: TourStep[] = [
   },
   {
     target: '[data-tour="assistant-btn"]',
-    title: 'The assistant, when you want it',
+    title: 'Nova, when you want it',
     body:
-      'The 🎓 opens this paper’s conversation beside the graph; ✕ tucks it away again, and ' +
-      'it stays the way you leave it. Each tool keeps its own: the Knowledge Graph has its ' +
-      'Knowledge Graph Assistant with a chat of its own, and @ reaches either from the other.',
+      'The floating astronaut is Nova: your AI assistant! Click to open Nova beside every view — the graph, the ' +
+      'course and the Reader alike; ✕ tucks it away again, and it stays the way you leave it. ' +
+      'Drag the astronaut anywhere over the view and it stays there; the ↺ beside it on hover ' +
+      'puts it back in the corner. ' +
+      'Nova docks on the right or ' +
+      'along the bottom: the button by its ✕ moves it. It ' +
+      'talks in the chat you were last in, so a conversation can follow you across papers; ' +
+      'the chat’s name under the title is a menu to switch to another, or start one, and ' +
+      'the 🗑 beside it deletes it (click twice: it asks first).',
   },
   {
     target: '[data-tour="source-scope"]',
@@ -676,9 +704,9 @@ export const GRAPH_TOUR: TourStep[] = [
     presentIf: '[data-tour="source-scope"]',
     title: 'Your library, in or out',
     body:
-      'The 📚 in the bar scopes the assistant’s reach into your library: all of your ' +
+      'The 📚 in the bar scopes Nova’s reach into your library: all of your ' +
       'uploaded sources, a subset, or none at all. Checked means searchable — answers ' +
-      'cite whatever passages they use by page. Untick everything and the assistant ' +
+      'cite whatever passages they use by page. Untick everything and Nova ' +
       'leaves your library alone, which works with a single uploaded source too.',
   },
   {
@@ -696,7 +724,7 @@ export const GRAPH_TOUR: TourStep[] = [
     target: '[data-tour="ask"]',
     stage: 'assistant',
     presentIf: '[data-tour="assistant-btn"]',
-    title: 'One bar, two assistants',
+    title: 'One bar, answers and lectures',
     body:
       'Ask anything about what’s on screen. The agent grounds in the papers you’ve ' +
       'selected — or in every visible paper when you haven’t picked any. It reads them ' +
@@ -714,7 +742,7 @@ export const GRAPH_TOUR: TourStep[] = [
     title: 'Ask to be taught, not answered',
     body:
       'Ask for a lecture in the same bar — “lecture me on these”, “what’s the story ' +
-      'here?” — and the other assistant narrates the papers you have on screen, so you ' +
+      'here?” — and Nova narrates the papers you have on screen instead, so you ' +
       'decide what it is about. Filter to the references and you get the story of how ' +
       'the field arrived here; keep only recent work and you get the current frontier; ' +
       'alt-drag a cluster and it narrates just those. Scope it to a single paper — any ' +
@@ -726,8 +754,8 @@ export const GRAPH_TOUR: TourStep[] = [
       'lecture finishes the whole of it stays lit. Say “history” and it walks them oldest ' +
       'to newest; otherwise it groups them into their key themes. Papers light up on the ' +
       'map as each part of the story arrives, and the beats read as the reply, in the ' +
-      'conversation with everything else. Every turn it guessed on says which assistant ' +
-      'answered and offers the other in a click, so a wrong guess costs nothing.',
+      'conversation with everything else. Every turn it guessed on says whether Nova ' +
+      'answered or lectured, and offers the other in a click, so a wrong guess costs nothing.',
   },
 ]
 
@@ -820,7 +848,7 @@ export const SETTINGS_TOUR: TourStep[] = [
     target: '[data-tour="settings-search-k"]',
     title: 'How much a search hands over',
     body:
-      'Retrieval sets how many passages the assistant gets per search of your library. ' +
+      'Retrieval sets how many passages Nova gets per search of your library. ' +
       'Embedding picks the local model and device; Chunking decides how the text is cut ' +
       'into passages — change the model and the library needs re-ingesting.',
     stage: 'sources/retrieval',

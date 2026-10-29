@@ -16,7 +16,6 @@ import transcript from '../../src/store/transcript'
 import highlight from '../../src/store/highlight'
 import library from '../../src/store/library'
 import explorations, { explorationOpened, newExploration } from '../../src/store/explorations'
-import { createMap, withChildren } from '../../src/knowledge/model'
 import type { RootState } from '../../src/store'
 
 describe('completed conversational history', () => {
@@ -44,80 +43,59 @@ describe('completed conversational history', () => {
   })
 })
 
-describe('the sibling index, one entry per chat (v8.25.0)', () => {
-  /** An exploration with General and PPO, whose course and both chats have turns.
-   * @returns The store's state.
+describe('the sibling index: the other chats (v9.0.0)', () => {
+  /** An exploration with two chats, beside a paper that holds no chat.
+   * @returns The store's state, with the first chat open.
    */
   function state(): RootState {
     const store = configureStore({
       reducer: { workspace, transcript, highlight, library, explorations },
     })
     const record = newExploration('x')
-    const course = withChildren(createMap({ id: 'ppo', title: 'PPO' }), 'ppo', [
-      { name: 'Policy gradients', why: 'PPO is one.' },
-    ])
-    record.threads.push({
-      id: 'ppo',
-      title: 'PPO',
-      identity: 's2:ppo',
-      data: {
-        chat: [
-          { role: 'user', text: 'graph q' },
-          { role: 'assistant', text: 'graph a' },
-        ],
-        layout: 'force',
+    record.threads.push(
+      {
+        id: 'ppo',
+        title: 'PPO',
+        identity: 's2:ppo',
+        data: { chat: [], layout: 'force' },
       },
-      summary: 'About the graph.',
-      knowledge: {
-        ...course,
-        nodes: { ...course.nodes, ppo: { ...course.nodes.ppo, lesson: 'Lesson.' } },
+      {
+        id: 'rl',
+        title: 'RL basics',
+        identity: null,
+        data: {
+          chat: [
+            { role: 'user', text: 'rl q' },
+            { role: 'assistant', text: 'rl a' },
+          ],
+          layout: 'timeline',
+        },
+        summary: 'About RL.',
       },
-      courseChat: {
-        chat: [
-          { role: 'user', text: 'course q' },
-          { role: 'assistant', text: 'course a' },
-        ],
-        summary: 'About the course.',
-      },
-    })
+    )
     store.dispatch(explorationOpened(record))
     return store.getState()
   }
 
-  it('lists every other chat, each under its own label and summary', () => {
-    const current = state()
-    const general = current.explorations.byId.x.activeThreadId
-    const index = siblingContext(current, 'hello', general)
-    expect(index.map((entry) => [entry.title, entry.summary])).toEqual([
-      ['PPO › Citation Graph', 'About the graph.'],
-      ['PPO › Knowledge Graph', 'About the course.'],
-    ])
+  it('lists every other chat, under its title and summary, and never a paper', () => {
+    const index = siblingContext(state(), 'hello')
+    expect(index.map((entry) => [entry.title, entry.summary])).toEqual([['RL basics', 'About RL.']])
   })
-  it("lets the course assistant read its own thread's Citation Graph chat", () => {
-    const index = siblingContext(
-      state(),
-      'compare with @thread[PPO › Citation Graph]',
-      'ppo:knowledge',
-    )
-    expect(index.map((entry) => entry.title)).toEqual(['PPO › Citation Graph', 'New chat'])
-    expect(index[0]).toMatchObject({
+  it('attaches a mentioned chat with its history', () => {
+    const [entry] = siblingContext(state(), 'compare with @thread[RL basics]')
+    expect(entry).toMatchObject({
       mentioned: true,
       history: [
-        { role: 'user', content: 'graph q' },
-        { role: 'assistant', content: 'graph a' },
+        { role: 'user', content: 'rl q' },
+        { role: 'assistant', content: 'rl a' },
       ],
     })
   })
-  it('attaches a mentioned course chat with its course outline, lessons left out', () => {
-    const [entry] = siblingContext(state(), 'see @thread[PPO › Knowledge Graph]', 'ppo')
-    expect(entry.title).toBe('PPO › Knowledge Graph')
-    expect(entry.history?.map((turn) => turn.content)).toEqual(['course q', 'course a'])
-    expect(entry.course?.items.map((item) => item.title)).toEqual(['PPO', 'Policy gradients'])
-    expect(entry.course?.items.some((item) => item.lesson)).toBe(false)
-  })
-  it('names the borrowed chats by key and label, a bare title as the Citation Graph chat', () => {
-    expect(borrowedChats(state(), 'about @thread[PPO]', 'ppo:knowledge')).toEqual([
-      { id: 'ppo', title: 'PPO › Citation Graph' },
+  it('names the borrowed chats by key and title', () => {
+    const current = state()
+    const asking = current.explorations.byId.x.activeThreadId
+    expect(borrowedChats(current, 'about @thread[RL basics]', asking)).toEqual([
+      { id: 'rl', title: 'RL basics' },
     ])
   })
 })

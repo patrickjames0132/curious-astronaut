@@ -1,22 +1,45 @@
 # `src/teacher`
 
-One composer serves General and paper threads. General is graphless: searches,
-broad questions and comparisons can live there. In a paper thread the panel
-**docks beside the Citation Graph only** (since v8.15.0): assistants are
-encapsulated per tool. The card home has none, and the Knowledge Graph has its
-own since v8.25.0 (`knowledge/assistant/`, with a chat of its own); elsewhere
-Teacher stays mounted but hidden, so a running answer keeps streaming
-into the thread. With the graph up, the composer names its subject and scoped
-paper count. Questions and lectures belong to the active thread; opening
-another paper switches to its discussion rather than carrying this transcript
-onto a different canvas.
+**The one assistant** (v9.0.0, the OnePager's "One assistant", stage 3).
+One composer serves chats and every view of a paper: full screen as a
+chat's landing surface, else **docked beside the view**, against the right
+edge or along the bottom (the header's dock button), and behind the floating astronaut when
+closed (`assistant/AssistantLauncher`). Below 900px it covers the view
+instead of squeezing it, and Esc from inside puts it away. Until stage 3 it
+docked beside the Citation Graph only (since v8.15.0), and the Knowledge
+Graph and the Reader docked panels of their own; now they lend it their
+words, their asking and the Reader's passages (`assistant/views`:
+`useCourseView`, `useReaderView`), and `Teacher` sends through the view's
+`ask` when it has one, else through `useConversation` as it always has.
+
+It talks in **the dock's chat**, the chat you were last in (`store/chats`),
+each question tagged with where it was asked (`ChatMsg.tag`, shown by
+`assistant/useTurnTags`). A turn is the view's own when its question was
+asked here (`owns`): only those it retries, answers quickly or re-routes,
+since a turn asked beside another view needs that view's context. A turn
+from another view links there instead (stage 4a, `elsewhere`): clicking it,
+a `[n]`, a quote or a beat goes to that view and lights it. Once a chat
+spans places, `assistant/TagFilter`'s menu over the transcript shows one at
+a time. Before a question goes out, `placeOrHere` asks where it is about
+(stage 4b, `api.routePlace`) when the exploration has another paper it could
+mean; placed elsewhere, or across several papers (stage 4c), it is asked
+there (`assistant/askAt`), and its bubble offers "Ask from … instead"
+(`askInstead`).
+A paper holds no conversation of its own, so
+opening another paper keeps the conversation and changes the canvas under
+it; a discovery for a paper no longer on screen waits on that paper
+(`pendingDiscoveries`). Elsewhere Teacher stays mounted but hidden, so a
+running answer keeps streaming. With the graph up, the composer names its
+subject and scoped paper count.
 
 **Why the graph alone** (Patrick, 2026-10-09). Beside the cards and the
 Knowledge Graph this assistant could only answer seedless. `@thread`
 borrowing assumed a thread *was* its graph conversation; v8.25.0 answered
-that by making a reference address a **chat**, a thread and a tool
-(`store/chats.ts`), so the Knowledge Graph got an assistant of its own rather
-than this one.
+that by making a reference address a **chat**, a thread and a tool, so the
+Knowledge Graph got an assistant of its own rather than this one. v9.0.0
+kept the panels apart but gave them one conversation: a chat is a thread of
+its own now, and a tool is where a question was asked (its tag). One panel
+for all of them is the OnePager's "One assistant", stage 3.
 
 ## Sending and streaming
 
@@ -175,7 +198,7 @@ Four pieces of the composer are shared with the Knowledge Graph Assistant
   each open, so a key added in Settings shows without a reload), under a
   "Settings default" that goes back to Settings → Agents. The pick is the
   conversation's (`Conversation.model`), sent with its every ask and read by
-  `routes/agents._opt_model`; docked, a dot on the icon says the chat has
+  the assistant's `main._model`; docked, a dot on the icon says the chat has
   its own. The bar's popovers stay one-at-a-time (`openScope`). On the
   empty landing chat its popover drops down from a bar centred mid-page, so
   it measures the room left and cuts its scrolling list (the only part that
@@ -214,15 +237,16 @@ completes, so it shows none.
   icon inside the bar beside 🗑, never lit (its badge says it's narrowed),
   with no row under the bar at all; on the landing chat it is a labelled chip in the row under the
   bar, beside the paper filters. The filters are the landing chat's alone:
-  docked, nothing searches papers — `/api/ask` runs the researcher with
-  `paper_search=False`, and `@` offers chats only (`useMentionSuggestions`'
+  docked, nothing searches papers — the assistant's `citations` view runs
+  the researcher with `paper_search=False`, and `@` offers chats only (`useMentionSuggestions`'
   `withPapers`, as the Knowledge Graph's assistant always has), so a bare
   `@words` there is just text in a message — and `Teacher` neither shows the
   filters docked nor sends them (`activeOptions`).
 
-The panel's title is "Citation Graph Assistant" since v8.25.0 ("AI Teacher &
-Discovery" until then), matching the "Knowledge Graph Assistant" beside the
-course.
+The panel's title is **"Nova — your AI research assistant"** in every view since v9.0.0, the astronaut's
+name (Patrick); every place the UI said "the assistant" says Nova now. It was
+"Citation Graph Assistant" from v8.25.0 ("AI Teacher & Discovery" until
+then), beside a "Knowledge Graph Assistant" and a "Reader Assistant".
 
 ## Docked: closing and reopening
 

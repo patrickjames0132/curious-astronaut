@@ -10,11 +10,12 @@
  * **The body has three states, and the seams matter.** In General (no seed)
  * the assistant is the landing surface (a centred chat, the app's front door)
  * and the overlays get their own layer over the body. A paper thread shows
- * either its **card home** (`tools/ToolCards`) or the tool a card opened —
- * the graph explorer or the knowledge network. The assistant docks beside the
- * **Citation Graph only**: each tool keeps its own voice, and the cards and the
- * Knowledge Graph have none docked. The
- * `Teacher` element stays at one position in the tree across all three.
+ * either its **card home** (`tools/ToolCards`) or the tool a card opened.
+ * Since v9.0.0 (the OnePager's "One assistant", stage 3) **one assistant**
+ * docks beside every view, against the right edge or the bottom, or waits
+ * behind a floating astronaut when closed; each view lends it its words and how it
+ * asks (`assistant/views`). The `Teacher` element stays at one position in
+ * the tree across all of it.
  * Thread navigation remounts the graph and chat with distinct keys; their
  * durable state lives in the store.
  *
@@ -42,13 +43,13 @@ import './shell/shell.css'
 const RAIL_KEY = 'ca.railOpen'
 /** localStorage key remembering whether the docked assistant is open. */
 const ASSISTANT_KEY = 'ca.assistantOpen'
-/** Whether the Knowledge Graph's assistant docks open (v8.25.0), remembered apart. */
-const COURSE_ASSISTANT_KEY = 'ca.courseAssistantOpen'
-/** The Reader's assistant's open/closed state (v8.38.0). */
-const READER_ASSISTANT_KEY = 'ca.readerAssistantOpen'
+/** Which edge the assistant docks against (v9.0.0), remembered. */
+const DOCK_KEY = 'ca.assistantDock'
 import GraphExplorer from './graph/GraphExplorer'
 import ReturnPill from './tools/ReturnPill'
-import Teacher from './teacher/Teacher'
+import Teacher, { type AssistantDock } from './teacher/Teacher'
+import AssistantLauncher from './assistant/AssistantLauncher'
+import { KEEP_CHAT_EVENT } from './assistant/keepChatInView'
 import Sources from './library/Sources'
 import SettingsModal from './settings/SettingsModal'
 import Tour from './tour/Tour'
@@ -65,11 +66,9 @@ import ToolCards from './tools/ToolCards'
 import Reader from './reader/Reader'
 import Criticisms from './criticisms/Criticisms'
 import KnowledgeNetwork from './knowledge/KnowledgeNetwork'
-import CourseAssistant from './knowledge/assistant/CourseAssistant'
 import { FigureLayerContext } from './figures/figureLayer'
-import ReaderAssistant from './reader/ReaderAssistant'
 import type { PassageQuote } from './assistant/askAssistant'
-import type { LessonQuote } from './knowledge/assistant/askCourse'
+import { lessonSource } from './knowledge/assistant/askCourse'
 import './app.css'
 
 /**
@@ -92,15 +91,6 @@ export default function App() {
   const tool = threadTool(activeThread)
   const paperThread = tool !== null
   const showGraph = !!graph && tool === 'graph'
-  // Assistants are encapsulated per tool (Patrick, 2026-10-09): Teacher docks
-  // beside the Citation Graph, since v8.25.0 the course's own assistant
-  // beside the Knowledge Graph, and since v8.38.0 the Reader's beside the
-  // Reader, each with its own chat (`store/chats`).
-  // Elsewhere in a paper thread both stay mounted but hidden, so a half-typed
-  // question survives and the remembered open/closed state comes back.
-  const assistantDocks = tool === 'graph'
-  const courseAssistantDocks = tool === 'knowledge'
-  const readerAssistantDocks = tool === 'reader'
 
   // Moving between a paper's cards and one of its tools reads as a scroll:
   // the cards come down from above, a tool comes up from below. Only within
@@ -125,38 +115,32 @@ export default function App() {
   const [railOpen, setRailOpen] = useState(() => localStorage.getItem(RAIL_KEY) !== '0')
   const [showSettings, setShowSettings] = useState(false)
   const theme = useTheme()
-  // Whether the assistant docks open beside the Citation Graph.
+  // Whether the assistant docks open beside a paper's view: one for every
+  // view since v9.0.0, where each tool kept its own (the Citation Graph's,
+  // v8.25.0's course, v8.38.0's Reader).
   // **Closed by default, and remembered** like the rail (Patrick, 2026-10-09:
   // it should stay hidden until asked for — a docked chat beside a canvas is
-  // clutter until it is wanted). It used to default open, back when entering
-  // graph mode was the only way past the landing chat. General is unaffected:
-  // there the assistant is the landing surface and never collapses.
+  // clutter until it is wanted). Closed, the floating astronaut opens it, and so do
+  // the highlight menus' Explain and Chat, and the full-screen chat taking
+  // the reader to a paper (`assistant/keepChatInView`). A chat is unaffected: there the
+  // assistant is the landing surface and never collapses.
   const [assistantOpen, setAssistantOpen] = useState(
     () => localStorage.getItem(ASSISTANT_KEY) === '1',
   )
-  // The course's assistant, closed by default and remembered the same way
-  // (v8.25.0). A lesson's Explain opens it.
-  const [courseAssistantOpen, setCourseAssistantOpen] = useState(
-    () => localStorage.getItem(COURSE_ASSISTANT_KEY) === '1',
+  // Which edge it docks against (v9.0.0): right, or the bottom, which the
+  // graph, the course and the paper (all wider than tall) give up less to.
+  const [dock, setDock] = useState<AssistantDock>(() =>
+    localStorage.getItem(DOCK_KEY) === 'bottom' ? 'bottom' : 'right',
   )
-  // A passage a lesson's Chat attached to that assistant's bar (v8.26.0),
-  // for the thread it came from; `seq` tells a repeat of the same passage
-  // from nothing new, so the bar takes focus again.
-  const [courseQuote, setCourseQuote] = useState<
-    (LessonQuote & { threadId: string; seq: number }) | null
-  >(null)
-  // The Reader's assistant (v8.38.0), the same way: closed by default and
-  // remembered; a highlight's Explain or Simplify opens it, and its Chat
-  // attaches a passage to the bar.
-  const [readerAssistantOpen, setReaderAssistantOpen] = useState(
-    () => localStorage.getItem(READER_ASSISTANT_KEY) === '1',
+  // A passage a highlight's Chat attached to the bar (v8.26.0: a lesson's;
+  // v8.38.0: the Reader's), for the thread it came from; `seq` tells a repeat
+  // of the same passage from nothing new, so the bar takes focus again.
+  const [quote, setQuote] = useState<(PassageQuote & { threadId: string; seq: number }) | null>(
+    null,
   )
   // Where enlarged figures go: the middle of the shell, never the side panels
   // (v8.38.0, figures/figureLayer). The element is set by the layer's ref.
   const [figureLayer, setFigureLayer] = useState<HTMLElement | null>(null)
-  const [readerQuote, setReaderQuote] = useState<
-    (PassageQuote & { threadId: string; seq: number }) | null
-  >(null)
   // Latest graph, readable from the mount-only effect below without making it
   // a dependency (that would re-fire the settings fetch on every graph load).
   const graphRef = useRef(graph)
@@ -286,8 +270,7 @@ export default function App() {
   const onTourStage = useCallback((stage?: string) => {
     setTourStage(stage)
     setShowLibrary(stage === 'library')
-    if (stage === 'assistant') setAssistantOpen(true)
-    if (stage === 'course-assistant') setCourseAssistantOpen(true)
+    if (stage === 'assistant' || stage === 'course-assistant') setAssistantOpen(true)
   }, [])
 
   useEffect(() => {
@@ -297,11 +280,15 @@ export default function App() {
     localStorage.setItem(ASSISTANT_KEY, assistantOpen ? '1' : '0')
   }, [assistantOpen])
   useEffect(() => {
-    localStorage.setItem(COURSE_ASSISTANT_KEY, courseAssistantOpen ? '1' : '0')
-  }, [courseAssistantOpen])
+    localStorage.setItem(DOCK_KEY, dock)
+  }, [dock])
+  // The full-screen chat taking the reader to a paper opens the dock there,
+  // so the conversation stays in view (`assistant/keepChatInView`).
   useEffect(() => {
-    localStorage.setItem(READER_ASSISTANT_KEY, readerAssistantOpen ? '1' : '0')
-  }, [readerAssistantOpen])
+    const open = () => setAssistantOpen(true)
+    window.addEventListener(KEEP_CHAT_EVENT, open)
+    return () => window.removeEventListener(KEEP_CHAT_EVENT, open)
+  }, [])
 
   // The saved-graph list in the rail, and which of them is on screen. The id
   // is tracked here rather than in the store because it is a fact about this
@@ -326,47 +313,12 @@ export default function App() {
   const returnTo = activeThread?.returnTo
   const overlays = (
     <>
-      {/* Reopening the assistant once it's collapsed. It used to be a header
-          tab; with the header gone it belongs beside the thing it opens, at
-          the top-right of the CANVAS. Not the pane: the detail panel is a
-          sibling of the canvas, so a pane-anchored button sat on top of that
-          panel's own ✕ and trapped the reader inside it. */}
-      {assistantDocks && !assistantOpen && (
-        <button
-          type="button"
-          className="pane-assistant"
-          data-tour="assistant-btn"
-          onClick={() => setAssistantOpen(true)}
-          title="The Citation Graph Assistant — a lecture and Q&A over the graph"
-          aria-label="Open the assistant"
-        >
-          🎓
-        </button>
-      )}
-      {courseAssistantDocks && !courseAssistantOpen && (
-        <button
-          type="button"
-          className="pane-assistant"
-          data-tour="course-assistant-btn"
-          onClick={() => setCourseAssistantOpen(true)}
-          title="The Knowledge Graph Assistant — ask about the concepts and lessons in this course"
-          aria-label="Open the Knowledge Graph Assistant"
-        >
-          🎓
-        </button>
-      )}
-      {readerAssistantDocks && !readerAssistantOpen && (
-        <button
-          type="button"
-          className="pane-assistant"
-          data-tour="reader-assistant-btn"
-          onClick={() => setReaderAssistantOpen(true)}
-          title="The Reader Assistant — ask about this paper, or about a passage you highlight"
-          aria-label="Open the Reader Assistant"
-        >
-          🎓
-        </button>
-      )}
+      {/* The astronaut that opens the assistant while it is closed (v9.0.0): one
+          for every view, in the view's own layer, top-right of its canvas.
+          Not over the body: the graphs' detail panels are siblings of their
+          canvas, and a body-anchored 🎓 sat on their ✕ and options
+          (Patrick, as it did once before). */}
+      {paperThread && !assistantOpen && <AssistantLauncher onOpen={() => setAssistantOpen(true)} />}
       {/* Dim whatever is behind — a graph mid-re-seed, or the chat you were
           reading. The card alone was only ever legible against an empty canvas;
           over live content it has to push that content back to read at all. */}
@@ -497,7 +449,7 @@ export default function App() {
         <Sources open={showLibrary} onClose={() => setShowLibrary(false)} />
 
         <FigureLayerContext.Provider value={figureLayer}>
-          <div className="shell-body">
+          <div className={`shell-body${paperThread && dock === 'bottom' ? ' dock-bottom' : ''}`}>
             {/* The overlays belong to whichever surface is up: over the canvas in
               graph mode, over the card home, over the landing chat in General.
               A graph tool still building has nothing to draw yet, so the
@@ -531,10 +483,15 @@ export default function App() {
                   <KnowledgeNetwork
                     key={`knowledge:${epoch}`}
                     thread={activeThread}
-                    onAssistant={(quote) => {
-                      setCourseAssistantOpen(true)
-                      if (quote)
-                        setCourseQuote({ ...quote, threadId: activeThread.id, seq: Date.now() })
+                    onAssistant={(lesson) => {
+                      setAssistantOpen(true)
+                      if (lesson)
+                        setQuote({
+                          text: lesson.text,
+                          from: lessonSource(lesson.lesson),
+                          threadId: activeThread.id,
+                          seq: Date.now(),
+                        })
                     }}
                   >
                     {overlays}
@@ -543,10 +500,10 @@ export default function App() {
                   <Reader
                     key={`reader:${epoch}`}
                     thread={activeThread}
-                    onAssistant={(quote) => {
-                      setReaderAssistantOpen(true)
-                      if (quote)
-                        setReaderQuote({ ...quote, threadId: activeThread.id, seq: Date.now() })
+                    onAssistant={(passage) => {
+                      setAssistantOpen(true)
+                      if (passage)
+                        setQuote({ ...passage, threadId: activeThread.id, seq: Date.now() })
                     }}
                   >
                     {overlays}
@@ -567,32 +524,19 @@ export default function App() {
 
             {/* Graph and chat have distinct sibling keys. Both remount on thread
               navigation while their durable state stays with the thread. */}
+            {/* One assistant for every view (v9.0.0): the landing chat with
+                no paper open, else docked beside the paper's view (right or
+                bottom) and closable to the floating astronaut. */}
             <Teacher
               key={`teacher:${epoch}`}
               landing={!paperThread}
-              collapsed={paperThread && !(assistantDocks && assistantOpen)}
-              onClose={assistantDocks ? () => setAssistantOpen(false) : undefined}
+              collapsed={paperThread && !assistantOpen}
+              onClose={paperThread ? () => setAssistantOpen(false) : undefined}
+              dock={dock}
+              onDockChange={setDock}
+              quote={quote?.threadId === activeThread?.id ? quote : null}
+              onQuoteClear={() => setQuote(null)}
             />
-            {paperThread && activeThread && (
-              <CourseAssistant
-                key={`course:${activeThread.id}`}
-                thread={activeThread}
-                collapsed={!(courseAssistantDocks && courseAssistantOpen)}
-                onClose={() => setCourseAssistantOpen(false)}
-                quote={courseQuote?.threadId === activeThread.id ? courseQuote : null}
-                onQuoteClear={() => setCourseQuote(null)}
-              />
-            )}
-            {paperThread && activeThread && (
-              <ReaderAssistant
-                key={`reader-assistant:${activeThread.id}`}
-                thread={activeThread}
-                collapsed={!(readerAssistantDocks && readerAssistantOpen)}
-                onClose={() => setReaderAssistantOpen(false)}
-                quote={readerQuote?.threadId === activeThread.id ? readerQuote : null}
-                onQuoteClear={() => setReaderQuote(null)}
-              />
-            )}
             {/* In General the chat is the middle: enlarged figures cover it,
               not the rail. */}
             {!paperThread && <div className="figure-layer" ref={setFigureLayer} />}

@@ -37,6 +37,14 @@
      scroll container, so nothing inside can scroll it by accident. */
   overflow: clip;
 }
+/* The assistant docked along the bottom (v9.0.0): the view above, the panel
+   under it, each the full width. */
+.shell-body.dock-bottom {
+  flex-direction: column;
+}
+.shell-body.dock-bottom > .tool-surface {
+  min-height: 0;
+}
 /* Before a graph exists there's no canvas to float the search hits and build
    progress over, so they get their own layer across the body. Zero-width and
    click-through: the landing chat sits underneath and must stay usable, while
@@ -256,6 +264,24 @@
 .panel-resize-handle:hover::before,
 .panel-resize-handle.dragging::before {
   opacity: 1;
+}
+/* Along a panel's top edge, for one docked at the bottom (the assistant). */
+.panel-resize-handle.horizontal {
+  top: -3px;
+  bottom: auto;
+  left: 0;
+  right: 0;
+  width: auto;
+  height: 7px;
+  cursor: row-resize;
+}
+.panel-resize-handle.horizontal::before {
+  top: 3px;
+  bottom: auto;
+  left: 0;
+  right: 0;
+  width: auto;
+  height: 1px;
 }
 /* Borderless ✕ / text button, used by every panel and drawer. */
 .link-btn {

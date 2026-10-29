@@ -412,6 +412,19 @@ a:hover {
     opacity: 0;
   }
 }
+/* The same, for a panel docked along the bottom (the assistant, v9.0.0). */
+@keyframes panel-in-bottom {
+  from {
+    margin-bottom: calc(-1 * var(--panel-height, 320px));
+    opacity: 0;
+  }
+}
+@keyframes panel-out-bottom {
+  to {
+    margin-bottom: calc(-1 * var(--panel-height, 320px));
+    opacity: 0;
+  }
+}
 
 /* Crossfade the complete scene, including graph canvases, on a theme change. */
 ::view-transition-old(root),

@@ -8,7 +8,7 @@
  *
  * It sends only the paper's arXiv id and the section in view; the server lays
  * the paper out from the document it already cached for the Reader
- * (`routes/agents.py`, `_reading_context`). The section in view is the
+ * (`assistant/context.py`, `reading_context`). The section in view is the
  * Reader's to know, and changes on every scroll, so the Reader writes it here
  * (`setReadingSection`) rather than into the store, where each scroll would
  * re-render whatever reads it; it's only needed at the moment of asking.
@@ -22,21 +22,22 @@ import {
   streamAskReader,
   streamGuideReader,
   type Beat,
+  type ChatMsg,
+  type PdfPlace,
   type Provider,
 } from '../api'
 import {
   askAssistant,
-  clearAssistantChat,
   lectureAssistant,
   passageMessage,
-  stopAssistant,
   type AssistantQuestion,
 } from '../assistant/askAssistant'
 import { isCurrentMap } from '../knowledge/model'
 import type { AppDispatch, RootState } from '../store'
 import type { ThreadRecord } from '../store/explorations'
 import { passagesLit } from '../store/highlight'
-import { questionPassage } from './passages'
+import { answerQuotes, questionPassage } from './passages'
+import { labelsInPassage } from './textBox'
 
 /** The section in view in each thread's Reader, by thread id. */
 const readingSections = new Map<string, string>()
@@ -69,8 +70,8 @@ export function documentRef(thread: ThreadRecord): string | null {
 }
 
 /**
- * Ask the Reader's assistant, streaming the answer into the thread's Reader
- * chat. Does nothing for a thread with no paper to read.
+ * Ask the Reader's assistant, streaming the answer into the dock's chat.
+ * Does nothing for a thread with no paper to read.
  *
  * @param request The question and the thread it is about.
  * @returns The thunk; it settles when the answer has ended, however it ended.
@@ -83,26 +84,6 @@ export function askReader(request: AssistantQuestion) {
     const title = thread.paper?.title ?? thread.title
     return (body, handlers) => streamAskReader({ ...body, paper, section, title }, handlers)
   })
-}
-
-/**
- * Stop the answer streaming in a thread's Reader chat, keeping what it has
- * written.
- *
- * @param threadId The thread.
- */
-export function stopReaderAsk(threadId: string): void {
-  stopAssistant(threadId, 'reader')
-}
-
-/**
- * Stop any answer and clear a thread's Reader chat.
- *
- * @param threadId The thread.
- * @returns The thunk.
- */
-export function clearReaderChat(threadId: string) {
-  return clearAssistantChat(threadId, 'reader')
 }
 
 /** What each of the Reader's highlight-menu actions asks for. */
@@ -146,6 +127,37 @@ export function beatLight(beat: Beat): { passage: string | null; labels: string[
 }
 
 /**
+ * What an answer lights in the paper (v8.45.0): **the passage its question
+ * was asked about**, exactly as highlighted, with its place in the PDF and
+ * the labels it covers; else, for an answer to a typed question, its
+ * ⟦quotes⟧ (Patrick, 2026-10-25). Pure, so an answer can be lit from beside
+ * the Reader (`useReaderView`) and from another view, which goes to the
+ * Reader first (v9.0.0, `teacher/Teacher`).
+ *
+ * @param chat The chat the answer is in.
+ * @param index The answer's index.
+ * @returns The passage, its places and labels, and the quotes to light.
+ */
+export function answerLight(
+  chat: ChatMsg[],
+  index: number,
+): { passage: string | null; places: PdfPlace[]; labels: string[]; quotes: string[] } {
+  const asked = chat[index - 1]
+  const user = asked?.role === 'user' ? asked : null
+  const passage = user ? questionPassage(user.text) : null
+  const places = user?.places ?? []
+  // A question from before labels were kept reads them off its words.
+  const labels = user?.labels ?? (passage ? labelsInPassage(passage) : [])
+  const asHighlighted = !!passage || places.length > 0
+  return {
+    passage,
+    places,
+    labels,
+    quotes: asHighlighted ? [] : answerQuotes(chat[index]?.text ?? ''),
+  }
+}
+
+/**
  * The course's concepts the student has checked off, and those they haven't,
  * for the guided read to take quickly or slowly.
  *
@@ -166,8 +178,8 @@ export function courseNames(thread: ThreadRecord): { known: string[]; learning: 
 
 /**
  * Give a lecture on the paper in the Reader (v8.50.0, the guided read): the
- * whole paper, beat by beat in its own order, streamed into the Reader
- * Assistant's chat as one turn. **It follows itself as it is written**, as
+ * whole paper, beat by beat in its own order, streamed into the dock's chat
+ * as one turn. **It follows itself as it is written**, as
  * the Citation Graph's lecture does (Patrick): each beat lights its passage
  * and the Reader goes there as it arrives, for as long as the reader is
  * still following (the lit beat is the one before it). Clicking a beat,

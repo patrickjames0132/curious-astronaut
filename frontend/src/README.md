@@ -32,10 +32,10 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │                                 the body (a centred landing chat) and the
    │                                 overlays get their own layer; a paper
    │                                 thread shows its card home or the tool a
-   │                                 card opened; the assistant docks beside
-   │                                 the Citation Graph, the course assistant
-   │                                 (v8.25.0) beside the Knowledge Graph, each
-   │                                 hidden elsewhere with its own chat.
+   │                                 card opened, with one assistant docked
+   │                                 beside it (right or bottom) or behind
+   │                                 the floating astronaut (v9.0.0), talking in the
+   │                                 dock's chat (store/chats.ts).
    │                                 Teacher stays at one position in the tree
    │                                 across all three, so the switch never
    │                                 remounts it — see teacher/README.md.
@@ -80,13 +80,14 @@ components nest inside their parent's folder (e.g. `teacher/transcript/`).
    │  │  └─ highlight menu         selection/SelectionMenu.tsx (shared:
    │  │                              Explain · Expand · Chat here, v8.25.0)
    │  └─ image lightbox            figures/Lightbox.tsx
-   ├─ Knowledge Graph Assistant    knowledge/assistant/CourseAssistant.tsx —
-   │                                 docked beside the Knowledge Graph; its
-   │                                 own chat (store/chats.ts). The panel is
-   │                                 assistant/DockedAssistant.tsx (shared)
-   ├─ Reader Assistant             reader/ReaderAssistant.tsx — docked
-   │                                 beside the Reader (v8.38.0), the same
-   │                                 shared panel, its own chat
+   ├─ the assistant, docked        teacher/Teacher.tsx — one panel beside
+   │                                 every view of a paper (v9.0.0), right or
+   │                                 bottom; the course and the Reader lend it
+   │                                 their words and asking (assistant/views.ts:
+   │                                 knowledge/assistant/useCourseView.ts,
+   │                                 reader/useReaderView.ts)
+   ├─ the floating astronaut       assistant/AssistantLauncher.tsx — opens
+   │                                 it while it is closed; dragged anywhere
    ├─ graph area                   graph/GraphExplorer.tsx
    │  ├─ overlays (from the shell): loading / error, and the ↑ back up to
    │  │                              the paper's cards  (App.tsx)

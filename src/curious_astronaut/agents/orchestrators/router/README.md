@@ -26,10 +26,10 @@ This package is that model half, finally wanted. The difference is the whole
 reason it exists: **nothing here knows which workflow it wants.** The caller is
 a composer holding a sentence a person typed, and working out what that
 sentence *is* is the entire job. So the shape is deliberately not the old
-one — no enum threaded through unrelated routes, no single funnel. `/api/ask`
-and `/api/lecture` still exist and are still called directly by everything
-that already knows (a reader correcting a route). The router is asked only
-when the answer is genuinely unknown.
+one — no enum threaded through unrelated routes. Everything that already
+knows the workflow (a reader correcting a route) names it to
+`/api/assistant` and is never classified. The router is asked only when the
+answer is genuinely unknown.
 
 ## Two stages, cheapest first
 
@@ -179,14 +179,45 @@ and asking in the chat. As here, a message that asks in so many words
 ("walk me through this paper", "give me a lecture") is routed without a
 model
 (`obvious_reading`); anything else is the summarizer model's call, and any
-failure answers. Served by `POST /api/route_reader`.
+failure answers. Served by `POST /api/assistant/route` in the `reader`
+view.
+
+## Where a message is about (v9.0.0)
+
+`place.py` makes the third decision, for the one assistant (the OnePager's
+"One assistant", stage 4b): what a message is about. The view it was typed
+in (`here`), no view (`general`: a search, a broad question, small talk),
+or another of the exploration's papers (`paper`, by its number in the list
+it was shown) and which of its tools: its Citation Graph for citations and
+lineage, its Knowledge Graph course for what to learn first, its Reader for
+what the paper says. Or, since stage 4c, several papers at once (`papers`,
+their numbers): a bridge question, comparing or connecting them, which no
+one view shows. The answer is the question's tag, and the view it names is
+the one whose context the answer gets, open or not. Served by
+`POST /api/assistant/route/place`.
+
+The client asks only when it could matter: an exploration with no paper but
+the one on screen has nowhere else to point (Patrick, 2026-10-26: no model
+call on every message), and a question with a passage or a paper attached
+is about that. **Every failure keeps it here**, for the reason the other
+routers answer: a question kept where it was typed costs the reader one
+click on its correction ("Ask from … instead" on the bubble), where one
+sent elsewhere by mistake costs an answer about the wrong paper. The prompt
+says so, and the output is read as sensibly as it can be: a paper number it
+was never shown, or the paper and view already open, stays here; a paper
+with no tool is the Reader; a bridge's numbers are deduplicated and checked,
+and one that names a single real paper is about that paper (its Reader),
+none at all here.
 
 ## Who uses it
 
-`POST /api/route` (`routes/agents.py`), called by the chat composer before it
-picks between `streamAsk` and `streamLecture`; `POST /api/route/papers`,
-called by the same composer only when the first answered `named`. Nothing
-else. (Until v7.23.0 a `/lecture` command bypassed the router entirely — the
+The assistant (`orchestrators/assistant`, v9.0.0), which asks `route` for
+a message typed beside the Citation Graph and `route_reading` for one typed
+in the Reader, and asks neither in a view with only one workflow. Its
+`POST /api/assistant/route` is called by the chat composer before it picks
+between `streamAsk` and `streamLecture`; `POST /api/assistant/route/papers`
+(`resolve_papers`), by the same composer only when the first answered
+`named`. Nothing else. (Until v7.23.0 a `/lecture` command bypassed the router entirely — the
 deterministic path, no classify, no guess. It went because the router reads
 everything the command could say and more: a two-value command has no way to
 spell "on the references".)

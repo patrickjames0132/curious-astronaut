@@ -1004,6 +1004,162 @@
 
 ### AI teacher & lectures
 
+- [x] **One assistant: chats own the conversation, views lend it context** *(v9.0.0)* —
+      Patrick's idea (2026-10-24), redesigned from the ground up with Claude
+      (2026-10-26). Today a paper thread is a *view* (cards, Citation Graph,
+      Knowledge Graph, Reader, Reviews) **and** three conversations (the
+      Citation Graph's chat, `courseChat`, `readerChat`), while a Chat is a
+      conversation with no view. So conversations live in four places, each
+      tool docks its own assistant ("almost too many" side columns), and
+      `@thread[…]` gets used everywhere to stitch them together.
+
+      **The settled design:**
+      - **An exploration is a set of papers plus several chats.** The
+        sidebar keeps its Chats and Papers groups (v8.31.0), but they now
+        mean *conversations* and *views*. **Papers own no chats**: they
+        keep their view state (graph, course, reading place, reviews) and
+        nothing else.
+      - **One assistant with two shapes.** **Full screen** when a chat is
+        clicked with no view open: this is the landing page, which is
+        simply the home of an exploration with no papers yet (the first
+        message creates the exploration, as today). **Docked** beside a
+        view, closable to a small floating icon in the bottom-right corner
+        (draggable, after ChatGPT's desktop companion). No tool keeps its
+        own column.
+      - **The dock switches its own chat** (Patrick, at 2a's browser test,
+        2026-10-26, replacing "the sidebar is the only switcher" and the
+        Expand button): the chat's name under the dock's title is a menu
+        listing the exploration's chats and ＋ New chat, so a conversation
+        changes without leaving the view. The sidebar still opens a chat
+        full screen. Shipped in 2a.
+      - **Opening a view keeps the chat you were last in.** Opening a paper
+        never swaps your conversation.
+      - **A chat crosses papers on purpose.** Every turn carries a **tag**,
+        `General` or `<paper> › <tool>` (breadcrumbs like the settings
+        sub-pages); a bridge question may carry several papers. `General`
+        is a place too: the exploration's home. A tag is a link to its
+        view, opened where the turn was asked with its highlights replayed,
+        and it can be corrected on the question's bubble, as "Answered as a
+        lecture · Ask as a question instead" corrects the router today.
+        Filtering a chat by tag gives back a per-tool conversation when one
+        is wanted. This is most of **Bridge two topics** (below): a chat
+        whose turns span two fields already is the bridge.
+      - **The router picks the tag**, in this order: what the question names
+        (`@` a paper is a fact, not a guess), what's on screen, the chat's
+        recent tags, then `General` (a search, a question about the
+        exploration). It already picks researcher or lecturer; scope is the
+        second decision it makes.
+      - **What's on screen decides the tools.** No view: paper search, paper
+        filters, 📚 sources. Citation Graph: expand, light nodes, lecture
+        over the graph. Knowledge Graph: lessons, placing a concept.
+        Reader: lighting passages, lecturing on the paper, guided reading.
+        One context-aware endpoint replaces `/api/ask`, `/api/ask_course`,
+        `/api/ask_reader`, `/api/lecture` and the two `route` calls.
+      - **Context stays scoped.** Turns tagged with the current scope go to
+        the model in full; the rest of the chat goes as summaries unless the
+        question pulls them in.
+      - **The agent never moves the view unasked.** An answer about a view
+        that isn't open is tagged with it, and the tag is the way there;
+        only "show me…" navigates.
+      - **Other chats are referenced with `@`, exactly as today.**
+        `siblingContext` (`teacher/history.ts`) already sends every other
+        chat's rolling summary as background and an `@`-mentioned chat's
+        full history. Later, if a whole chat proves too broad: `@` a tag's
+        slice of one.
+      - **Every highlight menu answers in the docked chat**: a lesson's
+        Explain / Expand / Chat and the Reader's Explain / Simplify / Chat,
+        opening the dock if closed.
+
+      **Stages, each shippable alone:**
+      1. **One brain.** The context-aware endpoint and the screen → tools
+         table. Today's UIs call it; nothing visible changes.
+      2. **Chats own the conversation**, split in two (Patrick, 2026-10-26):
+         - **2a, built.** Paper threads stop holding chats; every view's
+           dock talks in the chat you were last in, switched from a menu
+           under its title; each question is tagged with where it was
+           asked, from the screen (General or `<paper> › <tool>`), shown
+           once a chat crosses views and clickable back there. Tags go on
+           questions only: an answer sits under its question. This
+           reverses "assistants encapsulated per tool" (Patrick,
+           2026-10-09) on purpose.
+         - **2b, with stage 4.** The router decides the tag (General vs. the
+           screen vs. a named paper, moved from stage 1), tags can be
+           corrected, and an answer can use an off-screen view's context: a
+           tag naming a paper not on screen needs its context, and an
+           unloaded Citation Graph has no nodes to send.
+         **No migration, and a major version** (Patrick, 2026-10-26): saves
+         from 8.x aren't read, so this stage ships as **v9.0.0**. Nobody
+         else has installed it yet (only Patrick's two machines), so
+         clearing `data/` is the upgrade path.
+      3. **One body.** One assistant component for full screen, docked and
+         the floating icon, replacing the landing composer, `teacher/Teacher`
+         docked, and `assistant/DockedAssistant`; every highlight menu feeds
+         it. (Expand and the sidebar switching the dock went: 2a's chat
+         menu does that job.) **Built** (Patrick, 2026-10-26): `Teacher` is
+         the one panel; the course and the Reader lend it their words and
+         asking (`assistant/views`). It docks **right or along the bottom**
+         (a button by its ✕; dragging it to an edge was tried and dropped,
+         as the drag selected the page's text), pushes the view aside, and
+         covers it below 900px (✕ or Esc back). Closed, one 🎓 sits in the
+         top-right corner (draggable for one round, dropped: it stays
+         put). The groundwork existed: since v8.38.0
+         the Knowledge Graph's and Reader's assistants are one component on
+         one stream engine (`frontend/src/assistant/`).
+      4. **Reaching across.** Answers acting on views not on screen become
+         links; tags with several papers; filtering a chat by tag.
+
+      **Shipped as v9.0.0** (2026-10-28), every stage on one branch,
+      `feature/assistant-brain`, held until all four were built and
+      Patrick had tested the whole (his call, 2026-10-26). What landed:
+      - **Stage 1, one brain.** `agents/orchestrators/assistant/`: one
+        endpoint, `POST /api/assistant`, keyed by the view a question is
+        asked from (`general`, `citations`, `knowledge`, `reader`, and since
+        4c `papers`), with the screen → tools table in `views.py` and each
+        view's prompt context in `context.py`. It replaced `/api/ask`,
+        `/api/ask_course`, `/api/ask_reader`, `/api/lecture` and the two
+        route calls.
+      - **Stage 2a, chats own the conversation.** Paper threads hold no
+        chats; every view talks in the dock's chat (`store/chats`,
+        `ExplorationRecord.chatId`), switched from a menu under the panel's
+        title (`DockChatPicker`), and each question is tagged with where it
+        was asked (`TurnTag`). 8.x saves' paper chats are dropped on load:
+        no migration, hence the major version.
+      - **Stage 3, one panel.** `teacher/Teacher` is the one panel, full
+        screen on a chat and docked beside every view of a paper, right or
+        along the bottom (a FLIP morph between them); the course and the
+        Reader lend it their words and asking (`assistant/views`).
+      - **Stage 4a, links and a filter.** An answer asked beside another
+        view links there: its `[n]`s, quotes and beats go to that view and
+        light it, keeping the turn in view. Once a chat crosses places, a
+        "Showing: All ▾" menu filters it to one, grouped by paper.
+      - **Stage 4b, the router places a question** (`router/place.py`,
+        `POST /api/assistant/route/place`): here, General, or another paper
+        and its tool, asked only when the exploration holds a paper it
+        could mean. Placed elsewhere it is answered there without moving
+        the reader (`assistant/askAt`, a Citation Graph parked or built
+        quietly), and its bubble offers "Ask from … instead"; a lecture or
+        a guided read goes there instead, to be taught
+        (`assistant/pendingAsk`).
+      - **Stage 4c, several papers at once.** A bridge question is placed
+        as `papers` and answered over the papers themselves, numbered as
+        peers the researcher reads and expands, no graph built
+        (`researcher.answer(across=True)`). Its tag names each paper, each
+        title a link to its cards; the filter gathers them as "Across
+        papers".
+      - **The astronaut, and its name: Nova.** The closed panel's 🎓 became
+        Patrick's astronaut, cut frame by frame from his generated video
+        (background removed with a tracked crop and `birefnet`, tether
+        trimmed): 96px, still until hovered, floating while it is
+        (retimed to move at once and loop in 3.3s), an ink outline on the
+        light page, and draggable again, its spot remembered with a ↺ back
+        to the corner. The landing's two cuts hold his new painting. He is
+        **Nova** everywhere the UI named "the assistant" ("Nova — your AI
+        research assistant", "Ask Nova…", "Meet Nova" on the cards' tour,
+        "Hi, I'm Nova!" on the landing), and the agents answer to it (the
+        shared teaching voice; the place router reads "Nova" as never a
+        paper).
+      - **Left open:** the two animations below, filed as their own item.
+
 - [x] **Lesson images should show the concept itself, first** *(v8.32.0)* — the tutor's
       image search (v8.24.0) does a decent job, but what it finds tends to
       illustrate *auxiliary* ideas the lesson touches on, placed after their

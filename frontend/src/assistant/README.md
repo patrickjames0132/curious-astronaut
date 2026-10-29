@@ -1,64 +1,181 @@
 # `src/assistant`
 
-The **docked assistants** a tool keeps beside itself (v8.38.0): one panel and
-one stream engine shared by the Knowledge Graph's assistant (v8.25.0) and the
-Reader's (v8.38.0). They answer through the same graph-free researcher, each
-over what its tool shows, and differ only in their words, their chat and what
-they send. The Citation Graph's assistant (`teacher/Teacher`) is not one of
-these: it carries lectures, paper filters and the landing chat besides.
+**One assistant for every view** (v9.0.0, the OnePager's "One assistant",
+stage 3), called **Nova** wherever the UI names it: the panel's title, the
+launcher, the tooltips and the tour (the code keeps saying "assistant").
+The panel itself is `teacher/Teacher`: a chat's landing surface,
+else docked beside whatever view of a paper is open, against the right edge
+or along the bottom, and behind a floating astronaut when closed. This package
+holds what that one panel is built from beyond the Citation Graph's own
+asking (`teacher/useConversation`): the engine the Knowledge Graph and the
+Reader ask through, the shape a view lends the panel, the chat it talks in,
+and the dock's controls. Until stage 3 the course (v8.25.0) and the Reader
+(v8.38.0) each docked a panel of their own here, `DockedAssistant`.
 
 ```
 assistant/
-  DockedAssistant.tsx — the panel: transcript, composer, quote card, ✕, the @ list
-  askAssistant.ts     — the stream engine (a thunk), Stop and Clear, the
-                        passage messages (quotedMessage, passageMessage)
+  views.ts            — what a view lends the one assistant (AssistantView):
+                        its words, how it asks, what its answers light
+  askAssistant.ts     — the stream engine (`streamAnswer`, a thunk), the
+                        course's and the Reader's asking through it, Stop and
+                        Clear, the passage messages
+  askAt.ts            — asking a question in a view that isn't on screen,
+                        in General, or across several papers, where the
+                        router placed it (stages 4b, 4c)
+  pendingAsk.ts       — a placed lecture, waiting for the panel that arrives
+                        at its view to ask it (stage 4b)
+  keepChatInView.ts   — the full-screen chat, taking the reader to a paper,
+                        asks the shell to open the dock there
+  inFlight.ts         — the answer in flight in each chat, shared with
+                        teacher/useConversation (v9.0.0)
+  useTurnTags.ts      — a question's tag as its bubble shows it, and the
+                        anchor a click leaves to keep its turn in view (v9.0.0)
+  TagFilter.tsx       — the "Showing: All ▾" menu filtering a chat by where
+                        its questions were asked (v9.0.0, stage 4a)
+  DockChatPicker.tsx  — the line under the docked panel's title: its chat, a
+                        menu to switch to another or start one, and with two
+                        chats or more a 🗑 that deletes it, in two clicks
+                        (v9.0.0)
+  AssistantLauncher.tsx — the astronaut, top-right until dragged of the view's canvas: opens it
+                        while closed (v9.0.0)
 ```
 
-The tools' own layers are thin:
+The views' own layers are thin:
 
-| Tool | Panel | Ask | Chat key | Saved as |
-| --- | --- | --- | --- | --- |
-| Knowledge Graph | `knowledge/assistant/CourseAssistant` | `askCourse` (`/api/ask_course`, the course) | `<thread>:knowledge` | `ThreadRecord.courseChat` |
-| Reader | `reader/ReaderAssistant` | `askReader` (`/api/ask_reader`, the paper id and section) | `<thread>:reader` | `ThreadRecord.readerChat` |
+| View | Lends it | Ask | Tag |
+| --- | --- | --- | --- |
+| Knowledge Graph | `knowledge/assistant/useCourseView` | `askCourse` (the `knowledge` view: the course) | `<paper> › Knowledge Graph` |
+| Reader | `reader/useReaderView` | `askOrGuideReader` (the `reader` view: the paper id and section) | `<paper> › Reader` |
+| Citation Graph, cards, Criticisms, a chat | nothing: `Teacher` asks itself (`useConversation`) | `send` | `<paper> › Citation Graph`, or General |
+
+All ask the one backend assistant, `POST /api/assistant` (v9.0.0), naming
+the view they ask from (`api/agents.ts`); the view decides what the model
+reads and which tools it gets.
 
 ## Why it is shaped like this
 
-- **Generalized, not copied** (v8.38.0). The Reader needed what the
-  Knowledge Graph's assistant already was, with different words and context.
-  `CourseAssistant` and `askCourse` were lifted here with every
-  course-specific piece made a parameter: the panel takes a `copy` (title,
-  hint, notes line, tip, placeholder, class, width key), an `available` flag
-  and an `ask` thunk; the engine takes a `prepare(thread)` that returns the
-  tool's stream call, or null when there is nothing to ask over yet. The
-  course's messages are byte-for-byte what they were, so its tests didn't
-  change.
+- **One panel, views lend it what's theirs** (v9.0.0, stage 3). The course
+  and the Reader each docked a panel (v8.25.0, v8.38.0; generalized into
+  one `DockedAssistant` in v8.38.0), beside a third for the Citation Graph,
+  and each kept a column. Now `Teacher` is the panel for all of them, and a
+  view's hook gives it an `AssistantView`: a `copy` (title, hint, notes line,
+  tip, placeholder, class), an `available` flag, an `ask` thunk and, for
+  the Reader, its `passages`. `Teacher` sends through the view's `ask` when
+  there is one, else through `useConversation` as it always has, so the
+  Citation Graph's routing, scope and lectures are untouched. The engine
+  takes a `prepare(thread)` that returns the view's stream call, or null
+  when there is nothing to ask over yet.
 - **A thunk, not a hook.** Two places ask: the panel's composer, and a
   highlighted passage's action in the tool, which may fire while the panel is
   still closed (the shell opens it through the tool's `onAssistant`). The
   stream addresses its chat by key, so leaving the tool or the thread never
   stops or misroutes an answer; asking again in the same chat supersedes the
   last question.
-- **Its own chat per tool** (Patrick, 2026-10-09). `store/chats` lists the
-  side-chat tools once (`SIDE_CHAT_FIELDS`), and saving, seeding, summaries,
-  the `@` list, the rail's working dot and deletion all loop over it, so a
-  third docked assistant is one entry there plus its layer here.
+- **One chat for every view** (v9.0.0, the OnePager's "One assistant",
+  stage 2a). Until v9.0.0 each tool kept its own chat (Patrick, 2026-10-09);
+  now a chat is a thread of its own and a tool is where a question was asked.
+  Two things follow. **One answer in flight per chat** (`inFlight.ts`):
+  the Citation Graph's engine and this one write to the same transcript, and
+  a stream writes to the chat's last turn, so both take the chat's one slot
+  and a new question supersedes whichever was answering. And **only a tool's
+  own answers light it** (`AnswerPassages.owns`): the dock's chat also holds
+  turns asked beside other views and papers, which stay unclickable here.
+- **Tags show once a chat crosses views** (`useTurnTags.ts`). A chat whose
+  questions were all asked with no view open is General throughout; from
+  the first question asked beside a paper, every question wears its tag,
+  and clicking one goes there (`workspace.openTag`), keeping the question in
+  view across the remount the navigation causes (`anchorTurn`).
+- **An answer from another view links there** (stage 4a, `teacher/Teacher`'s
+  `elsewhere`). What it lights is in that view: a graph's papers, a Reader's
+  passages. So clicking the answer, a `[n]`, a quote or a beat goes there
+  first, keeps the turn in view, then lights it, through the same highlight
+  the view would have set itself (`store/highlight`; `reader/askReader`'s
+  `answerLight` and `beatLight`).
+- **The router decides where a question is about** (stage 4b). Before a
+  question goes out, `teacher/Teacher` asks `api.routePlace` whether it is
+  about the view it was typed in, no view, or another of the exploration's
+  papers and its tool, but only when there is another paper it could mean,
+  and never for one with a passage or a paper attached. Placed elsewhere,
+  it is asked there (`askAt`) with that place's context, and the reader is
+  not moved: the course and the Reader read their paper off its thread, and
+  a Citation Graph not on screen is the one parked from the last visit or
+  built quietly (Patrick: build or reuse it, 2026-10-26), its finds waiting
+  on that paper. Its bubble says where it was typed (`ChatMsg.placedFrom`)
+  and offers to ask it there instead, as a re-routed lecture offers the
+  answer. `streamAnswer` is the one stream engine all of this runs on.
+  **Several papers at once** (stage 4c): a bridge question, comparing or
+  connecting papers, is tagged `across` with each of them
+  (`store/chats`'s `acrossTag`), and answered over the papers themselves,
+  numbered as peers the researcher can read and expand, with no graph
+  built (Patrick, 2026-10-27; `api.streamAcross`, the `papers` view). A
+  paper with no hydrated details yet has them fetched and kept on its
+  thread, as its cards would. Its tag has no one view to go to, so each
+  title in it is a link of its own, to that paper's cards, and so is a
+  `[n]` naming one of them; a `[n]` for a paper it expanded into opens it.
+  **A lecture goes there** (Patrick, 2026-10-27): placed on another paper's
+  Citation Graph or Reader and read as a lecture or a guided read, the
+  question can't be answered off-screen, since it lights its graph or paper
+  as it goes. So the panel goes to that view (the one exception to never
+  moving it unasked: being taught is asking to be shown), the question
+  waits in `pendingAsk`, and the panel that arrives asks it through the
+  ordinary path once its graph is built or its paper loaded.
+- **Following the chat to a paper keeps it in view** (Patrick,
+  2026-10-27). Full screen, a tag, an answer's link, a placed lecture or a
+  paper opened from the chat moves to a paper's view, where the dock is
+  closed by default; so it opens (`keepChatInView`, a window event the shell
+  listens for). The rail's own navigation leaves the dock as it was.
+- **Filtered by where it was asked** (`TagFilter.tsx`). Once a chat holds
+  questions from two places or more, "Showing: All ▾" at its top picks one,
+  and only the exchanges asked there show: each tool's conversation, back
+  when it is wanted. Per chat, forgotten on leaving it. A menu, grouped by
+  paper, rather than the row of chips it started as, which wrapped into
+  rows over the transcript as places added up (Patrick). Every bridge
+  question is one entry, "Across papers", after General, whichever papers
+  it named (Patrick).
 - **A passage is quoted with where it's from.** `PassageQuote` is `{text,
   from}`, `from` a phrase ("the lesson on Q-learning", "section 3.2,
   Attention") that the quote card shows ("From …") and the messages carry
   ("Explain this passage from …"), so a transcript reads on its own later.
 
-The OnePager's "One assistant" item (2026-10-24, redesigned 2026-10-26)
-plans to fold these panels into a single assistant docked beside whatever
-view is open, talking in the exploration's chats rather than per-tool ones;
-this package is the groundwork for it.
+- **Docks right or along the bottom** (Patrick, at stage 3: as PyCharm docks
+  a tool window). The header's dock button flips it, remembered, and the
+  panel morphs from one edge to the other (a FLIP in `teacher/Teacher`: drawn
+  in its old box, animated into the new, its contents fading through the
+  middle so the stretch never reads). (Dragging
+  its title toward an edge was tried and dropped: the drag selected the
+  text it passed over, Patrick.) The
+  graph, the course and the paper are wider than they are tall, so a bottom
+  dock costs them less. Below 900px it covers the view instead of
+  squeezing it, and Esc from inside puts it away.
+- **One launcher, in the corner, movable** (`AssistantLauncher`). Each tool
+  kept a 🎓 in its top-right corner; now one starts there over every view
+  (Patrick: the bottom right is where the views keep their find bars). The
+  🎓 was draggable for one round and Patrick preferred it staying put; with
+  the astronaut he brought dragging back. Dragged, it stays where it was
+  left (`ca.launcherSpot`, its distance from the canvas's top-right corner,
+  clamped by the stylesheet so a smaller canvas never loses it), and a ↺ on
+  hover puts it back. A press that moves under 4px is still a click.
+- **The astronaut floats only when reached for** (Patrick). The launcher is
+  the project's astronaut, 96px and free of a box: a still frame
+  (`public/astronaut-still.png`) until the pointer is over it, when it
+  swaps to the animation (`public/astronaut.webp`); a click or the pointer
+  leaving stills it again, and reduced motion keeps it still. On the light
+  page it wears a thin ink outline and a firmer shadow, or its pale suit
+  fades into the white (Patrick, over a painted disc behind it). Both were cut
+  from Patrick's generated video (its painted background removed frame by
+  frame, the tether trimmed), the still being the animation's first frame
+  so the swap doesn't jump. It moves the moment it is hovered (Patrick): the
+  video's still opening and long rests are cut to a beat, its doubled
+  frames dropped, and the motion runs 1.5× the video's speed (a 3.3s loop).
 
 ## What an answer can light (v8.45.0)
 
-`DockedAssistant` takes an optional `passages` (`AnswerPassages`): told when
-an answer finishes, when one is clicked, and when one of its quotes is, and
-which answer is lit. Only the Reader's assistant passes it, to light the
-paper's words an answer is about (`reader/README.md`); without it answers
-stay unclickable, as the Knowledge Graph's are.
+A view may lend `passages` (`AnswerPassages`): told when an answer is
+clicked, and when one of its quotes is, and which answer is lit; the
+Reader's view watches for an answer finishing itself. Only the Reader's
+view has them, to light the paper's words an answer is about
+(`reader/README.md`); without them answers stay unclickable, as the
+Knowledge Graph's are.
 
 A passage highlighted in the Reader's PDF view carries **places** too
 (`PassageQuote.places`, `AssistantQuestion.places`): where it sits on the
@@ -75,17 +192,22 @@ sent: the Reader lights the passage by them in whichever view it's in.
 `lectureAssistant` streams a lecture into a tool's chat as one answer turn
 of beats, with `askAssistant`'s bookkeeping (a new message supersedes it,
 Stop and Clear end it, a lecture that produced nothing says so on its
-turn). The Reader's guided read is its one user. `DockedAssistant` passes
-beat clicks and Back / Next through `AnswerPassages` (`activeBeat`,
-`onBeat`). The lecture's button, **Give Lecture**, is the Reader's, by the
+turn). The Reader's guided read is its one user. `Teacher` passes beat
+clicks and Back / Next through `AnswerPassages` (`activeBeat`, `onBeat`). The lecture's button, **Give Lecture**, is the Reader's, by the
 paper's title, not the panel's.
 
 ## Verified by
 
 The tools' own tests drive it end to end: `test/knowledge/KnowledgeNetwork.test.tsx`
-(Explain and Chat into the course's chat) and `test/reader/Reader.test.tsx`
-(Explain, Simplify and Chat into the Reader's), with `test/store/chats.test.ts`
-and `test/store/threads.test.ts` for the chats' keys, listing and saving.
+(Explain and Chat from the course) and `test/reader/Reader.test.tsx`
+(Explain, Simplify and Chat from the Reader), into the dock's chat.
+`test/assistant/askAssistant.test.ts` pins the tag and that a question
+supersedes the other engine's answer in the same chat;
+`test/teacher/transcript/ChatMessage.test.tsx` the tag on the bubble; and
+`test/store/chats.test.ts` and `test/store/threads.test.ts` the dock's chat,
+listing, saving and where a tag goes; `test/assistant/AssistantLauncher.test.tsx`
+that the astronaut opens it; and
+`test/App.test.tsx` one assistant beside every view, docked right or bottom.
 
 Quick response stamps `ChatMsg.quickResponse` when the replacement turn starts,
 before streaming begins. All chat transcripts show a muted “Quick response”

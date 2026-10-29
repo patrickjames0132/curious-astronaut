@@ -541,3 +541,49 @@ describe('a question with @ attachments (v8.29.0)', () => {
     expect(onThreadOpen).toHaveBeenCalledWith('t9')
   })
 })
+
+describe('a question’s tag (v9.0.0)', () => {
+  it('says where it was asked, and goes there without lighting the bubble', () => {
+    const onTagOpen = vi.fn()
+    const onActivate = vi.fn()
+    render(
+      <ChatMessage
+        message={{ role: 'user', text: 'What is attention?' }}
+        active={false}
+        streaming={false}
+        onEnlarge={() => {}}
+        onActivate={onActivate}
+        tagLabel="Attention › Reader"
+        onTagOpen={onTagOpen}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Attention › Reader' }))
+    expect(onTagOpen).toHaveBeenCalledOnce()
+    expect(onActivate).not.toHaveBeenCalled()
+  })
+
+  it('is plain text when there is nowhere to go, and absent without a label', () => {
+    const { container, rerender } = render(
+      <ChatMessage
+        message={{ role: 'user', text: 'q' }}
+        active={false}
+        streaming={false}
+        onEnlarge={() => {}}
+        tagLabel="Gone › Citation Graph"
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Gone › Citation Graph' })).toBeNull()
+    // The title gives way to a narrow bubble before the tool does.
+    expect(screen.getByTitle('Gone › Citation Graph').textContent).toBe('Gone › Citation Graph')
+    expect(container.querySelector('.chat-tag-tool')?.textContent).toBe(' › Citation Graph')
+    rerender(
+      <ChatMessage
+        message={{ role: 'user', text: 'q' }}
+        active={false}
+        streaming={false}
+        onEnlarge={() => {}}
+      />,
+    )
+    expect(container.querySelector('.chat-tag')).toBeNull()
+  })
+})

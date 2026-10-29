@@ -47,8 +47,11 @@ interface ResizeBounds {
    *  and this both apply; the smaller wins. */
   maxFraction?: number
   /** Which edge the panel is docked against. A right-docked panel widens as
-   *  the pointer moves left; a left-docked one as it moves right. */
-  side?: 'left' | 'right'
+   *  the pointer moves left; a left-docked one as it moves right. A
+   *  bottom-docked one (the assistant, v9.0.0) is sized by its height: it
+   *  grows as the pointer moves up, against the window's height, and the
+   *  hook's `width` is that height. */
+  side?: 'left' | 'right' | 'bottom'
   /** Opt in to folding the panel open/shut by dragging the same handle. */
   fold?: FoldByDrag
 }
@@ -78,12 +81,17 @@ export interface FoldByDrag {
  *
  * @param max         The px ceiling.
  * @param maxFraction Share of the window the panel may occupy.
+ * @param vertical    Measure against the window's height (a bottom-docked
+ *                    panel) rather than its width.
  * @returns The effective ceiling in px (just `max` with no window — the hook
  *          is exercised in node-environment tests too).
  */
-function viewportCeiling(max: number, maxFraction: number): number {
+function viewportCeiling(max: number, maxFraction: number, vertical = false): number {
   if (typeof window === 'undefined') return max
-  return Math.min(max, Math.round(window.innerWidth * maxFraction))
+  return Math.min(
+    max,
+    Math.round((vertical ? window.innerHeight : window.innerWidth) * maxFraction),
+  )
 }
 
 export interface ResizablePanel {
@@ -115,15 +123,16 @@ export function useResizablePanel(
   foldRef.current = fold
   // The window's contribution to the ceiling, kept in state so a resize
   // re-renders the panel at its new cap.
-  const [ceiling, setCeiling] = useState(() => viewportCeiling(max, maxFraction))
+  const vertical = side === 'bottom'
+  const [ceiling, setCeiling] = useState(() => viewportCeiling(max, maxFraction, vertical))
   useEffect(() => {
-    const onResize = () => setCeiling(viewportCeiling(max, maxFraction))
+    const onResize = () => setCeiling(viewportCeiling(max, maxFraction, vertical))
     // Also once on mount: the window may have been resized between the state
     // initialiser above and this effect (and, in tests, before either).
     onResize()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
-  }, [max, maxFraction])
+  }, [max, maxFraction, vertical])
 
   // In a window too narrow for even `min`, the floor gives way rather than the
   // canvas: a panel wider than its share of the screen is the bug being fixed.
@@ -148,15 +157,18 @@ export function useResizablePanel(
   const widthRef = useRef(width)
   widthRef.current = width
 
-  const onHandlePointerDown = useCallback((event: ReactPointerEvent) => {
-    event.preventDefault()
-    // A folded panel measures from the width it actually shows, not from the
-    // width it remembers — otherwise the first unfolding drag would start
-    // 200px ahead of the pointer.
-    const showing = foldRef.current?.collapsed ? foldRef.current.collapsedWidth : widthRef.current
-    origin.current = { startX: event.clientX, startWidth: showing }
-    setDragging(true)
-  }, [])
+  const onHandlePointerDown = useCallback(
+    (event: ReactPointerEvent) => {
+      event.preventDefault()
+      // A folded panel measures from the width it actually shows, not from the
+      // width it remembers — otherwise the first unfolding drag would start
+      // 200px ahead of the pointer.
+      const showing = foldRef.current?.collapsed ? foldRef.current.collapsedWidth : widthRef.current
+      origin.current = { startX: vertical ? event.clientY : event.clientX, startWidth: showing }
+      setDragging(true)
+    },
+    [vertical],
+  )
 
   /** End the drag where the pointer is still down: the fold has taken over.
    *
@@ -176,8 +188,13 @@ export function useResizablePanel(
       // Right-docked: leftward drag (smaller clientX) widens. Left-docked is
       // the mirror — the pointer moves away from the panel's own edge either
       // way, which is the only thing that has to feel the same.
+      // Bottom-docked: an upward drag (smaller clientY) makes it taller.
       const travelled =
-        side === 'left' ? event.clientX - start.startX : start.startX - event.clientX
+        side === 'left'
+          ? event.clientX - start.startX
+          : side === 'bottom'
+            ? start.startX - event.clientY
+            : start.startX - event.clientX
       const dragged = start.startWidth + travelled
       const folding = foldRef.current
       if (folding?.collapsed) {

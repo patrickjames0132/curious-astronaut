@@ -21,9 +21,24 @@ vi.mock('../src/graph/GraphExplorer', () => ({
   ),
 }))
 vi.mock('../src/teacher/Teacher', () => ({
-  default: ({ collapsed, onClose }: { collapsed?: boolean; onClose?: () => void }) => (
-    <aside data-testid="teacher" data-collapsed={String(!!collapsed)}>
+  default: ({
+    collapsed,
+    onClose,
+    dock,
+    onDockChange,
+  }: {
+    collapsed?: boolean
+    onClose?: () => void
+    dock?: 'right' | 'bottom'
+    onDockChange?: (dock: 'right' | 'bottom') => void
+  }) => (
+    <aside data-testid="teacher" data-collapsed={String(!!collapsed)} data-dock={dock}>
       {onClose && <button onClick={onClose}>Close assistant</button>}
+      {onDockChange && (
+        <button onClick={() => onDockChange(dock === 'right' ? 'bottom' : 'right')}>
+          Flip dock
+        </button>
+      )}
     </aside>
   ),
 }))
@@ -35,26 +50,12 @@ vi.mock('../src/knowledge/KnowledgeNetwork', () => ({
     <main data-testid="knowledge">{children}</main>
   ),
 }))
-vi.mock('../src/knowledge/assistant/CourseAssistant', () => ({
-  default: ({ collapsed, onClose }: { collapsed: boolean; onClose: () => void }) => (
-    <aside data-testid="course-assistant" data-collapsed={String(collapsed)}>
-      <button onClick={onClose}>Close course assistant</button>
-    </aside>
-  ),
-}))
 vi.mock('../src/reader/Reader', () => ({
   default: ({ children }: { children: ReactNode }) => <main data-testid="reader">{children}</main>,
 }))
 vi.mock('../src/criticisms/Criticisms', () => ({
   default: ({ children }: { children: ReactNode }) => (
     <main data-testid="criticisms">{children}</main>
-  ),
-}))
-vi.mock('../src/reader/ReaderAssistant', () => ({
-  default: ({ collapsed, onClose }: { collapsed: boolean; onClose: () => void }) => (
-    <aside data-testid="reader-assistant" data-collapsed={String(collapsed)}>
-      <button onClick={onClose}>Close reader assistant</button>
-    </aside>
   ),
 }))
 vi.mock('../src/shell/SideBar', () => ({ default: () => null }))
@@ -103,7 +104,7 @@ it('replaces the explorer rather than accumulating sibling panels when threads c
   }
 })
 
-it('docks the assistant beside the Citation Graph and nowhere else in a paper thread', async () => {
+it('docks one assistant beside every view of a paper, behind one launcher when closed (v9.0.0)', async () => {
   const store = configureStore({ reducer: { workspace, transcript, explorations } })
   render(
     <Provider store={store}>
@@ -111,117 +112,54 @@ it('docks the assistant beside the Citation Graph and nowhere else in a paper th
     </Provider>,
   )
   const teacher = () => screen.getByTestId('teacher')
-  const opener = () => screen.queryByRole('button', { name: 'Open the assistant' })
-  // General: the assistant is the landing surface, never collapsed.
+  const opener = () => screen.queryByRole('button', { name: 'Open Nova' })
+  // A chat: the assistant is the landing surface, never collapsed.
   expect(teacher().dataset.collapsed).toBe('false')
   expect(opener()).toBeNull()
 
   await act(async () => {
     await store.dispatch(loadGraph({ seed: 'paper' }))
   })
-  // On the graph it starts tucked away, with the 🎓 to open it.
+  // Beside a paper it starts tucked away, with the astronaut to open it.
   expect(teacher().dataset.collapsed).toBe('true')
   fireEvent.click(opener()!)
   expect(teacher().dataset.collapsed).toBe('false')
 
-  // Open stays remembered, but the cards and the Knowledge Graph dock nothing.
-  for (const tool of ['cards', 'knowledge'] as const) {
+  // Open beside every view, one panel throughout, no astronaut while it is.
+  for (const tool of ['cards', 'knowledge', 'reader', 'reviews', 'graph'] as const) {
     await act(async () => {
       await store.dispatch(openTool(tool))
     })
-    expect(screen.getByTestId(tool)).toBeTruthy()
-    expect(teacher().dataset.collapsed).toBe('true')
+    expect(teacher().dataset.collapsed).toBe('false')
     expect(opener()).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Close assistant' })).toBeNull()
+    expect(screen.getAllByTestId('teacher')).toHaveLength(1)
   }
-
-  // Back on the graph, it comes back as it was left: open.
+  // Closed, the astronaut is back, over whichever view.
+  fireEvent.click(screen.getByRole('button', { name: 'Close assistant' }))
+  expect(teacher().dataset.collapsed).toBe('true')
   await act(async () => {
-    await store.dispatch(openTool('graph'))
+    await store.dispatch(openTool('reader'))
   })
-  expect(teacher().dataset.collapsed).toBe('false')
-  expect(screen.getAllByTestId('teacher')).toHaveLength(1)
+  expect(opener()).toBeTruthy()
 })
 
-it('docks the course assistant beside the Knowledge Graph alone (v8.25.0)', async () => {
+it('docks on the right or along the bottom, and remembers which (v9.0.0)', async () => {
   const store = configureStore({ reducer: { workspace, transcript, explorations } })
-  render(
+  const { container } = render(
     <Provider store={store}>
       <App />
     </Provider>,
   )
-  // General has no course, so no course assistant.
-  expect(screen.queryByTestId('course-assistant')).toBeNull()
   await act(async () => {
     await store.dispatch(loadGraph({ seed: 'paper' }))
   })
-  const course = () => screen.getByTestId('course-assistant')
-  const opener = () => screen.queryByRole('button', { name: 'Open the Knowledge Graph Assistant' })
-  // Beside the Citation Graph it stays tucked away, with no 🎓 of its own.
-  expect(course().dataset.collapsed).toBe('true')
-  expect(opener()).toBeNull()
-  await act(async () => {
-    await store.dispatch(openTool('knowledge'))
-  })
-  expect(course().dataset.collapsed).toBe('true')
-  fireEvent.click(opener()!)
-  expect(course().dataset.collapsed).toBe('false')
-  // The Citation Graph's assistant stays put while it is open.
-  expect(screen.getByTestId('teacher').dataset.collapsed).toBe('true')
-  // Remembered across tools: away on the cards, open again on the course.
-  await act(async () => {
-    await store.dispatch(openTool('cards'))
-  })
-  expect(course().dataset.collapsed).toBe('true')
-  await act(async () => {
-    await store.dispatch(openTool('knowledge'))
-  })
-  expect(course().dataset.collapsed).toBe('false')
-  fireEvent.click(screen.getByRole('button', { name: 'Close course assistant' }))
-  expect(course().dataset.collapsed).toBe('true')
-})
-
-it('docks the Reader Assistant beside the Reader alone (v8.38.0)', async () => {
-  localStorage.removeItem('ca.readerAssistantOpen')
-  const store = configureStore({ reducer: { workspace, transcript, explorations } })
-  render(
-    <Provider store={store}>
-      <App />
-    </Provider>,
-  )
-  expect(screen.queryByTestId('reader-assistant')).toBeNull()
-  await act(async () => {
-    await store.dispatch(loadGraph({ seed: 'paper' }))
-  })
-  const reader = () => screen.getByTestId('reader-assistant')
-  const opener = () => screen.queryByRole('button', { name: 'Open the Reader Assistant' })
-  // Beside the Citation Graph or the course it stays tucked away, no 🎓.
-  expect(reader().dataset.collapsed).toBe('true')
-  expect(opener()).toBeNull()
-  await act(async () => {
-    await store.dispatch(openTool('knowledge'))
-  })
-  expect(opener()).toBeNull()
-  await act(async () => {
-    await store.dispatch(openTool('reader'))
-  })
-  expect(reader().dataset.collapsed).toBe('true')
-  fireEvent.click(opener()!)
-  expect(reader().dataset.collapsed).toBe('false')
-  // The other assistants stay put while it is open.
-  expect(screen.getByTestId('teacher').dataset.collapsed).toBe('true')
-  expect(screen.getByTestId('course-assistant').dataset.collapsed).toBe('true')
-  // Remembered across tools: away on the cards, open again in the Reader.
-  await act(async () => {
-    await store.dispatch(openTool('cards'))
-  })
-  expect(reader().dataset.collapsed).toBe('true')
-  await act(async () => {
-    await store.dispatch(openTool('reader'))
-  })
-  expect(reader().dataset.collapsed).toBe('false')
-  fireEvent.click(screen.getByRole('button', { name: 'Close reader assistant' }))
-  expect(reader().dataset.collapsed).toBe('true')
+  const body = () => container.querySelector('.shell-body')!
+  expect(screen.getByTestId('teacher').dataset.dock).toBe('right')
+  expect(body().classList.contains('dock-bottom')).toBe(false)
+  fireEvent.click(screen.getByRole('button', { name: 'Flip dock' }))
+  expect(screen.getByTestId('teacher').dataset.dock).toBe('bottom')
+  expect(body().classList.contains('dock-bottom')).toBe(true)
+  expect(localStorage.getItem('ca.assistantDock')).toBe('bottom')
 })
 
 it('puts “Back to reading” in the ↑’s place after a lesson opened from the Reader (v8.44.0)', async () => {
@@ -277,4 +215,22 @@ it('puts “Back to Criticisms” in the ↑’s place after a citing paper show
   // own: the card draws it (with Back to top), as the Reader does.
   expect(screen.queryByRole('button', { name: 'Back to Criticisms' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Back to this paper’s cards' })).toBeNull()
+})
+
+it('opens the dock when the full-screen chat takes the reader to a paper (v9.0.0)', async () => {
+  const { KEEP_CHAT_EVENT } = await import('../src/assistant/keepChatInView')
+  const store = configureStore({ reducer: { workspace, transcript, explorations } })
+  render(
+    <Provider store={store}>
+      <App />
+    </Provider>,
+  )
+  await act(async () => {
+    await store.dispatch(loadGraph({ seed: 'paper' }))
+  })
+  expect(screen.getByTestId('teacher').dataset.collapsed).toBe('true')
+  act(() => {
+    window.dispatchEvent(new Event(KEEP_CHAT_EVENT))
+  })
+  expect(screen.getByTestId('teacher').dataset.collapsed).toBe('false')
 })

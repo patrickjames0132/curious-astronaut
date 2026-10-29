@@ -34,6 +34,7 @@ import {
   type Provider,
   type SaveSessionBody,
   type SavedSessionMeta,
+  type TurnTag,
 } from '../api'
 import { withoutHop } from '../graph/expansions'
 import { cleanNode, countRels, foldRetiredEdgeTypes, foldRetiredNodeRels } from '../graph/model'
@@ -42,6 +43,7 @@ import { requestDraft } from '../teacher/composerDraft'
 import {
   awaitsTitle,
   explorationOpened,
+  dockChatSet,
   generalChatAdded,
   threadActivated,
   threadTool,
@@ -53,7 +55,6 @@ import {
 } from './explorations'
 import { resolveScope } from '../scope/resolve'
 import type { ResolvedScope } from '../scope/resolve'
-import { SIDE_CHAT_TOOLS, chatKey, chatOf } from './chats'
 import type { ExplorationsState, ThreadRecord } from './explorations'
 import type { Conversation, TranscriptState } from './transcript'
 
@@ -498,8 +499,6 @@ export const deleteThread = createAsyncThunk<
   }
   dispatch({ type: 'explorations/threadRemoved', payload: threadId })
   dispatch({ type: 'transcript/conversationDropped', payload: threadId })
-  for (const tool of SIDE_CHAT_TOOLS)
-    dispatch({ type: 'transcript/conversationDropped', payload: chatKey(threadId, tool) })
 })
 
 /** Start another chat and open it (v8.31.0): the rail's Chats ＋, or its
@@ -531,6 +530,25 @@ export const newGeneralChat = createAsyncThunk<
   await dispatch(activateThread(threadId))
 })
 
+/** Start another chat in the dock (v9.0.0), from the docked panel's chat
+ * picker: the view stays, and its assistant talks in the new chat. An empty
+ * chat is reused, as the rail's ＋ does.
+ */
+export const newDockChat = createAsyncThunk<void, void, { state: NavigationState }>(
+  'workspace/newDockChat',
+  async (_, { dispatch, getState }) => {
+    const state = getState()
+    const record = state.explorations.byId[state.explorations.activeId]
+    const empty = record?.threads.find(
+      (thread) =>
+        awaitsTitle(thread) &&
+        !thread.data.chat.length &&
+        !state.transcript.byKey[thread.id]?.chat.length,
+    )
+    dispatch(dockChatSet(empty?.id ?? dispatch(generalChatAdded()).payload))
+  },
+)
+
 /** Open a thread the way the rail does: a paper thread always lands on its
  * cards, even the one already on screen (Patrick, 2026-10-09). Since v8.16.0;
  * before that a rail click reopened the tool last used. Opening a paper *for*
@@ -547,20 +565,49 @@ export const openThread = createAsyncThunk<void, string, { state: NavigationStat
   },
 )
 
-/** Open the chat a `Context from` link names (v8.25.0): its thread, as the
- * rail does, and for a Knowledge Graph chat that tool, where its assistant
- * docks. A link saved before chats were per tool names a thread, which is
- * its Citation Graph chat, and lands on the cards as it always did.
- * @param key The chat's key (`store/chats`).
+/** Open the chat an attached chip or a `Context from` link names, as the rail
+ * does (v9.0.0: a chat is a thread of its own; until then a paper thread's
+ * tool could be one).
+ * @param key The chat's key, its thread's id (`store/chats`).
  */
 export const openChat = createAsyncThunk<void, string, { state: NavigationState }>(
   'workspace/openChat',
   async (key, { dispatch }) => {
-    const { threadId, tool } = chatOf(key)
-    await dispatch(openThread(threadId))
-    if (tool !== 'graph') await dispatch(openTool(tool))
+    await dispatch(openThread(key))
   },
 )
+
+/** Go where a question was asked (v9.0.0): its tag's paper, on the tool it was
+ * asked beside; or for General, the chat it is in, full screen. A question
+ * about several papers (stage 4c) has no one view: its tag goes to its first
+ * paper's cards, and each title in it to that paper's. A tag whose paper has
+ * since been deleted goes nowhere.
+ * @param target The question's tag, and the chat it is in.
+ * @param target.tag Where it was asked; absent for General.
+ * @param target.chatId The chat holding it.
+ */
+export const openTag = createAsyncThunk<
+  void,
+  { tag?: TurnTag; chatId: string },
+  { state: NavigationState }
+>('workspace/openTag', async ({ tag, chatId }, { dispatch, getState }) => {
+  if (!tag) {
+    await dispatch(activateThread(chatId))
+    return
+  }
+  const { explorations } = getState()
+  const record = explorations.byId[explorations.activeId]
+  const paper = record?.threads.find((thread) => thread.id === tag.threadId)
+  if (!paper) return
+  if (tag.tool === 'across') {
+    if (record.activeThreadId !== paper.id || threadTool(paper) !== 'cards')
+      await dispatch(openThread(paper.id))
+    return
+  }
+  if (record.activeThreadId !== paper.id) await dispatch(openThread(paper.id))
+  if (threadTool(paper) !== tag.tool || record.activeThreadId !== paper.id)
+    await dispatch(openTool(tag.tool))
+})
 
 /** Activate a sibling, rebuilding only when its graph is not in memory.
  * @param threadId The thread to show.

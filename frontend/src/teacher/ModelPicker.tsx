@@ -12,7 +12,7 @@
  * conversation like the answer it shapes, so moving between threads keeps
  * each one's own model and a background answer runs on the model it was
  * asked with. It is sent on every ask from that conversation and read
- * server-side by `routes/agents._opt_model`. It isn't saved: a reload goes
+ * server-side by the assistant's `main._model`. It isn't saved: a reload goes
  * back to the default.
  *
  * **What it lists** is what the Settings modal's model dropdowns list
@@ -116,7 +116,7 @@ function trimmed(from: [number, number], to: [number, number]) {
 /**
  * The picker's icon: a small network of hollow nodes, a hexagon around a hub,
  * every corner wired to its neighbours and the centre (Patrick, v8.33.0, in
- * place of a 🧠). Drawn in `currentColor` like the bar's 🗑 (`ClearGlyph`),
+ * place of a 🧠). Drawn in `currentColor` like the bar's 🗑 (`ui/ClearGlyph`),
  * so it takes the bar's hover colour and both themes, where an emoji keeps
  * its own.
  *

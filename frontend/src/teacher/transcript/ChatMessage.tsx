@@ -16,7 +16,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { PROVIDER_LABEL } from '../../api'
 import type { AnswerFigure, Beat, ChatMsg, Provider, TraceEvent } from '../../api'
 import MathText from '../../notation/MathText'
@@ -32,6 +32,8 @@ import QuickResponse from '../../ui/QuickResponse'
 import AttachedChips from '../../mentions/AttachedChips'
 import { splitAttached } from '../../mentions/attachments'
 import ResponseTimer from '../ResponseTimer'
+import type { TagPaperLink } from '../../assistant/useTurnTags'
+import { PAPER_SEPARATOR } from '../../store/chats'
 
 /**
  * Why a failed search never turned anything up, in plain words — "the budget
@@ -227,6 +229,28 @@ function TraceBlock({
   )
 }
 
+/** Between a paper's title and its tool's name in a tag (`store/chats`). */
+const TAG_SEPARATOR = ' › '
+
+/**
+ * A tag's words, the paper's title giving way to a narrow bubble before the
+ * tool's name does: the tool is the part that says where it was asked.
+ *
+ * @param props Component props.
+ * @param props.label The tag's label, `General` or `<paper> › <tool>`.
+ * @returns The two parts.
+ */
+export function TagText({ label }: { label: string }) {
+  const at = label.lastIndexOf(TAG_SEPARATOR)
+  if (at === -1) return <span className="chat-tag-paper">{label}</span>
+  return (
+    <>
+      <span className="chat-tag-paper">{label.slice(0, at)}</span>
+      <span className="chat-tag-tool">{label.slice(at)}</span>
+    </>
+  )
+}
+
 /**
  * Render one chat turn end-to-end.
  *
@@ -250,6 +274,11 @@ export default function ChatMessage({
   onBeatStep,
   onReroute,
   onQuick,
+  tagLabel,
+  onTagOpen,
+  tagPapers,
+  askInstead,
+  turn,
   // Defaults open: a caller that forgets to manage this shows the lecture
   // rather than silently hiding it, which is the right way round to fail.
   beatsOpen = true,
@@ -287,6 +316,20 @@ export default function ChatMessage({
   /** Send this turn's question to the other assistant — only wired when a
    *  model chose this one, so a reader's own choice carries no offer. */
   onReroute?: () => void
+  /** Where this question was asked (v9.0.0): `General`, or a paper and its
+   *  tool. Shown on the question; absent, nothing is. */
+  tagLabel?: string
+  /** Go where it was asked (undefined: the tag is plain text). */
+  onTagOpen?: () => void
+  /** A question about several papers (v9.0.0, stage 4c): each title links
+   *  to its own paper, in place of `onTagOpen`. */
+  tagPapers?: TagPaperLink[]
+  /** The router placed this question elsewhere (v9.0.0, stage 4b): ask it
+   *  where it was typed instead, named by `label`. */
+  askInstead?: { label: string; onAsk: () => void }
+  /** Its index in the chat, so the panel can find it again however the chat
+   *  is filtered (`data-turn`). */
+  turn?: number
   /** ⚡ Quick response: stop this working answer's search and answer now
    *  (v8.30.0). Offered only while it is still searching, before prose. */
   onQuick?: () => void
@@ -362,6 +405,7 @@ export default function ChatMessage({
   return (
     <div
       className={`chat ${message.role}${clickable ? ' clickable' : ''}${active ? ' active' : ''}`}
+      data-turn={turn}
       onClick={onActivate}
     >
       {lectureHeader || quickHeader ? (
@@ -390,6 +434,64 @@ export default function ChatMessage({
         </div>
       ) : (
         timer
+      )}
+      {tagLabel &&
+        (tagPapers ? (
+          <span className="chat-tag chat-tag-across" title={tagLabel}>
+            {tagPapers.map((paper, at) => (
+              <Fragment key={at}>
+                {at > 0 && <span className="chat-tag-tool">{PAPER_SEPARATOR}</span>}
+                {paper.onOpen ? (
+                  <button
+                    type="button"
+                    className="chat-tag-paper chat-tag-link"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      paper.onOpen?.()
+                    }}
+                    title={`Go to ${paper.title}`}
+                  >
+                    {paper.title}
+                  </button>
+                ) : (
+                  <span className="chat-tag-paper">{paper.title}</span>
+                )}
+              </Fragment>
+            ))}
+          </span>
+        ) : onTagOpen ? (
+          <button
+            type="button"
+            className="chat-tag"
+            onClick={(event) => {
+              event.stopPropagation()
+              onTagOpen()
+            }}
+            title={`Asked from ${tagLabel}: go there`}
+            aria-label={tagLabel}
+          >
+            <TagText label={tagLabel} />
+          </button>
+        ) : (
+          <span className="chat-tag" title={tagLabel}>
+            <TagText label={tagLabel} />
+          </span>
+        ))}
+      {tagLabel && askInstead && (
+        // The router's choice of place is visible and correctable, as its
+        // choice of lecture or answer is: one click asks it where it was
+        // typed, beside the answer it got where it was placed.
+        <button
+          type="button"
+          className="chat-tag-instead"
+          onClick={(event) => {
+            event.stopPropagation()
+            askInstead.onAsk()
+          }}
+          title={`Nova took this to be about where its tag says; ask it from ${askInstead.label} instead`}
+        >
+          Ask from {askInstead.label} instead
+        </button>
       )}
       <AttachedChips
         chips={attached.map((item, index) => {

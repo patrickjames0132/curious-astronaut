@@ -3,8 +3,9 @@
  *
  * Description:
  * The Knowledge Graph assistant's stream engine (v8.25.0): one question to
- * the researcher over a thread's course, its events dispatched into that
- * thread's Knowledge Graph chat (`store/chats`). Since v8.38.0 a thin layer
+ * the researcher over a thread's course, its events dispatched into the
+ * dock's chat (`store/chats`; until v9.0.0, the thread's own Knowledge Graph
+ * chat), tagged with the paper and its course. Since v8.38.0 a thin layer
  * over the docked assistants' shared engine (`assistant/askAssistant`), which
  * the Reader's uses too: this file says what the course sends, and words a
  * lesson's passages.
@@ -26,41 +27,19 @@
 import { streamAskCourse } from '../../api'
 import {
   askAssistant,
-  clearAssistantChat,
   passageMessage,
   quotedMessage as quotedPassage,
-  stopAssistant,
   type AssistantQuestion,
 } from '../../assistant/askAssistant'
 import { isCurrentMap } from '../model'
 import { courseContext } from './context'
 
-/**
- * Stop the answer streaming in a thread's Knowledge Graph chat, keeping what
- * it has written.
- *
- * @param threadId The thread.
- */
-export function stopCourseAsk(threadId: string): void {
-  stopAssistant(threadId, 'knowledge')
-}
-
-/**
- * Stop any answer and clear a thread's Knowledge Graph chat.
- *
- * @param threadId The thread.
- * @returns The thunk.
- */
-export function clearCourseChat(threadId: string) {
-  return clearAssistantChat(threadId, 'knowledge')
-}
-
 /** What one question to the course's assistant needs. */
 export type CourseQuestion = AssistantQuestion
 
 /**
- * Ask the course's assistant, streaming the answer into the thread's
- * Knowledge Graph chat. Does nothing when the thread has no course.
+ * Ask the course's assistant, streaming the answer into the dock's chat.
+ * Does nothing when the thread has no course.
  *
  * @param request The question and the thread it is about.
  * @returns The thunk; it settles when the answer has ended, however it ended.

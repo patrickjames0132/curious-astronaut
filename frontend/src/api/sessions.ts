@@ -27,7 +27,50 @@ import type {
  * the exact messages — text, the papers an answer cited, and the agent's
  * trace steps.
  */
+/** A tool a question can be asked from, beside a paper (v9.0.0). */
+export type TurnTool = 'graph' | 'knowledge' | 'reader'
+
+/** Where a question can be about: a paper's tool, or several papers at once
+ *  (`across`, v9.0.0 stage 4c: a bridge question, which no one view shows). */
+export type TagTool = TurnTool | 'across'
+
+/** One paper a tag names, as it was titled when the tag was stamped. */
+export interface TagPaper {
+  threadId: string
+  title: string
+}
+
+/**
+ * Where a question was asked (v9.0.0): a paper and the tool beside it. A
+ * question with no tag was asked in a chat with no view open: General.
+ * `title` is the paper's title when the tag was stamped, for a paper since
+ * deleted; a live paper's label reads its current title (`store/chats`).
+ * An `across` tag names every paper in `papers`, the first of them in
+ * `threadId` and `title`.
+ */
+export interface TurnTag {
+  threadId: string
+  title: string
+  tool: TagTool
+  /** A bridge question's papers, two or more (`across` only). */
+  papers?: TagPaper[]
+}
+
 export interface ChatMsg {
+  /**
+   * Where this question was asked (v9.0.0): a paper and its tool, or absent
+   * for General. A chat crosses papers, so each question says which view it
+   * was asked from; the bubble shows it, and clicking it goes there. User
+   * turns only.
+   */
+  tag?: TurnTag
+  /**
+   * Where the question was typed, when the router decided it was about
+   * somewhere else (v9.0.0, stage 4b): the view on screen then, or
+   * `'general'` for a chat. The bubble offers to ask it there instead.
+   * Absent when it was asked where it was typed. User turns only.
+   */
+  placedFrom?: TurnTag | 'general'
   /** Answer requested via Quick response; available before its first token. */
   quickResponse?: boolean
   /** Explicitly attached sibling discussions, with stable navigation ids. */
@@ -235,6 +278,8 @@ export interface SessionData {
     version: 1
     summary?: string
     activeThreadId: string
+    /** The dock's chat: the chat last in (v9.0.0, `store/chats`). */
+    chatId?: string
     threads: import('../store/explorations').ThreadRecord[]
   }
   /**

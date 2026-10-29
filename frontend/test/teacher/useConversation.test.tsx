@@ -6,12 +6,13 @@ import { Provider } from 'react-redux'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../../src/api'
 import workspace, {
+  activateThread,
   loadGraph,
   nodeSelectionSet,
   nodeSelectionToggled,
   visibleNodesSet,
 } from '../../src/store/workspace'
-import transcript from '../../src/store/transcript'
+import transcript, { selectConversation } from '../../src/store/transcript'
 import explorations from '../../src/store/explorations'
 import highlight from '../../src/store/highlight'
 import library from '../../src/store/library'
@@ -134,7 +135,7 @@ describe('the scope priority list, resolved once per turn', () => {
       createElement(Provider, { store }, children)
     const { result } = renderHook(() => useConversation(), { wrapper })
     const lastTurn = () => {
-      const chat = store.getState().transcript.byKey[store.getState().transcript.activeKey].chat
+      const chat = selectConversation(store.getState()).chat
       return chat[chat.length - 1]
     }
     return { store, result, streamLecture, streamAsk, resolve, lastTurn }
@@ -231,7 +232,7 @@ describe('the scope priority list, resolved once per turn', () => {
       await result.current.send('lecture me on these', undefined)
     })
     expect(lastTurn().routedTo).toBe('lecture')
-    const chat = store.getState().transcript.byKey[store.getState().transcript.activeKey].chat
+    const chat = selectConversation(store.getState()).chat
     await act(async () => {
       result.current.reroute(chat.length - 1)
       await Promise.resolve()
@@ -391,7 +392,7 @@ describe('the scope priority list, resolved once per turn', () => {
         options.signal?.addEventListener('abort', () => resolve()),
       )
     })
-    const chat = () => store.getState().transcript.byKey[store.getState().transcript.activeKey].chat
+    const chat = () => selectConversation(store.getState()).chat
     let first: Promise<void> = Promise.resolve()
     act(() => {
       first = result.current.send('what do the citations say?', undefined)
@@ -467,4 +468,60 @@ it('highlights paper references without fetching, and graph icons open or resume
   })
   expect(store.getState().transcript.activeKey).toBe(originalThread)
   expect(details).not.toHaveBeenCalled()
+})
+
+describe('beside a paper, the dock’s chat (v9.0.0)', () => {
+  it('tags the question with the paper, and holds a discovery for the paper once it is off screen', async () => {
+    vi.spyOn(api, 'fetchGraphStream').mockResolvedValue(graph)
+    vi.spyOn(api, 'routeMessage').mockResolvedValue({
+      target: 'answer',
+      framing: 'summary',
+      scope: 'screen',
+      year_from: null,
+      year_to: null,
+    })
+    let discover: (() => void) | null = null
+    vi.spyOn(api, 'streamAsk').mockImplementation(
+      (_body, options) =>
+        new Promise<void>((resolve) => {
+          discover = () => {
+            options.onDiscovery?.({
+              nodes: [{ ...graph.nodes[0], id: 'found', title: 'Found', is_seed: false }],
+              edges: [],
+            })
+            options.onToken('Done.')
+            resolve()
+          }
+        }),
+    )
+    const store = configureStore({
+      reducer: { workspace, transcript, explorations, highlight, library },
+    })
+    await store.dispatch(loadGraph({ seed: 'seed' }))
+    store.dispatch(visibleNodesSet(['seed']))
+    const paper = store.getState().transcript.activeKey
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(Provider, { store }, children)
+    const { result } = renderHook(() => useConversation(), { wrapper })
+    await act(async () => {
+      void result.current.send('What came next?', undefined)
+    })
+    await waitFor(() => expect(discover).not.toBeNull())
+    // The question went to the dock's chat, the exploration's first, not the paper.
+    expect(selectConversation(store.getState()).chat[0]).toMatchObject({
+      text: 'What came next?',
+      tag: { threadId: paper, tool: 'graph' },
+    })
+    // The reader goes back to the chat before the answer finds a paper.
+    await act(async () => {
+      await store.dispatch(activateThread('initial'))
+    })
+    await act(async () => {
+      discover?.()
+    })
+    expect(
+      store.getState().transcript.byKey[paper].pendingDiscoveries.nodes.map((node) => node.id),
+    ).toEqual(['found'])
+    expect(store.getState().transcript.byKey.initial.chat.at(-1)?.text).toBe('Done.')
+  })
 })

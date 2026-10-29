@@ -1,4 +1,4 @@
-import { openChat, selectScope } from '../store/workspace'
+import { openChat, openTag, selectScope } from '../store/workspace'
 /**
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
@@ -56,12 +56,32 @@ import type { AnimationEvent, CSSProperties, FormEvent, KeyboardEvent } from 're
 import {
   DEFAULT_SEARCH_OPTIONS,
   type AnswerFigure,
+  type Beat,
+  type ChatMsg,
   type MentionPaper,
   type SearchOptions,
+  type TurnTag,
+  routeMessage,
+  routePlace,
+  routeReaderMessage,
 } from '../api'
+import { askAt } from '../assistant/askAt'
+import { askOnArrival, takeArrival } from '../assistant/pendingAsk'
+import { keepChatInView } from '../assistant/keepChatInView'
 import { useAppDispatch, useAppSelector } from '../store'
-import { selectConversation } from '../store/transcript'
-import { explorationChats } from '../store/chats'
+import { failedTurnDropped, selectChatKey, selectConversation } from '../store/transcript'
+import { quotedMessage, type PassageQuote } from '../assistant/askAssistant'
+import DockChatPicker from '../assistant/DockChatPicker'
+import { anchorTurn, takeTurnAnchor, useTurnTags } from '../assistant/useTurnTags'
+import TagFilter, { tagKey, type TagChoice } from '../assistant/TagFilter'
+import { highlightSet, passagesLit } from '../store/highlight'
+import { answerLight, beatLight } from '../reader/askReader'
+import { TURN_TOOL_NAMES, tagLabel } from '../store/chats'
+import { acrossTag, explorationChats, paperTag, tagPapers } from '../store/chats'
+import { threadTool } from '../store/explorations'
+import { useCourseView } from '../knowledge/assistant/useCourseView'
+import { useReaderView } from '../reader/useReaderView'
+import { conversationHistory } from './history'
 import HopDots from './HopDots'
 import ComposerNotes from './ComposerNotes'
 import SourcePicker from './SourcePicker'
@@ -89,28 +109,8 @@ import { useResizablePanel } from '../ui/useResizablePanel'
 import { useTheme } from '../ui/theme'
 import { usePresence } from '../ui/usePresence'
 import SendGlyph from '../ui/SendGlyph'
+import ClearGlyph from '../ui/ClearGlyph'
 import './teacher.css'
-
-/**
- * The bin the composer's Clear wears — here and, since v8.25.0, in the
- * Knowledge Graph's assistant.
- *
- * @returns The inline glyph.
- */
-export function ClearGlyph() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path
-        d="M3.2 4.6h9.6M6.5 4.6V3.3a.8.8 0 0 1 .8-.8h1.4a.8.8 0 0 1 .8.8v1.3M4.8 4.6l.45 7.9a1.1 1.1 0 0 0 1.1 1h3.3a1.1 1.1 0 0 0 1.1-1l.45-7.9"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 /**
  * Whether the reader has asked the OS for less motion.
@@ -129,6 +129,59 @@ function prefersStill(): boolean {
   )
 }
 
+/** Each chat's lecture folds the reader chose, by turn (see `toggleFold`),
+ *  for the sitting: kept here because the panel remounts on every view. */
+const lectureFolds = new Map<string, Record<number, boolean>>()
+/** A stable empty fold record, for a chat with none chosen. */
+const NO_FOLDS: Record<number, boolean> = {}
+
+/** Where the docked assistant sits (v9.0.0): beside the view, or under it. */
+export type AssistantDock = 'right' | 'bottom'
+
+/** How long the panel takes to morph from one edge to the other, ms. */
+const DOCK_MORPH_MS = 420
+
+/** Below this width the docked panel covers the view rather than squeezing
+ *  it (teacher.css holds the same breakpoint). */
+export const NARROW_QUERY = '(max-width: 900px)'
+
+/**
+ * Whether two tags name the same place: both General, or one paper's tool.
+ *
+ * @param left One tag.
+ * @param right The other.
+ * @returns True when a question asked at one was asked at the other.
+ */
+function sameTag(left: TurnTag | undefined, right: TurnTag | undefined): boolean {
+  if (!left || !right) return !left && !right
+  const papers = (tag: TurnTag) =>
+    tagPapers(tag)
+      .map((paper) => paper.threadId)
+      .join()
+  return left.tool === right.tool && papers(left) === papers(right)
+}
+
+/**
+ * The dock-flip glyph: a window with its panel along the edge it would move
+ * to, so the button shows where the assistant goes.
+ *
+ * @param props Component props.
+ * @param props.to The edge it moves the panel to.
+ * @returns The inline glyph.
+ */
+function DockGlyph({ to }: { to: AssistantDock }) {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+      <rect x="2" y="2.5" width="12" height="11" rx="1.5" fill="none" stroke="currentColor" />
+      {to === 'bottom' ? (
+        <rect x="2.5" y="9" width="11" height="4" fill="currentColor" opacity="0.6" />
+      ) : (
+        <rect x="9.5" y="3" width="4" height="10" fill="currentColor" opacity="0.6" />
+      )}
+    </svg>
+  )
+}
+
 /**
  * Render the assistant panel: the conversation and the ask form.
  *
@@ -138,6 +191,10 @@ export default function Teacher({
   collapsed = false,
   landing = false,
   onClose,
+  dock = 'right',
+  onDockChange,
+  quote = null,
+  onQuoteClear,
 }: {
   /** Hidden (but kept mounted, so the conversation survives) when collapsed. */
   collapsed?: boolean
@@ -152,6 +209,15 @@ export default function Teacher({
   landing?: boolean
   /** Collapse the panel (the header ✕). */
   onClose?: () => void
+  /** Which edge it docks against beside a view (v9.0.0). */
+  dock?: AssistantDock
+  /** Move it to the other edge (the header's dock button). */
+  onDockChange?: (dock: AssistantDock) => void
+  /** A passage a highlight's Chat attached to the bar (the course's or the
+   *  Reader's), with a `seq` that changes each time one is attached. */
+  quote?: (PassageQuote & { seq: number }) | null
+  /** Let go of the attached passage (its ✕, or sent). */
+  onQuoteClear?: () => void
 }) {
   const chat = useAppSelector((state) => selectConversation(state).chat)
   // The graph on screen, so a turn answered over a different one can say which.
@@ -160,6 +226,15 @@ export default function Teacher({
       (thread) => thread.id === state.transcript.activeKey,
     ),
   )
+  // The view it is docked beside, and what that view lends it (v9.0.0, one
+  // assistant): the course's and the Reader's asking, words and passages
+  // (`assistant/views`). The Citation Graph's and a chat's asking are this
+  // panel's own (`useConversation`), so their view is null here.
+  const tool = landing ? null : threadTool(subject)
+  const course = useCourseView(tool === 'knowledge' ? subject : undefined)
+  const reader = useReaderView(tool === 'reader' ? subject : undefined)
+  const view = course ?? reader
+  const passages = view?.passages
   // The default scope's size — the selection, else what passes the filters
   // (`scope/resolve.ts`'s last two rungs; the message's rung is per turn).
   const scopeCount = useAppSelector((state) => selectScope(state).nodes.length)
@@ -168,14 +243,14 @@ export default function Teacher({
   const pickedCount = useAppSelector((state) => state.workspace.selectedNodeIds.length)
   const {
     hasGraph,
-    asking,
+    asking: conversing,
     error,
     activeChat,
     activeChatBeat,
     onChatBeatClick,
     onChatClick,
     onRefClick,
-    onPaperSeed,
+    onPaperSeed: seedPaper,
     provider,
     send,
     reroute,
@@ -184,24 +259,53 @@ export default function Teacher({
     stopAsk,
     clearChat,
   } = useConversation()
+  // Asking the router where a message is about (stage 4b) is part of
+  // answering it: the bar is busy, as it is while the router picks a
+  // lecture or an answer.
+  const [placing, setPlacing] = useState(false)
+  const asking = conversing || placing
 
-  // The other chats in this exploration (`store/chats`: a paper thread's
-  // Citation Graph and Knowledge Graph each have one since v8.25.0), offered
-  // as `@` rows above the paper results so a question can carry one along.
+  // The other chats in this exploration (`store/chats`), offered as `@` rows
+  // above the paper results so a question can carry one along. The chat on
+  // screen is the active one, or beside a graph the dock's (v9.0.0).
   const explorationRecord = useAppSelector(
     (state) => state.explorations.byId[state.explorations.activeId],
   )
-  const conversations = useAppSelector((state) => state.transcript.byKey)
-  const activeKey = useAppSelector((state) => state.transcript.activeKey)
+  const activeKey = useAppSelector(selectChatKey)
   const siblingThreads = useMemo(
     () =>
       explorationRecord
-        ? explorationChats(explorationRecord, { byKey: conversations })
+        ? explorationChats(explorationRecord)
             .filter((entry) => entry.key !== activeKey)
             .map((entry) => ({ id: entry.key, title: entry.label }))
         : [],
-    [explorationRecord, conversations, activeKey],
+    [explorationRecord, activeKey],
   )
+  // Leaving a full-screen chat for a paper's view, from the chat itself (a
+  // tag, an answer's link, a placed lecture, a paper opened): the dock opens
+  // there, so the conversation stays in view (`assistant/keepChatInView`).
+  const leaving = () => {
+    if (landing) keepChatInView()
+  }
+  const onPaperSeed = (...args: Parameters<typeof seedPaper>) => {
+    leaving()
+    seedPaper(...args)
+  }
+  const tags = useTurnTags(activeKey, chat, leaving)
+  // Where a question asked here is tagged (v9.0.0): the view's paper and tool,
+  // the Citation Graph's, or General. An answer is this view's to retry,
+  // re-ask or light when its question was asked here: the chat also holds
+  // turns asked beside other views, which need their own context.
+  // Without a view of its own (the graph, the cards, Criticisms), a paper
+  // whose graph is loaded asks over that graph, as `useConversation` stamps it.
+  const screenTag: TurnTag | undefined = view
+    ? paperTag(view.thread, view.tool)
+    : hasGraph && subject?.identity
+      ? paperTag(subject, 'graph')
+      : undefined
+  const owns = (index: number) => sameTag(chat[index - 1]?.tag, screenTag)
+  // A view's own provider, for the papers its searches find.
+  const viewProvider = view?.thread.data.provider ?? 's2'
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const dispatch = useAppDispatch()
@@ -240,11 +344,13 @@ export default function Teacher({
       })),
     [graphNodes, foundNodes],
   )
+  // Beside the course or the Reader, `@` offers chats only (as their own
+  // panels did): that assistant has no numbered papers to attach one to.
   const mentions = useMentionSuggestions(
     provider,
     siblingThreads,
     landing,
-    landing ? undefined : graphPapers,
+    landing || view ? undefined : graphPapers,
   )
   // The `@` list fades out rather than vanishing (ui/usePresence). Closing
   // usually clears the hook's results in the same render, so the exit plays
@@ -272,13 +378,22 @@ export default function Teacher({
   // degrades internally, so a rate-limited provider arrives as a normal
   // result whose summary says so.
   const [searchError, setSearchError] = useState<string | null>(null)
-  const { width, onHandlePointerDown, dragging } = useResizablePanel('atlas.teacherWidth', 340)
+  // Sized along whichever edge it docks against (v9.0.0): its width beside
+  // the view, its height under it. Each is remembered on its own.
+  const besideSize = useResizablePanel('atlas.teacherWidth', 340)
+  const underSize = useResizablePanel('ca.assistantHeight', 320, {
+    side: 'bottom',
+    min: 180,
+    max: 900,
+    maxFraction: 0.7,
+  })
+  const { width: size, onHandlePointerDown, dragging } = dock === 'bottom' ? underSize : besideSize
   // Closing and reopening slide the docked panel (panel-out / panel-in,
   // index.css). It must stay mounted — that is what keeps the conversation —
   // so `display: none` (.collapsed) only lands once the slide-out has
   // played, and the slide-in is tied to the *reopen*, not to the class: a
   // panel arriving with its graph is the graph's entrance, not this one.
-  const dock = usePresence(!collapsed)
+  const panel = usePresence(!collapsed)
   const [wasCollapsed, setWasCollapsed] = useState(collapsed)
   const [reopening, setReopening] = useState(false)
   if (collapsed !== wasCollapsed) {
@@ -286,9 +401,63 @@ export default function Teacher({
     setReopening(!collapsed)
   }
   const onDockAnimationEnd = (event: AnimationEvent) => {
-    dock.onAnimationEnd(event)
-    if (reopening && event.target === event.currentTarget && event.animationName === 'panel-in')
+    panel.onAnimationEnd(event)
+    if (
+      reopening &&
+      event.target === event.currentTarget &&
+      (event.animationName === 'panel-in' || event.animationName === 'panel-in-bottom')
+    )
       setReopening(false)
+  }
+  // **Moving it to the other edge morphs** (Patrick): the panel slides and
+  // reshapes from where it was into where it lands, a FLIP. Its box is
+  // measured at the click (never per render: this re-renders per streamed
+  // token), the move lays it out on the other edge, and before that paints
+  // it is drawn back in the old box and animated into the new one. Its
+  // contents fade through the middle, so the stretch of a scaled box never
+  // reads as squashed text.
+  const sectionRef = useRef<HTMLElement>(null)
+  const dockedFrom = useRef<DOMRect | null>(null)
+  const moveDock = (next: AssistantDock) => {
+    dockedFrom.current = sectionRef.current?.getBoundingClientRect() ?? null
+    onDockChange?.(next)
+  }
+  useLayoutEffect(() => {
+    const panelBox = sectionRef.current
+    const from = dockedFrom.current
+    dockedFrom.current = null
+    if (!panelBox || !from || prefersStill()) return
+    const to = panelBox.getBoundingClientRect()
+    if (!to.width || !to.height) return
+    const easing = 'cubic-bezier(0.22, 0.61, 0.36, 1)'
+    // `animate` is optional-called: jsdom has no Web Animations API.
+    panelBox.animate?.(
+      [
+        {
+          transformOrigin: 'top left',
+          transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`,
+        },
+        { transformOrigin: 'top left', transform: 'none' },
+      ],
+      { duration: DOCK_MORPH_MS, easing },
+    )
+    for (const part of panelBox.children)
+      part.animate?.([{ opacity: 0 }, { opacity: 0, offset: 0.45 }, { opacity: 1 }], {
+        duration: DOCK_MORPH_MS,
+        easing,
+      })
+  }, [dock])
+  // Over a narrow window the docked panel covers the view (v9.0.0,
+  // teacher.css), so Esc from inside it puts it away again, back to the view.
+  const onPanelKeyDown = (event: KeyboardEvent) => {
+    if (
+      event.key === 'Escape' &&
+      !landing &&
+      onClose &&
+      !event.defaultPrevented &&
+      window.matchMedia?.(NARROW_QUERY).matches
+    )
+      onClose()
   }
   // A scout run shares the bar's busy state with the researcher: one bar, one
   // spinner, and neither can be fired while the other is running.
@@ -325,6 +494,36 @@ export default function Teacher({
     // the `@` list, and a chip used to double as one when sent alone — which
     // made Enter mean two things depending on whether anything was typed.
     if (!typed || asking || searching) return
+    // Beside the course or the Reader, the view asks (v9.0.0): with any
+    // passage a highlight's Chat attached, and the passage's place and
+    // labels for the Reader to light.
+    if (view) {
+      if (!view.available) return
+      const question = attachedMessage(attached, quote ? quotedMessage(typed, quote) : typed)
+      // A passage attached is about the paper it came from: never placed.
+      const placeable = !quote && !attached.some((choice) => choice.kind === 'paper')
+      const passage = quote
+      setAttached([])
+      setInput('')
+      mentions.reset()
+      onQuoteClear?.()
+      followNextTurn()
+      const askHere = () =>
+        void dispatch(
+          view.ask({
+            threadId: view.thread.id,
+            question,
+            provider: viewProvider,
+            sourceIds: scopeArg,
+            places: passage?.places,
+            figures: passage?.figures,
+            labels: passage?.labels,
+          }),
+        )
+      if (placeable) void placeOrHere(question, askHere)
+      else askHere()
+      return
+    }
     const question = attachedMessage(attached, typed)
     setAttached([])
     setInput('')
@@ -364,13 +563,176 @@ export default function Teacher({
       return
     }
     // Anything else: a message whose destination is genuinely unknown. `send`
-    // classifies it and streams from the lecturer or the researcher.
-    void send(question, scopeArg, activeOptions, intent.kind === 'ask' ? intent.mentioned : [])
+    // classifies it and streams from the lecturer or the researcher. First,
+    // where it is about (v9.0.0, stage 4b): a message naming a paper on the
+    // graph points at it, here; anything else may be about another paper.
+    const mentioned = intent.kind === 'ask' ? intent.mentioned : []
+    const askHere = () => void send(question, scopeArg, activeOptions, mentioned)
+    if (mentioned.length || attached.some((choice) => choice.kind === 'paper')) askHere()
+    else void placeOrHere(question, askHere)
   }
+
+  /**
+   * **Where a message is about** (v9.0.0, stage 4b): the view it was typed
+   * in, no view (General), or another of the exploration's papers and one
+   * of its tools. Asked of the router only when the exploration holds a
+   * paper the message could mean besides the one on screen (Patrick: no
+   * model call on every message). Placed elsewhere, it is asked there
+   * (`assistant/askAt`), with that place's context, and the reader is not
+   * moved: its tag is the way there, and its bubble offers to ask it where
+   * it was typed instead.
+   *
+   * @param question The message, as it will be sent.
+   * @param askHere Ask it where it was typed.
+   */
+  const placeOrHere = async (question: string, askHere: () => void) => {
+    const papers = explorationRecord?.threads.filter((thread) => thread.identity) ?? []
+    if (!papers.some((paper) => paper.id !== screenTag?.threadId)) {
+      askHere()
+      return
+    }
+    const screenPaper = screenTag
+      ? papers.findIndex((paper) => paper.id === screenTag.threadId) + 1
+      : 0
+    setPlacing(true)
+    const placed = await routePlace(
+      question,
+      papers.map((paper) => paper.title),
+      { paper: screenPaper || null, tool: screenTag?.tool ?? null },
+    )
+    // A bridge question (stage 4c) is about several papers at once, the
+    // router having checked their numbers.
+    const bridged = (placed.papers ?? []).flatMap((number) => papers[number - 1] ?? [])
+    const elsewhere =
+      placed.place === 'general'
+        ? undefined
+        : placed.place === 'papers' && bridged.length >= 2
+          ? acrossTag(bridged)
+          : placed.place === 'paper' && placed.paper && papers[placed.paper - 1]
+            ? paperTag(papers[placed.paper - 1], placed.tool ?? 'reader')
+            : screenTag
+    if (sameTag(elsewhere, screenTag)) {
+      setPlacing(false)
+      askHere()
+      return
+    }
+    // **To be taught, it goes there** (Patrick, 2026-10-27): a lecture or a
+    // guided read lights its graph or its paper as it goes, so it is given
+    // where it is about. The panel moves, and the one that arrives asks it
+    // through the ordinary path (`assistant/pendingAsk`).
+    if (elsewhere && (elsewhere.tool === 'graph' || elsewhere.tool === 'reader')) {
+      const taught =
+        elsewhere.tool === 'graph'
+          ? (await routeMessage(question)).target === 'lecture'
+          : (await routeReaderMessage(question)).target === 'guide'
+      if (taught) {
+        setPlacing(false)
+        leaving()
+        askOnArrival(activeKey, elsewhere, question)
+        void dispatch(openTag({ tag: elsewhere, chatId: activeKey }))
+        return
+      }
+    }
+    setPlacing(false)
+    void dispatch(
+      askAt(elsewhere, {
+        threadId: '',
+        question,
+        provider,
+        sourceIds: scopeArg,
+        placedFrom: screenTag ?? 'general',
+      }),
+    )
+  }
+
+  /**
+   * Ask a placed question again where it was typed (the bubble's correction,
+   * v9.0.0, stage 4b): the reader's own choice, so it isn't placed again.
+   * The original exchange stays, as a re-routed lecture's does.
+   *
+   * @param index The question's turn.
+   */
+  const askInstead = (index: number) => {
+    const question = chat[index]
+    const typedAt = question?.placedFrom
+    if (!question || !typedAt) return
+    const target = typedAt === 'general' ? undefined : typedAt
+    followNextTurn()
+    if (!sameTag(target, screenTag)) {
+      void dispatch(askAt(target, { threadId: '', question: question.text, provider }))
+      return
+    }
+    askOnScreen(question.text)
+  }
+
+  /**
+   * Ask a question where the panel is, through the ordinary path: the view's
+   * own asking, or the Citation Graph's and a chat's (`useConversation`).
+   *
+   * @param question The question.
+   */
+  const askOnScreen = (question: string) => {
+    if (view)
+      void dispatch(
+        view.ask({
+          threadId: view.thread.id,
+          question,
+          provider: viewProvider,
+          sourceIds: scopeArg,
+        }),
+      )
+    else void send(question, scopeArg, activeOptions, [])
+  }
+
+  // A lecture placed on this view from another (`placeOrHere`) is asked once
+  // the view is ready to be taught over: its graph built, its paper loaded.
+  const ready = view ? view.available : hasGraph
+  const arrivalTag = screenTag ? `${screenTag.threadId}:${screenTag.tool}` : ''
+  useEffect(() => {
+    if (!ready || !arrivalTag) return
+    const question = takeArrival(activeKey, screenTag)
+    if (question === null) return
+    followNextTurn()
+    askOnScreen(question)
+    // Keyed on what is on screen and whether it's ready; the rest is read
+    // as it stands when the question goes out.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, arrivalTag, activeKey])
 
   const onAsk = (event: FormEvent) => {
     event.preventDefault()
     submitQuestion()
+  }
+
+  /**
+   * Ask a view's failed question again, with the history up to it — or, for
+   * ⚡ Quick response, a question still being answered, with no tools.
+   *
+   * @param index The failed (or working) assistant turn.
+   * @param quick Stop the working answer and ask for a quick response.
+   */
+  const retryInView = (index: number, quick = false) => {
+    const question = chat[index - 1]
+    if (!view || !question || question.role !== 'user') return
+    const history = conversationHistory(chat.slice(0, index - 1))
+    // A quick response stops the answer still working first, so nothing
+    // more of it lands once its turn is gone.
+    if (quick) stopAsk()
+    dispatch(failedTurnDropped(index, activeKey))
+    void dispatch(
+      view.ask({
+        threadId: view.thread.id,
+        question: question.text,
+        provider: viewProvider,
+        history,
+        sourceIds: scopeArg,
+        quick,
+        startedAt: quick ? chat[index]?.startedAt : undefined,
+        places: question.places,
+        figures: question.boxedFigures,
+        labels: question.labels,
+      }),
+    )
   }
 
   // The ask box is a textarea so long questions wrap and stay readable. Keep
@@ -490,11 +852,19 @@ export default function Teacher({
       submitQuestion()
     }
     // Backspace in an empty bar lets go of the last chip, as in most
-    // composers (and as the Knowledge Graph's passage card does).
-    if (event.key === 'Backspace' && !input && attached.length) {
-      setAttached((current) => current.slice(0, -1))
+    // composers, and then of an attached passage.
+    if (event.key === 'Backspace' && !input) {
+      if (attached.length) setAttached((current) => current.slice(0, -1))
+      else if (quote) onQuoteClear?.()
     }
   }
+
+  // A passage just attached (a highlight's Chat): the bar takes focus, ready
+  // for the question.
+  const quoteSeq = quote?.seq
+  useEffect(() => {
+    if (quoteSeq) inputRef.current?.focus()
+  }, [quoteSeq])
 
   // A draft handed over from the rail (v8.31.0): the Papers ＋ opens a chat
   // with `@` typed, ready to search (`composerDraft`). Taken on mount — the
@@ -502,7 +872,7 @@ export default function Teacher({
   // here, and only on the General chat, the one whose `@` searches. Only
   // the draft addressed to this chat: the one being left hears it too.
   const onMentionInput = mentions.onInput
-  const chatId = useAppSelector((state) => state.transcript.activeKey)
+  const chatId = activeKey
   // A chat opened with its `@` typed arrives with the bar already in place
   // (`drafted`, teacher.css, v8.32.1): the list opens inside the bar's
   // block, and that block's entrance fade left the list see-through, the
@@ -586,6 +956,25 @@ export default function Teacher({
   const followNextTurn = () => {
     following.current = true
   }
+  // A tag clicked keeps its place (Patrick): going where it was asked
+  // remounts this panel, which would otherwise follow the bottom, so the
+  // question it was on is brought back into view, and following stops until
+  // the reader scrolls down again (`assistant/useTurnTags`). Before paint,
+  // and before the follow effect above reads `following`.
+  useLayoutEffect(() => {
+    if (collapsed) return
+    const index = takeTurnAnchor(activeKey)
+    const box = scrollRef.current
+    const turn = index === null ? null : box?.querySelector(`[data-turn="${index}"]`)
+    if (!box || !turn) return
+    following.current = false
+    // Just under the "Showing" line when there is one: it sticks over the
+    // top of the transcript, and a question scrolled to the very top sat
+    // half hidden behind it (Patrick).
+    const covered = box.querySelector<HTMLElement>('.tag-filter')?.offsetHeight ?? 0
+    box.scrollTop +=
+      turn.getBoundingClientRect().top - box.getBoundingClientRect().top - covered - 8
+  }, [activeKey, collapsed, landing])
 
   // The composer's drop, on the first question of a landing session. Empty, it
   // sits optically centred with the greeting; the moment a conversation starts
@@ -670,13 +1059,17 @@ export default function Teacher({
   // With chips waiting, the bar asks for the question they wait on: chips
   // alone send nothing (v8.29.0), and a greyed Send shouldn't be the only
   // sign of why.
-  const askPlaceholder = attached.length
-    ? 'Now ask your question about what you attached…'
-    : hasGraph
-      ? 'Ask about these papers or for a lecture; @ a paper or chat…'
-      : libraryItems.length > 0
-        ? 'Ask your books, PDFs or the literature; @ a paper or chat…'
-        : 'Ask a research question, or @ a paper or chat…'
+  const askPlaceholder = quote
+    ? 'Ask Nova anything about this passage…'
+    : attached.length
+      ? 'Now ask Nova about what you attached…'
+      : view
+        ? view.copy.placeholder
+        : hasGraph
+          ? 'Ask Nova about these papers or for a lecture; @ a paper or chat…'
+          : libraryItems.length > 0
+            ? 'Ask Nova about your books, PDFs or the literature; @ a paper or chat…'
+            : 'Ask Nova a research question, or @ a paper or chat…'
 
   // The one-line "Answers also draw on …" note above the ask bar, naming the
   // 📚 picker's state. It had a second half until v7.21.0 — "the lecture
@@ -756,21 +1149,224 @@ export default function Teacher({
   // `clearConversation`) rather than tracked through every mutation — a stale
   // entry would fold the wrong lecture, and the cost of being wrong here is a
   // caret the reader clicks once.
-  const [openByReader, setFoldedByReader] = useState<Record<number, boolean>>({})
+  //
+  // **Kept per chat, outside the panel** (v9.0.0, Patrick): going to another
+  // view remounts the panel (it is keyed on the workspace epoch), and the
+  // choices lived in its state, so a lecture folded away opened again on
+  // every switch. `lectureFolds` holds them for the sitting.
+  const [, refold] = useState(0)
+  const openByReader = lectureFolds.get(activeKey) ?? NO_FOLDS
   const newestLecture = chat.reduce(
     (latest, message, index) => (message.beats?.length ? index : latest),
     -1,
   )
+  /**
+   * Fold a lecture turn the reader has, or open it, and remember that.
+   *
+   * @param index The lecture's turn.
+   */
+  const toggleFold = (index: number) => {
+    lectureFolds.set(activeKey, {
+      ...openByReader,
+      [index]: !(openByReader[index] ?? index === newestLecture),
+    })
+    refold((count) => count + 1)
+  }
 
   /** Clear the conversation, and the fold choices that addressed its turns. */
   const clearConversation = () => {
-    setFoldedByReader({})
+    lectureFolds.delete(activeKey)
+    refold((count) => count + 1)
     clearChat()
   }
 
   // The conversation's turns, rendered identically wherever they land — in
   // the Q&A section beside a graph, or as the whole panel without one.
+  // **A turn asked beside another view links there** (v9.0.0, stage 4a). What
+  // it would light (its graph's papers, its passages in the Reader) is in
+  // that view, so clicking the answer, a `[n]`, a quote or a beat goes there
+  // first, keeping the turn in view (`anchorTurn`), then lights it. The
+  // navigation's own resets have happened by then: the highlight clears on
+  // a thread switch and a graph load (`store/highlight`).
+  const goLight = (index: number, tag: TurnTag, light: () => void) => {
+    leaving()
+    anchorTurn(activeKey, index)
+    void dispatch(openTag({ tag, chatId: activeKey })).then(light)
+  }
+  const elsewhere = (message: ChatMsg, index: number) => {
+    const tag = chat[index - 1]?.tag
+    if (message.role !== 'assistant' || message.failed || !tag || owns(index)) return {}
+    if (!explorationRecord?.threads.some((thread) => thread.id === tag.threadId)) return {}
+    const beats = message.beats ?? []
+    if (tag.tool === 'across') {
+      // No one view holds a bridge question's papers: a `[n]` for one of
+      // them goes to its cards, and for a paper it expanded into, opens it.
+      const go = (nodeId: string) => {
+        const thread = explorationRecord.threads.find(
+          (item) =>
+            item.paper?.id === nodeId && tagPapers(tag).some((paper) => paper.threadId === item.id),
+        )
+        if (thread) {
+          leaving()
+          anchorTurn(activeKey, index)
+          void dispatch(openTag({ tag: { ...tag, threadId: thread.id }, chatId: activeKey }))
+        } else onPaperSeed(nodeId)
+      }
+      return { onRefClick: go }
+    }
+    if (tag.tool === 'graph') {
+      const grounded = message.cited?.length
+        ? message.cited
+        : [...new Set(beats.flatMap((beat) => beat.node_ids))]
+      const glow = (ids: string[]) => () => dispatch(highlightSet(ids))
+      return {
+        active: false,
+        activeBeat: null,
+        onActivate: grounded.length ? () => goLight(index, tag, glow(grounded)) : undefined,
+        onRefClick: (nodeId: string) => goLight(index, tag, glow([nodeId])),
+        onBeatClick: beats.length
+          ? (_beatIndex: number, beat: Beat) => goLight(index, tag, glow(beat.node_ids))
+          : undefined,
+        onBeatStep: undefined,
+      }
+    }
+    if (tag.tool === 'reader') {
+      const show = (lit: Omit<Parameters<typeof passagesLit>[0], 'threadId' | 'scroll'>) => () =>
+        dispatch(passagesLit({ threadId: tag.threadId, scroll: true, ...lit }))
+      return {
+        active: false,
+        activeBeat: null,
+        onActivate: beats.length
+          ? undefined
+          : () => goLight(index, tag, show({ answer: index, ...answerLight(chat, index) })),
+        onQuote: (quote: string) =>
+          goLight(
+            index,
+            tag,
+            show({ answer: null, passage: null, places: [], labels: [], quotes: [quote] }),
+          ),
+        onBeatClick: beats.length
+          ? (beatIndex: number) =>
+              goLight(
+                index,
+                tag,
+                show({
+                  answer: index,
+                  beat: beatIndex,
+                  ...beatLight(beats[beatIndex]),
+                  places: [],
+                  quotes: [],
+                }),
+              )
+          : undefined,
+        onBeatStep: undefined,
+      }
+    }
+    return {}
+  }
+
+  // A question the router placed elsewhere offers to be asked where it was
+  // typed (stage 4b), while nothing else is being asked.
+  const placedInstead = (message: ChatMsg, index: number) =>
+    message.role === 'user' && message.placedFrom && !asking
+      ? {
+          label: tagLabel(
+            explorationRecord,
+            message.placedFrom === 'general' ? undefined : message.placedFrom,
+          ),
+          onAsk: () => askInstead(index),
+        }
+      : undefined
+
+  // **Filtered by where it was asked** (v9.0.0, stage 4a): once a chat
+  // crosses views, a menu over it picks one place, and only the exchanges
+  // asked there show. Per chat, and forgotten on leaving it.
+  const [filter, setFilter] = useState<{ chat: string; tag: string } | null>(null)
+  const shownTag = filter?.chat === activeKey ? filter.tag : null
+  const tagChoices = useMemo(() => {
+    const seen = new Map<string, TagChoice>()
+    for (const message of chat) {
+      const key = tagKey(message.tag)
+      if (message.role !== 'user' || seen.has(key)) continue
+      const label = tagLabel(explorationRecord, message.tag)
+      const split = label.lastIndexOf(' › ')
+      // Every bridge question is one place, "Across papers", whichever
+      // papers it named (Patrick).
+      const across = message.tag?.tool === 'across'
+      const paper = message.tag && !across ? label.slice(0, split) : null
+      seen.set(key, {
+        key,
+        label: across ? TURN_TOOL_NAMES.across : label,
+        paper,
+        tool: message.tag ? TURN_TOOL_NAMES[message.tag.tool] : null,
+      })
+    }
+    return [...seen.values()]
+  }, [chat, explorationRecord])
+  const shown = (index: number) => {
+    if (shownTag === null || tagChoices.length < 2) return true
+    const question = chat[chat[index]?.role === 'user' ? index : index - 1]
+    return tagKey(question?.tag) === shownTag
+  }
+
   const chatTurns = chat.map((message, index) => {
+    if (!shown(index)) return null
+    // Beside the course or the Reader, a turn is that view's: its answers
+    // light passages there when they are its own (`owns`), and its own are
+    // the ones it can retry or answer quickly (v9.0.0).
+    if (view) {
+      const lights = !!passages && owns(index)
+      return (
+        <ChatMessage
+          key={`c${index}`}
+          message={message}
+          {...tags(message, index)}
+          onThreadOpen={(id) => void dispatch(openChat(id))}
+          // A lecture's turn is its beats (v8.50.0): nothing of its own to
+          // light, so it is neither clicked nor shown lit as a whole.
+          active={!message.beats?.length && lights && passages?.active === index}
+          onActivate={
+            passages &&
+            lights &&
+            message.role === 'assistant' &&
+            !message.failed &&
+            !message.beats?.length
+              ? () => passages.onActivate(index)
+              : undefined
+          }
+          onQuote={lights ? passages?.onQuote : undefined}
+          activeBeat={
+            lights && passages?.activeBeat?.answer === index ? passages.activeBeat.beat : null
+          }
+          beatsOpen={openByReader[index] ?? index === newestLecture}
+          onToggleBeats={message.beats?.length ? () => toggleFold(index) : undefined}
+          onBeatClick={
+            lights && passages?.onBeat
+              ? (beatIndex) => passages.onBeat?.(index, beatIndex)
+              : undefined
+          }
+          onBeatStep={
+            lights && passages?.onBeat
+              ? (beatIndex, step) => passages.onBeat?.(index, beatIndex + step)
+              : undefined
+          }
+          streaming={asking}
+          working={asking && index === chat.length - 1}
+          onRetry={message.failed && owns(index) ? () => retryInView(index) : undefined}
+          onQuick={
+            asking && index === chat.length - 1 && owns(index) && !message.beats?.length
+              ? () => retryInView(index, true)
+              : undefined
+          }
+          onPaperSeed={onPaperSeed}
+          provider={viewProvider}
+          onEnlarge={setLightbox}
+          askInstead={placedInstead(message, index)}
+          turn={index}
+          {...elsewhere(message, index)}
+        />
+      )
+    }
     // Clicking the bubble re-lights the answer's whole grounding set — so it's
     // only a control while at least one of those papers is actually on the
     // graph. Since the conversation now outlives the graph it was written
@@ -791,6 +1387,7 @@ export default function Teacher({
       <ChatMessage
         key={`c${index}`}
         message={message}
+        {...tags(message, index)}
         onThreadOpen={(id) => void dispatch(openChat(id))}
         active={activeChat === index}
         streaming={asking || searching}
@@ -798,11 +1395,13 @@ export default function Teacher({
         // the live trace treatment; every earlier turn's trace stays folded.
         working={(asking || searching) && index === chat.length - 1}
         onActivate={clickable ? () => onChatClick(index, grounded) : undefined}
-        onRetry={message.failed ? () => retryAnswer(index) : undefined}
+        // Retried and re-asked only where it was asked (v9.0.0): a turn from
+        // another view needs that view's context.
+        onRetry={message.failed && owns(index) ? () => retryAnswer(index) : undefined}
         // ⚡ Quick response, on the answer still searching (v8.30.0). A
         // lecture has no tools to skip, and a direct search is not an answer.
         onQuick={
-          asking && index === chat.length - 1 && !message.beats?.length
+          asking && index === chat.length - 1 && owns(index) && !message.beats?.length
             ? () => quickAnswer(index)
             : undefined
         }
@@ -815,15 +1414,7 @@ export default function Teacher({
         // since a conversation can hold more than one lecture.
         activeBeat={activeChatBeat?.turn === index ? activeChatBeat.beat : null}
         beatsOpen={openByReader[index] ?? index === newestLecture}
-        onToggleBeats={
-          message.beats?.length
-            ? () =>
-                setFoldedByReader((folded) => ({
-                  ...folded,
-                  [index]: !(folded[index] ?? index === newestLecture),
-                }))
-            : undefined
-        }
+        onToggleBeats={message.beats?.length ? () => toggleFold(index) : undefined}
         onBeatClick={
           message.beats?.length
             ? (beatIndex, beat) => onChatBeatClick(index, beatIndex, beat)
@@ -833,32 +1424,45 @@ export default function Teacher({
         // else is running — a reroute sends a new message, and two at once
         // would abort each other.
         onReroute={
-          message.routedTo && !asking && !searching
+          message.routedTo && owns(index) && !asking && !searching
             ? () => {
                 followNextTurn()
                 reroute(index)
               }
             : undefined
         }
+        askInstead={placedInstead(message, index)}
+        turn={index}
+        {...elsewhere(message, index)}
       />
     )
   })
 
+  // Docked, its size goes on whichever axis it docks along, and the slide
+  // keyframes read it (`--panel-width` / `--panel-height`, index.css).
+  const dockStyle = landing
+    ? undefined
+    : dock === 'bottom'
+      ? ({ height: size, '--panel-height': `${size}px` } as CSSProperties)
+      : ({ width: size, '--panel-width': `${size}px` } as CSSProperties)
+  // One name in every view (v9.0.0, Patrick): the astronaut, Nova.
+  const title = 'Nova — your AI research assistant'
   return (
     <section
-      className={`teacher${landing ? ' landing' : ''}${landing && chat.length === 0 ? ' empty' : ''}${drafted ? ' drafted' : ''}${collapsed && !dock.present ? ' collapsed' : ''}${dock.closing ? ' closing' : ''}${reopening ? ' reopening' : ''}`}
+      ref={sectionRef}
+      className={`teacher${landing ? ' landing' : ` dock-${dock}`}${view ? ` ${view.copy.className}` : ''}${landing && chat.length === 0 ? ' empty' : ''}${drafted ? ' drafted' : ''}${collapsed && !panel.present ? ' collapsed' : ''}${panel.closing ? ' closing' : ''}${reopening ? ' reopening' : ''}`}
       data-tour="assistant-panel"
-      // --panel-width feeds the slide keyframes (index.css).
-      style={landing ? undefined : ({ width, '--panel-width': `${width}px` } as CSSProperties)}
+      style={dockStyle}
       onAnimationEnd={onDockAnimationEnd}
+      onKeyDown={onPanelKeyDown}
     >
       {/* Nothing to resize against on the landing surface — it owns the body. */}
       {!landing && (
         <div
-          className={`panel-resize-handle${dragging ? ' dragging' : ''}`}
+          className={`panel-resize-handle${dock === 'bottom' ? ' horizontal' : ''}${dragging ? ' dragging' : ''}`}
           onPointerDown={onHandlePointerDown}
           role="separator"
-          aria-orientation="vertical"
+          aria-orientation={dock === 'bottom' ? 'horizontal' : 'vertical'}
           aria-label="Resize panel"
         />
       )}
@@ -867,22 +1471,30 @@ export default function Teacher({
             row would be an empty strip of chrome. */}
         {!landing && (
           <div className="teacher-head-top">
-            <span className="teacher-title">
-              {hasGraph ? 'Citation Graph Assistant' : 'Ask the assistant'}
-            </span>
+            <span className="teacher-title">{title}</span>
             <div className="teacher-head-right">
-              {onClose && (
+              {onDockChange && (
                 <button
-                  className="link-btn"
-                  onClick={onClose}
-                  aria-label="Close the assistant panel"
+                  type="button"
+                  className="link-btn dock-flip"
+                  onClick={() => moveDock(dock === 'right' ? 'bottom' : 'right')}
+                  title={dock === 'right' ? 'Dock Nova along the bottom' : 'Dock Nova on the right'}
+                  aria-label={
+                    dock === 'right' ? 'Dock Nova along the bottom' : 'Dock Nova on the right'
+                  }
                 >
+                  <DockGlyph to={dock === 'right' ? 'bottom' : 'right'} />
+                </button>
+              )}
+              {onClose && (
+                <button className="link-btn" onClick={onClose} aria-label="Close Nova">
                   ✕
                 </button>
               )}
             </div>
           </div>
         )}
+        {!landing && <DockChatPicker chatId={activeKey} />}
       </div>
 
       {/* One scroller, holding the conversation and nothing else.
@@ -897,9 +1509,18 @@ export default function Teacher({
           the two shapes are now the same shape. The follow-the-bottom effect
           above watches this box, so a streaming answer keeps itself in view. */}
       <div className="teacher-scroll" ref={scrollRef} onScroll={onTranscriptScroll}>
+        {tagChoices.length > 1 && (
+          <TagFilter
+            tags={tagChoices}
+            value={shownTag}
+            onChange={(tag) => setFilter(tag === null ? null : { chat: activeKey, tag })}
+          />
+        )}
         {chatTurns}
         {chat.length === 0 &&
-          (landing ? (
+          (view ? (
+            <div className="teacher-hint">{view.copy.hint}</div>
+          ) : landing ? (
             <>
               {/* Decorative — the greeting below is the content, so the
                   picture stays out of the accessibility tree. Two cuts of the
@@ -914,17 +1535,18 @@ export default function Teacher({
                 src="/curious-astronaut-light.webp"
                 alt=""
               />
-              <h1 className="landing-greeting">What do you want to explore?</h1>
+              {/* Nova introduces itself where people meet it first (v9.0.0, Patrick). */}
+              <h1 className="landing-greeting">Hi, I’m Nova! What do you want to explore?</h1>
             </>
           ) : hasGraph ? (
             <div className="teacher-hint">
-              Ask a question about the papers on the graph — or ask for a lecture on them, on the
+              Ask Nova about the papers on the graph — or ask for a lecture on them, on the
               references, or on a paper by name.
             </div>
           ) : (
             <div className="teacher-hint">
-              Ask a question and I’ll answer straight from your uploaded sources — books, PDFs, and
-              pages — citing them by page. No graph needed.
+              Ask Nova a question, answered straight from your uploaded sources — books, PDFs, and
+              pages — and cited by page. No graph needed.
             </div>
           ))}
         {(error || searchError) && <div className="teacher-error">{error ?? searchError}</div>}
@@ -940,7 +1562,7 @@ export default function Teacher({
             is narrow (v8.25.0, `ComposerNotes`). */}
         <ComposerNotes
           notes={[
-            ...(hasGraph && pickedCount > 0
+            ...(!view && hasGraph && pickedCount > 0
               ? [
                   `Scoped to ${pickedCount} hand-picked paper${pickedCount > 1 ? 's' : ''} — lectures and answers focus on your selection, whatever the filters show (clear it on the graph to widen), unless a message names its own papers.`,
                 ]
@@ -948,18 +1570,45 @@ export default function Teacher({
             ...(askContextParts.length > 0
               ? [`Answers also draw on ${askContextParts.join(' · ')}.`]
               : []),
-            subject?.identity
-              ? `Asking about ${subject.title} · ${scopeCount} papers`
-              : // A chat names itself (v8.31.0: Chats in the rail, each
-                // titled from its first question), not a fixed "General".
-                `${subject?.title ?? 'Chat'} · Search and discuss across your exploration`,
+            view
+              ? view.copy.context
+              : hasGraph && subject?.identity
+                ? `Asking about ${subject.title} · ${scopeCount} papers`
+                : subject?.identity
+                  ? `Asking from ${subject.title} · Search and discuss across your exploration`
+                  : // A chat names itself (v8.31.0: Chats in the rail, each
+                    // titled from its first question), not a fixed "General".
+                    `${subject?.title ?? 'Chat'} · Search and discuss across your exploration`,
           ]}
           tip={
-            landing
-              ? 'Type @ and press Enter to search for papers, or arrow down to attach a paper or another chat from this exploration (such as a paper’s Knowledge Graph conversation) to your question. A paper’s Open button (or Shift+Enter) opens it in a thread of its own.'
-              : 'Type @ to name a paper on this graph (the answer starts from it) or to bring another chat from this exploration into your question, such as this paper’s Knowledge Graph conversation. To find or open papers not on the graph, use a chat (Chats in the rail).'
+            view
+              ? view.copy.tip
+              : landing
+                ? 'Type @ and press Enter to search for papers, or arrow down to attach a paper or another chat from this exploration to your question. A paper’s Open button (or Shift+Enter) opens it in a thread of its own.'
+                : 'Type @ to name a paper on this graph (the answer starts from it) or to bring another chat from this exploration into your question. To find or open papers not on the graph, use a chat (Chats in the rail). The chat’s name under the title switches which chat you talk in.'
           }
         />
+        {/* The passage a highlight's Chat attached (v8.26.0), over the bar. */}
+        {quote && (
+          <div className="course-quote" role="group" aria-label="Attached passage">
+            <div className="course-quote-body">
+              <p className="course-quote-text">“{quote.text.trim()}”</p>
+              <p className="course-quote-from">From {quote.from}</p>
+            </div>
+            <button
+              type="button"
+              className="link-btn course-quote-clear"
+              onClick={() => {
+                onQuoteClear?.()
+                inputRef.current?.focus()
+              }}
+              aria-label="Remove the attached passage"
+              title="Remove the attached passage"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <AttachedChips
           chips={attached.map((choice) => ({
             key: attachmentKey(choice),
@@ -1007,7 +1656,7 @@ export default function Teacher({
             onKeyDown={onInputKeyDown}
             rows={1}
             placeholder={askPlaceholder}
-            aria-label="Ask the assistant a question"
+            aria-label="Ask Nova a question"
           />
           {/* Docked, 📚 Library rides inside the bar as one round icon beside
               🗑 (v8.28.0): the 340px panel has no room for a labelled row
@@ -1042,7 +1691,7 @@ export default function Teacher({
           <button
             type={asking || searching ? 'button' : 'submit'}
             className={asking ? 'is-stop' : undefined}
-            disabled={(!asking && !input.trim()) || searching}
+            disabled={(!asking && (!input.trim() || (!!view && !view.available))) || searching}
             onClick={asking ? stopAsk : undefined}
             title={asking ? 'Stop generating' : undefined}
             aria-label={asking ? 'Stop generating' : 'Ask'}

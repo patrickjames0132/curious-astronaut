@@ -6,7 +6,7 @@
  * item with its kind, its check-off, what it needs and why (a synthesis's
  * concepts and target), and the lessons written so far. Sent as structure;
  * the server lays it out for the researcher and bounds it
- * (`routes/agents.py`, `_course_context`).
+ * (`assistant/context.py`, `course_context`).
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -48,21 +48,5 @@ export function courseContext(map: KnowledgeMap): CourseContext {
     paper: map.nodes[map.rootId]?.title ?? '',
     open: map.openId && map.nodes[map.openId] ? map.nodes[map.openId].title : null,
     items,
-  }
-}
-
-/**
- * The course's outline alone, for a chat that mentions this one: its
- * lessons stay home (`ThreadContext.course`).
- *
- * @param map The course.
- * @returns The context without lessons or an open item.
- */
-export function courseOutline(map: KnowledgeMap): CourseContext {
-  const context = courseContext(map)
-  return {
-    ...context,
-    open: null,
-    items: context.items.map(({ lesson: _lesson, ...item }) => item),
   }
 }

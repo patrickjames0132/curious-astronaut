@@ -2,20 +2,19 @@
  * Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
  *
  * Description:
- * How a conversation is addressed once a thread can hold more than one
- * (v8.25.0). A paper thread's tools each keep their own assistant: the
- * Citation Graph's, as ever, and the Knowledge Graph's. So the unit a
- * transcript key, a summary, a sibling-index entry and an `@thread[…]`
- * mention name is a **chat**: a thread and a tool.
+ * Chats own the conversation; views lend it context (v9.0.0, the OnePager's
+ * "One assistant", stage 2a). An exploration is a set of papers and several
+ * chats: a **chat** is a thread with no paper (`identity: null`), its
+ * transcript keyed by its own id, and a **paper thread** is a view (its
+ * cards, Citation Graph, course, Reader, reviews) with no conversation of its
+ * own. Every view's docked assistant talks in the **dock's chat**: the chat
+ * you were last in (`ExplorationRecord.chatId`).
  *
- * **The Citation Graph's chat keeps the thread's own id as its key**, and
- * General's (which has no tools) does too. Everything written before chats
- * were per tool already addresses that chat, so no save, transcript key or
- * `Context from` link needs migrating; only the Knowledge Graph's chat is
- * new, under `<threadId>:knowledge`. Likewise a mention keeps its old text,
- * `@thread[Title]`, for General, and a paper thread's chats are labelled by
- * tool, `@thread[PPO › Knowledge Graph]`, with a bare `@thread[PPO]` (a
- * message sent before) still read as its Citation Graph chat.
+ * Each question is **tagged** with where it was asked (`TurnTag`): General,
+ * or a paper and its tool, so a chat that crosses papers still reads on its
+ * own. Until v9.0.0 each paper thread held a chat per tool instead (v8.25.0:
+ * the Citation Graph's, the Knowledge Graph's, the Reader's), which is what
+ * this module used to address.
  *
  * Pure functions over the slices' shapes; type imports only, so any slice
  * can use them without closing an import cycle.
@@ -24,175 +23,159 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import type { ChatMsg } from '../api'
-import type { ExplorationRecord, SideChat, ThreadRecord } from './explorations'
+import type { ChatMsg, TagPaper, TagTool, TurnTag, TurnTool } from '../api'
+import type { ExplorationRecord, ThreadRecord } from './explorations'
 import type { TranscriptState } from './transcript'
 
-/** The tools that have an assistant. The card home has none. */
-export type ChatTool = 'graph' | 'knowledge' | 'reader'
-
-/** Each tool's name, as its card on the thread's home says it. */
-export const CHAT_TOOL_NAMES: Record<ChatTool, string> = {
+/** Each tool a question can be asked from, as its card on the paper's home
+ *  says it, for a tag's label; and a question about several papers. */
+export const TURN_TOOL_NAMES: Record<TagTool, string> = {
   graph: 'Citation Graph',
   knowledge: 'Knowledge Graph',
   reader: 'Reader',
+  across: 'Across papers',
 }
 
-/** The tools whose chat sits beside the thread's own, and the thread field
- *  each is saved under (`ThreadRecord.courseChat`, v8.25.0; `.readerChat`,
- *  v8.38.0). The Citation Graph's chat is the thread's own (`data.chat`). */
-export const SIDE_CHAT_FIELDS = {
-  knowledge: 'courseChat',
-  reader: 'readerChat',
-} as const satisfies Record<Exclude<ChatTool, 'graph'>, keyof ThreadRecord>
-
-/** The tools with a side chat, in the order the `@` list shows them. */
-export const SIDE_CHAT_TOOLS = Object.keys(SIDE_CHAT_FIELDS) as (keyof typeof SIDE_CHAT_FIELDS)[]
-
-/**
- * A side chat as last saved on its thread.
- *
- * @param thread The thread.
- * @param tool A tool with a side chat.
- * @returns Its saved chat, if any.
- */
-export function savedSideChat(
-  thread: ThreadRecord,
-  tool: keyof typeof SIDE_CHAT_FIELDS,
-): SideChat | undefined {
-  return thread[SIDE_CHAT_FIELDS[tool]]
-}
-
-/** Between a thread's id and its tool in a Knowledge Graph chat's key.
- *  Thread ids are nanoids (and `initial`), which never hold one. */
-const KEY_SEPARATOR = ':'
-
-/** Between a thread's title and its tool's name in a chat's label. */
+/** Between a paper's title and its tool's name in a tag's label. */
 const LABEL_SEPARATOR = ' › '
 
-/**
- * A chat's transcript key.
- *
- * @param threadId The thread.
- * @param tool The tool whose assistant it is.
- * @returns The thread's id for its Citation Graph (and General), else
- *          `<threadId>:<tool>`.
- */
-export function chatKey(threadId: string, tool: ChatTool): string {
-  return tool === 'graph' ? threadId : `${threadId}${KEY_SEPARATOR}${tool}`
-}
+/** Between the papers a bridge question names, in its tag's label. */
+export const PAPER_SEPARATOR = ' · '
 
 /**
- * The thread and tool a transcript key addresses.
- *
- * @param key A chat key, or a bare thread id (a key written before v8.25.0).
- * @returns Its thread and tool.
- */
-export function chatOf(key: string): { threadId: string; tool: ChatTool } {
-  const at = key.lastIndexOf(KEY_SEPARATOR)
-  const tool = at === -1 ? '' : key.slice(at + 1)
-  return tool === 'knowledge' || tool === 'reader'
-    ? { threadId: key.slice(0, at), tool }
-    : { threadId: key, tool: 'graph' }
-}
-
-/**
- * A chat's label: what the `@` dropdown lists, what a mention carries
- * between its brackets, and what the sibling index calls it.
+ * Whether a thread is a chat (it holds a conversation) rather than a paper.
  *
  * @param thread The thread.
- * @param tool The tool.
- * @returns `General` for General, else e.g. `PPO › Knowledge Graph`.
+ * @returns True for a thread with no paper.
  */
-export function chatLabel(
-  thread: Pick<ThreadRecord, 'title' | 'identity'>,
-  tool: ChatTool,
+export function isChat(thread: Pick<ThreadRecord, 'identity'>): boolean {
+  return !thread.identity
+}
+
+/**
+ * The chat an exploration's docks talk in: the chat you were last in, else
+ * its first. An exploration always keeps one chat (v8.31.0).
+ *
+ * @param record The exploration.
+ * @returns The chat's id, its transcript key.
+ */
+export function dockChatId(record: Pick<ExplorationRecord, 'threads' | 'chatId'>): string {
+  const chats = record.threads.filter(isChat)
+  return chats.find((thread) => thread.id === record.chatId)?.id ?? chats[0]?.id ?? ''
+}
+
+/**
+ * The conversation on screen: the active chat, or with a paper open, the
+ * dock's chat beside it.
+ *
+ * @param record The exploration.
+ * @returns The chat's id.
+ */
+export function chatOnScreen(
+  record: Pick<ExplorationRecord, 'threads' | 'chatId' | 'activeThreadId'>,
 ): string {
-  return thread.identity
-    ? `${thread.title}${LABEL_SEPARATOR}${CHAT_TOOL_NAMES[tool]}`
-    : thread.title
+  const active = record.threads.find((thread) => thread.id === record.activeThreadId)
+  return active && isChat(active) ? active.id : dockChatId(record)
 }
 
 /**
  * The turns a chat holds: what this sitting has written, else what was saved.
  *
  * @param transcript The transcript slice.
- * @param thread The thread.
- * @param tool The tool.
+ * @param thread The chat.
  * @returns Its turns.
  */
 export function chatTurns(
   transcript: Pick<TranscriptState, 'byKey'>,
   thread: ThreadRecord,
-  tool: ChatTool,
 ): ChatMsg[] {
-  const live = transcript.byKey[chatKey(thread.id, tool)]?.chat
-  if (live) return live
-  return tool === 'graph' ? thread.data.chat : (savedSideChat(thread, tool)?.chat ?? [])
-}
-
-/**
- * A chat's rolling summary, for the sibling index.
- *
- * @param thread The thread.
- * @param tool The tool.
- * @returns The summary and how many turns it covers.
- */
-export function chatSummary(
-  thread: ThreadRecord,
-  tool: ChatTool,
-): { summary?: string; summarizedThrough?: number } {
-  if (tool === 'graph')
-    return { summary: thread.summary, summarizedThrough: thread.summarizedThrough }
-  const saved = savedSideChat(thread, tool)
-  return { summary: saved?.summary, summarizedThrough: saved?.summarizedThrough }
+  return transcript.byKey[thread.id]?.chat ?? thread.data.chat
 }
 
 /** A chat another chat can reference. */
 export interface ChatEntry {
   key: string
   thread: ThreadRecord
-  tool: ChatTool
   label: string
 }
 
 /**
- * Every chat in an exploration, in thread order: each thread's Citation
- * Graph chat (General's chat for General), a paper thread's Knowledge
- * Graph chat once it has a course or any turns, and its Reader chat once it
- * has any turns (v8.38.0).
+ * Every chat in an exploration, in thread order. Titles are unique in an
+ * exploration (`uniqueTitle`), so a chat's title is its label.
  *
  * @param record The exploration.
- * @param transcript The transcript slice, for turns not saved yet.
  * @returns The chats.
  */
-export function explorationChats(
-  record: ExplorationRecord,
-  transcript: Pick<TranscriptState, 'byKey'>,
-): ChatEntry[] {
-  return record.threads.flatMap((thread) => {
-    const tools: ChatTool[] = ['graph']
-    if (thread.identity && (thread.knowledge || chatTurns(transcript, thread, 'knowledge').length))
-      tools.push('knowledge')
-    if (thread.identity && chatTurns(transcript, thread, 'reader').length) tools.push('reader')
-    return tools.map((tool) => ({
-      key: chatKey(thread.id, tool),
-      thread,
-      tool,
-      label: chatLabel(thread, tool),
-    }))
-  })
+export function explorationChats(record: ExplorationRecord): ChatEntry[] {
+  return record.threads
+    .filter(isChat)
+    .map((thread) => ({ key: thread.id, thread, label: thread.title }))
 }
 
 /**
- * Whether a message mentions a chat. A bare `@thread[Title]` written before
- * chats were per tool names that thread's Citation Graph chat.
+ * Whether a message mentions a chat.
  *
  * @param message The message as typed.
  * @param chat The chat.
- * @returns True when the message carries its mention.
+ * @returns True when the message carries its `@thread[…]` mention.
  */
 export function mentionsChat(message: string, chat: ChatEntry): boolean {
-  if (message.includes(`@thread[${chat.label}]`)) return true
-  return chat.tool === 'graph' && message.includes(`@thread[${chat.thread.title}]`)
+  return message.includes(`@thread[${chat.label}]`)
+}
+
+/**
+ * A tag's label: `General`, or the paper and the tool it was asked from,
+ * e.g. `Attention Is All You Need › Reader`, or a bridge question's papers,
+ * `Attention Is All You Need · Soft Actor-Critic` (no view to name). A paper's
+ * title is read off its thread, so a rename follows; a paper deleted since
+ * keeps the title the tag was stamped with.
+ *
+ * @param record The exploration, for the paper's current title.
+ * @param tag The tag; absent means General.
+ * @returns The label.
+ */
+export function tagLabel(
+  record: Pick<ExplorationRecord, 'threads'> | undefined,
+  tag?: TurnTag,
+): string {
+  if (!tag) return 'General'
+  const titles = tagPapers(tag).map(
+    (paper) => record?.threads.find((thread) => thread.id === paper.threadId)?.title ?? paper.title,
+  )
+  if (tag.tool === 'across') return titles.join(PAPER_SEPARATOR)
+  return `${titles.join(PAPER_SEPARATOR)}${LABEL_SEPARATOR}${TURN_TOOL_NAMES[tag.tool]}`
+}
+
+/**
+ * The papers a tag names: a bridge question's, or the one paper.
+ *
+ * @param tag The tag.
+ * @returns Its papers, as stamped.
+ */
+export function tagPapers(tag: TurnTag): TagPaper[] {
+  return tag.tool === 'across' && tag.papers?.length
+    ? tag.papers
+    : [{ threadId: tag.threadId, title: tag.title }]
+}
+
+/**
+ * The tag for a question about several papers at once (v9.0.0, stage 4c).
+ *
+ * @param threads The paper threads, in the order the question named them.
+ * @returns The tag, the first paper heading it.
+ */
+export function acrossTag(threads: Pick<ThreadRecord, 'id' | 'title'>[]): TurnTag {
+  const papers = threads.map((thread) => ({ threadId: thread.id, title: thread.title }))
+  return { ...papers[0], tool: 'across', papers }
+}
+
+/**
+ * The tag for a question asked beside a paper's tool.
+ *
+ * @param thread The paper thread on screen.
+ * @param tool The tool it was asked from.
+ * @returns The tag.
+ */
+export function paperTag(thread: Pick<ThreadRecord, 'id' | 'title'>, tool: TurnTool): TurnTag {
+  return { threadId: thread.id, title: thread.title, tool }
 }

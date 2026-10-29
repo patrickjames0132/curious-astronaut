@@ -43,8 +43,8 @@ import SelectionMenu from '../selection/SelectionMenu'
 import InfoTip from '../ui/InfoTip'
 import { pillAnchor, useTextSelection } from '../selection/useTextSelection'
 import { useAppDispatch, useAppSelector } from '../store'
-import { chatKey } from '../store/chats'
 import { passagesCleared } from '../store/highlight'
+import { selectConversation } from '../store/transcript'
 import {
   knowledgeKnownToggled,
   knowledgeOpened,
@@ -220,17 +220,17 @@ const MENU = [
   {
     action: 'explain',
     label: 'Explain',
-    title: 'Ask the Reader Assistant to explain this passage',
+    title: 'Ask Nova to explain this passage',
   },
   {
     action: 'simplify',
     label: 'Simplify',
-    title: 'Ask the Reader Assistant to say this in plain words',
+    title: 'Ask Nova to say this in plain words',
   },
   {
     action: 'chat',
     label: 'Chat',
-    title: 'Open the Reader Assistant with this passage attached, and ask anything about it',
+    title: 'Start a chat with Nova about this passage',
   },
 ] as const
 
@@ -510,9 +510,9 @@ export default function Reader({
   // paper's title, outside the assistant (Patrick): under it in the text, and
   // in the PDF's margin with a line to it.
   const paperTitle = thread.paper?.title ?? thread.data.graph_ref?.seed.title ?? thread.title
-  const lecturing = useAppSelector(
-    (state) => !!state.transcript.byKey[chatKey(thread.id, 'reader')]?.running.length,
-  )
+  // Since v9.0.0 the lecture streams into the dock's chat, which any view's
+  // question supersedes, so the button waits while that chat is answering.
+  const lecturing = useAppSelector((state) => !!selectConversation(state).running.length)
   const lectureButton = (
     <button
       type="button"
@@ -523,7 +523,7 @@ export default function Reader({
         onAssistant?.()
         void dispatch(guideReader({ threadId: thread.id, provider }))
       }}
-      title="A lecture on the whole paper in the Reader Assistant, each step lit in the paper as it’s taught"
+      title="Nova lectures on the whole paper, each step lit in the paper as it’s taught"
     >
       Give Lecture On Paper
     </button>
@@ -1475,14 +1475,14 @@ export default function Reader({
                   <>
                     <p>
                       Hold ⌥ (Alt) and drag to draw a box over an equation, a figure or a table, and
-                      ask about it the same way: the assistant sees a picture of it.
+                      ask about it the same way: Nova sees a picture of it.
                     </p>
                     <p>− and + zoom; the percentage fits the page to the width.</p>
                   </>
                 ) : (
                   <p>
                     Hold ⌥ (Alt) and drag a box over equations, figures or tables to ask about them
-                    whole: the assistant gets their LaTeX, and sees the figures.
+                    whole: Nova gets their LaTeX, and sees the figures.
                   </p>
                 )}
               </InfoTip>

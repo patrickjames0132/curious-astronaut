@@ -1,9 +1,10 @@
 # `src/knowledge/assistant`
 
 The **Knowledge Graph Assistant** (v8.25.0; the code calls it the course
-assistant, `CourseAssistant`): the Knowledge Graph's own chat, docked
-beside a thread's course the way `teacher/Teacher` docks beside the Citation
-Graph. Ask what a concept means, how two connect, or what to study next; a
+assistant): since v9.0.0 not a panel of its own but the one assistant
+(`teacher/Teacher`) docked beside a thread's course, which this folder lends
+its words and asking (`useCourseView`, `assistant/views`), talking in the
+dock's chat (`store/chats`). Ask what a concept means, how two connect, or what to study next; a
 lesson's **Explain** (a highlighted passage, `../SelectionMenu.tsx`) asks
 here too, and its **Chat** (v8.26.0) attaches the passage to the bar as a
 quote card for a question of the reader's own (`quotedMessage`; the card
@@ -11,23 +12,23 @@ is `.course-quote` in `teacher/teacher.css`).
 
 ```
 assistant/
-  CourseAssistant.tsx — the panel: the shared DockedAssistant with the course's words
-  askCourse.ts        — what the course sends (askCourse), Stop and Clear, a lesson's messages
-  context.ts          — the course as the assistant reads it, and its outline
+  useCourseView.ts    — what the course lends the one assistant: its words and asking
+  askCourse.ts        — what the course sends (askCourse), a lesson's messages
+  context.ts          — the course as the assistant reads it
 ```
 
-**Since v8.38.0 the panel and the stream engine are shared**
-(`../../assistant/`): the Reader's assistant is the same panel over the
-paper. This folder keeps what is the course's own: its words, its context,
-and how a lesson's passage is quoted. The decisions below still hold; they
-now describe the shared panel as the course uses it.
+**Since v8.38.0 the stream engine is shared** (`../../assistant/`), and
+since v9.0.0 the panel too: one assistant for every view. This folder keeps
+what is the course's own: its words, its context, and how a lesson's
+passage is quoted. The decisions below still hold; they now describe the
+one panel as the course uses it.
 
 ## Why it is shaped like this
 
 - **The researcher, generalized, not a new agent** (Patrick, 2026-10-17).
-  `POST /api/ask_course` runs the same graph-free researcher as the General
-  chat, with the course laid out where a graph would be
-  (`routes/agents.py`, `_course_context`). So it keeps the library, paper and
+  The assistant's `knowledge` view runs the same graph-free researcher as
+  the General chat, with the course laid out where a graph would be
+  (`orchestrators/assistant`, `context.course_context`). So it keeps the library, paper and
   web search, the citation chips and the trace, and the transcript renders
   exactly as Teacher's does (`teacher/transcript/ChatMessage`). Its prompt
   tells it whose assistant it is and to answer a question *about the course*
@@ -37,11 +38,12 @@ now describe the shared panel as the course uses it.
   concepts and target, and **every lesson written so far**, image markers
   removed. The server shows the open lesson whole and the others' openings,
   under a ceiling, so a long course can't crowd out the question.
-- **Its own chat** (`store/chats`). Assistants are encapsulated per tool
-  (Patrick, 2026-10-09): this one writes to the thread's Knowledge Graph
-  chat, key `<threadId>:knowledge`, saved as `ThreadRecord.courseChat`, with
-  its own rolling summary for the sibling index. The Citation Graph's chat
-  is untouched, and `@` reaches either from the other.
+- **The dock's chat** (v9.0.0, `store/chats`). It writes to the chat you
+  were last in, shared with every view's assistant, each question tagged
+  with the paper and its course. Until v9.0.0 assistants were encapsulated
+  per tool (Patrick, 2026-10-09) and this one kept the thread's Knowledge
+  Graph chat (`<threadId>:knowledge`, `ThreadRecord.courseChat`); the
+  OnePager's "One assistant" reversed it on purpose.
 - **A thunk, not a hook.** Two places ask: the composer, and Explain in the
   lesson panel, which may fire while the assistant is still closed (it opens
   through the shell's `onAssistant`). Both dispatch `askCourse`, and the
@@ -59,7 +61,7 @@ now describe the shared panel as the course uses it.
   Model picker came the same way (v8.33.0, `teacher/ModelPicker`): the bar
   arbitrates its two popovers so only one is open (`openPopover`); and its
   answers wear the same response timer, which `ChatMessage` draws. Also
-  since v8.28.0 it doesn't search for papers (`/api/ask_course` runs the
+  since v8.28.0 it doesn't search for papers (the `knowledge` view runs the
   researcher with `paper_search=False`): it answers from the course, the
   library and the web, and finding papers is the General chat's job. A chat
   picked from its `@` list attaches as a chip over the bar (v8.29.0), as in

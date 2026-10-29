@@ -109,12 +109,12 @@ section the beat covers ("6 Conclusion"), which rides as a "§" label and
 outranks the others: the Reader lights the whole section. They ride on
 `events.Beat` as `quote` and `labels`, empty on a graph lecture's beat.
 
-Its reading is the Reader Assistant's (`routes/agents._reading_context`), so
+Its reading is the Reader Assistant's (`assistant.context.reading_context`), so
 it sees what the assistant sees. Its own beat bound (`READING_BEATS`, 8 to
 14), not
 the graph lecture's. The student's Knowledge Graph check-offs, when sent,
 say what to take quickly and what to slow down on. Served by
-`POST /api/guide_reader`; tested with scripted models in `test_reading.py`.
+`POST /api/assistant` (the `reader` view's `guide` workflow); tested with scripted models in `test_reading.py`.
 
 ## Design decisions worth knowing
 
@@ -178,9 +178,10 @@ say what to take quickly and what to slow down on. Served by
 
 ## Who uses it, and how/why
 
-- **`routes/agents.py`'s `POST /api/lecture`**, per
+- **`orchestrators/assistant`'s `lecture` workflow** (`POST /api/assistant`
+  in the `citations` view; `/api/lecture` before v9.0.0), per
   `skills/workflows/lecture.md`: pure delegation — it types the payload,
-  calls `lecture(seed, nodes, target)` and relays the `Beat` stream through
+  calls `lecture(seed, nodes, target)` and the route relays the `Beat` stream through
   `streams.terminated`, which appends `Done`/`Error`. The route passes the
   node list **through untouched**, because that list is the lecture's
   subject; it no longer parses an `edges` array (see the scoping note below),
