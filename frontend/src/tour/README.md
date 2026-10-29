@@ -41,7 +41,8 @@ citations) auto-runs on the first course, since v8.14.0; **READER_TOUR**
 (the text's live citations, refs and footnotes, the contents, the highlight
 menu and the Reader Assistant's 🎓 since v8.38.0, the Text/PDF switch since
 v8.40.0, the Knowledge Graph notes since v8.44.0 (only when a course has
-put some there), the ↑ back)
+put some there), the criticism notes since v8.54.0 (only once a Criticisms
+card has), the ↑ back)
 auto-runs on the first paper read, since v8.37.0; **CRITICISMS_TOUR** (the
 Criticisms card: where its critiques come from, the numbered criticisms and
 their real quotes, its contents, the ↑ back) auto-runs on the first one opened. `App.tsx`

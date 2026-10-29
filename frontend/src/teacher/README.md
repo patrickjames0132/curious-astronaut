@@ -181,7 +181,8 @@ Four pieces of the composer are shared with the Knowledge Graph Assistant
   line, ending in an ellipsis with its full text on hover, and an ⓘ
   (`ui/InfoTip`, the 3D course's narrow-panel help) appears beside them,
   holding them all in full, whenever one is cut. That is **measured**, not
-  read off the panel's width. The bar's placeholder keeps to one line the
+  read off the panel's width. The icon is inset above the bar’s straight edge,
+  just before its rounded right end. The bar's placeholder keeps to one line the
   same way (`teacher.css`), where it used to wrap under a one-line bar. The
   ⓘ also always holds **the `@` tip** in full (how to name a paper or bring
   in another chat), and the placeholders name `@` again, cut short by a

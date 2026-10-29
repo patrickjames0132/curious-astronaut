@@ -40,6 +40,7 @@ import { useAppDispatch, useAppSelector } from '../store'
 import { threadReturnSet, type ThreadRecord } from '../store/explorations'
 import { openPaper, showCiterInGraph } from '../store/workspace'
 import ScrollNav, { useAtTop } from '../tools/ScrollNav'
+import { takeFocus } from './focus'
 import './criticisms.css'
 
 /** Quotes a criticism shows before "Show all". */
@@ -377,6 +378,13 @@ export default function Criticisms({
     },
     [setPinnedId],
   )
+  // Opened from a Reader note's card ("Read in Criticisms"): at that
+  // criticism, once the criticisms are on the page.
+  useEffect(() => {
+    if (!ready || !id) return
+    const number = takeFocus(id)
+    if (number) jump(criticismDomId(number))
+  }, [ready, id, jump])
 
   const load = useCallback(
     (fresh: boolean) => {
@@ -541,6 +549,8 @@ export default function Criticisms({
         {children}
         <ScrollNav
           atTop={atTop}
+          thread={thread}
+          tool="reviews"
           paperTitle={thread.title}
           topTitle="Back to the top of the criticisms"
           onTop={() => {

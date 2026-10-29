@@ -2,7 +2,8 @@
 
 Description:
 The Criticisms card: what the field objected to in a paper, each concern
-quoted from the later paper that raised it.
+quoted from the later paper that raised it; and (v8.54.0) the Reader's
+criticism notes, the cached card pinned to the passages it is about.
 
 The sentences come from Semantic Scholar's citation contexts, the sentence
 in which a citing paper cites this one. **Which citers matters more than how
@@ -35,6 +36,8 @@ Charles Patrick James <charles.patrick.james@gmail.com>
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import re
 from typing import Any, Literal
@@ -43,6 +46,7 @@ from ...agents.orchestrators import reviewer
 from ...integrations import semantic_scholar as s2
 from ...integrations.semantic_scholar.corpus import source as corpus_source
 from ...storage import cache
+from ..reader import sections as reader_sections
 
 log = logging.getLogger(__name__)
 
@@ -258,3 +262,97 @@ def peer_reviews(paper: dict, *, fresh: bool = False) -> dict[str, Any]:
     if key is not None:
         cache.set(key, card)
     return card
+
+
+def cached(paper: dict) -> dict[str, Any] | None:
+    """A paper's card if one has been gathered, never gathering it.
+
+    The Reader's criticism notes (v8.54.0) show only once the card exists
+    (Patrick): opening the Reader must not start a half-minute gather.
+
+    Args:
+        paper: The paper's graph node.
+
+    Returns:
+        The cached card, as :func:`peer_reviews` would return it (a live one
+        only while :data:`LIVE_CACHE_SECONDS` old); None when there's none.
+    """
+    key = cache_key(paper)
+    if key is None:
+        return None
+    card = cache.get(key, max_age=CACHE_SECONDS)
+    if not isinstance(card, dict):
+        return None
+    if card.get("source") == "live" and cache.get(key, max_age=LIVE_CACHE_SECONDS) is None:
+        return None
+    return card
+
+
+def notes(
+    paper: dict,
+    document: str,
+    source: Literal["text", "pdf"],
+    provider: Literal["s2", "openalex"],
+) -> dict[str, Any]:
+    """The Reader's criticism notes: the cached card, pinned to the paper.
+
+    Nothing is gathered here: no card, no notes. The pins are asked of the
+    reviewer once per card and source (``reviewer.place``) and cached as
+    long as the card is, keyed by its criticisms, so a card gathered again
+    is pinned again and the same card never is.
+
+    Args:
+        paper: The paper's graph node (the card's key).
+        document: What the Reader reads: the arXiv id, or for the PDF a
+            provider id too.
+        source: The text's sections, or the PDF's contents entries.
+        provider: Who to ask for a non-arXiv paper's open-access PDF.
+
+    Returns:
+        ``{card, pins}``: the card (None when there is none) and its pins,
+        ``[{criticism, section, quote}]``, ``criticism`` the card's number
+        for it (from 1, in its order), ``section`` a document section id or
+        ``pdf:<n>``.
+
+    Raises:
+        Exception: Model failures propagate from the reviewer.
+    """
+    card = cached(paper)
+    themes = (card or {}).get("themes") or []
+    if card is None or not themes:
+        return {"card": card, "pins": []}
+    criticisms = [
+        reviewer.Criticism(number=index + 1, name=theme["name"], summary=theme["summary"])
+        for index, theme in enumerate(themes)
+    ]
+    key = "reviews:pins:v1:" + _digest([
+        cache_key(paper),
+        document,
+        source,
+        provider if source == "pdf" else "",
+        [criticism.name for criticism in criticisms],
+    ])
+    hit = cache.get(key, max_age=CACHE_SECONDS)
+    if isinstance(hit, list):
+        return {"card": card, "pins": hit}
+    try:
+        sections = reader_sections.paper_sections(document, source, provider)
+    except Exception:  # the render or the PDF unreachable: nothing to pin to, this time
+        log.warning("criticism notes: reading %s's %s failed", document, source, exc_info=True)
+        return {"card": card, "pins": []}
+    pins = [pin.model_dump() for pin in reviewer.place(criticisms, sections)]
+    if sections:
+        cache.set(key, pins)
+    return {"card": card, "pins": pins}
+
+
+def _digest(parts: list[Any]) -> str:
+    """A short, stable digest of a cache key's parts.
+
+    Args:
+        parts: JSON-serialisable parts.
+
+    Returns:
+        16 hex characters.
+    """
+    return hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()[:16]

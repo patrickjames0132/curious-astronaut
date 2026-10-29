@@ -107,12 +107,16 @@ test/
   reader/
     Reader.test.tsx           — the Reader over a stubbed document: the text,
                                 the contents, citation cards (v8.43.0), the
-                                Knowledge Graph notes (v8.44.0) and footnote
-                                clicks,
+                                Knowledge Graph notes (v8.44.0), the
+                                criticism notes and their card (v8.54.0)
+                                and footnote clicks,
                                 each reason there's nothing to read, and the
                                 highlight menu's Explain, Simplify and Chat
                                 into the Reader Assistant (v8.38.0), and the
                                 PDF view with pdf.js stubbed (v8.40.0)
+    CriticismNote.test.tsx    — a criticism note: chips by number, its
+                                passage found and lit on hover, its anchor
+    useCriticismNotes.test.ts — pins grouped into one note per passage
   contents/
     ContentsRail.test.tsx     — the shared contents rail: entries by
                                 number, the active one, a pick, folding under

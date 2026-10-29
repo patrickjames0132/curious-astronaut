@@ -51,7 +51,12 @@ paper's Knowledge Graph course, each section shows the concepts from it that
 the section builds on, in the margin (or under the heading in a narrow
 window), a ✓ on the ones you know; click one for why the paper needs it, the
 start of its lesson and a check-off, or read the whole lesson in the
-Knowledge Graph and come straight back to your place. A figure or equation
+Knowledge Graph and come straight back to your place. Once you've gathered
+the paper's **Criticisms**, a criticism the field raised about something the
+paper says or does is noted beside that very passage, by its number: hover
+the note to light the passage, click a criticism for its summary and a quote
+from the paper that raised it, and **Read in Criticisms** opens the card at
+it, with **Back to reading** to return. A figure or equation
 number jumps to it. The
 contents follow along as you read; drag their edge to resize them, or fold
 them away to a thin line with the bump on that edge. A **Text / PDF** switch
@@ -282,6 +287,9 @@ The Vite dev server proxies `/api/*` to Flask.
 ---
 
 ## Using it
+
+The ⓘ above each chat bar keeps its context and `@` help available, aligned
+just before the bar's rounded right end.
 
 1. **Find a paper** — everything starts in the **chat bar**; there is no
    separate search box. Ask a research question and the assistant goes

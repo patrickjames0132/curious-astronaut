@@ -17,7 +17,10 @@ reader/
   ConceptNote.tsx — a Knowledge Graph note: the course concepts a section builds on
   ConceptCard.tsx — the card a note's concept opens: why, its lesson, the check-off
   useConceptNotes.ts — which concepts each section needs (the tutor's placement)
-  useMarginNotes.ts — margin notes stacked apart and tied to their headings
+  CriticismNote.tsx — a criticism note: the Criticisms card's criticisms at a passage
+  CriticismCard.tsx — the card a note's criticism opens: its summary, a quote, the way on
+  useCriticismNotes.ts — the card's pins (the reviewer's placement), and in the PDF
+  useMarginNotes.ts — margin notes stacked apart and tied to their headings or passages
   passages.ts     — an answer's passages: read out, found in the text, lit
   usePdfPassages.ts — the same in the PDF, as places: boxes over its pages
   pdfPlaces.ts    — where a PDF highlight began and ended, as points on its pages
@@ -416,6 +419,56 @@ model call, a card in the Reader.
   (`source: "pdf"`, ids `pdf:<n>`, each entry read with the pages it spans).
   A section the PDF has no heading for gets no note there.
 
+## The criticism notes (v8.54.0)
+
+Once the paper's **Criticisms** card has been gathered, a criticism the
+field raised about something the paper says or does is noted beside that
+passage: **Criticisms** and the criticisms, each by its number and
+headline, a button opening its card. Patrick's picks (2026-10-27): the
+Knowledge Graph notes' shape ("just like we do for the knowledge graph"),
+pointing at **the passage itself**, only **once a card exists**, and a
+**card, then the criticism** on a click.
+
+- **Pinned by the reviewer** (`POST /api/reviews/notes`,
+  `services/reviews.notes`, `reviewer.place`): it reads the paper's sections
+  (the same ones the Knowledge Graph placer reads, `services/reader/
+  sections.py`) and the card's criticisms, and for a criticism about
+  something in the paper quotes the passage, word for word. Not every
+  criticism gets one: one about what the paper never tried, or the field
+  after it, has nothing to point at ("a wrong pin is worse than none").
+  **Code checks every quote** against its section's text (letters and
+  digits, as `passages.ts` compares), so a note always points at the
+  paper's own words; at most two pins a criticism. Cached with the card, by
+  its criticisms: a card gathered again is pinned again.
+- **Nothing without a card** (Patrick). The route reads the card's cache
+  only (`services/reviews.cached`) and never starts the half-minute gather;
+  without a card it answers `{card: null, pins: []}` and no model is asked.
+- **One note per passage.** Pins quoting the same words share a note,
+  their criticisms in number order (`notesOf`).
+- **Tied to the passage, not the heading.** The note finds its quote in its
+  own section (`findQuote`, the text index that skips the notes themselves)
+  and registers where it is (`noteAnchors`, `useMarginNotes`): the margin's
+  layout sets its label level with the passage's first line, stacked with
+  the Knowledge Graph notes like any other, and its curve starts in the gap
+  beside the column at that line, never across the text. Narrow, it sits
+  under its section's heading like the concept notes.
+- **Hover lights the passage** in the card's sage (`.reader-text-lit.
+  criticism`), and the curve glows sage: the passage it means is never a
+  guess.
+- **In the PDF view too.** The pins' quotes are found in the PDF's own
+  words by the server (`/pdf-find`, `useCriticismPdfNotes`), so the text's
+  pins serve the PDF and nothing is asked of the model twice; each note
+  sits beside its page at its passage's line, its curve to the passage's
+  end, its passage lit in sage over the page (`PdfView`'s `marked`). A
+  quote the PDF doesn't have has no note there. A paper with only its PDF
+  is pinned in the PDF's own contents (`source: "pdf"`).
+- **A criticism's card** (`CriticismCard`, timed and placed like the
+  citation card, in sage): its number and headline, how many papers raise
+  it, its summary, its most-cited quote with the paper that wrote it, and
+  **Read in Criticisms**, which opens the Criticisms card scrolled to that
+  criticism (`criticisms/focus.ts`) with **Back to reading** in its ↑'s
+  place (`tools/ReturnPill`, drawn by `ScrollNav` there).
+
 ## The PDF view (v8.40.0)
 
 The paper as its PDF, drawn by pdf.js (`pdfjs-dist`, pinned). **When:** on
@@ -601,7 +654,11 @@ out) and its jumps, a citation's card (pinned, previewed on hover, matched
 or not, its actions and its jump to the reference), the Knowledge Graph
 notes (placed beside their sections in course order, none and no request
 without a course) and a concept's card (its lesson's opening, the
-check-off, the way to the lesson), an answer's passages (lit in the text,
+check-off, the way to the lesson), the criticism notes (asked for the
+thread's paper, beside the passage's section, none without a card, in the
+PDF only where the server finds the passage) and a criticism's card (its
+summary and quote, Read in Criticisms setting the way back and the
+criticism to open at), an answer's passages (lit in the text,
 gone to only when asked, put out by Esc; set by the Reader Assistant as an
 answer finishes, by a click on the answer and on a quote), a footnote opening,
 a figure enlarging, an algorithm's numbers and indents, the contents
@@ -618,7 +675,10 @@ as its picture. A box over the text snaps to the equation and figure it
 touched and asks with the LaTeX, the caption and the figure's image, kept on
 the turn; `test/reader/textBox.test.ts` pins what a box takes (the outermost
 element, never a note).
-`test/reader/passages.test.ts` covers reading quotes out, finding them
+`test/reader/CriticismNote.test.tsx` covers a note's chips by number, its
+passage found in its section and lit on hover, its anchor registered, and
+its PDF places; `test/reader/useCriticismNotes.test.ts` the pins grouped
+into notes. `test/reader/passages.test.ts` covers reading quotes out, finding them
 however the text differs, and lighting them; `test/reader/pdfPlaces.test.ts`
 a highlight's rectangles as places, kept to the band its drag spans. The
 server's half is `test/curious_astronaut/services/pdf/test_passages.py`

@@ -7,7 +7,9 @@
  * **Back to top** pill back up the page. The other tools' ↑ alone, floating
  * over a scrolled page, read as "back to the top". Drawn by the tools whose
  * page scrolls, the Reader and Criticisms; the app leaves its own ↑ out
- * for them.
+ * for them. Opened from another tool for one thing (Criticisms from a
+ * Reader note's card, v8.54.0), the way back takes the ↑'s place, as the
+ * app's does (`ReturnPill`).
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -15,7 +17,9 @@
 
 import { useEffect, useState, type RefObject } from 'react'
 import { useAppDispatch } from '../store'
+import type { ThreadRecord, ThreadTool } from '../store/explorations'
 import { openTool } from '../store/workspace'
+import ReturnPill from './ReturnPill'
 
 /** How far down the pane still counts as the top of the page, in pixels. */
 export const AT_TOP = 120
@@ -46,6 +50,8 @@ export function useAtTop(pane: RefObject<HTMLElement | null>, key?: unknown): bo
  *
  * @param props Component props.
  * @param props.atTop Whether the pane is at its top (see {@link useAtTop}).
+ * @param props.thread The thread, for its way back (`returnTo`).
+ * @param props.tool The tool drawing it.
  * @param props.paperTitle The thread's title, for the ↑'s tooltip.
  * @param props.topTitle Back to top's tooltip, naming what it goes to the top of.
  * @param props.onTop Go back to the top.
@@ -53,11 +59,15 @@ export function useAtTop(pane: RefObject<HTMLElement | null>, key?: unknown): bo
  */
 export default function ScrollNav({
   atTop,
+  thread,
+  tool,
   paperTitle,
   topTitle,
   onTop,
 }: {
   atTop: boolean
+  thread: ThreadRecord
+  tool: ThreadTool
   paperTitle: string
   topTitle: string
   onTop: () => void
@@ -65,7 +75,9 @@ export default function ScrollNav({
   const dispatch = useAppDispatch()
   return (
     <div className="tool-nav">
-      {atTop ? (
+      {atTop && thread.returnTo?.from === tool ? (
+        <ReturnPill to={thread.returnTo.tool} />
+      ) : atTop ? (
         <button
           type="button"
           className="tool-back"

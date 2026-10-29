@@ -11,6 +11,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { useEffect, type ReactElement, type ReactNode, type RefObject } from 'react'
 import { Provider, useSelector } from 'react-redux'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { takeFocus } from '../../src/criticisms/focus'
 import { createMap, nameKey, withChildren } from '../../src/knowledge/model'
 import Reader from '../../src/reader/Reader'
 import { readerSelectionText } from '../../src/reader/selectionText'
@@ -24,7 +25,7 @@ import workspace from '../../src/store/workspace'
 import library from '../../src/store/library'
 import highlightReducer, { passagesLit } from '../../src/store/highlight'
 import * as api from '../../src/api'
-import type { ReaderDocument } from '../../src/api'
+import type { CriticismsCard, ReaderDocument } from '../../src/api'
 
 /** How the stubbed PDF view behaves: fails to open by default (no PDF),
  *  or opens two pages with the given outline. */
@@ -102,6 +103,8 @@ beforeEach(() => {
   vi.spyOn(api, 'fetchCited').mockResolvedValue({})
   // The Knowledge Graph notes' placements: none unless a test says so.
   vi.spyOn(api, 'placeConcepts').mockResolvedValue({})
+  // The criticism notes: no Criticisms card unless a test says so.
+  vi.spyOn(api, 'fetchCriticismNotes').mockResolvedValue({ card: null, pins: [] })
 })
 
 afterEach(() => {
@@ -1579,4 +1582,116 @@ it('has one button over the paper: Back to top when scrolled, the ↑ to the car
   expect(saved?.tool).toBe('cards')
   // No second Back to top in the contents.
   expect(document.querySelector('.contents-rail-top')).toBeNull()
+})
+
+/** A Criticisms card with two criticisms. */
+const CRITICISMS: CriticismsCard = {
+  source: 'corpus',
+  citers: 200,
+  sentences: 300,
+  critiques: 9,
+  themes: [
+    {
+      name: 'Recurrence dismissed too soon',
+      summary: 'Later work brought recurrence back.',
+      papers: 3,
+      quotes: [
+        {
+          text: 'Recurrence still matters [1].',
+          paper: {
+            id: 'C1',
+            arxiv_id: null,
+            title: 'RWKV',
+            year: 2023,
+            authors: 'Peng',
+            citation_count: 900,
+            url: null,
+          },
+        },
+      ],
+    },
+    { name: 'Quadratic cost', summary: 'It scales badly.', papers: 5, quotes: [] },
+  ],
+}
+
+it('notes a criticism beside the passage it is about, once the card exists', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  const notes = vi.spyOn(api, 'fetchCriticismNotes').mockResolvedValue({
+    card: CRITICISMS,
+    pins: [{ criticism: 1, section: 'S1', quote: 'Recurrent networks' }],
+  })
+  mount(<Harness />)
+  const note = await screen.findByRole('complementary', { name: 'From the Criticisms card' })
+  expect(notes).toHaveBeenCalledWith(
+    expect.objectContaining({ id: 'ATT', arxiv_id: '1706.03762' }),
+    { document: '1706.03762', source: 'text', provider: 's2' },
+    expect.anything(),
+  )
+  expect(note.closest('section')?.getAttribute('data-section-id')).toBe('S1')
+  const chips = Array.from(note.querySelectorAll('button'))
+  expect(chips.map((chip) => chip.textContent)).toEqual(['1Recurrence dismissed too soon'])
+  expect(document.querySelector('.reader-article')?.classList.contains('has-notes')).toBe(true)
+})
+
+it('opens a criticism’s card, and the Criticisms card at it with a way back', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  vi.spyOn(api, 'fetchCriticismNotes').mockResolvedValue({
+    card: CRITICISMS,
+    pins: [{ criticism: 1, section: 'S1', quote: 'Recurrent networks' }],
+  })
+  const { store } = mount(<Harness />)
+  fireEvent.click(await screen.findByRole('button', { name: /Recurrence dismissed too soon/ }))
+  const card = await screen.findByRole('dialog', {
+    name: 'Criticism 1: Recurrence dismissed too soon',
+  })
+  expect(card.textContent).toContain('Raised by 3 papers')
+  expect(card.textContent).toContain('Later work brought recurrence back.')
+  expect(card.textContent).toContain('“Recurrence still matters [1].”')
+  expect(card.textContent).toContain('RWKV · 2023')
+  fireEvent.click(screen.getByRole('button', { name: 'Read in Criticisms' }))
+  const thread = () =>
+    store.getState().explorations.byId.saved.threads.find((item) => item.id === THREAD.id)!
+  expect(thread().returnTo).toEqual({ tool: 'reader', from: 'reviews' })
+  await waitFor(() => expect(thread().tool).toBe('reviews'))
+  // The Criticisms card will open at criticism 1.
+  expect(takeFocus('ATT')).toBe(1)
+})
+
+it('notes nothing without a Criticisms card', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  mount(<Harness />)
+  await screen.findByRole('heading', { name: /Introduction/ })
+  expect(api.fetchCriticismNotes).toHaveBeenCalled()
+  expect(screen.queryByRole('complementary', { name: 'From the Criticisms card' })).toBeNull()
+})
+
+it('notes a criticism in the PDF where the server finds its passage', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  vi.spyOn(api, 'fetchCriticismNotes').mockResolvedValue({
+    card: CRITICISMS,
+    pins: [
+      { criticism: 1, section: 'S1', quote: 'a passage the PDF lacks' },
+      { criticism: 2, section: 'S3.SS2', quote: 'every position to every other' },
+    ],
+  })
+  const find = vi.spyOn(api, 'findPdfQuotes').mockResolvedValue({
+    found: [[], [{ page: 2, rects: [[60, 400, 300, 412]] }]],
+    labelled: [],
+  })
+  pdfStub.fail = false
+  mount(<Harness />, { ...THREAD, readerView: 'pdf' })
+  const note = await screen.findByRole('complementary', { name: 'From the Criticisms card' })
+  expect(find).toHaveBeenCalledWith(
+    '1706.03762',
+    's2',
+    ['a passage the PDF lacks', 'every position to every other'],
+    [],
+    expect.anything(),
+  )
+  // Only the passage found has a note: beside page 2, at its line.
+  const holder = note.closest('.reader-pdf-note') as HTMLElement
+  expect(holder.closest('.reader-pdf-page')?.id).toBe('reader-page:2')
+  expect(holder.dataset.top).toBe('396')
+  expect(note.textContent).toContain('Quadratic cost')
+  expect(screen.getAllByRole('complementary', { name: 'From the Criticisms card' })).toHaveLength(1)
 })

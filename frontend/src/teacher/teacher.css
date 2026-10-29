@@ -1740,7 +1740,9 @@ button.chat-tag:hover {
   display: flex;
   align-items: flex-end;
   gap: 4px;
-  padding: 0 12px 6px 16px;
+  /* The bar has a 12px inset and 26px radius: keep the tip above its
+     straight edge rather than the rounded end cap. */
+  padding: 0 38px 6px 16px;
 }
 .composer-notes-lines {
   flex: 1;
