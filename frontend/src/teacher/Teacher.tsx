@@ -66,6 +66,7 @@ import {
   routeReaderMessage,
 } from '../api'
 import { askAt } from '../assistant/askAt'
+import { stopChat } from '../assistant/inFlight'
 import { askOnArrival, takeArrival } from '../assistant/pendingAsk'
 import { keepChatInView } from '../assistant/keepChatInView'
 import { useAppDispatch, useAppSelector } from '../store'
@@ -94,7 +95,9 @@ import AttachedChips from '../mentions/AttachedChips'
 import {
   attachedMessage,
   attachmentKey,
+  splitAttached,
   withAttachment,
+  withBody,
   withoutMention,
 } from '../mentions/attachments'
 import { mentionText, readMessage } from '../mentions/parse'
@@ -516,6 +519,9 @@ export default function Teacher({
             places: passage?.places,
             figures: passage?.figures,
             labels: passage?.labels,
+            // Typed, unless a highlight's passage came with it: a quoted
+            // question isn't the reader's typing, so it isn't editable.
+            typed: !passage,
           }),
         )
       if (placeable) void placeOrHere(question, askHere)
@@ -544,7 +550,7 @@ export default function Teacher({
     if (intent.kind === 'seed' && !landing) {
       // Docked, `@Title` alone points at a paper on the graph rather than
       // opening it in a thread of its own: it is a question about that paper.
-      void send(question, scopeArg, activeOptions, [intent.paper])
+      void send(question, scopeArg, activeOptions, [intent.paper], true)
       return
     }
     if (intent.kind === 'seed') {
@@ -565,7 +571,7 @@ export default function Teacher({
     // where it is about (v9.0.0, stage 4b): a message naming a paper on the
     // graph points at it, here; anything else may be about another paper.
     const mentioned = intent.kind === 'ask' ? intent.mentioned : []
-    const askHere = () => void send(question, scopeArg, activeOptions, mentioned)
+    const askHere = () => void send(question, scopeArg, activeOptions, mentioned, true)
     if (mentioned.length || attached.some((choice) => choice.kind === 'paper')) askHere()
     else void placeOrHere(question, askHere)
   }
@@ -682,6 +688,81 @@ export default function Teacher({
     else void send(question, scopeArg, activeOptions, [])
   }
 
+  /**
+   * **Edit the latest question and send it again** (Patrick): its exchange
+   * goes and the edited question is asked in its place, as a retry's failed
+   * one does. Only the latest, so the history behind it is never rewritten
+   * — and an answer still working is stopped first, so a typo caught just
+   * after Enter costs nothing. The exchange is released from the chat's
+   * in-flight slot as it is stopped (`stopChat`), so the stopped run ends as
+   * superseded and never marks the new turn failed.
+   *
+   * **Only what the reader typed** (Patrick): a question marked `typed`,
+   * never a button's predetermined message or one quoting a passage, so an
+   * edit never has a passage's places to keep or lose. Asked where it was
+   * asked (only a question this view owns is editable), through the same
+   * path the bar would take, minus the placing: the reader already said
+   * where it goes. Its `@` attachments ride along, and a direct search
+   * searches again.
+   *
+   * @param index The question's turn.
+   * @param body The edited words, without the attachments' line.
+   */
+  const editQuestion = (index: number, body: string) => {
+    const question = chat[index]
+    if (question?.role !== 'user' || chat[index + 1]?.role !== 'assistant') return
+    const text = withBody(question.text, body)
+    stopAsk()
+    stopChat(activeKey)
+    dispatch(failedTurnDropped(index + 1, activeKey))
+    followNextTurn()
+    if (view) {
+      // Typed, so it carries no passage (no places, boxes or labels) to keep:
+      // what its answer lights is read off its words, as for any question.
+      void dispatch(
+        view.ask({
+          threadId: view.thread.id,
+          question: text,
+          provider: viewProvider,
+          sourceIds: scopeArg,
+          typed: true,
+        }),
+      )
+      return
+    }
+    if (question.searched) {
+      void runSearch(text)
+      return
+    }
+    if (ID_RE.test(text)) {
+      onPaperSeed(text)
+      return
+    }
+    // The papers its chips attached: docked, those are the graph's own, so
+    // they are found again by title (the bar's picks are gone by now).
+    const titles = new Set(
+      splitAttached(text)
+        .attached.filter((item) => item.kind === 'paper')
+        .map((item) => item.title),
+    )
+    const mentioned = graphPapers.filter((paper) => titles.has(paper.title))
+    void send(text, scopeArg, activeOptions, mentioned, true)
+  }
+  // Only the chat's latest question is editable, only one the reader typed
+  // (`ChatMsg.typed`: never a button's message or a quoted passage), and
+  // only by the view that asked it; not while a search runs or a message is
+  // being placed, when the latest exchange is not yet the one on screen.
+  const lastQuestion = chat.length - 2
+  const editable = (message: ChatMsg, index: number) =>
+    message.role === 'user' &&
+    message.typed &&
+    index === lastQuestion &&
+    owns(index + 1) &&
+    !searching &&
+    !placing
+      ? (body: string) => editQuestion(index, body)
+      : undefined
+
   // A lecture placed on this view from another (`placeOrHere`) is asked once
   // the view is ready to be taught over: its graph built, its paper loaded.
   const ready = view ? view.available : hasGraph
@@ -729,6 +810,7 @@ export default function Teacher({
         places: question.places,
         figures: question.boxedFigures,
         labels: question.labels,
+        typed: question.typed,
       }),
     )
   }
@@ -1352,6 +1434,7 @@ export default function Teacher({
           provider={viewProvider}
           onEnlarge={setLightbox}
           askInstead={placedInstead(message, index)}
+          onEdit={editable(message, index)}
           turn={index}
           {...elsewhere(message, index)}
         />
@@ -1422,6 +1505,7 @@ export default function Teacher({
             : undefined
         }
         askInstead={placedInstead(message, index)}
+        onEdit={editable(message, index)}
         turn={index}
         {...elsewhere(message, index)}
       />
@@ -1650,6 +1734,12 @@ export default function Teacher({
             onBlur={() => mentions.reset()}
             onKeyDown={onInputKeyDown}
             rows={1}
+            // Typos are underlined as they are typed (the browser's own
+            // spellcheck, every chat bar), and corrected where the browser
+            // does that itself; nothing is rewritten behind the reader's back,
+            // so `@` mentions, ids, titles and math stay as typed.
+            spellCheck
+            autoCorrect="on"
             placeholder={askPlaceholder}
             aria-label="Ask Nova a question"
           />

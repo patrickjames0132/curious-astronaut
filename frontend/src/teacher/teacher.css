@@ -1544,6 +1544,64 @@ button.chat-tag {
 .chat-tag-instead:hover {
   color: var(--text-strong);
 }
+/* Edit the latest question and send it again. The ✎ sits quietly at the
+   bubble's end, brightening on the bubble's hover or its own focus. */
+.chat.user:has(.chat-edit-open) {
+  position: relative;
+  padding-right: 28px;
+}
+.chat-edit-open {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 0 3px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease;
+}
+.chat.user:hover .chat-edit-open,
+.chat-edit-open:focus-visible {
+  opacity: 1;
+}
+.chat-edit-open:hover {
+  color: var(--accent, #58a6ff);
+}
+.chat-edit textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text-strong);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+.chat-edit textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.chat-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+.chat-resend:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 button.chat-tag:hover {
   color: var(--text);
   text-decoration: underline;

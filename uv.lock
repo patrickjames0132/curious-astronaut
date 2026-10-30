@@ -559,7 +559,7 @@ nvtx = [
 
 [[package]]
 name = "curious-astronaut"
-version = "9.1.1"
+version = "9.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },

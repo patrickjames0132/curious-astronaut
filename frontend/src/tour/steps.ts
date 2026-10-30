@@ -733,7 +733,8 @@ export const GRAPH_TOUR: TourStep[] = [
       'graph). Papers its hops find join the map beside the paper they came from. It doesn’t search for ' +
       'new papers past the graph: that’s what your chats (Chats in the rail) are for. While it’s still ' +
       'searching, “Quick response” beside “Working” stops the search and answers now, ' +
-      'from what’s on screen and the model’s own knowledge. Press Enter to send; ⇧ Shift+Enter starts a new line for longer questions.',
+      'from what’s on screen and the model’s own knowledge. Press Enter to send; ⇧ Shift+Enter starts a new line for longer questions. ' +
+      'Spotted a typo after sending? The ✎ on the latest question you typed edits it and sends it again in place of its answer.',
   },
   {
     target: '[data-tour="ask"]',
