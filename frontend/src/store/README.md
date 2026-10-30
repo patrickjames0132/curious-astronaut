@@ -75,10 +75,13 @@ into `openPaper`. `activateThread` and the exploration reopen in
 `shell/useExplorations.ts` rebuild a graph only for a thread on its graph
 tool. `loadGraph` itself always means "show me the graph", so it sets the
 target thread's tool to `'graph'`.
-`openThread` (v8.16.0) is what the rail and the chat's "Context from" links
-dispatch: it rests the thread on its cards (`threadCardsShown`) *before*
-activating it, so a thread left on its graph lands on its cards without a
-rebuild, and its graph comes back from memory when its card is opened.
+`openThread` is what the rail and the chat's "Context from" links dispatch.
+A thread that is not on screen is activated on the tool it was left on (a
+graph comes back from memory); the thread already on screen goes up to its
+cards (`threadCardsShown`). From v8.16.0 until 2026-10-30 it always landed on
+the cards. A question's tag (`openTag`) still lands on cards first, through
+`openThreadOnCards`, which rests the thread on its cards *before* activating
+it so a thread left on its graph is not rebuilt only to be left.
 
 **The knowledge network's course lives on its thread** too
 (`ThreadRecord.knowledge`, v8.14.0), so it saves with the exploration like

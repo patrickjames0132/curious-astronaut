@@ -5527,6 +5527,24 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **A paper reopens where you left it** *(v9.3.0)* — Patrick,
+      2026-10-30: clicking a paper in the sidebar reset it to its cards, so
+      going back to a paper meant finding your place again. Now the **first
+      click reopens the tool it was left on** (Citation Graph, Knowledge
+      Graph, Reader or Criticisms; a graph comes back from memory, not
+      rebuilt), and a **second click, on the paper already on screen, goes up
+      to its cards**. This reverses half of v8.16.0's "a rail click always
+      opens the thread's cards"; the chat's "Context from" links follow the
+      same rule. `openThread` now branches on whether the thread is on screen:
+      `activateThread` if not, `threadCardsShown` if so. A question's tag
+      (`openTag`) keeps landing on cards first through a new
+      `openThreadOnCards`, which sets the tool before activating so a thread
+      left on its graph is not rebuilt only to be left. The tour's "Pick a
+      tool" step, `README.md` and the `store/`/`tools/` READMEs say so.
+      Tests: the rail test now checks the reopen without a rebuild, the
+      second click to the cards, and a thread left on its cards coming back
+      there.
+
 - [x] **The landing painting: Nova with a tractor beam** *(v9.0.2)* — Patrick
       repainted the landing astronaut with glowing rings and a jet beneath
       it. Both cuts are rebuilt the v8.6.0 way: **dark** is the painting as

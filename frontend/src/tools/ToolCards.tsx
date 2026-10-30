@@ -6,7 +6,7 @@
  * that works on it — the citation graph, (Phase 5b) the knowledge network,
  * the Reader (the paper itself), and Criticisms (what the field objected
  * to). Opening a card switches the thread to that tool; clicking the
- * thread in the rail always comes back here (`openThread`).
+ * thread in the rail while it is on screen comes back here (`openThread`).
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>

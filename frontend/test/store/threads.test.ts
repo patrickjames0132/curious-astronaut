@@ -168,7 +168,7 @@ describe('card home', () => {
     expect(activeThread(store).id).toBe(cards)
     expect(api.fetchPaperDetail).not.toHaveBeenCalled()
   })
-  it('opens a thread from the rail onto its cards, without rebuilding its graph', async () => {
+  it('opens a thread from the rail on the tool it was left on, then up to its cards', async () => {
     const store = makeStore()
     const general = activeThread(store).id
     await store.dispatch(loadGraph({ seed: 'PPO' }))
@@ -176,15 +176,22 @@ describe('card home', () => {
     expect(threadTool(activeThread(store))).toBe('graph')
     await store.dispatch(activateThread(general))
     vi.mocked(api.fetchGraphStream).mockClear()
+    // The first click comes back to its graph, from memory, not rebuilt.
     await store.dispatch(openThread(graphThread))
     expect(activeThread(store).id).toBe(graphThread)
-    expect(threadTool(activeThread(store))).toBe('cards')
+    expect(threadTool(activeThread(store))).toBe('graph')
+    expect(store.getState().workspace.graph?.seed.id).toBe('PPO')
     expect(api.fetchGraphStream).not.toHaveBeenCalled()
-    // The graph it rested on is still in memory: its card reopens it as it was.
+    // A second click, on the thread already on screen, goes up to its cards.
+    await store.dispatch(openThread(graphThread))
+    expect(threadTool(activeThread(store))).toBe('cards')
+    // Its card reopens the graph as it was.
     await store.dispatch(openTool('graph'))
     expect(store.getState().workspace.graph?.seed.id).toBe('PPO')
     expect(api.fetchGraphStream).not.toHaveBeenCalled()
-    // Clicking the thread already on screen goes back up to its cards too.
+    // Left on its cards, it comes back on its cards.
+    await store.dispatch(openThread(graphThread))
+    await store.dispatch(activateThread(general))
     await store.dispatch(openThread(graphThread))
     expect(threadTool(activeThread(store))).toBe('cards')
     // General has no cards; opening it is a plain switch.

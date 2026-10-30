@@ -549,16 +549,30 @@ export const newDockChat = createAsyncThunk<void, void, { state: NavigationState
   },
 )
 
-/** Open a thread the way the rail does: a paper thread always lands on its
- * cards, even the one already on screen (Patrick, 2026-10-09). Since v8.16.0;
- * before that a rail click reopened the tool last used. Opening a paper *for*
- * a tool (the panel's "Explore in a thread", a citation's graph icon) goes through
- * `seedPaper`/`openPaper` instead and keeps landing on that tool. Setting the
- * tool first means a thread that rested on its graph never rebuilds it here.
+/** Open a thread the way the rail does: a paper thread comes back on the
+ * tool it was left on, and a second click, on the thread already on screen,
+ * goes up to its cards (Patrick, 2026-10-30). From v8.16.0 until then every
+ * rail click landed on the cards. Opening a paper *for* a tool (the panel's
+ * "Explore in a thread", a citation's graph icon) goes through
+ * `seedPaper`/`openPaper` instead and keeps landing on that tool.
  * @param threadId The thread to show.
  */
 export const openThread = createAsyncThunk<void, string, { state: NavigationState }>(
   'workspace/openThread',
+  async (threadId, { dispatch, getState }) => {
+    const { explorations } = getState()
+    if (explorations.byId[explorations.activeId]?.activeThreadId === threadId)
+      dispatch(threadCardsShown(threadId))
+    else await dispatch(activateThread(threadId))
+  },
+)
+
+/** Open a paper thread on its cards, wherever it was left. Setting the tool
+ * first means a thread that rested on its graph never rebuilds it here.
+ * @param threadId The thread to show.
+ */
+const openThreadOnCards = createAsyncThunk<void, string, { state: NavigationState }>(
+  'workspace/openThreadOnCards',
   async (threadId, { dispatch }) => {
     dispatch(threadCardsShown(threadId))
     await dispatch(activateThread(threadId))
@@ -601,10 +615,10 @@ export const openTag = createAsyncThunk<
   if (!paper) return
   if (tag.tool === 'across') {
     if (record.activeThreadId !== paper.id || threadTool(paper) !== 'cards')
-      await dispatch(openThread(paper.id))
+      await dispatch(openThreadOnCards(paper.id))
     return
   }
-  if (record.activeThreadId !== paper.id) await dispatch(openThread(paper.id))
+  if (record.activeThreadId !== paper.id) await dispatch(openThreadOnCards(paper.id))
   if (threadTool(paper) !== tag.tool || record.activeThreadId !== paper.id)
     await dispatch(openTool(tag.tool))
 })

@@ -14,8 +14,9 @@ for searches and broad questions (start as many as you like with the ＋; each
 is named after its first question), and **Papers**, a thread for each paper
 you open (its ＋ opens a chat with `@` typed, ready to find one). A paper thread opens on its **card home**: the paper (title,
 authors, TL;DR) and a card for each tool that works on it: the **Citation Graph**,
-the **Knowledge Graph**, the **Reader** and **Criticisms**. The Citation Graph builds only when you open its card, and clicking a thread in the sidebar always
-brings you back to its cards; the graph you left is kept in memory.
+the **Knowledge Graph**, the **Reader** and **Criticisms**. The Citation Graph builds only when you open its card. Clicking a paper in the sidebar
+reopens the tool you left it on; clicking it again, once it is open, brings you back to its cards.
+The graph you left is kept in memory.
 
 **Nova**, your AI research assistant (the little astronaut in the corner, since
 v9.0.0), is one assistant beside every view: a chat's whole page when no paper
