@@ -5567,7 +5567,7 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
-- [x] **A paper reopens where you left it** *(v9.3.0)* — Patrick,
+- [x] **A paper reopens where you left it** *(v9.4.0)* — Patrick,
       2026-10-30: clicking a paper in the sidebar reset it to its cards, so
       going back to a paper meant finding your place again. Now the **first
       click reopens the tool it was left on** (Citation Graph, Knowledge
