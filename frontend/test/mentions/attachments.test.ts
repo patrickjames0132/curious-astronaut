@@ -15,6 +15,7 @@ import {
   attachedMessage,
   splitAttached,
   withAttachment,
+  withBody,
   withoutMention,
 } from '../../src/mentions/attachments'
 import type { MentionChoice } from '../../src/mentions/parse'
@@ -58,5 +59,13 @@ describe('attachments', () => {
       attached: [{ kind: 'paper', title: 'Playing Atari' }],
       body: '',
     })
+  })
+
+  it('swaps an edited question’s words and keeps its Attached: line', () => {
+    const sent = attachedMessage([paper, chat], 'how does it lern?')
+    expect(withBody(sent, 'how does it learn?')).toBe(
+      'Attached: @Playing Atari · @thread[PPO]\n\nhow does it learn?',
+    )
+    expect(withBody('plain questoin', 'plain question')).toBe('plain question')
   })
 })

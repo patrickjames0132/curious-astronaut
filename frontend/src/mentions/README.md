@@ -275,6 +275,8 @@ by its `@thread[…]`, and the model's history carries the names. The
 transcript reads the line back (`splitAttached`) into the same chips, a chat
 chip opening that chat. What's lost is placing a paper at a point in the
 sentence; the agent gets every attachment either way.
+An edited question (the ✎ on the chat's latest, `teacher/README.md`) keeps
+the line: `withBody` swaps the words after it and leaves the attachments be.
 
 **Chips alone send nothing** (Patrick, v8.29.0). A chip is context for a
 question, so Send stays disabled until words are typed, and the placeholder

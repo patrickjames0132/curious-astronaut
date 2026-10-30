@@ -108,3 +108,19 @@ export function splitAttached(text: string): { attached: ReadAttachment[]; body:
   if (attached.length === 0) return { attached: [], body: text }
   return { attached, body: end === -1 ? '' : text.slice(end).trim() }
 }
+
+/**
+ * A sent message with its words replaced, its attachments kept: what an
+ * edited question resends (the bubble edits only the reader's own words,
+ * as it shows only those).
+ *
+ * @param text The message as sent.
+ * @param body The edited words.
+ * @returns The message to send again.
+ */
+export function withBody(text: string, body: string): string {
+  const end = text.indexOf('\n')
+  if (splitAttached(text).attached.length === 0) return body
+  const line = end === -1 ? text : text.slice(0, end)
+  return body ? `${line}\n\n${body}` : line
+}

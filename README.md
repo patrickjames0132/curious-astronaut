@@ -467,7 +467,12 @@ just before the bar's rounded right end.
      Its muted label and colored bolt appear immediately beside the clock, with
      “Answered from the model’s own knowledge.” in the tooltip. General and
      Citation Graph quick answers retain “Answered as a question” and the
-     completed answer’s “Lecture on it instead” action. Over a graph the assistant works from the graph and
+     completed answer’s “Lecture on it instead” action. Every chat bar
+     underlines typos with the browser’s own spellcheck, never rewriting what
+     you typed, and a ✎ on the **latest question you typed** edits it and
+     sends it again in place of its answer, even mid-answer; a quoted
+     passage or a button’s message (a lecture, Explain) isn’t editable, and
+     neither is anything earlier, so history is never rewritten. Over a graph the assistant works from the graph and
      grows it along citations rather than searching for papers, so the paper
      filters stay on your chats. It was a stack of two folding
      sections from v7.10.0, a **Lecture** section above a **Chat** one, which

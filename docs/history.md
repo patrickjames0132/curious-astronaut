@@ -5550,6 +5550,40 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Spellcheck in the chat bars, and edit the latest question you typed**
+      *(v9.2.0)* — two halves. **Spelling:** the ticket asked for
+      auto-correct in every chat bar (General, the Citation Graph, Knowledge
+      Graph and Reader assistants), and to decide between the browser's own
+      spellcheck and a real auto-correct. Patrick chose the browser's: the
+      bar and the new edit box set `spellCheck` and `autoCorrect`, so typos
+      are underlined (fixes on right-click; Safari also corrects as you
+      type), and nothing is ever rewritten behind the reader's back, so `@`
+      mentions, arXiv ids, titles, math and jargon like *softmax* stay as
+      typed. A bundled Hunspell auto-correct was weighed and turned down for
+      exactly that jargon. **Editing:** Patrick added a ✎ on the chat's
+      **latest** question only, so history is never rewritten. It opens the
+      words in the bubble (Enter or Resend sends, Esc or Cancel puts it
+      back); Resend drops that exchange and asks the edited words in its
+      place, through the path the bar would take: `@` chips kept
+      (`withBody`), a direct search searching again (`ChatMsg.searched`), a
+      Reader or Course question asked there again. It works mid-answer:
+      the running answer is stopped and released from the chat's in-flight
+      slot (`stopChat`), so its run ends as superseded instead of marking the
+      new turn failed. **Only typed questions are editable** (Patrick): the
+      bar stamps what it sends `ChatMsg.typed`, while a passage quoted from a
+      highlight and a button's predetermined message (Give Lecture On Paper,
+      Explain, Simplify) go out unstamped. This came out of a detour. The
+      first build carried a quoted question's PDF places along on an edit,
+      then dropped them so the highlight would follow the edited words, and
+      that turned out to cost the exact highlight *and* the picture of the
+      passage the server sends the model. Making quoted and button messages
+      uneditable removed the question altogether. The stamp is positive, so
+      a future button is uneditable without opting out; Try again, ⚡ Quick
+      response and a reroute carry it along. Chats from before v9.2.0 have
+      no stamp, so their last question shows no ✎. *(Spelling from the
+      `todos.md` inbox, 2026-10-22; editing Patrick's ask, 2026-10-30;
+      browser-tested and approved the same day.)*
+
 - [x] **The landing painting: Nova with a tractor beam** *(v9.0.2)* — Patrick
       repainted the landing astronaut with glowing rings and a jet beneath
       it. Both cuts are rebuilt the v8.6.0 way: **dark** is the painting as
