@@ -1,6 +1,6 @@
 [project]
 name = "curious-astronaut"
-version = "9.1.0"
+version = "9.1.1"
 description = "Curious Astronaut — an interactive citation/similarity graph explorer with an AI teacher that narrates a field's history over the graph."
 readme = "README.md"
 license = { file = "LICENSE" }

@@ -231,6 +231,7 @@ export default function GraphControls({
   // so it never heads a count slider.
   const surveyChip = onToggleSurveys && (
     <button
+      type="button"
       key="survey"
       className={`rel-toggle ${surveyRings ? 'on' : ''}`}
       onClick={onToggleSurveys}
@@ -278,6 +279,7 @@ export default function GraphControls({
         onAnimationEnd={panel.onAnimationEnd}
       >
         <button
+          type="button"
           className="ctrl-head"
           data-tour={panel.present ? 'controls-head' : undefined}
           aria-expanded={!collapsed}
@@ -292,10 +294,15 @@ export default function GraphControls({
 
         <div className="ctrl-body">
           <div className="layout-toggle" data-tour="layout">
-            <button className={layout === 'force' ? 'on' : ''} onClick={() => onLayout('force')}>
+            <button
+              type="button"
+              className={layout === 'force' ? 'on' : ''}
+              onClick={() => onLayout('force')}
+            >
               Force
             </button>
             <button
+              type="button"
               className={layout === 'timeline' ? 'on' : ''}
               onClick={() => onLayout('timeline')}
             >
@@ -324,6 +331,7 @@ export default function GraphControls({
                   >
                     <div className="rel-cap-head">
                       <button
+                        type="button"
                         className={`rel-toggle ${on ? 'on' : ''}`}
                         onClick={() => onToggleType(type)}
                         title={on ? `Hide ${REL_LABEL[type]}` : `Show ${REL_LABEL[type]}`}
@@ -368,6 +376,7 @@ export default function GraphControls({
                 const on = enabled.has(type)
                 return (
                   <button
+                    type="button"
                     key={type}
                     className={`rel-toggle ${on ? 'on' : ''}`}
                     onClick={() => onToggleType(type)}
@@ -502,16 +511,23 @@ export default function GraphControls({
             <span className="count-readout">{countReadout}</span>
             <div className="ctrl-btns" data-tour="actions">
               <button
+                type="button"
                 className="mini-btn"
                 onClick={onReleaseAll}
                 title="Unpin every node and re-settle the layout"
               >
                 Release {pinnedCount || ''}
               </button>
-              <button className="mini-btn" onClick={onFit} title="Re-center the graph">
+              <button
+                type="button"
+                className="mini-btn"
+                onClick={onFit}
+                title="Re-center the graph"
+              >
                 Fit
               </button>
               <button
+                type="button"
                 className="mini-btn"
                 onClick={onRefresh}
                 disabled={refreshing}
@@ -520,6 +536,7 @@ export default function GraphControls({
                 {refreshing ? 'Refreshing…' : 'Refresh'}
               </button>
               <button
+                type="button"
                 className="mini-btn"
                 onClick={onClearAll}
                 disabled={selectedCount === 0 && litCount === 0}

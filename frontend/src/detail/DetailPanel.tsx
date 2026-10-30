@@ -159,6 +159,7 @@ function ExpandRow({
           const undoable = done && !!onUnexpand
           return (
             <button
+              type="button"
               key={hop}
               className={`ghost-btn btn-marked${done ? ' done' : ''}${busy ? ' busy' : ''}`}
               disabled={busy || (done && !undoable)}
@@ -254,6 +255,7 @@ function SummarySection({
       {showTabs ? (
         <div className="detail-summary-tabs">
           <button
+            type="button"
             className={shown === 'tldr' ? 'on' : ''}
             onClick={onTldrTab}
             title={
@@ -264,7 +266,11 @@ function SummarySection({
           >
             TL;DR{node.tldr ? '' : ' ✦'}
           </button>
-          <button className={shown === 'abstract' ? 'on' : ''} onClick={() => setView('abstract')}>
+          <button
+            type="button"
+            className={shown === 'abstract' ? 'on' : ''}
+            onClick={() => setView('abstract')}
+          >
             Abstract
           </button>
         </div>
@@ -507,7 +513,7 @@ export default function DetailPanel({
         aria-orientation="vertical"
         aria-label="Resize panel"
       />
-      <button className="link-btn close" onClick={onClose}>
+      <button type="button" className="link-btn close" onClick={onClose}>
         ✕
       </button>
       {/* The scroller (v8.33.0): the panel itself scrolled until then, and the
@@ -578,7 +584,7 @@ export default function DetailPanel({
             )
           )}
           {onTogglePin && (
-            <button className="ghost-btn" onClick={onTogglePin}>
+            <button type="button" className="ghost-btn" onClick={onTogglePin}>
               {isPinned ? 'Unpin' : 'Pin'}
             </button>
           )}
@@ -586,7 +592,7 @@ export default function DetailPanel({
             <ExpandRow expansion={expansion} onExpand={onExpand} onUnexpand={onUnexpand} />
           )}
           {!node.is_seed && (
-            <button className="explore-btn" onClick={() => onExplore(node.id)}>
+            <button type="button" className="explore-btn" onClick={() => onExplore(node.id)}>
               Explore in a thread →
             </button>
           )}

@@ -151,6 +151,7 @@ export default function ScopePicker({
                   them, so they're just two more things to read. */}
               {items.length > 1 && checkedIds.length < items.length && (
                 <button
+                  type="button"
                   className="link-btn"
                   onClick={onSelectAll}
                   title={`Check every ${labels.unit}`}
@@ -160,6 +161,7 @@ export default function ScopePicker({
               )}
               {items.length > 1 && checkedIds.length > 0 && (
                 <button
+                  type="button"
                   className="link-btn"
                   onClick={onDeselectAll}
                   title={`Uncheck every ${labels.unit}`}
@@ -168,6 +170,7 @@ export default function ScopePicker({
                 </button>
               )}
               <button
+                type="button"
                 className="link-btn"
                 onClick={() => onOpenChange(false)}
                 aria-label={`Close the ${labels.unit} picker`}

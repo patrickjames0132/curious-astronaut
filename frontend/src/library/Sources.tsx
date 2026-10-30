@@ -194,7 +194,7 @@ export default function Sources({ open, onClose }: { open: boolean; onClose: () 
       >
         <header className="sources-head">
           <span>Your library</span>
-          <button className="link-btn" onClick={onClose} aria-label="Close">
+          <button type="button" className="link-btn" onClick={onClose} aria-label="Close">
             {'\u2715'}
           </button>
         </header>
@@ -220,7 +220,12 @@ export default function Sources({ open, onClose }: { open: boolean; onClose: () 
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
         >
-          <button className="src-btn" disabled={locked} onClick={() => fileRef.current?.click()}>
+          <button
+            type="button"
+            className="src-btn"
+            disabled={locked}
+            onClick={() => fileRef.current?.click()}
+          >
             ⬆ Upload PDFs
           </button>
           <input
@@ -315,6 +320,7 @@ export default function Sources({ open, onClose }: { open: boolean; onClose: () 
                   </div>
                 </div>
                 <button
+                  type="button"
                   className="link-btn"
                   onClick={() => onRemove(source.id)}
                   aria-label={`Remove ${source.title}`}

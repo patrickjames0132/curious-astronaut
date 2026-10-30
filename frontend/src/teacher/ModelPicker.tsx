@@ -269,6 +269,7 @@ export default function ModelPicker({
             <span>Answer with</span>
             <span className="scope-pop-actions">
               <button
+                type="button"
                 className="link-btn"
                 onClick={() => onOpenChange(false)}
                 aria-label="Close the model picker"
