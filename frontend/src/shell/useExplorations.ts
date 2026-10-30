@@ -11,11 +11,13 @@ import {
   explorationOpened,
   explorationRemoved,
   explorationRenamed,
+  legacyTitled,
   newExploration,
   threadRenamed,
   threadSummarized,
   threadTool,
 } from '../store/explorations'
+import type { ThreadRecord } from '../store/explorations'
 import { explorationBody, migrateExploration } from '../store/threadPersistence'
 import { loadGraph, errorSet, discoveryMerged } from '../store/workspace'
 import { conversationHistory } from '../teacher/history'
@@ -132,12 +134,25 @@ export function useExplorations() {
   // answer (or search) has landed: the same titler an exploration's first save
   // uses, falling back to the question itself. One try per chat, and only
   // while it still wears `New chat`, so a reader's own rename always wins.
+  // An old exploration's `General` is named the same way (v9.3.0), but only
+  // after an exchange in this sitting: naming it on opening would rewrite a
+  // save nobody touched. An answer has to land past its turns when first seen.
   const titling = useRef(new Set<string>())
+  const legacyTurns = useRef(new Map<string, number>())
   useEffect(() => {
+    const placeholder = (thread: ThreadRecord) => awaitsTitle(thread) || legacyTitled(thread)
     for (const record of Object.values(records.byId)) {
       for (const thread of record.threads) {
-        if (!awaitsTitle(thread) || titling.current.has(thread.id)) continue
+        if (!placeholder(thread) || titling.current.has(thread.id)) continue
         const turns = chatTurns(transcript, thread)
+        if (legacyTitled(thread)) {
+          const seen = legacyTurns.current.get(thread.id)
+          if (seen === undefined) legacyTurns.current.set(thread.id, turns.length)
+          const answered = turns
+            .slice(seen ?? turns.length)
+            .some((turn) => turn.role === 'assistant' && turn.text)
+          if (!answered) continue
+        }
         // Answered and settled: a search writes its list while it runs, and a
         // title read off half a list would name the wrong thing.
         if (!turns.some((turn) => turn.role === 'assistant' && turn.text)) continue
@@ -155,7 +170,7 @@ export function useExplorations() {
               .flatMap((item) => item.threads)
               .find((item) => item.id === thread.id)
             const name = title || fallback
-            if (name && now && awaitsTitle(now))
+            if (name && now && placeholder(now))
               dispatch(threadRenamed({ id: thread.id, title: name }))
           })
       }

@@ -106,11 +106,11 @@ it('uses the existing menu and inline rename, then deletes a graph thread into G
   expect(store.getState().transcript.byKey[graphId]).toBeUndefined()
 })
 
-it('groups chats and papers, each with its ＋, and keeps the last chat undeletable', async () => {
+it('groups chats and papers, each with its ＋, and offers Delete once there’s a chat to delete', async () => {
   const { store } = await setup()
   expect(screen.getByRole('button', { name: 'Collapse Chats' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Collapse Papers' })).toBeTruthy()
-  // The only chat: rename, but no Delete.
+  // The only chat, still empty: rename, but nothing to delete.
   fireEvent.click(screen.getByRole('button', { name: 'Options for New chat' }))
   expect(screen.getByRole('menuitem', { name: /Rename/ })).toBeTruthy()
   expect(screen.queryByRole('menuitem', { name: /Delete/ })).toBeNull()

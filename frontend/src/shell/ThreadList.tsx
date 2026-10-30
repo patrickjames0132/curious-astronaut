@@ -10,7 +10,7 @@ import { splitAttached } from '../mentions/attachments'
 import { useAppDispatch, useAppSelector, useAppStore } from '../store'
 import { deleteThread, newGeneralChat, openThread } from '../store/workspace'
 import { threadRenamed, type ThreadRecord } from '../store/explorations'
-import { chatTurns } from '../store/chats'
+import { chatDeletable, chatTurns, isChat } from '../store/chats'
 import SessionRow from './SessionRow'
 
 /**
@@ -119,12 +119,14 @@ export default function ThreadList({
   /**
    * One thread's row.
    *
+   * A paper's row always offers Delete; a chat's does while another chat
+   * remains, or once the last one holds a conversation, whose Delete starts
+   * it over as a `New chat` (v9.3.0, `chatDeletable`).
+   *
    * @param thread The thread.
-   * @param deletable Whether its menu offers Delete: an exploration keeps
-   *   one chat at least.
    * @returns The row.
    */
-  const row = (thread: ThreadRecord, deletable: boolean) => (
+  const row = (thread: ThreadRecord) => (
     <SessionRow
       key={thread.id}
       session={{ name: thread.title }}
@@ -135,7 +137,11 @@ export default function ThreadList({
         onNavigate?.()
       }}
       onRename={(title) => dispatch(threadRenamed({ id: thread.id, title }))}
-      onDelete={deletable ? () => void dispatch(deleteThread(thread.id)) : undefined}
+      onDelete={
+        !isChat(thread) || chatDeletable({ byKey: conversations }, record, thread)
+          ? () => void dispatch(deleteThread(thread.id))
+          : undefined
+      }
       onResummarize={thread.identity ? undefined : () => void resummarize(thread)}
     />
   )
@@ -148,9 +154,7 @@ export default function ThreadList({
         onAdd={() => void dispatch(newGeneralChat())}
         addLabel="Start a new chat"
       />
-      {chatsOpen && (
-        <div className="thread-group">{chats.map((thread) => row(thread, chats.length > 1))}</div>
-      )}
+      {chatsOpen && <div className="thread-group">{chats.map((thread) => row(thread))}</div>}
       {papers.length > 0 && (
         <>
           <GroupHead
@@ -160,9 +164,7 @@ export default function ThreadList({
             onAdd={() => void dispatch(newGeneralChat({ forPaper: true }))}
             addLabel="Find a paper: a chat with @ typed, ready to search"
           />
-          {papersOpen && (
-            <div className="thread-group">{papers.map((thread) => row(thread, true))}</div>
-          )}
+          {papersOpen && <div className="thread-group">{papers.map((thread) => row(thread))}</div>}
         </>
       )}
     </nav>

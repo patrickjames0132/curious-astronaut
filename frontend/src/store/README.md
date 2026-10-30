@@ -14,7 +14,13 @@ and parked workspace states. A chat (a thread with no paper, `identity:
 null`; "General" before v8.31.0) is created with each exploration, titled
 `New chat` until its first exchange names it; more can join it since
 v8.31.0 (`generalChatAdded`, inserted after the last chat; `newGeneralChat`
-reuses an empty one instead), and the last one left can't be deleted. Titles stay
+reuses an empty one instead). Deleting the last one left starts it over
+(v9.3.0): `deleteThread` adds a fresh `New chat` before removing it, so an
+exploration always keeps one, and the menus offer it only once that chat has
+been talked in (`chats.ts`'s `chatDeletable`). A chat holds its conversation
+from creation (`generalChatAdded` seeds it in `transcript.ts`), not from when
+it's first opened: one started in the dock beside a paper is never opened. An old exploration's chat still titled `General`
+is named from its conversation like a `New chat` (`awaitsTitle`). Titles stay
 unique in an exploration (`uniqueTitle`, a clash gets ` (n)`), because a
 chat is referenced by title: the `@` list, a sent `@thread[Title]`, the
 sibling index. A graph thread's identity is provider + resolved seed id, so returning

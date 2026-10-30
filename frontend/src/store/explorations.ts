@@ -154,6 +154,11 @@ export function newExploration(id = nanoid()): ExplorationRecord {
  *  (v8.31.0; `shell/useExplorations` titles it). */
 export const NEW_CHAT_TITLE = 'New chat'
 
+/** What the first chat was called before v8.31.0. An old exploration's
+ *  `General` is named from its conversation after its next exchange (v9.3.0,
+ *  Patrick): not on opening, which would rewrite a save nobody touched. */
+export const LEGACY_CHAT_TITLE = 'General'
+
 /**
  * Whether a General chat still wears the placeholder title, numbered or not,
  * so its first question should name it.
@@ -163,6 +168,16 @@ export const NEW_CHAT_TITLE = 'New chat'
  */
 export function awaitsTitle(thread: Pick<ThreadRecord, 'title' | 'identity'>): boolean {
   return !thread.identity && /^New chat( \(\d+\))?$/.test(thread.title)
+}
+
+/**
+ * Whether a chat still wears the pre-v8.31.0 `General` title.
+ *
+ * @param thread The thread.
+ * @returns True for a General chat titled `General`.
+ */
+export function legacyTitled(thread: Pick<ThreadRecord, 'title' | 'identity'>): boolean {
+  return !thread.identity && thread.title === LEGACY_CHAT_TITLE
 }
 
 /**
@@ -213,7 +228,8 @@ const slice = createSlice({
   initialState,
   reducers: {
     /** Remove a thread. A General chat goes only while another remains
-     * (v8.31.0): an exploration always keeps one.
+     * (v8.31.0): an exploration always keeps one. Deleting the last chat
+     * adds its replacement first (`deleteThread`).
      * @param state Exploration state.
      * @param action Thread id to remove.
      */
