@@ -92,6 +92,25 @@ export function chatTurns(
   return transcript.byKey[thread.id]?.chat ?? thread.data.chat
 }
 
+/**
+ * Whether a chat offers Delete (v9.3.0): always while another chat remains,
+ * and the last one only once it holds a conversation. Deleting the last chat
+ * starts it over as an empty one, so an empty last chat has nothing to
+ * delete (Patrick).
+ *
+ * @param transcript The transcript slice.
+ * @param record The exploration.
+ * @param thread The chat.
+ * @returns True when its Delete should show.
+ */
+export function chatDeletable(
+  transcript: Pick<TranscriptState, 'byKey'>,
+  record: Pick<ExplorationRecord, 'threads'>,
+  thread: ThreadRecord,
+): boolean {
+  return record.threads.filter(isChat).length > 1 || chatTurns(transcript, thread).length > 0
+}
+
 /** A chat another chat can reference. */
 export interface ChatEntry {
   key: string

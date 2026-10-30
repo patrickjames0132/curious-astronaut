@@ -45,7 +45,9 @@ import {
   explorationOpened,
   dockChatSet,
   generalChatAdded,
+  NEW_CHAT_TITLE,
   threadActivated,
+  threadRenamed,
   threadTool,
   threadCardsShown,
   threadPaperSet,
@@ -489,16 +491,21 @@ export const deleteThread = createAsyncThunk<
   const record = state.explorations.byId[state.explorations.activeId]
   const thread = record.threads.find((item) => item.id === threadId)
   if (!thread) return
-  // An exploration keeps one General chat at least (v8.31.0); the others
-  // can go like any thread.
+  // An exploration keeps one chat at least (v8.31.0). Deleting the last one
+  // starts it over (v9.3.0): a fresh `New chat` takes its place. A new
+  // thread, not the old one emptied, so the titler names it from its first
+  // question again (it tries each thread id once).
   const generals = record.threads.filter((item) => !item.identity)
-  if (!thread.identity && generals.length < 2) return
+  const replacement =
+    !thread.identity && generals.length < 2 ? dispatch(generalChatAdded()).payload : null
   if (record.activeThreadId === threadId) {
-    const general = generals.find((item) => item.id !== threadId)!
-    await dispatch(activateThread(general.id))
+    const next = replacement ?? generals.find((item) => item.id !== threadId)!.id
+    await dispatch(activateThread(next))
   }
   dispatch({ type: 'explorations/threadRemoved', payload: threadId })
   dispatch({ type: 'transcript/conversationDropped', payload: threadId })
+  // Added beside the old chat, it may have been numbered (`New chat (2)`).
+  if (replacement) dispatch(threadRenamed({ id: replacement, title: NEW_CHAT_TITLE }))
 })
 
 /** Start another chat and open it (v8.31.0): the rail's Chats ＋, or its

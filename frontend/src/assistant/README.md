@@ -33,10 +33,11 @@ assistant/
   TagFilter.tsx       — the "Showing: All ▾" menu filtering a chat by where
                         its questions were asked (v9.0.0, stage 4a)
   DockChatPicker.tsx  — the line under the docked panel's title: its chat, a
-                        menu to switch to another or start one, and with two
-                        chats or more a 🗑 that expands right into a compact
-                        confirmation; a second click deletes it
-                        (v9.0.0)
+                        menu to switch to another or start one, and a 🗑
+                        that expands right into a compact confirmation; a
+                        second click deletes it (v9.0.0), and on the last
+                        chat leaves a new empty one, so the last chat shows
+                        it only once talked in (v9.3.0, `chatDeletable`)
   AssistantLauncher.tsx — the astronaut, top-right until dragged of the view's canvas: opens it
                         while closed (v9.0.0)
 ```

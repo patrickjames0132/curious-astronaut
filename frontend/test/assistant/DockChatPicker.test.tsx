@@ -12,7 +12,7 @@
  */
 
 import { configureStore } from '@reduxjs/toolkit'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { afterEach, describe, expect, it } from 'vitest'
 import DockChatPicker from '../../src/assistant/DockChatPicker'
@@ -24,7 +24,7 @@ import explorations, {
 import { useAppSelector } from '../../src/store'
 import highlight from '../../src/store/highlight'
 import library from '../../src/store/library'
-import transcript, { selectChatKey } from '../../src/store/transcript'
+import transcript, { selectChatKey, turnStarted } from '../../src/store/transcript'
 import workspace from '../../src/store/workspace'
 
 afterEach(cleanup)
@@ -92,7 +92,7 @@ describe('the dock’s chat picker', () => {
     expect(selectChatKey(store.getState())).toBe(docked)
   })
 
-  it('deletes the docked chat in two clicks, and offers nothing with one chat left', () => {
+  it('deletes the docked chat in two clicks, and starts the last one over', async () => {
     const store = setUp()
     mount(store)
     fireEvent.click(screen.getByRole('button', { name: 'Delete this chat' }))
@@ -101,8 +101,21 @@ describe('the dock’s chat picker', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete this chat?' }))
     const left = store.getState().explorations.byId.x.threads
     expect(left.map((thread) => thread.title)).toEqual(['Transformers', 'Attention'])
-    // The dock falls back to the chat left, and one chat can't be deleted.
+    // The dock falls back to the chat left. Empty and the last, it has
+    // nothing to delete; once talked in, it can go too, and a new empty chat
+    // takes its place, with no 🗑 again.
     expect(selectChatKey(store.getState())).toBe('second')
+    expect(screen.queryByRole('button', { name: 'Delete this chat' })).toBeNull()
+    act(() => {
+      store.dispatch(turnStarted('a question', 'second'))
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Delete this chat' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Delete this chat?' }))
+    })
+    const chats = store.getState().explorations.byId.x.threads.filter((thread) => !thread.identity)
+    expect(chats.map((thread) => thread.title)).toEqual(['New chat'])
+    expect(selectChatKey(store.getState())).toBe(chats[0].id)
     expect(screen.queryByRole('button', { name: 'Delete this chat' })).toBeNull()
   })
 

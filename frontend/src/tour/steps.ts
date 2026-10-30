@@ -144,7 +144,9 @@ export const HOME_TOUR: TourStep[] = [
       'open, to read and explore. Chats’ ＋ starts another chat, so one can keep its ' +
       'search results while you talk about something else; Papers’ ＋ opens a chat with @ ' +
       'typed, ready to find a paper. Use the carets to fold them, and each ⋮ menu to ' +
-      'rename or delete a thread (the last chat stays), or re-summarize a chat whose ' +
+      'rename or delete a thread (deleting the last chat, once you’ve talked in it, leaves a ' +
+      'new empty one), or ' +
+      're-summarize a chat whose ' +
       'talk has moved on from its name. Click a thread to resume it where you left it. ✎ starts a new ' +
       'exploration; the one you leave is already saved. Hover a row for ⋮ to rename or ' +
       'delete it, and collapse the whole rail when the map wants the room — click the ' +
