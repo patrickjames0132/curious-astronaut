@@ -1004,6 +1004,23 @@
 
 ### AI teacher & lectures
 
+- [x] **The last chat deletes too, starting over as a New chat**
+      *(v9.3.0; Patrick, 2026-10-30)* — an exploration keeps one chat, so its
+      last chat offered no Delete at all. Now its rail ⋮ and the dock's 🗑
+      offer it once the chat holds a conversation, and deleting it puts a
+      fresh, empty **New chat** in its place for the summarizer to name from
+      its first exchange. It's a new thread rather than the old one emptied,
+      because the titler tries each thread id once. An empty last chat shows
+      no Delete, since it's already new; with several chats, any of them,
+      empty or not, deletes as before (`store/chats`'s `chatDeletable`, shared
+      by the rail and the dock). Old explorations' first chats, still titled
+      **General** from before v8.31.0, are now named the same way, after
+      their next answered exchange. Naming them on opening would rewrite a
+      save nobody touched, which a test guards. The **General** question tag
+      (asked with no view open) stays: it says where a question was asked,
+      not what the chat is called (Patrick). Testing found a lost-question
+      bug in the dock, fixed here (see docs/bugs.md).
+
 - [x] **Chat deletion: one expanding confirmation** *(v9.0.1)* — the
       dock's bin expands right into **Delete this chat?**, replacing its icon
       with compact text, the Reader's theme-aware red outline and hover tint.
