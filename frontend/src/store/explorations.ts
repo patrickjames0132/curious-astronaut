@@ -47,8 +47,8 @@ export interface ThreadRecord {
   summarizedThrough?: number
   origin?: string
   /**
-   * The tool last used in this paper thread, so a reload reopens it (a rail
-   * click lands on the cards instead: `openThread`, v8.16.0). Absent
+   * The tool last used in this paper thread, so a reload or a rail click
+   * reopens it (a second rail click goes up to the cards: `openThread`). Absent
    * on threads saved before the card home (v8.13.0): those were always on
    * their graph, so `threadTool` reads absence as `'graph'`.
    */

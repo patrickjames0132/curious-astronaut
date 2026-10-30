@@ -67,9 +67,10 @@ Reduced motion keeps the highlight and glow but disables movement and transition
 Keyboard focus retains an explicit outline; disabled cards never lift or glow.
 
 Opening a card dispatches `openTool` (`store/workspace.ts`). **Clicking a
-thread in the rail always lands here** (`openThread`, since v8.16.0), even
-the thread already on screen; until then a revisit reopened the tool last
-used. Opening a paper *for* a tool still lands on that tool: the detail
+thread in the rail reopens the tool it was left on, and clicking it again,
+once it is on screen, lands here** (`openThread`, Patrick 2026-10-30). From
+v8.16.0 until then every rail click landed here, which lost the reader's
+place. Opening a paper *for* a tool still lands on that tool: the detail
 panel's "Explore in a thread" (also a node's double-click on the graph
 until v8.21.0), or a citation's graph icon. A thread saved or
 reloaded on a tool reopens there too. The ↑ at the top of a tool returns here, and the graph stays built in

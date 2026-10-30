@@ -183,8 +183,9 @@ export const CARDS_TOUR: TourStep[] = [
       'The Citation Graph maps the papers this one built on and the ones it spawned. The ' +
       'Knowledge Graph is a short course on the ideas you need to ' +
       'know first. The Reader is the paper itself. Criticisms gathers what later papers ' +
-      'objected to in it. Clicking the thread in the sidebar ' +
-      'always brings you back to these cards, and so does the ↑ at the top of each tool.',
+      'objected to in it. A paper reopens on the tool you left it on; clicking it in the ' +
+      'sidebar while it is open brings you back to these cards, and so does the ↑ at the top ' +
+      'of each tool.',
   },
   {
     // Nova from the first paper on (v9.0.0, Patrick): the launcher is
