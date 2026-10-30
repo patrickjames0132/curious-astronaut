@@ -22,6 +22,7 @@ import * as api from '../../src/api'
 import transcript, { selectChatKey, tokenAppended, turnStarted } from '../../src/store/transcript'
 import explorations, {
   awaitsTitle,
+  legacyTitled,
   explorationOpened,
   newExploration,
   type ThreadRecord,
@@ -465,17 +466,33 @@ describe('more than one General chat (v8.31.0)', () => {
     expect(store.getState().transcript.byKey[first].chat[0].text).toBe('search results to keep')
   })
 
-  it('deletes a General chat into another, but never the last one', async () => {
+  it('deletes a General chat into another, and starts the last one over', async () => {
     const store = makeStore()
     store.dispatch(explorationOpened(newExploration('explore')))
     const general = activeThread(store).id
-    await store.dispatch(deleteThread(general))
-    expect(threads(store)).toHaveLength(1)
+    store.dispatch(turnStarted('a question'))
     await store.dispatch(newGeneralChat())
     const second = activeThread(store).id
     await store.dispatch(deleteThread(second))
     expect(threads(store).map((thread) => thread.id)).toEqual([general])
     expect(activeThread(store).id).toBe(general)
+    // The last chat goes too: a new, empty `New chat` takes its place (not
+    // `New chat (2)`, though it was added beside one), ready to be named.
+    await store.dispatch(deleteThread(general))
+    const fresh = activeThread(store)
+    expect(threads(store)).toHaveLength(1)
+    expect(fresh.id).not.toBe(general)
+    expect(fresh.title).toBe('New chat')
+    expect(awaitsTitle(fresh)).toBe(true)
+    expect(store.getState().transcript.byKey[general]).toBeUndefined()
+    expect(store.getState().transcript.byKey[fresh.id]?.chat ?? []).toEqual([])
+  })
+
+  it('tells an old exploration’s General chat from a New chat', () => {
+    expect(legacyTitled({ title: 'General', identity: null })).toBe(true)
+    expect(awaitsTitle({ title: 'General', identity: null })).toBe(false)
+    expect(legacyTitled({ title: 'General', identity: 's2:abc' })).toBe(false)
+    expect(legacyTitled({ title: 'General relativity', identity: null })).toBe(false)
   })
 
   it('keeps titles unique, since chats are named by title', async () => {
@@ -523,6 +540,8 @@ describe('the dock’s chat (v9.0.0)', () => {
     const store = makeStore()
     store.dispatch(explorationOpened(newExploration('explore')))
     const first = activeThread(store).id
+    // Not empty, so the ＋ adds a second chat rather than reusing this one.
+    store.dispatch(turnStarted('a question'))
     await store.dispatch(newGeneralChat())
     const second = activeThread(store).id
     const record = () => store.getState().explorations.byId.explore
@@ -532,6 +551,21 @@ describe('the dock’s chat (v9.0.0)', () => {
     expect(selectChatKey(store.getState())).toBe(second)
     await store.dispatch(deleteThread(second))
     expect(selectChatKey(store.getState())).toBe(first)
+  })
+
+  it('gives a chat started beside a paper a conversation to write to', async () => {
+    const store = makeStore()
+    store.dispatch(explorationOpened(newExploration('explore')))
+    const chat = activeThread(store).id
+    store.dispatch(turnStarted('a question'))
+    await store.dispatch(openPaper({ seed: 'DQN' }))
+    // Deleted from the dock, beside the paper: its replacement is never
+    // opened, yet a question asked in the dock has to land in it.
+    await store.dispatch(deleteThread(chat))
+    const fresh = selectChatKey(store.getState())
+    expect(fresh).not.toBe(chat)
+    store.dispatch(turnStarted('asked in the dock', fresh))
+    expect(store.getState().transcript.byKey[fresh]?.chat[0]?.text).toBe('asked in the dock')
   })
 
   it('goes where a question was asked: its paper’s tool, or its chat', async () => {

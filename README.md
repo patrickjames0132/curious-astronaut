@@ -24,7 +24,8 @@ Reader otherwise (on the right or along the bottom; ✕ tucks Nova back into the
 astronaut, which you can drag anywhere). **Chats own the conversation; views
 lend it context.** A paper keeps no chat of its own: Nova talks in the chat you
 were last in, and a menu under the panel's title switches chats. The bin beside
-that menu expands into **Delete this chat?** before deletion; the message bar
+that menu expands into **Delete this chat?** before deletion (the last chat,
+once you've talked in it, starts over as an empty New chat); the message bar
 stays free of a second trash button. Each question
 is tagged with where you asked it, General or `<paper> › <tool>`, and the tag is
 a link back there; once a chat spans places, its **Showing** menu filters it to

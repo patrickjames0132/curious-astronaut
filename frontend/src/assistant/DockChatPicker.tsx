@@ -8,8 +8,9 @@
  * view (Patrick, at 2a's browser test: switching here rather than a button
  * between full screen and docked). The rail still opens a chat full screen.
  *
- * With two chats or more, a 🗑 beside it deletes the docked chat (Patrick),
- * and the dock falls back to the first chat left. Two clicks, as the rail's
+ * A 🗑 beside it deletes the docked chat (Patrick), and the dock falls back
+ * to the first chat left. The last chat's 🗑 starts it over as a `New chat`,
+ * so it shows only once that chat has been talked in (v9.3.0). Two clicks, as the rail's
  * ⋮ → Delete is: the first expands the bin right into "Delete this chat?", the second
  * deletes, and it backs off after a few seconds or a click elsewhere. A
  * conversation has no undo, and a lone bin is one stray click away.
@@ -20,7 +21,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../store'
-import { explorationChats } from '../store/chats'
+import { chatDeletable, explorationChats } from '../store/chats'
 import { dockChatSet } from '../store/explorations'
 import { deleteThread, newDockChat } from '../store/workspace'
 import ClearGlyph from '../ui/ClearGlyph'
@@ -38,6 +39,11 @@ export default function DockChatPicker({ chatId }: { chatId: string }) {
   const record = useAppSelector((state) => state.explorations.byId[state.explorations.activeId])
   const chats = record ? explorationChats(record) : []
   const current = chats.find((chat) => chat.key === chatId)
+  // The 🗑 shows while another chat remains, or once the last one has been
+  // talked in (`chatDeletable`): an empty last chat is already new.
+  const deletable = useAppSelector(
+    (state) => !!record && !!current && chatDeletable(state.transcript, record, current.thread),
+  )
   const [open, setOpen] = useState(false)
   const popover = usePresence(open)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -110,7 +116,7 @@ export default function DockChatPicker({ chatId }: { chatId: string }) {
             ▾
           </span>
         </button>
-        {chats.length > 1 && (
+        {deletable && (
           <button
             ref={deleteRef}
             type="button"
@@ -125,7 +131,9 @@ export default function DockChatPicker({ chatId }: { chatId: string }) {
             }}
             title={
               confirming
-                ? 'Delete this chat and all its messages. This cannot be undone.'
+                ? chats.length > 1
+                  ? 'Delete this chat and all its messages. This cannot be undone.'
+                  : 'Delete this chat and all its messages, leaving a new empty chat. This cannot be undone.'
                 : 'Delete this chat — asks for confirmation'
             }
             aria-label={confirming ? 'Delete this chat?' : 'Delete this chat'}

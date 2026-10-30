@@ -22,6 +22,27 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### A question asked in a chat started from the dock vanished (v9.3.0)
+
+- **Symptom.** After deleting the last chat from the dock beside a paper, a
+  question asked in the new empty chat sent nothing and showed nothing.
+- **Root cause.** A chat's transcript conversation was created only when the
+  chat was *opened* (`threadActivated`) or its exploration loaded
+  (`explorationOpened`). Deleting the last chat from the dock adds its
+  replacement while the paper stays on screen, so it was never opened and
+  never got one. The Citation Graph dock's `ask` doesn't create the
+  conversation first, unlike the other views' `streamAnswer`, so its
+  `turnStarted` was addressed to a key with no conversation and was dropped
+  by design (`target` lets a late event from a deleted chat land nowhere).
+  The dock's "＋ New chat" had the same hole, unnoticed.
+- **Fix.** `transcript.ts` seeds an empty conversation on
+  `generalChatAdded`: a chat has its conversation from the moment it exists.
+- **Lesson / guard.** "Lands nowhere" is right for a deleted chat and silent
+  data loss for a new one. Anything that creates a chat must give it its
+  conversation in the same action, not count on navigation to. Guarded by
+  the store test "gives a chat started beside a paper a conversation to write
+  to", which fails without the fix.
+
 ### Closing a chat-bar picker sent the half-typed question (v9.1.1)
 
 - **Symptom.** With text typed in the docked chat bar, changing the 📚

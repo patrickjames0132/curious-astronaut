@@ -325,6 +325,32 @@ describe('naming a new General chat (v8.31.0)', () => {
     expect(title(store)).toBe('Replay buffers')
   })
 
+  it('names an old exploration’s General chat after its next exchange, not on opening', async () => {
+    vi.spyOn(api, 'getSession').mockResolvedValue({
+      id: 'old',
+      name: 'My name',
+      data: {
+        layout: 'timeline',
+        chat: [
+          { role: 'user', text: 'Old question' },
+          { role: 'assistant', text: 'Old answer' },
+        ],
+      },
+    } as SavedSession)
+    vi.mocked(api.titleForConversation).mockResolvedValue('Replay buffers')
+    const { result, store } = setup()
+    await act(async () => {
+      await result.current.open('old')
+    })
+    await tick()
+    // Answered already, but opening it names nothing.
+    expect(title(store)).toBe('General')
+    expect(api.titleForConversation).not.toHaveBeenCalled()
+    exchange(store)
+    await tick()
+    expect(title(store)).toBe('Replay buffers')
+  })
+
   it('falls back to the question, without its attachments, when the titler has none', async () => {
     const { store } = setup()
     await act(async () => {

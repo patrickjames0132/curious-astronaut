@@ -73,9 +73,13 @@ caret that folds the group and a ＋ on hover.
   `useExplorations` names it with the titler an exploration's first save
   uses (`titleForConversation`), falling back to the question without its
   `@` attachments line. One try per chat, and only while it still wears the
-  placeholder (`awaitsTitle`), so a reader's own rename always wins.
-- Every chat renames like any thread, and deletes while another remains:
-  the last one's menu has no Delete (`onDelete` absent).
+  placeholder (`awaitsTitle`: `New chat`, numbered or not, or an old
+  exploration's `General`), so a reader's own rename always wins.
+- Every chat renames and deletes like any thread. Deleting the last one
+  starts it over (v9.3.0): `deleteThread` puts a fresh `New chat` in its
+  place, so an exploration always keeps one. The last chat offers Delete only
+  once it holds a conversation (`store/chats`'s `chatDeletable`, shared with
+  the dock's 🗑): an empty one is already new.
 - **A chat's ⋮ has ↻ Re-summarize**, as an exploration's does: its
   first-exchange name goes stale as the talk wanders, so `ThreadList` titles
   it again from every question it holds (attachment lines stripped; a null

@@ -57,6 +57,7 @@ import type {
 import { chatOnScreen } from './chats'
 import {
   explorationOpened,
+  generalChatAdded,
   threadActivated,
   type ExplorationsState,
   type ThreadRecord,
@@ -770,6 +771,13 @@ const transcriptSlice = createSlice({
         const thread = action.payload.thread
         seedThread(state, thread)
         state.activeKey = thread.id
+      })
+      // A chat has its conversation from the start (v9.3.0), not from when
+      // it's first opened: one started in the dock beside a paper (its ＋, or
+      // the last chat's delete) is never opened, and a question asked in it
+      // would otherwise land nowhere.
+      .addCase(generalChatAdded, (state, action) => {
+        state.byKey[action.payload] ??= emptyConversation()
       })
       .addCase(workspaceCleared, (state, action) => {
         const key = action.payload?.conversationKey ?? newConversationKey()
