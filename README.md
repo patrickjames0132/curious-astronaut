@@ -75,7 +75,9 @@ contents follow along as you read; drag their edge to resize them, or fold
 them away to a thin line with the bump on that edge. A **Text / PDF** switch
 shows the paper's PDF instead, remembered per paper, and papers with no HTML
 render (arXiv couldn't convert them, or they aren't on arXiv but have an
-open-access PDF) open straight in it. The PDF zooms (− and + beside the
+open-access PDF) open straight in it. A paper off arXiv is read from the first
+free copy that downloads, among its provider's link and every PDF location
+OpenAlex lists for its DOI. The PDF zooms (− and + beside the
 switch), its contents are its own bookmarks, else the section headings found
 in its text, and the highlight
 menu and Nova work on it too, reading the PDF page by page. Highlight any

@@ -183,7 +183,8 @@ const UNAVAILABLE: Record<ReaderUnavailable, { title: string; body: string }> = 
   not_arxiv: {
     title: 'Not on arXiv',
     body:
-      'This paper isn’t on arXiv, and no open-access PDF could be opened for it, so ' +
+      'This paper isn’t on arXiv, and no free copy of its PDF could be downloaded: ' +
+      'Semantic Scholar and OpenAlex were both asked. If it’s paywalled, ' +
       'there’s nothing to read here yet.',
   },
   no_render: {
@@ -266,10 +267,15 @@ export default function Reader({
   const [pdfPage, setPdfPage] = useState(1)
   // The PDF view's zoom, a multiple of fitting the width (v8.44.0).
   const [zoom, setZoom] = useState(1)
+  // A new paper starts the PDF view afresh: the last paper's zoom, page
+  // count, and, above all, its failure to open don't carry over (a stale
+  // failure kept the next paper's PDF from ever being asked for).
   const [zoomedRef, setZoomedRef] = useState(ref)
   if (zoomedRef !== ref) {
     setZoomedRef(ref)
     setZoom(1)
+    setPdfInfo(null)
+    setPdfFailure(null)
   }
   const [attempt, setAttempt] = useState(0)
   const pageRef = useRef<HTMLDivElement>(null)

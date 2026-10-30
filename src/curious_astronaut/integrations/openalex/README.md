@@ -109,7 +109,8 @@ nodes.py      — translates a raw OpenAlex "work" into the app's node shape
 traversal.py  — resolve_seed_work / resolve_work (seed → work), get_paper (detail
      ↓          hydration), references (cited_by:), citation_relations/citations
      ↓          (cites:), related_works (the "similar" hop for the agent),
-     ↓          reference_keys (the citations among a graph's papers)
+     ↓          reference_keys (the citations among a graph's papers),
+     ↓          pdf_urls_for_doi (a DOI's PDF locations, for the PDF resolver)
 search.py     — search_papers: free-text relevance search (ungrounded seed discovery)
 vocab.py      — the 26 top-level OpenAlex fields (id + name), for the search filter
 ```
@@ -117,7 +118,7 @@ vocab.py      — the 26 top-level OpenAlex fields (id + name), for the search f
 Mirrors `semantic_scholar/`'s package split by concern. `__init__.py` re-exports
 the public API (`OpenAlexError`, `resolve_seed_work`, `resolve_work`, `get_paper`,
 `bare_work_id`, `references`, `citation_relations`, `citations`, `reference_keys`, `search_papers`,
-`landmark_max_year`, `node`, `bare_openalex_id`) so callers read
+`landmark_max_year`, `node`, `bare_openalex_id`, `pdf_urls_for_doi`) so callers read
 `from ..integrations import openalex; openalex.references(...)`.
 
 ## Standing alone as a provider (v5.0.0 graph, v5.1.0 search + detail)
@@ -239,6 +240,10 @@ generous limits are why it's the more rate-limit-resilient provider of the two.)
   verified via `resolve_work`.
 - **`routes/graph.py`** — `/api/paper/<ref>?provider=openalex` calls `get_paper`
   to hydrate a clicked node's detail panel.
+- **`services/pdf/resolve.py`** (v9.1.0) — `pdf_urls_for_doi` lists every PDF
+  location of a paper's DOI (open-access ones first, `nodes.pdf_urls`), as
+  candidates for the Reader's PDF view whichever provider built the graph. A
+  node's own `oa_pdf` is the first of the same list.
 - **`services/graph/growth.py`** — `links_between` calls `reference_keys`
   for the "Links between papers" switch (v8.18.0). A node id is `DOI:…`,
   `ARXIV:…` or a bare `W…`, but `referenced_works` are always `W…`, so

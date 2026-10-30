@@ -4075,6 +4075,29 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **The Reader's PDF: every open copy tried, and no stale failures**
+      *(v9.1.0; Patrick, 2026-10-30)* — "Benchmarking Table Extraction:
+      Multimodal LLMs vs Traditional OCR" said *Not on arXiv* though its PDF
+      is free on the ACL Anthology. Two fixes. **The Reader** kept a PDF's
+      failure to open across papers, so after one paper with no PDF the next
+      paper's PDF was never asked for (see docs/bugs.md); the PDF view now
+      starts afresh with each paper. **The resolver** used to have one link
+      per non-arXiv paper, the provider's `oa_pdf`, so a publisher link that
+      answered with a login page left a paper unreadable while a repository
+      held a free copy. `services/pdf/resolve.py` now lists **candidates**:
+      the provider's link, then every PDF location OpenAlex lists for the
+      paper's DOI (`openalex.pdf_urls_for_doi`, a free id lookup, whichever
+      provider built the graph). It tries each until one downloads as a real
+      PDF (`fetch_pdf`'s `%PDF` check rejects the login pages). A working link
+      is cached a month; "no copy downloaded" is cached a day, and only when
+      every source answered. Every node now carries its `doi` (S2's
+      `externalIds.DOI`, OpenAlex's `doi`), and hydration primes the resolver
+      with it. The empty state names the sources it asked. Unpaywall was built
+      as a third source and removed before shipping: OpenAlex's locations
+      largely repeat its data, and a source with no citation graph belongs in
+      the Backlog's "Data providers without a citation graph" ticket, not
+      bolted onto the PDF resolver (Patrick).
+
 - [x] **Peer Reviews card — what did the field object to?** *(v8.52.0; ex
       "Criticism")* — a fourth card on
       the thread's card home, beside Citation Graph, Knowledge Graph and Reader:

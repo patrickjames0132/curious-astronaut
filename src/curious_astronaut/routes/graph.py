@@ -424,11 +424,15 @@ def api_paper(paper_ref: str) -> ResponseReturnValue:
     # hydration must never trigger a generation — see api_paper_tldr.
     if not node.get("tldr"):
         node["tldr"] = cache.get(_tldr_cache_key(str(node["id"])))
-    # Prime the OA-PDF resolver from this hydration (the URL rode along for
-    # free), so the figures fetch that follows a panel open — and any later
-    # full read — doesn't re-ask the provider.
-    oa_pdf = node.get("oa_pdf")
-    pdf_service.prime(str(node["id"]), oa_pdf if isinstance(oa_pdf, str) and oa_pdf else None)
+    # Prime the OA-PDF resolver from this hydration (the URL and DOI rode
+    # along for free), so the figures fetch that follows a panel open — and
+    # any later full read — doesn't re-ask the provider.
+    oa_pdf, doi = node.get("oa_pdf"), node.get("doi")
+    pdf_service.prime(
+        str(node["id"]),
+        oa_pdf if isinstance(oa_pdf, str) and oa_pdf else None,
+        doi if isinstance(doi, str) and doi else None,
+    )
     return jsonify(node)
 
 

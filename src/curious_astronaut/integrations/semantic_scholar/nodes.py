@@ -155,7 +155,7 @@ def node(paper: dict | None) -> dict | None:
     Returns:
         A node dict with keys ``id, arxiv_id, title, abstract, tldr, year,
         month, pub_date, citation_count, authors, url, fields_of_study,
-        venue, oa_pdf, is_survey`` — or None when ``paper`` is empty or carries no
+        venue, oa_pdf, doi, is_survey`` — or None when ``paper`` is empty or carries no
         ``paperId``. ``month`` (1–12) is parsed from S2's ``publicationDate``
         so the timeline can place papers between year lines; it is None when
         only the year is known. ``fields_of_study`` is empty — and ``venue``
@@ -204,6 +204,7 @@ def node(paper: dict | None) -> dict | None:
         "fields_of_study": fields_of_study(paper),
         "venue": venue_name(paper),
         "oa_pdf": oa_pdf or None,
+        "doi": external_ids.get("DOI") or None,
         "is_survey": is_review(paper),
     }
 
