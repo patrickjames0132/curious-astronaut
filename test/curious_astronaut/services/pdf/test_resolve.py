@@ -1,10 +1,12 @@
 """Copyright (c) 2026 Charles Patrick James <charles.patrick.james@gmail.com>. MIT License — see LICENSE.
 
 Description:
-OA-PDF URL resolution: provider lookup, month-long caching, priming.
+OA-PDF URL resolution: the candidate chain (the provider's link, then OpenAlex's),
+trying each until one downloads, caching hits for a month and misses for a
+day, and priming.
 
-Provider clients are monkeypatched — resolution must never touch the live
-APIs from tests.
+Provider clients and the download are monkeypatched — resolution must never
+touch the live APIs from tests.
 
 Authors:
 Charles Patrick James <charles.patrick.james@gmail.com>
@@ -12,56 +14,121 @@ Charles Patrick James <charles.patrick.james@gmail.com>
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 from curious_astronaut.services.pdf import resolve
+from curious_astronaut.services.pdf.errors import PdfError
 
 
-def test_resolve_asks_provider_once_then_caches(monkeypatch):
-    calls = []
+@pytest.fixture
+def sources(monkeypatch):
+    """Scripted sources and downloads: what each knows, and every call made.
 
-    def fake_get_paper(node_id):
-        calls.append(node_id)
-        return {"id": node_id, "oa_pdf": "https://jmlr.org/x.pdf"}
+    Returns:
+        A dict to fill per test: ``node`` (what the provider returns),
+        ``openalex`` (URL lists by DOI), ``good`` (URLs that
+        download as PDFs), and ``calls`` (each lookup and download, in order).
+    """
+    state: dict = {"node": None, "openalex": {}, "good": set(), "calls": []}
 
-    monkeypatch.setattr(resolve.s2, "get_paper", fake_get_paper)
+    def get_paper(node_id):
+        state["calls"].append(("provider", node_id))
+        return state["node"]
+
+    def openalex_urls(doi):
+        state["calls"].append(("openalex", doi))
+        return state["openalex"].get(doi, [])
+
+    def fetch(url):
+        state["calls"].append(("fetch", url))
+        if url not in state["good"]:
+            raise PdfError(f"Payload at {url} is not a PDF")
+        return Path("/cached.pdf")
+
+    monkeypatch.setattr(resolve.s2, "get_paper", get_paper)
+    monkeypatch.setattr(resolve.openalex, "get_paper", get_paper)
+    monkeypatch.setattr(resolve.openalex, "pdf_urls_for_doi", openalex_urls)
+    monkeypatch.setattr(resolve, "fetch_pdf", fetch)
+    return state
+
+
+def test_the_providers_link_wins_when_it_downloads_and_is_cached(sources):
+    sources["node"] = {"oa_pdf": "https://jmlr.org/x.pdf", "doi": None}
+    sources["good"] = {"https://jmlr.org/x.pdf"}
     assert resolve.resolve_oa_pdf("abc", "s2") == "https://jmlr.org/x.pdf"
     assert resolve.resolve_oa_pdf("abc", "s2") == "https://jmlr.org/x.pdf"
-    assert calls == ["abc"]  # second answer came from the cache
+    assert sources["calls"] == [("provider", "abc"), ("fetch", "https://jmlr.org/x.pdf")]
 
 
-def test_resolve_caches_no_pdf_answers_too(monkeypatch):
-    calls = []
+def test_falls_through_to_another_copy_when_the_providers_link_fails(sources):
+    sources["node"] = {"oa_pdf": "https://publisher/login", "doi": "10.1/x"}
+    sources["openalex"] = {
+        "10.1/x": ["https://publisher/login", "https://repo/x.pdf", "https://pmc/x.pdf"]
+    }
+    sources["good"] = {"https://repo/x.pdf", "https://pmc/x.pdf"}
+    assert resolve.resolve_oa_pdf("abc", "s2") == "https://repo/x.pdf"
+    fetched = [url for kind, url in sources["calls"] if kind == "fetch"]
+    # The duplicate publisher link is tried once; the later copy isn't needed.
+    assert fetched == ["https://publisher/login", "https://repo/x.pdf"]
 
-    def fake_get_paper(node_id):
-        calls.append(node_id)
-        return {"id": node_id, "oa_pdf": None}
 
-    monkeypatch.setattr(resolve.openalex, "get_paper", fake_get_paper)
+def test_finds_openalexs_copy_when_the_provider_has_none(sources):
+    sources["node"] = {"oa_pdf": None, "doi": "10.1/x"}
+    sources["openalex"] = {"10.1/x": ["https://pmc/x.pdf"]}
+    sources["good"] = {"https://pmc/x.pdf"}
+    assert resolve.resolve_oa_pdf("abc", "openalex") == "https://pmc/x.pdf"
+
+
+def test_a_doi_node_id_is_asked_about_even_when_the_provider_knows_no_doi(sources):
+    sources["node"] = {"oa_pdf": None, "doi": None}
+    sources["openalex"] = {"10.1/x": ["https://pmc/x.pdf"]}
+    sources["good"] = {"https://pmc/x.pdf"}
+    assert resolve.resolve_oa_pdf("DOI:10.1/x", "s2") == "https://pmc/x.pdf"
+
+
+def test_a_miss_is_cached_for_a_day_once_every_source_answered(sources):
+    sources["node"] = {"oa_pdf": None, "doi": "10.1/x"}
     assert resolve.resolve_oa_pdf("W1", "openalex") is None
     assert resolve.resolve_oa_pdf("W1", "openalex") is None
-    assert calls == ["W1"]
+    assert [kind for kind, _ in sources["calls"]] == ["provider", "openalex"]
 
 
-def test_resolve_does_not_cache_provider_failures(monkeypatch):
-    calls = []
+def test_a_failed_lookup_is_not_cached_as_a_miss(sources, monkeypatch):
+    def down(doi):
+        sources["calls"].append(("openalex", doi))
+        raise resolve.openalex.OpenAlexError("down")
 
-    def flaky_get_paper(node_id):
-        calls.append(node_id)
+    monkeypatch.setattr(resolve.openalex, "pdf_urls_for_doi", down)
+    sources["node"] = {"oa_pdf": None, "doi": "10.1/x"}
+    assert resolve.resolve_oa_pdf("abc", "s2") is None
+    assert resolve.resolve_oa_pdf("abc", "s2") is None
+    # Asked again: a transient outage isn't pinned. The provider's answer was
+    # still remembered, so it isn't re-asked.
+    assert [kind for kind, _ in sources["calls"]] == ["provider", "openalex", "openalex"]
+
+
+def test_a_provider_failure_still_tries_a_doi_id_and_caches_nothing(sources, monkeypatch):
+    def flaky(node_id):
+        sources["calls"].append(("provider", node_id))
         raise resolve.s2.S2Error("down")
 
-    monkeypatch.setattr(resolve.s2, "get_paper", flaky_get_paper)
+    monkeypatch.setattr(resolve.s2, "get_paper", flaky)
     assert resolve.resolve_oa_pdf("abc", "s2") is None
     assert resolve.resolve_oa_pdf("abc", "s2") is None
-    assert calls == ["abc", "abc"]  # a transient outage isn't pinned for a month
+    assert sources["calls"] == [("provider", "abc"), ("provider", "abc")]
 
 
-def test_prime_preempts_the_provider_lookup(monkeypatch):
-    monkeypatch.setattr(
-        resolve.s2, "get_paper", lambda node_id: (_ for _ in ()).throw(AssertionError)
-    )
+def test_prime_preempts_the_provider_lookup(sources):
+    sources["good"] = {"https://host/p.pdf", "https://pmc/d.pdf"}
+    sources["openalex"] = {"10.1/d": ["https://pmc/d.pdf"]}
     resolve.prime("abc", "https://host/p.pdf")
     assert resolve.resolve_oa_pdf("abc", "s2") == "https://host/p.pdf"
-    resolve.prime("def", None)
-    assert resolve.resolve_oa_pdf("def", "s2") is None
+    # A primed "no link" still lets the DOI find a copy elsewhere.
+    resolve.prime("def", None, "10.1/d")
+    assert resolve.resolve_oa_pdf("def", "s2") == "https://pmc/d.pdf"
+    assert not [call for call in sources["calls"] if call[0] == "provider"]
 
 
 def test_arxiv_pdf_url():

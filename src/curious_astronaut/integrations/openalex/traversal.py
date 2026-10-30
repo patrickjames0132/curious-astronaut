@@ -231,6 +231,28 @@ def get_paper(ref: str) -> dict | None:
     return nodes.node(work) if work else None
 
 
+def pdf_urls_for_doi(doi: str) -> list[str]:
+    """Every PDF location OpenAlex lists for a DOI, open-access ones first.
+
+    The Reader's PDF resolver asks this whatever provider built the graph: an
+    S2 paper's one ``openAccessPdf`` link is often a publisher page that won't
+    download while OpenAlex knows a repository copy. A DOI lookup is on the
+    free (unmetered) id path.
+
+    Args:
+        doi: A bare DOI (``10.…``).
+
+    Returns:
+        The work's PDF URLs (see ``nodes.pdf_urls``); empty when OpenAlex
+        doesn't know the DOI.
+
+    Raises:
+        client.OpenAlexError: When a non-404 request fails after retries.
+    """
+    work = _try_entity(f"doi:{doi}", "locations")
+    return nodes.pdf_urls(work) if work else []
+
+
 def references(work_id: str, limit: int | None = None) -> list[dict]:
     """The papers a seed CITES — its bibliography (the OpenAlex twin of
     ``s2.references``).

@@ -55,6 +55,9 @@ class Node(BaseModel):
     an ar5iv render) reads from. Detail-tier on S2 (neighbors carry None
     until hydration); OpenAlex fills it at neighbor tier too. Defaults so
     pre-oa_pdf cached snapshots validate."""
+    doi: str | None = None
+    """The paper's bare DOI (``10.…``), when the provider reports one — how the
+    Reader's PDF resolver asks OpenAlex for more open-access copies. Defaults so pre-doi cached snapshots validate."""
     is_survey: bool | None = None
     """Whether the paper is a survey or review — the field's own overview of a
     period rather than a primary result. Provider-neutral: the graph, its

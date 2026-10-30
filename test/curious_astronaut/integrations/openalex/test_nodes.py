@@ -166,6 +166,7 @@ def test_node_full_shape_parity_and_month():
         "fields_of_study": [],
         "venue": None,
         "oa_pdf": None,
+        "doi": "10.1038/248030a0",
         "is_survey": None,
     }
 
@@ -240,6 +241,20 @@ def test_node_oa_pdf_prefers_open_access_location():
     assert nodes.node(work)["oa_pdf"] == "https://closed/x.pdf"
     work["locations"] = []
     assert nodes.node(work)["oa_pdf"] is None
+
+
+def test_pdf_urls_lists_every_location_open_access_first():
+    """The PDF resolver tries them all, flagged-open ones first, each once."""
+    work = {
+        "locations": [
+            {"pdf_url": "https://closed/x.pdf"},
+            {"pdf_url": "https://pmc/x.pdf", "is_oa": True},
+            {"landing_page_url": "https://publisher/x"},
+            {"pdf_url": "https://pmc/x.pdf", "is_oa": True},
+        ]
+    }
+    assert nodes.pdf_urls(work) == ["https://pmc/x.pdf", "https://closed/x.pdf"]
+    assert nodes.pdf_urls({}) == []
 
 
 def test_node_is_survey_trusts_only_a_review_type():

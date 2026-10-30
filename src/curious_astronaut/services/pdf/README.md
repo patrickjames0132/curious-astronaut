@@ -8,7 +8,8 @@ whose `arxiv.org/pdf/<id>` is always open — this package downloads the file
 once and mines it with pymupdf.
 
 ```
-resolve.py — where the paper's OA PDF lives (arXiv → primed URL → provider), cached
+resolve.py — where the paper's OA PDF lives (arXiv, else the first of the provider's
+             and OpenAlex's copies that downloads), cached
 fetch.py   — the download + on-disk cache (data_dir/pdf_cache, LRU-pruned)
 text.py    — readable body text from the file (the ar5iv fulltext's PDF twin)
 floats.py  — caption-anchored float mining: figures, tables, algorithms
@@ -21,7 +22,8 @@ errors.py  — PdfError, the package's one exception
 
 * **`routes/graph.py`** — `/api/paper/<ref>/figures` falls back
   ar5iv → the mined **figure manifest**; `/api/pdf_figure/<token>/<n>` serves
-  a manifest entry as a rendered PNG; paper hydration `prime()`s the resolver.
+  a manifest entry as a rendered PNG; paper hydration `prime()`s the resolver
+  with the provider's link and the paper's DOI.
 * **`agents/researcher/tools.py`** — `read_paper(detail="full")` falls back
   ar5iv → `get_pdf_text`, and `show_figure` draws from the same figure
   manifest the full read printed.
@@ -152,14 +154,26 @@ never join the union.
   resolvable only through the server-side `pdfurl:` registry written when a
   PDF is mined. The browser never supplies a URL, so the route can't be used
   as an open proxy (the same SSRF posture as the ar5iv figure proxy).
+* **Every open copy is a candidate (v9.1.0).** A non-arXiv paper's link
+  used to be the provider's one `oa_pdf`, and a publisher link answering
+  with a login page left the paper unreadable while a repository held a free
+  copy. `resolve_oa_pdf` now lists candidates (`pdf_candidates`): the
+  provider's link, then every PDF location OpenAlex lists for the DOI
+  (`openalex.pdf_urls_for_doi`). It tries each through `fetch_pdf`, whose `%PDF`
+  check rejects the login pages, and the first that downloads is the answer.
+  Trying a candidate *is* the download, so the caller's own `fetch_pdf` is a
+  cache hit. The DOI comes from the node (`doi`, both providers), or from a
+  `DOI:` node id. Every candidate comes from a provider's API, never from the
+  browser.
 * **Everything is cached, misses included.** The file on disk
   (`pdf_cache/` — `oa_pdfs/` until v7.22.1, renamed because "oa" read as
   OpenAlex when it meant open-access; LRU beyond `config.pdf.cache_files`),
   the mined text/floats
   and the resolver's answers in the SQLite cache for a month (published PDFs
-  are immutable) — including "no PDF"/"nothing mined", so a barren paper
-  isn't re-mined on every panel open. Transient provider failures are the
-  one thing **not** cached.
+  are immutable) — including "nothing mined", so a barren paper isn't
+  re-mined on every panel open. The resolver's "no copy downloaded" lasts a
+  day instead, since a repository deposit can turn up. Transient provider
+  failures are the one thing **not** cached.
 * **pymupdf trap, learned the hard way:** a hairline rule is an *empty* rect
   (zero height) and `Rect.__or__` silently ignores empty operands — rule
   spans are built from raw min/max coordinates, never `|`.
@@ -181,7 +195,8 @@ The Reader shows a paper as its PDF when it has no HTML render, or when the
 reader chooses to. Two additions serve it, both on the same cache:
 
 - **`paper_pdf_url(ref, provider)`** (`resolve.py`): arXiv's PDF for an arXiv
-  id (always open, no provider lookup), else `resolve_oa_pdf`. The route
+  id (always open, no provider lookup), else `resolve_oa_pdf`'s first copy
+  that downloads. The route
   `/api/paper/<ref>/pdf` (`routes/graph.py`) resolves with it and serves the
   file from `fetch_pdf`'s cache, so pdf.js reads same-origin bytes and the
   paper is downloaded once. Serving needs no optional extra.

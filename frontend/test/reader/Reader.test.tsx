@@ -1011,6 +1011,25 @@ it('offers the text when a chosen PDF won’t open', async () => {
   await screen.findByRole('heading', { name: 'Attention Is All You Need' })
 })
 
+it('opens the next paper’s PDF after one that wouldn’t open', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'not_arxiv' })
+  // The same Reader, handed another paper, as App does (it isn't keyed by paper).
+  const { store, rerender } = mount(<Reader thread={THREAD} />)
+  await screen.findByRole('heading', { name: 'Not on arXiv' })
+  pdfStub.fail = false
+  const next: ThreadRecord = {
+    ...THREAD,
+    paper: { ...THREAD.paper!, arxiv_id: '2101.00001' },
+  }
+  rerender(
+    <Provider store={store}>
+      <Reader thread={next} />
+    </Provider>,
+  )
+  await screen.findByTestId('pdf-view')
+  expect(pdfStub.urls.at(-1)).toBe('/api/paper/2101.00001/pdf?provider=s2')
+})
+
 it('explains a passage highlighted in the PDF, from its page', async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue({ available: false, reason: 'no_render' })
   pdfStub.fail = false

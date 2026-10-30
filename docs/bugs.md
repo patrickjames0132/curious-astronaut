@@ -22,6 +22,27 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### One paper's unopenable PDF hid every later paper's (v9.1.0)
+
+- **Symptom.** A paper not on arXiv showed *Not on arXiv: … no open-access
+  PDF could be opened*, though Semantic Scholar had its PDF link and the log
+  showed the server downloading and serving it with a 200 earlier that day.
+- **Root cause.** The Reader is mounted per `epoch`, not per paper, and its
+  `pdfFailure` state was only cleared by switching views or retrying. Once
+  any paper's PDF failed to open, every paper opened afterwards in the same
+  Reader skipped `PdfView` altogether, so its PDF was never even requested.
+  The log gave it away: later visits to the paper fetched `/document` and
+  `/pdf-contents`, but never `/pdf`.
+- **Fix.** `Reader.tsx` resets `pdfFailure` and `pdfInfo` when the paper
+  changes, beside the zoom reset that was already there.
+- **Lesson / guard.** State that describes *one paper* in a component that
+  outlives the paper must reset on the paper's change. When the server says
+  it served something the UI says it couldn't get, check whether the UI ever
+  asked. Guarded by the Reader test "opens the next paper's PDF after one
+  that wouldn't open", which hands the *same* Reader a new thread (swapping
+  the component would remount it and hide the bug, as the test's first draft
+  did).
+
 ### The citation slider hid papers added after the build (v8.52.0)
 
 - **Symptom.** "Show in Citation Graph" from Peer Reviews opened a citing

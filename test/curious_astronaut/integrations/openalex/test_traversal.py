@@ -527,6 +527,25 @@ def test_get_paper_none_when_unresolvable(monkeypatch):
     assert traversal.get_paper("W404") is None
 
 
+def test_pdf_urls_for_doi_reads_the_works_locations_by_doi(monkeypatch):
+    """A free DOI lookup selecting only locations; an unknown DOI is no URLs."""
+    asked = []
+
+    def fake_request(url):
+        asked.append(url)
+        return {"locations": [{"pdf_url": "https://aclanthology.org/x.pdf", "is_oa": True}]}
+
+    monkeypatch.setattr(client, "request", fake_request)
+    assert traversal.pdf_urls_for_doi("10.18653/v1/x") == ["https://aclanthology.org/x.pdf"]
+    assert "/works/doi:10.18653/v1/x?" in asked[0] and "select=locations" in asked[0]
+
+    def not_found(url):
+        raise client.OpenAlexError("nope", status=404)
+
+    monkeypatch.setattr(client, "request", not_found)
+    assert traversal.pdf_urls_for_doi("10.1/none") == []
+
+
 def test_reference_keys_resolves_dois_arxiv_and_bare_ids(monkeypatch):
     filters = []
 
