@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v9.0.1 · living document · MIT-licensed · on PyPI as
+> **Status:** v9.1.1 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -481,6 +481,23 @@ than deleted so the plan doesn't get re-proposed.
 
 ### Citations & graph data
 
+- [ ] **Data providers without a citation graph (arXiv, Unpaywall, …)** —
+      Patrick is happy to add more data providers, but today a provider *is* a
+      graph backend: S2 and OpenAlex both answer references and citations, and
+      every graph tool (the build, `expand_node`, links between papers) assumes
+      the active provider can. Sources like arXiv's API or Unpaywall know papers
+      (metadata, full text, open-access copies) but not who cites whom, so
+      plugging one in as a provider would leave the graph tools with nothing to
+      traverse. Adding them means first **rethinking how the citation-graph tool
+      responds** when its source has no edges: e.g. a provider declares its
+      capabilities (graph or content-only), content-only sources enrich papers a
+      graph provider found instead of building graphs themselves, and the graph
+      tools say plainly when the chosen source can't answer a relation rather
+      than returning an empty graph. Design first, then the first non-graph
+      source. *(Context: Unpaywall was built and then removed during v9.1.0's
+      multi-copy PDF resolution. OpenAlex's locations mostly repeat Unpaywall's
+      data, and a non-graph source belongs in this ticket, not bolted on to
+      the PDF resolver.)*
 - [ ] **A real switch between the corpus and the live S2 API** — today the
       choice is **implicit, config-driven, and silently per-seed**. There is no
       flag: `corpus/source.py`'s `active_source()` (`:477-500`) hands back a
@@ -1173,14 +1190,6 @@ than deleted so the plan doesn't get re-proposed.
       settings today, and the Knowledge Graph's knobs live under Agents →
       Tutor. Patrick expects more Knowledge Graph settings to arrive as it
       grows, so the split waits until there's enough to fill its sub-page.
-
-- [ ] **Auto-correct spelling in the chat bars** — typos in a question go
-      to the agent as typed. Correct them as the reader types, in every chat
-      bar (General, and the Citation Graph and Knowledge Graph assistants).
-      Decide between the browser's own spellcheck (`spellCheck` on the
-      textarea: underlines only, no correction) and a real auto-correct, and
-      keep it away from what must not change: `@` mentions, arXiv ids, paper
-      titles and math. *(From the `todos.md` inbox, 2026-10-22.)*
 
 ### Enhancements & tech debt
 

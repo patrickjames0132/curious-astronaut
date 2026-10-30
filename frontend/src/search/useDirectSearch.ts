@@ -159,7 +159,9 @@ export function useDirectSearch(
       // Open the turn FIRST: the question appears the moment you hit send and
       // the transcript scrolls to it, exactly as asking does. The assistant
       // bubble it opens is what the chips and the list then fill.
-      dispatch(turnStarted(query))
+      // Marked as a search, so editing it searches again (`searched`), and
+      // as typed: a search is only ever run from what the bar was given.
+      dispatch(turnStarted(query, undefined, undefined, false, { searched: true, typed: true }))
       try {
         const result = await searchLive(query, 12, options, provider, {
           signal: controller.signal,

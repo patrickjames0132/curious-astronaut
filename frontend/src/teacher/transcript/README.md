@@ -151,6 +151,13 @@ without it (a graph lecture), beats are only clicked.
   with `quick: true` — no tools — so the transcript ends with the quick
   answer, whose provenance line then reads "answered from background
   knowledge — nothing was searched" (or names the graph papers it cited).
+- **✎ edits the latest question in its bubble** when handed `onEdit` (the
+  composer hands it to the chat's last question alone, and only one the
+  reader typed, so history behind it is never rewritten). The bubble's words become a spellchecked box —
+  Enter or Resend sends, ⇧ Enter is a new line, Esc or Cancel puts it back —
+  and only the reader's own words are edited: the `@` chips stay as chips.
+  It focuses once, as it opens, never per render, so a streaming answer
+  can't pull focus back into it.
 - **The paper-search chip names the corpus** — `🔎 Searching OpenAlex for
   “…”` while the scout runs, `🔎 Searched OpenAlex for “…” · 3 new` once it
   has. The name is read off the trace event (`TraceEvent.provider`, v7.30.0),

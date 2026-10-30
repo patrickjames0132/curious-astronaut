@@ -126,6 +126,27 @@ question with `quick: true`, the researcher with no tools. `ask` keeps what
 it was given in `lastAsk` (the question, named papers, scope and filters),
 so the quick answer is about exactly the same papers.
 
+✎ **Editing the latest question** (`editQuestion` in `Teacher.tsx`) is the
+reader's own replace: the chat's last question, when the view on screen asked
+it, opens in its bubble (`ChatMessage`'s `onEdit`), and Resend drops its
+exchange and asks the edited words in its place. Only the latest, so the
+history behind it is never rewritten. **Only what the reader typed**
+(Patrick): the bar stamps what it sends `ChatMsg.typed` — never a passage
+quoted from a highlight, and never a button's predetermined message (a
+lecture, Explain, Simplify), which go out unstamped and so can't be edited.
+The stamp is positive on purpose: a new button is uneditable without anyone
+remembering to opt it out. A retry, ⚡ Quick response or reroute of a typed
+question carries the stamp along. A working answer is stopped first,
+and released from the chat's in-flight slot (`stopChat`) so its run ends as
+superseded and never marks the new turn failed. The question goes the way
+the bar would send it, minus the placing: a view's own ask (typed, so with
+no passage places to keep), the paper an id names, a search again for a
+direct search (`ChatMsg.searched`), else `send`, with its `@` chips kept
+(`withBody`) and docked paper chips found on the graph again by title.
+Both bars, and the edit box, use the browser's own spellcheck (`spellCheck`,
+`autoCorrect`): typos are underlined, never silently rewritten, so `@`
+mentions, ids, titles and math stay as typed.
+
 ## History and cross-thread knowledge
 
 `history.ts` supplies one conversion for normal sends, retries and borrowed

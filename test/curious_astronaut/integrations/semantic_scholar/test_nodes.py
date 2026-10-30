@@ -109,6 +109,13 @@ def test_node_oa_pdf_from_open_access_field():
     assert nodes.node({"paperId": "a", "openAccessPdf": {"url": ""}})["oa_pdf"] is None
 
 
+def test_node_doi_from_external_ids():
+    """externalIds.DOI surfaces as doi, for the PDF resolver; absent → None."""
+    raw = {"paperId": "a", "externalIds": {"DOI": "10.18653/v1/2025.xllm-1.2"}}
+    assert nodes.node(raw)["doi"] == "10.18653/v1/2025.xllm-1.2"
+    assert nodes.node({"paperId": "a"})["doi"] is None
+
+
 def test_node_is_survey_from_publication_types():
     """A ``Review`` publication type marks a survey; a null list is a known no;
     an absent field (not requested) is unknown, for the survey pass to fill."""

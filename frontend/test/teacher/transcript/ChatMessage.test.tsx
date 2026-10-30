@@ -587,3 +587,55 @@ describe('a question’s tag (v9.0.0)', () => {
     expect(container.querySelector('.chat-tag')).toBeNull()
   })
 })
+
+describe('editing the latest question', () => {
+  /** A user turn rendered editable, its edits spied. */
+  const renderQuestion = (text: string, onEdit = vi.fn()) => {
+    render(
+      <ChatMessage
+        message={{ role: 'user', text }}
+        active={false}
+        streaming={false}
+        onEnlarge={() => {}}
+        onEdit={onEdit}
+      />,
+    )
+    return onEdit
+  }
+
+  it('offers no ✎ on a question it was not handed onEdit for', () => {
+    render(
+      <ChatMessage
+        message={{ role: 'user', text: 'older question' }}
+        active={false}
+        streaming={false}
+        onEnlarge={() => {}}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Edit question' })).toBeNull()
+  })
+
+  it('opens the words alone, spellchecked, and Enter resends the edit', () => {
+    const onEdit = renderQuestion('Attached: @thread[PPO]\n\nwhat is attenton?')
+    fireEvent.click(screen.getByRole('button', { name: 'Edit question' }))
+    const field = screen.getByRole('textbox', { name: 'Edit your question' }) as HTMLTextAreaElement
+    expect(field.value).toBe('what is attenton?')
+    expect(field.getAttribute('spellcheck')).toBe('true')
+    fireEvent.change(field, { target: { value: 'what is attention?' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(onEdit).toHaveBeenCalledWith('what is attention?')
+    expect(screen.queryByRole('textbox', { name: 'Edit your question' })).toBeNull()
+  })
+
+  it('Esc puts the question back untouched, and an empty edit cannot be sent', () => {
+    const onEdit = renderQuestion('what is attenton?')
+    fireEvent.click(screen.getByRole('button', { name: 'Edit question' }))
+    const field = screen.getByRole('textbox', { name: 'Edit your question' })
+    fireEvent.change(field, { target: { value: '   ' } })
+    expect(screen.getByRole('button', { name: 'Resend' })).toHaveProperty('disabled', true)
+    fireEvent.keyDown(field, { key: 'Enter' })
+    fireEvent.keyDown(field, { key: 'Escape' })
+    expect(onEdit).not.toHaveBeenCalled()
+    expect(screen.getByText('what is attenton?')).toBeTruthy()
+  })
+})

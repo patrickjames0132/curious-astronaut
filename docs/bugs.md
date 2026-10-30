@@ -22,6 +22,48 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### Closing a chat-bar picker sent the half-typed question (v9.1.1)
+
+- **Symptom.** With text typed in the docked chat bar, changing the 📚
+  Library filters and closing the popover sent the message without Enter,
+  and the bar came back empty.
+- **Root cause.** The docked bar's pickers render *inside* the composer's
+  `<form>` (v8.28.0 moved 📚 into the bar), and the popover's **All**,
+  **None** and **✕** were `<button>`s with no `type`, which inside a form
+  defaults to `submit`. Each click submitted the form, `onAsk` sent the
+  question, and the send cleared the input. The triggers were already
+  `type="button"`, which is why opening a picker was safe and closing it
+  wasn't. The model picker's ✕ had the same hole. On the landing chat the
+  pickers sit beneath the form, so it never showed there.
+- **Fix.** Every untyped `<button>` in the frontend (44 across 12 files) got
+  `type="button"`; neither form had a button relying on the default.
+- **Lesson / guard.** Whether a button is in a form is decided by whoever
+  renders the component, not whoever writes it, so the type can't be left to
+  context. oxlint's `react/button-has-type` is now an error over `src/` and
+  `test/`, and `test/teacher/ScopePicker.test.tsx` mounts the picker inside a
+  form and clicks every control without a submit.
+
+### One paper's unopenable PDF hid every later paper's (v9.1.0)
+
+- **Symptom.** A paper not on arXiv showed *Not on arXiv: … no open-access
+  PDF could be opened*, though Semantic Scholar had its PDF link and the log
+  showed the server downloading and serving it with a 200 earlier that day.
+- **Root cause.** The Reader is mounted per `epoch`, not per paper, and its
+  `pdfFailure` state was only cleared by switching views or retrying. Once
+  any paper's PDF failed to open, every paper opened afterwards in the same
+  Reader skipped `PdfView` altogether, so its PDF was never even requested.
+  The log gave it away: later visits to the paper fetched `/document` and
+  `/pdf-contents`, but never `/pdf`.
+- **Fix.** `Reader.tsx` resets `pdfFailure` and `pdfInfo` when the paper
+  changes, beside the zoom reset that was already there.
+- **Lesson / guard.** State that describes *one paper* in a component that
+  outlives the paper must reset on the paper's change. When the server says
+  it served something the UI says it couldn't get, check whether the UI ever
+  asked. Guarded by the Reader test "opens the next paper's PDF after one
+  that wouldn't open", which hands the *same* Reader a new thread (swapping
+  the component would remount it and hide the bug, as the test's first draft
+  did).
+
 ### The citation slider hid papers added after the build (v8.52.0)
 
 - **Symptom.** "Show in Citation Graph" from Peer Reviews opened a citing

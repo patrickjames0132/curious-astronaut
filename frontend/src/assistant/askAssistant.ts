@@ -119,6 +119,9 @@ export interface AssistantQuestion {
   /** Where it was typed, when the router placed it elsewhere (v9.0.0,
    *  stage 4b): kept on the user turn, for its correction. */
   placedFrom?: TurnTag | 'general'
+  /** Typed in the bar, with no passage attached: kept on the user turn,
+   *  which makes it editable (`ChatMsg.typed`). */
+  typed?: boolean
 }
 
 /** One answer's stream call, given the request's body and its handlers. */
@@ -212,6 +215,7 @@ export function streamAnswer(
         labels: request.labels,
         tag,
         placedFrom: request.placedFrom,
+        typed: request.typed,
       }),
     )
     dispatch(turnContextSet(borrowedChats(getState(), question, key), key))

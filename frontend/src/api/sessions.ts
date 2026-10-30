@@ -71,6 +71,19 @@ export interface ChatMsg {
    * Absent when it was asked where it was typed. User turns only.
    */
   placedFrom?: TurnTag | 'general'
+  /**
+   * The question was a direct paper search (the `@` list's search row), not
+   * a question for Nova: what it holds is the query. Editing it searches
+   * again rather than asking. User turns only.
+   */
+  searched?: boolean
+  /**
+   * The reader typed it, in the bar, with no passage attached: the one kind
+   * of question the ✎ edits. A button's message (a lecture, Explain, a
+   * passage quoted from a highlight) is never marked, so it can't be.
+   * User turns only.
+   */
+  typed?: boolean
   /** Answer requested via Quick response; available before its first token. */
   quickResponse?: boolean
   /** Explicitly attached sibling discussions, with stable navigation ids. */
