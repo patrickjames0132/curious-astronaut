@@ -1191,14 +1191,6 @@ than deleted so the plan doesn't get re-proposed.
       Tutor. Patrick expects more Knowledge Graph settings to arrive as it
       grows, so the split waits until there's enough to fill its sub-page.
 
-- [ ] **Auto-correct spelling in the chat bars** — typos in a question go
-      to the agent as typed. Correct them as the reader types, in every chat
-      bar (General, and the Citation Graph and Knowledge Graph assistants).
-      Decide between the browser's own spellcheck (`spellCheck` on the
-      textarea: underlines only, no correction) and a real auto-correct, and
-      keep it away from what must not change: `@` mentions, arXiv ids, paper
-      titles and math. *(From the `todos.md` inbox, 2026-10-22.)*
-
 ### Enhancements & tech debt
 
 - [ ] **Publish only from a commit whose CI is green** — filed 2026-10-24

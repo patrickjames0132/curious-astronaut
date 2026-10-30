@@ -37,6 +37,9 @@ import highlightReducer from '../../src/store/highlight'
 import libraryReducer from '../../src/store/library'
 import transcriptReducer, { chatBeatAdded, turnStarted } from '../../src/store/transcript'
 import workspaceReducer from '../../src/store/workspace'
+import { paperTag } from '../../src/store/chats'
+import type { ThreadRecord } from '../../src/store/explorations'
+import type { AssistantView } from '../../src/assistant/views'
 
 /** One uploaded source, enough for the scope picker to appear. */
 const SOURCE: Source = {
@@ -109,6 +112,13 @@ vi.mock('../../src/teacher/useConversation', () => ({
   }),
 }))
 
+/** The Reader the panel is docked beside, when a test sets one (null: none). */
+let readerView: AssistantView | null = null
+
+vi.mock('../../src/reader/useReaderView', () => ({
+  useReaderView: () => readerView,
+}))
+
 vi.mock('../../src/search/useDirectSearch', () => ({
   useDirectSearch: () => ({ searching: false, runSearch }),
 }))
@@ -155,6 +165,7 @@ vi.mock('../../src/mentions/useMentionSuggestions', () => ({
 const { default: Teacher } = await import('../../src/teacher/Teacher')
 
 beforeEach(() => {
+  readerView = null
   hasGraph = true
   sources = []
   turns = []
@@ -463,6 +474,7 @@ describe('Enter in the composer, with the @ dropdown open', () => {
       undefined,
       expect.anything(),
       [atari],
+      true,
     )
   })
 
@@ -502,6 +514,7 @@ describe('Enter in the composer, with the @ dropdown open', () => {
       undefined,
       expect.anything(),
       [atari],
+      true,
     )
     expect(chips()).toEqual([])
   })
@@ -591,5 +604,100 @@ describe('a draft from the rail (v8.31.0)', () => {
     act(() => requestDraft('@', 'new-chat'))
     expect(field.value).toBe('')
     expect(takeDraft('new-chat')).toBe('@')
+  })
+})
+
+describe('editing the latest question', () => {
+  /** A question the reader typed in the bar (`ChatMsg.typed`). */
+  const typed = (text: string, extras: Parameters<typeof turnStarted>[4] = {}) =>
+    turnStarted(text, undefined, undefined, false, { typed: true, ...extras })
+
+  /**
+   * Open the ✎ on the panel's only editable question and send an edit.
+   *
+   * @param edited The edited words.
+   */
+  function resend(edited: string) {
+    render(<Teacher landing />)
+    const pencils = screen.getAllByRole('button', { name: 'Edit question' })
+    expect(pencils).toHaveLength(1)
+    fireEvent.click(pencils[0])
+    const field = screen.getByRole('textbox', { name: 'Edit your question' })
+    fireEvent.change(field, { target: { value: edited } })
+    fireEvent.click(screen.getByRole('button', { name: 'Resend' }))
+  }
+
+  /** The Reader the panel is docked beside, its asks spied. */
+  const besideReader = () => {
+    const ask = vi.fn(() => async () => {})
+    const thread = { id: 'paper', title: 'Attention', data: { provider: 's2' } } as ThreadRecord
+    readerView = {
+      tool: 'reader',
+      thread,
+      available: true,
+      ask,
+      copy: { hint: '', context: '', tip: '', placeholder: 'Ask about this paper…', className: '' },
+    }
+    return { ask, tag: paperTag(thread, 'reader') }
+  }
+
+  it('offers it on the latest question alone, so history is never rewritten', () => {
+    turns = [typed('first questoin'), typed('second questoin')]
+    resend('second question')
+    expect(screen.getAllByText('first questoin')).toHaveLength(1)
+  })
+
+  it('asks the edited question, its attachments kept, and marks it typed again', () => {
+    turns = [typed('Attached: @thread[PPO]\n\nhow does it lern?')]
+    resend('how does it learn?')
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send.mock.calls[0][0]).toBe('Attached: @thread[PPO]\n\nhow does it learn?')
+    expect(send.mock.calls[0][4]).toBe(true)
+  })
+
+  it('searches again when the question was a direct search', () => {
+    turns = [typed('atari reinforcment', { searched: true })]
+    resend('atari reinforcement')
+    expect(runSearch).toHaveBeenCalledWith('atari reinforcement')
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('offers nothing on a predetermined message, which was never typed', () => {
+    // A lecture button's, an Explain's: none of them is marked typed.
+    turns = [turnStarted('Give a lecture on this paper')]
+    render(<Teacher landing />)
+    expect(screen.queryByRole('button', { name: 'Edit question' })).toBeNull()
+  })
+
+  it('beside the Reader, offers nothing on a question quoting a passage', () => {
+    const { tag } = besideReader()
+    turns = [
+      turnStarted(
+        'About this passage from §3:\n\n“the encoder”\n\nwhat is it?',
+        undefined,
+        undefined,
+        false,
+        {
+          tag,
+          places: [{ page: 3, rects: [] }] as never,
+        },
+      ),
+    ]
+    render(<Teacher />)
+    expect(screen.queryByRole('button', { name: 'Edit question' })).toBeNull()
+  })
+
+  it('beside the Reader, asks a typed question again there, typed', () => {
+    const { ask, tag } = besideReader()
+    turns = [typed('what is the encodr?', { tag })]
+    render(<Teacher />)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit question' }))
+    const field = screen.getByRole('textbox', { name: 'Edit your question' })
+    fireEvent.change(field, { target: { value: 'what is the encoder?' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Resend' }))
+    expect(ask).toHaveBeenCalledTimes(1)
+    expect(ask.mock.calls[0]).toEqual([
+      expect.objectContaining({ question: 'what is the encoder?', typed: true }),
+    ])
   })
 })

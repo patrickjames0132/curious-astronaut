@@ -334,6 +334,7 @@ export function useConversation() {
     filters?: SearchOptions
     mentioned?: MentionPaper[]
     scope: ResolvedScope
+    typed: boolean
   } | null>(null)
 
   const highlight = useCallback((ids: string[]) => dispatch(highlightSet(ids)), [dispatch])
@@ -452,6 +453,8 @@ export function useConversation() {
    * @param startedAt Original start time when Quick response continues an answer.
    * @param quick     A quick response (v8.30.0): the researcher answers with no
    *                  tools. Set by {@link quickAnswer}, never by a typed send.
+   * @param typed     The reader typed it in the bar: the turn is marked
+   *                  editable (`ChatMsg.typed`).
    */
   const ask = useCallback(
     async (
@@ -464,6 +467,7 @@ export function useConversation() {
       routed = false,
       quick = false,
       startedAt?: number,
+      typed = false,
     ) => {
       // The turn's scope, resolved ONCE — by `send`, with the message's
       // request in play, or here from the store for the callers that skip
@@ -473,7 +477,7 @@ export function useConversation() {
       const turnScope = scope ?? defaultScope
       // Kept so ⚡ Quick response can ask this again, the same way, minus the
       // tools — read before anything below can change the store.
-      lastAsk.current = { question, sourceIds, filters, mentioned, scope: turnScope }
+      lastAsk.current = { question, sourceIds, filters, mentioned, scope: turnScope, typed }
       // The turn's period binds what the researcher goes looking for, too —
       // the same wire fields the ▽ filters use, tightened by it.
       const turnFilters = filtersForTurn(
@@ -507,6 +511,7 @@ export function useConversation() {
       dispatch(
         turnStarted(question, key, quick ? startedAt : undefined, quick, {
           tag: graphTag(store.getState(), seedNode),
+          typed,
         }),
       )
       dispatch(turnContextSet(borrowedChats(store.getState(), question, key), key))
@@ -749,9 +754,16 @@ export function useConversation() {
    *                 correction re-resolving a stamped request). Omitted, the
    *                 default scope from the store — the selection, else what
    *                 passes the filters.
+   * @param typed    The reader typed it in the bar: the turn is editable.
    */
   const lectureInChat = useCallback(
-    async (question: string, framing: LectureFraming, routed: boolean, scope?: ResolvedScope) => {
+    async (
+      question: string,
+      framing: LectureFraming,
+      routed: boolean,
+      scope?: ResolvedScope,
+      typed = false,
+    ) => {
       if (!seedNode) return
       const turnScope = scope ?? defaultScope
       const subject = turnScope.nodes
@@ -773,6 +785,7 @@ export function useConversation() {
       dispatch(
         turnStarted(question, key, undefined, false, {
           tag: graphTag(store.getState(), seedNode),
+          typed,
         }),
       )
       // `seedNode` is non-null: the guard above returns.
@@ -900,6 +913,8 @@ export function useConversation() {
    * @param sourceIds Library scope, passed through to {@link ask}.
    * @param filters   Search filters, passed through to {@link ask}.
    * @param mentioned Papers `@`-mentioned in the message.
+   * @param typed     The reader typed it in the bar, no passage attached:
+   *                  its turn is editable (`ChatMsg.typed`).
    */
   const send = useCallback(
     async (
@@ -907,9 +922,21 @@ export function useConversation() {
       sourceIds: string[] | undefined,
       filters?: SearchOptions,
       mentioned?: MentionPaper[],
+      typed = false,
     ) => {
       if (!seedNode) {
-        void ask(question, sourceIds, filters, undefined, mentioned)
+        void ask(
+          question,
+          sourceIds,
+          filters,
+          undefined,
+          mentioned,
+          undefined,
+          false,
+          false,
+          undefined,
+          typed,
+        )
         return
       }
       // The button reacts to the send immediately rather than after the
@@ -957,6 +984,7 @@ export function useConversation() {
         dispatch(
           turnStarted(question, key, undefined, false, {
             tag: graphTag(store.getState(), seedNode),
+            typed,
           }),
         )
         dispatch(
@@ -972,10 +1000,21 @@ export function useConversation() {
         dispatch(nodeSelectionSet(scope.nodes.map((node) => node.id)))
       }
       if (decision.target === 'lecture') {
-        void lectureInChat(question, decision.framing, true, scope)
+        void lectureInChat(question, decision.framing, true, scope, typed)
         return
       }
-      void ask(question, sourceIds, filters, undefined, mentioned, scope, true)
+      void ask(
+        question,
+        sourceIds,
+        filters,
+        undefined,
+        mentioned,
+        scope,
+        true,
+        false,
+        undefined,
+        typed,
+      )
     },
     [seedNode, provider, ask, lectureInChat, store, dispatch],
   )
@@ -1031,10 +1070,23 @@ export function useConversation() {
       // The correction is the reader's own decision, so `routed` is false:
       // the new turn carries no offer to route it back again, which would be
       // an invitation to ping-pong between two answers they already have.
+      // A typed question stays typed, so the correction is editable too.
+      const typed = !!question.typed
       if (answer.routedTo === 'lecture') {
-        void ask(question.text, undefined, undefined, undefined, undefined, scope)
+        void ask(
+          question.text,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          scope,
+          false,
+          false,
+          undefined,
+          typed,
+        )
       } else {
-        void lectureInChat(question.text, 'summary', false, scope)
+        void lectureInChat(question.text, 'summary', false, scope, typed)
       }
     },
     [ask, lectureInChat, rescope, store],
@@ -1067,7 +1119,18 @@ export function useConversation() {
       const scope = rescope(requestFromStamp(answer?.scope))
       dispatch(failedTurnDropped(index, chatKeyRef.current))
       if (!scope) return
-      void ask(question.text, undefined, undefined, history, undefined, scope)
+      void ask(
+        question.text,
+        undefined,
+        undefined,
+        history,
+        undefined,
+        scope,
+        false,
+        false,
+        undefined,
+        !!question.typed,
+      )
     },
     [ask, dispatch, rescope, store],
   )
@@ -1103,6 +1166,7 @@ export function useConversation() {
         false,
         true,
         answer.startedAt,
+        last.typed,
       )
     },
     [ask, askCtrl, dispatch, store],

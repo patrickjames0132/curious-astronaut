@@ -278,6 +278,7 @@ export default function ChatMessage({
   onTagOpen,
   tagPapers,
   askInstead,
+  onEdit,
   turn,
   // Defaults open: a caller that forgets to manage this shows the lecture
   // rather than silently hiding it, which is the right way round to fail.
@@ -327,6 +328,10 @@ export default function ChatMessage({
   /** The router placed this question elsewhere (v9.0.0, stage 4b): ask it
    *  where it was typed instead, named by `label`. */
   askInstead?: { label: string; onAsk: () => void }
+  /** Edit this question and send it again in place of the exchange it
+   *  began (undefined: not editable — only the chat's latest question is,
+   *  so earlier history is never rewritten). Given the edited words. */
+  onEdit?: (body: string) => void
   /** Its index in the chat, so the panel can find it again however the chat
    *  is filtered (`data-turn`). */
   turn?: number
@@ -346,6 +351,25 @@ export default function ChatMessage({
   // line; read them back into chips and show only the reader's own words.
   const { attached, body } =
     message.role === 'user' ? splitAttached(message.text) : { attached: [], body: message.text }
+  // Editing the question in place: the draft while it is open, null shut.
+  const [draft, setDraft] = useState<string | null>(null)
+  const editing = draft !== null && !!onEdit
+  const resend = () => {
+    const edited = draft?.trim()
+    if (!edited || !onEdit) return
+    setDraft(null)
+    onEdit(edited)
+  }
+  // Focused once, as it opens, with the caret at the end ready to fix the
+  // typo — never again per render, or a streaming answer would pull focus
+  // back here on every token.
+  const editField = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const field = editField.current
+    if (!editing || !field) return
+    field.focus()
+    field.setSelectionRange(field.value.length, field.value.length)
+  }, [editing])
   const borrowedId = (title: string) =>
     message.borrowedThreads?.find((thread) => thread.title === title)?.id
   const lectureHeader =
@@ -604,65 +628,125 @@ export default function ChatMessage({
           </Fold>
         </div>
       )}
-      {(() => {
-        if (!body) {
-          // Waiting on the first token, with nothing else yet to show. The
-          // same hopping dots the send button and a generating lecture use —
-          // one "working" rhythm across the panel, rather than a static `…`
-          // here and a cascade everywhere else.
-          return message.role === 'assistant' &&
-            streaming &&
-            !message.failed &&
-            !message.trace?.length &&
-            !message.retrieve &&
-            beats.length === 0 ? (
-            <HopDots label="Thinking" />
-          ) : (
-            ''
-          )
-        }
-        // Interleave the prose with the figures the agent placed via
-        // <<FIG n>> markers; unplaced figures fall back to the end.
-        const { parts, leftover } = splitAnswer(body, message.figures)
-        return (
-          <>
-            {parts.map((part, index) =>
-              typeof part === 'string' ? (
-                message.role === 'assistant' ? (
-                  // Agent prose: full Markdown + math + clickable [n] citations.
-                  <AnswerMarkdown
-                    key={index}
-                    text={part}
-                    graphRefs={message.graphRefs}
-                    sourceRefs={message.sourceRefs}
-                    paperRefs={message.paperRefs}
-                    onRefClick={onRefClick}
-                    onPaperSeed={onPaperSeed}
-                    provider={provider}
-                    onQuote={onQuote}
-                  />
+      {editing ? (
+        <form
+          className="chat-edit"
+          onClick={(event) => event.stopPropagation()}
+          onSubmit={(event) => {
+            event.preventDefault()
+            resend()
+          }}
+        >
+          <textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            // As the ask bar: Enter sends, Shift+Enter is a new line, and
+            // Esc puts the question back as it was.
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                resend()
+              } else if (event.key === 'Escape') {
+                event.preventDefault()
+                event.stopPropagation()
+                setDraft(null)
+              }
+            }}
+            ref={editField}
+            rows={Math.min(8, Math.max(2, (draft ?? '').split('\n').length))}
+            spellCheck
+            autoCorrect="on"
+            aria-label="Edit your question"
+          />
+          <div className="chat-edit-actions">
+            <button type="button" className="chat-retry" onClick={() => setDraft(null)}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="chat-retry chat-resend"
+              disabled={!draft?.trim()}
+              title="Send the edited question in place of this one and its answer"
+            >
+              Resend
+            </button>
+          </div>
+        </form>
+      ) : (
+        (() => {
+          if (!body) {
+            // Waiting on the first token, with nothing else yet to show. The
+            // same hopping dots the send button and a generating lecture use —
+            // one "working" rhythm across the panel, rather than a static `…`
+            // here and a cascade everywhere else.
+            return message.role === 'assistant' &&
+              streaming &&
+              !message.failed &&
+              !message.trace?.length &&
+              !message.retrieve &&
+              beats.length === 0 ? (
+              <HopDots label="Thinking" />
+            ) : (
+              ''
+            )
+          }
+          // Interleave the prose with the figures the agent placed via
+          // <<FIG n>> markers; unplaced figures fall back to the end.
+          const { parts, leftover } = splitAnswer(body, message.figures)
+          return (
+            <>
+              {parts.map((part, index) =>
+                typeof part === 'string' ? (
+                  message.role === 'assistant' ? (
+                    // Agent prose: full Markdown + math + clickable [n] citations.
+                    <AnswerMarkdown
+                      key={index}
+                      text={part}
+                      graphRefs={message.graphRefs}
+                      sourceRefs={message.sourceRefs}
+                      paperRefs={message.paperRefs}
+                      onRefClick={onRefClick}
+                      onPaperSeed={onPaperSeed}
+                      provider={provider}
+                      onQuote={onQuote}
+                    />
+                  ) : (
+                    // The user's own question — plain text, math typeset, no Markdown.
+                    <span key={index}>
+                      <MathText>{part}</MathText>
+                    </span>
+                  )
                 ) : (
-                  // The user's own question — plain text, math typeset, no Markdown.
-                  <span key={index}>
-                    <MathText>{part}</MathText>
-                  </span>
-                )
-              ) : (
-                <div key={index} className="chat-figs chat-figs-inline">
-                  <FigCard figure={part} onEnlarge={onEnlarge} />
+                  <div key={index} className="chat-figs chat-figs-inline">
+                    <FigCard figure={part} onEnlarge={onEnlarge} />
+                  </div>
+                ),
+              )}
+              {leftover.length > 0 && (
+                <div className="chat-figs">
+                  {leftover.map((figure, index) => (
+                    <FigCard key={index} figure={figure} onEnlarge={onEnlarge} />
+                  ))}
                 </div>
-              ),
-            )}
-            {leftover.length > 0 && (
-              <div className="chat-figs">
-                {leftover.map((figure, index) => (
-                  <FigCard key={index} figure={figure} onEnlarge={onEnlarge} />
-                ))}
-              </div>
-            )}
-          </>
-        )
-      })()}
+              )}
+            </>
+          )
+        })()
+      )}
+      {onEdit && !editing && (
+        <button
+          type="button"
+          className="chat-edit-open"
+          onClick={(event) => {
+            event.stopPropagation()
+            setDraft(body)
+          }}
+          title="Edit this question and send it again (replaces its answer)"
+          aria-label="Edit question"
+        >
+          ✎
+        </button>
+      )}
       {(() => {
         // The grounding line replaces the old cited-papers footer: same job,
         // but it counts what the answer actually cited (sources included) and

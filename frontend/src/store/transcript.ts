@@ -170,6 +170,10 @@ export interface TurnExtras {
   tag?: TurnTag
   /** Where it was typed, when the router placed it elsewhere (v9.0.0). */
   placedFrom?: TurnTag | 'general'
+  /** A direct paper search's query rather than a question. */
+  searched?: boolean
+  /** Typed in the bar, with no passage attached: editable. */
+  typed?: boolean
 }
 
 type Timed = Keyed & { at: number; quick?: boolean } & TurnExtras
@@ -449,12 +453,14 @@ const transcriptSlice = createSlice({
       reducer(state, action: PayloadAction<string, string, Timed>) {
         const conversation = target(state, action.meta.key)
         if (!conversation) return
-        const { places, figures, labels, tag, placedFrom } = action.meta
+        const { places, figures, labels, tag, placedFrom, searched, typed } = action.meta
         conversation.chat.push({
           role: 'user',
           text: action.payload,
           ...(tag && { tag }),
           ...(placedFrom && { placedFrom }),
+          ...(searched && { searched }),
+          ...(typed && { typed }),
           ...(places && { places }),
           ...(figures && { boxedFigures: figures }),
           ...(labels?.length && { labels }),
