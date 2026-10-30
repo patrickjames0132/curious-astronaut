@@ -1878,6 +1878,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
               return (
                 <div key={entry.id}>
                   <button
+                    type="button"
                     className={`settings-nav-item ${here && (!pages || page === '') ? 'active' : ''}`}
                     onClick={() => {
                       setSection(entry.id)
@@ -1893,6 +1894,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
                     here &&
                     pages.map((sub) => (
                       <button
+                        type="button"
                         key={sub.id}
                         className={`settings-nav-item sub ${page === sub.id ? 'active' : ''}`}
                         onClick={() => setPage(sub.id)}
@@ -1919,6 +1921,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
             </h2>
             <div className="settings-header-actions">
               <button
+                type="button"
                 className="settings-help"
                 onClick={() => setTourOpen(true)}
                 aria-label="Tour the settings"
@@ -1927,7 +1930,12 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
               >
                 ?
               </button>
-              <button className="settings-close" onClick={onClose} aria-label="Close settings">
+              <button
+                type="button"
+                className="settings-close"
+                onClick={onClose}
+                aria-label="Close settings"
+              >
                 ✕
               </button>
             </div>
@@ -2072,6 +2080,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
                       }}
                     />
                     <button
+                      type="button"
                       className="settings-filepick"
                       disabled={saving}
                       onClick={() => void chooseConfigFile()}
@@ -2103,13 +2112,19 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
               <div className="settings-savebar">
                 <span>Unsaved changes</span>
                 <button
+                  type="button"
                   className="settings-discard"
                   disabled={saving}
                   onClick={() => payload && setDraft(structuredClone(payload.config))}
                 >
                   Discard
                 </button>
-                <button className="settings-save" disabled={saving} onClick={() => void save()}>
+                <button
+                  type="button"
+                  className="settings-save"
+                  disabled={saving}
+                  onClick={() => void save()}
+                >
                   {saving ? 'Saving…' : 'Save'}
                 </button>
               </div>

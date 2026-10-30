@@ -94,10 +94,15 @@ export default function KnowledgeControls({
         <div className="ctrl-body">
           <div className="ctrl-label">View</div>
           <div className="layout-toggle">
-            <button className={view === '2d' ? 'on' : ''} onClick={() => onView('2d')}>
+            <button
+              type="button"
+              className={view === '2d' ? 'on' : ''}
+              onClick={() => onView('2d')}
+            >
               2D
             </button>
             <button
+              type="button"
               className={threeD ? 'on' : ''}
               onClick={() => onView('3d')}
               title="Fly through the course in 3D"
@@ -105,6 +110,7 @@ export default function KnowledgeControls({
               3D
             </button>
             <button
+              type="button"
               className={view === 'pyramid' ? 'on' : ''}
               onClick={() => onView('pyramid')}
               title="Stack the course in rows: foundations at the bottom, the paper on top, and what you know lets you skip faded"

@@ -1477,7 +1477,12 @@ export default function Teacher({
                 </button>
               )}
               {onClose && (
-                <button className="link-btn" onClick={onClose} aria-label="Close Nova">
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={onClose}
+                  aria-label="Close Nova"
+                >
                   ✕
                 </button>
               )}

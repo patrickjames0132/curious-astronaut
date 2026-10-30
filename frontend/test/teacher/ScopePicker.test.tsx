@@ -12,6 +12,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
+import type { FormEvent } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import ScopePicker from '../../src/teacher/ScopePicker'
@@ -203,5 +204,35 @@ describe('ScopePicker bulk actions', () => {
     renderWithChecked([])
     expect(screen.getByText('All')).toBeTruthy()
     expect(screen.queryByText('None')).toBeNull()
+  })
+})
+
+describe('ScopePicker inside the ask form', () => {
+  // Docked, the 📚 picker sits inside the chat bar's <form>, and a <button>
+  // with no `type` is a submit button there: All, None and ✕ each sent
+  // whatever was typed, and the send cleared the bar (Patrick, 2026-10-30).
+  // Every control in the popover has to leave the form alone.
+  it('no control in the popover submits the surrounding form', () => {
+    const onSubmit = vi.fn((event: FormEvent) => event.preventDefault())
+    render(
+      <form onSubmit={onSubmit}>
+        <ScopePicker
+          items={ITEMS}
+          checkedIds={['a']}
+          open={true}
+          onOpenChange={() => {}}
+          onToggle={() => {}}
+          onSelectAll={() => {}}
+          onDeselectAll={() => {}}
+          labels={LABELS}
+        />
+      </form>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Library filters/ }))
+    fireEvent.click(screen.getByText('All'))
+    fireEvent.click(screen.getByText('None'))
+    for (const checkbox of screen.getAllByRole('checkbox')) fireEvent.click(checkbox)
+    fireEvent.click(screen.getByLabelText('Close the source picker'))
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 })

@@ -95,6 +95,7 @@ export default function FindBar({
   if (!pill.present) {
     return (
       <button
+        type="button"
         className="graph-find-toggle"
         data-tour={tour}
         onClick={() => setOpen(true)}
@@ -144,11 +145,17 @@ export default function FindBar({
         <span className="find-status">
           {count} hit{count === 1 ? '' : 's'}
           {count > 0 && (
-            <button className="link-btn" onClick={onSelectAll} title={copy.selectTitle(count)}>
+            <button
+              type="button"
+              className="link-btn"
+              onClick={onSelectAll}
+              title={copy.selectTitle(count)}
+            >
               select
             </button>
           )}
           <button
+            type="button"
             className="link-btn"
             onClick={() => {
               onQuery('')

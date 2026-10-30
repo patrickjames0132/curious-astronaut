@@ -268,23 +268,28 @@ export default function Tour({ steps, onClose, onStage }: TourProps) {
               ))}
             </select>
           </span>
-          <button className="tour-close" onClick={() => onClose(false)} aria-label="Quit the tour">
+          <button
+            type="button"
+            className="tour-close"
+            onClick={() => onClose(false)}
+            aria-label="Quit the tour"
+          >
             ✕
           </button>
         </div>
         <p>{step.body}</p>
         <div className="tour-foot">
-          <button className="tour-skip" onClick={() => onClose(false)}>
+          <button type="button" className="tour-skip" onClick={() => onClose(false)}>
             Skip tips
           </button>
           <span className="tour-count">
             {index + 1} / {stops.length}
           </span>
           <div className="tour-nav">
-            <button onClick={back} disabled={index === 0}>
+            <button type="button" onClick={back} disabled={index === 0}>
               Back
             </button>
-            <button className="tour-next" onClick={next}>
+            <button type="button" className="tour-next" onClick={next}>
               {isLast ? 'Done' : 'Next'}
             </button>
           </div>

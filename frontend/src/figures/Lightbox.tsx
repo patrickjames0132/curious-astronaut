@@ -65,7 +65,7 @@ export default function Lightbox({
       aria-label="Enlarged figure"
       onAnimationEnd={presence.onAnimationEnd}
     >
-      <button className="fig-lightbox-close" aria-label="Close">
+      <button type="button" className="fig-lightbox-close" aria-label="Close">
         ✕
       </button>
       <img

@@ -22,6 +22,27 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### Closing a chat-bar picker sent the half-typed question (v9.1.1)
+
+- **Symptom.** With text typed in the docked chat bar, changing the 📚
+  Library filters and closing the popover sent the message without Enter,
+  and the bar came back empty.
+- **Root cause.** The docked bar's pickers render *inside* the composer's
+  `<form>` (v8.28.0 moved 📚 into the bar), and the popover's **All**,
+  **None** and **✕** were `<button>`s with no `type`, which inside a form
+  defaults to `submit`. Each click submitted the form, `onAsk` sent the
+  question, and the send cleared the input. The triggers were already
+  `type="button"`, which is why opening a picker was safe and closing it
+  wasn't. The model picker's ✕ had the same hole. On the landing chat the
+  pickers sit beneath the form, so it never showed there.
+- **Fix.** Every untyped `<button>` in the frontend (44 across 12 files) got
+  `type="button"`; neither form had a button relying on the default.
+- **Lesson / guard.** Whether a button is in a form is decided by whoever
+  renders the component, not whoever writes it, so the type can't be left to
+  context. oxlint's `react/button-has-type` is now an error over `src/` and
+  `test/`, and `test/teacher/ScopePicker.test.tsx` mounts the picker inside a
+  form and clicks every control without a submit.
+
 ### One paper's unopenable PDF hid every later paper's (v9.1.0)
 
 - **Symptom.** A paper not on arXiv showed *Not on arXiv: … no open-access

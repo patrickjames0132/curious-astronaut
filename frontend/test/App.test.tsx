@@ -33,9 +33,13 @@ vi.mock('../src/teacher/Teacher', () => ({
     onDockChange?: (dock: 'right' | 'bottom') => void
   }) => (
     <aside data-testid="teacher" data-collapsed={String(!!collapsed)} data-dock={dock}>
-      {onClose && <button onClick={onClose}>Close assistant</button>}
+      {onClose && (
+        <button type="button" onClick={onClose}>
+          Close assistant
+        </button>
+      )}
       {onDockChange && (
-        <button onClick={() => onDockChange(dock === 'right' ? 'bottom' : 'right')}>
+        <button type="button" onClick={() => onDockChange(dock === 'right' ? 'bottom' : 'right')}>
           Flip dock
         </button>
       )}

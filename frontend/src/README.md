@@ -189,6 +189,15 @@ accesses), so the handful of genuinely external field names declared in our
 own types carry a scoped `oxlint-disable` with a comment saying whose name it
 is — see `graph/model.ts` (`x`/`y`) and `api/search.ts` (the `q` wire key).
 
+A second rule guards a bug rather than a convention:
+**`react/button-has-type`** — every `<button>` says `type="button"` or
+`type="submit"`. Untyped, a button inside a `<form>` is a submit button, and
+the docked chat bar is a form with pickers nested in it: until v9.1.1 the 📚
+Library popover's All, None and ✕ each sent the half-typed question and
+cleared the bar. A button's placement is decided by whoever renders it, not
+whoever writes it, so the type is required everywhere rather than only inside
+forms.
+
 Thread navigation remounts the canvas and chat with distinct sibling keys
 (`graph:<epoch>` and `teacher:<epoch>`). The shell regression test cycles
 between General and two graphs and checks that only one explorer and one

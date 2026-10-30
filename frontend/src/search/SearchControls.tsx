@@ -250,6 +250,7 @@ export default function SearchControls({
             <div className="filter-cats">
               {options.fields.map((fieldId) => (
                 <button
+                  type="button"
                   key={fieldId}
                   className="cat-chip"
                   onClick={() => removeField(fieldId)}
@@ -266,7 +267,11 @@ export default function SearchControls({
               on the graph are never filtered.
             </span>
             {activeCount > 0 && (
-              <button className="link-btn" onClick={() => onOptions(DEFAULT_SEARCH_OPTIONS)}>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => onOptions(DEFAULT_SEARCH_OPTIONS)}
+              >
                 Reset
               </button>
             )}
