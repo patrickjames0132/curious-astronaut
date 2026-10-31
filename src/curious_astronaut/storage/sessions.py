@@ -187,6 +187,39 @@ def _count_nodes(payload: dict) -> int:
     return count
 
 
+def _conversation_of(payload: dict) -> list[list[object]]:
+    """Pick out what was *said* in an exploration, in either blob shape.
+
+    The autosave re-POSTs on every settled change, and most of those are the
+    view moving — the open thread, the Reader's page, the tool beside a paper,
+    a hydrated card header. None of that is working on the exploration, so
+    none of it should reorder the list. What is: a question asked or an answer
+    landing. This is that part of the blob, so a save can tell the two apart.
+
+    A **current** blob keeps a chat per thread (``exploration.threads[].data
+    .chat``), returned keyed by thread id so a turn can't be mistaken for its
+    twin in another chat; a **legacy** blob has one flat ``chat``.
+
+    Args:
+        payload: The exploration blob, in either shape.
+
+    Returns:
+        ``[thread id, turns]`` per thread that holds any turns, in thread
+        order; for a legacy blob, its one chat. Empty for a silent exploration.
+    """
+    exploration = payload.get("exploration")
+    if isinstance(exploration, dict) and isinstance(exploration.get("threads"), list):
+        return [
+            [thread.get("id"), thread["data"]["chat"]]
+            for thread in exploration["threads"]
+            if isinstance(thread, dict)
+            and isinstance(thread.get("data"), dict)
+            and thread["data"].get("chat")
+        ]
+    chat = payload.get("chat")
+    return [[None, chat]] if chat else []
+
+
 def save_session(payload: dict, session_id: str | None = None) -> dict:
     """Create a saved session, or overwrite an existing one in place.
 
@@ -202,7 +235,10 @@ def save_session(payload: dict, session_id: str | None = None) -> dict:
         session_id: When given, overwrite that exploration (the autosave
             re-POSTing a row it already created — ``created_at`` is
             preserved); when omitted, a new exploration with a fresh id is
-            created.
+            created. An overwrite moves ``updated_at`` — the list's order —
+            only when the conversation changed (``_conversation_of``):
+            opening an exploration and looking around it re-saves it, and
+            that mustn't pull it to the top, any more than a rename does.
 
     Returns:
         The stored metadata row: ``{id, name, seed_id, seed_title, n_nodes,
@@ -222,10 +258,19 @@ def save_session(payload: dict, session_id: str | None = None) -> dict:
         existing = None
         if session_id:
             existing = conn.execute(
-                "SELECT created_at FROM saved_sessions WHERE id = ?", (session_id,)
+                "SELECT data, created_at, updated_at FROM saved_sessions WHERE id = ?",
+                (session_id,),
             ).fetchone()
         sid = session_id or uuid4().hex
         created_at = existing["created_at"] if existing else now
+        updated_at = now
+        if existing:
+            try:
+                before = json.loads(existing["data"])
+            except (TypeError, ValueError):
+                before = None
+            if isinstance(before, dict) and _conversation_of(before) == _conversation_of(payload):
+                updated_at = existing["updated_at"]
         conn.execute(
             "INSERT INTO saved_sessions "
             "(id, name, seed_id, seed_title, n_nodes, data, created_at, updated_at) "
@@ -242,7 +287,7 @@ def save_session(payload: dict, session_id: str | None = None) -> dict:
                 node_count,
                 blob,
                 created_at,
-                now,
+                updated_at,
             ),
         )
     return {
@@ -252,7 +297,7 @@ def save_session(payload: dict, session_id: str | None = None) -> dict:
         "seed_title": seed.get("title"),
         "n_nodes": node_count,
         "created_at": created_at,
-        "updated_at": now,
+        "updated_at": updated_at,
     }
 
 

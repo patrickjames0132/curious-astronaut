@@ -25,7 +25,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { Fragment, useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import ThreadList from './ThreadList'
 import { useResizablePanel } from '../ui/useResizablePanel'
 import { usePresence } from '../ui/usePresence'
@@ -33,6 +33,7 @@ import { PROVIDER_LABEL } from '../api'
 import type { Provider, SavedSessionMeta } from '../api'
 import './shell.css'
 import SessionRow from './SessionRow'
+import { useSlide } from './useSlide'
 
 /** The folded rail's width, px — `.rail.collapsed` in `shell.css`, repeated
  *  here because the unfold-by-drag has to measure from what is on screen. */
@@ -254,6 +255,12 @@ export default function SideBar({
   const [explorationsDialogOpen, setQuickChatsOpen] = useState(false)
   const explorationsDialogId = useId()
   const [expandedId, setExpandedId] = useState(openSessionId)
+  // A question asked lifts its exploration to the top; it slides there.
+  const sessionList = useRef<HTMLDivElement>(null)
+  useSlide(
+    sessionList,
+    sessions.map((session) => session.id),
+  )
   useEffect(() => setExpandedId(openSessionId), [openSessionId])
   const collapsed = !open
   // Same drag-to-resize the two right-docked panels use, mirrored. The width
@@ -272,12 +279,12 @@ export default function SideBar({
   })
 
   const explorationList = (
-    <>
+    <div className="rail-sessions" ref={sessionList}>
       {sessions.length > 0 && !explorationsDialogOpen && (
         <p className="rail-heading">Explorations</p>
       )}
       {sessions.map((session) => (
-        <Fragment key={session.id}>
+        <div className="rail-sessions" key={session.id} data-slide={session.id}>
           <SessionRow
             session={session}
             expanded={session.id === openSessionId && expandedId === session.id}
@@ -300,7 +307,7 @@ export default function SideBar({
               onNavigate={() => explorationsDialog.current?.close()}
             />
           )}
-        </Fragment>
+        </div>
       ))}
       {sessions.length === 0 && (
         <p className="rail-empty">
@@ -308,7 +315,7 @@ export default function SideBar({
           you can come back to it.
         </p>
       )}
-    </>
+    </div>
   )
 
   return (

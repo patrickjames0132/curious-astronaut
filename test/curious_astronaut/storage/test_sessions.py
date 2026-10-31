@@ -75,14 +75,89 @@ def test_get_session_with_corrupt_blob_reports_empty_data():
 
 def test_save_session_with_existing_id_overwrites_in_place():
     saved = sessions.save_session(_payload())
-    _touch(saved["id"], updated_at=saved["updated_at"] - 100)  # force a clear time gap
 
     updated = sessions.save_session(_payload(name="Renamed"), session_id=saved["id"])
 
     assert updated["id"] == saved["id"]
     assert updated["name"] == "Renamed"
     assert updated["created_at"] == saved["created_at"]  # preserved, not reset
-    assert updated["updated_at"] > saved["updated_at"] - 100  # bumped
+
+
+def _threaded(*chats: list) -> dict:
+    """A current-shape payload: one thread per chat, in order."""
+    return {
+        "name": "Attention mechanisms",
+        "exploration": {
+            "threads": [
+                {"id": f"thread-{index}", "data": {"chat": chat}}
+                for index, chat in enumerate(chats)
+            ],
+        },
+    }
+
+
+QUESTION = {"role": "user", "text": "What is attention?"}
+ANSWER = {"role": "assistant", "text": "A weighting over the inputs."}
+
+
+def test_a_save_that_only_moves_the_view_keeps_its_place_in_the_list():
+    """Opening an exploration re-saves it (the open thread, the Reader's page,
+    the tool beside a paper) — that isn't working on it, so it mustn't jump
+    to the top of the list."""
+    saved = sessions.save_session(_threaded([QUESTION, ANSWER]))
+    _touch(saved["id"], updated_at=1000)
+
+    viewed = _threaded([QUESTION, ANSWER])
+    viewed["exploration"]["activeThreadId"] = "thread-0"
+    updated = sessions.save_session(viewed, session_id=saved["id"])
+
+    assert updated["updated_at"] == 1000
+    assert sessions.list_sessions()[0]["updated_at"] == 1000
+    assert sessions.get_session(saved["id"])["data"] == viewed  # still saved
+
+
+def test_a_new_turn_moves_the_exploration_to_the_top():
+    saved = sessions.save_session(_threaded([QUESTION]))
+    _touch(saved["id"], updated_at=1000)
+
+    updated = sessions.save_session(_threaded([QUESTION, ANSWER]), session_id=saved["id"])
+
+    assert updated["updated_at"] > 1000
+
+
+def test_a_turn_in_any_chat_counts_and_an_empty_new_chat_does_not():
+    saved = sessions.save_session(_threaded([QUESTION]))
+    _touch(saved["id"], updated_at=1000)
+
+    added = sessions.save_session(_threaded([QUESTION], []), session_id=saved["id"])
+    assert added["updated_at"] == 1000  # a New chat with nothing said yet
+
+    asked = sessions.save_session(_threaded([QUESTION], [QUESTION]), session_id=saved["id"])
+    assert asked["updated_at"] > 1000
+
+
+def test_a_legacy_chat_moves_the_exploration_when_it_grows():
+    saved = sessions.save_session(_payload(chat=[QUESTION]))
+    _touch(saved["id"], updated_at=1000)
+
+    same = sessions.save_session(_payload(chat=[QUESTION]), session_id=saved["id"])
+    assert same["updated_at"] == 1000
+
+    grown = sessions.save_session(_payload(chat=[QUESTION, ANSWER]), session_id=saved["id"])
+    assert grown["updated_at"] > 1000
+
+
+def test_a_corrupt_stored_blob_counts_as_a_change():
+    saved = sessions.save_session(_threaded([QUESTION]))
+    _touch(saved["id"], updated_at=1000)
+    conn = sqlite3.connect(config.storage.sessions_db)
+    conn.execute("UPDATE saved_sessions SET data = 'not json' WHERE id = ?", (saved["id"],))
+    conn.commit()
+    conn.close()
+
+    updated = sessions.save_session(_threaded([QUESTION]), session_id=saved["id"])
+
+    assert updated["updated_at"] > 1000
 
 
 def test_save_session_with_an_unknown_id_creates_that_session():

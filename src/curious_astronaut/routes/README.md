@@ -326,7 +326,7 @@ same synthesis and never paid for twice; a synthesis needs two or more members
 
 | Endpoint | Job |
 | --- | --- |
-| `GET /api/sessions` | list explorations (metadata only, newest first) |
+| `GET /api/sessions` | list explorations (metadata only, the latest conversation first) |
 | `POST /api/sessions` | save an exploration (new, or overwrite by `id`) |
 | `GET /api/sessions/<id>` | the full record, to restore |
 | `PATCH /api/sessions/<id>` | rename — `{renamed: bool}` |

@@ -90,6 +90,15 @@ list backed by it would work all afternoon and then quietly empty overnight.
   places (the column and the copy inside the stored blob), or the next save
   would put the old one back; and it deliberately leaves `updated_at` alone,
   since the list sorts by it and renaming a session is not working on it.
+- **An overwrite moves `updated_at` only when the conversation changed**
+  (v9.8.0). The autosave re-POSTs on every settled change, and most are the
+  view moving: the open thread, the Reader's page, the tool beside a paper.
+  So simply opening an exploration used to pull it to the top of the list.
+  `save_session` now compares the stored blob's turns with the new one's
+  (`_conversation_of`, per thread, either blob shape) and keeps the old
+  `updated_at` when they match. The blob is still written either way. A new
+  chat with nothing said in it doesn't count, and an unreadable stored blob
+  counts as a change.
 - **`cache.clear()` empties the table, and is safe by construction** (v7.6.0,
   behind the settings modal's "Drop cache"). Everything in here is *derived* —
   snapshots, searches, hydration — so the worst outcome is a slower next few
