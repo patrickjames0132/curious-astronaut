@@ -127,7 +127,7 @@ export const HOME_TOUR: TourStep[] = [
       'its quotes, and lights them there. Ask about another paper by name and the question goes ' +
       'there, answered from that paper while you stay put (ask for a lecture on it and you go ' +
       'there to be taught); ask about several at once — compare them, connect them — and it is ' +
-      'answered across those papers, each title in its tag a link to that paper. ' +
+      'answered across those papers, tagged General, its answer citing each one. ' +
       '“Ask from … instead” under its tag ' +
       'asks it where you typed it. Once a chat spans several places, the Showing menu ' +
       'at its top shows only the questions asked from one. Type @ and pick another chat to ' +

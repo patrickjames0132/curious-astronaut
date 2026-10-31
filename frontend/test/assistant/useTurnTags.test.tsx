@@ -65,7 +65,7 @@ describe('a question’s tag', () => {
     expect(takeTurnAnchor('chat')).toBeNull()
   })
 
-  it('links each paper a bridge question names, a deleted one going nowhere', () => {
+  it('tags a bridge question General, linked to the chat, not its papers', () => {
     const bridge: ChatMsg = {
       role: 'user',
       text: 'How do they differ?',
@@ -79,12 +79,12 @@ describe('a question’s tag', () => {
         ],
       },
     }
-    const props = tagsFor([bridge])(bridge, 0)
-    expect(props.tagLabel).toBe('Attention · Soft Actor-Critic')
-    expect(props.onTagOpen).toBeUndefined()
-    expect(props.tagPapers?.map((paper) => paper.title)).toEqual(['Attention', 'Soft Actor-Critic'])
-    expect(props.tagPapers?.[0].onOpen).toBeDefined()
-    expect(props.tagPapers?.[1].onOpen).toBeUndefined()
+    // Alone with General questions, it doesn't make the chat cross views.
+    expect(tagsFor([{ role: 'user', text: 'hello' }, bridge])(bridge, 1)).toEqual({})
+    const props = tagsFor([asked, bridge])(bridge, 1)
+    expect(props.tagLabel).toBe('General')
+    props.onTagOpen?.()
+    expect(takeTurnAnchor('chat')).toBe(1)
   })
 
   it('lets a stale anchor go, so it never moves the chat later', () => {

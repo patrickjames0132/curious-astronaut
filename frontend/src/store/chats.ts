@@ -23,24 +23,20 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import type { ChatMsg, TagPaper, TagTool, TurnTag, TurnTool } from '../api'
+import type { ChatMsg, TagPaper, TurnTag, TurnTool } from '../api'
 import type { ExplorationRecord, ThreadRecord } from './explorations'
 import type { TranscriptState } from './transcript'
 
 /** Each tool a question can be asked from, as its card on the paper's home
- *  says it, for a tag's label; and a question about several papers. */
-export const TURN_TOOL_NAMES: Record<TagTool, string> = {
+ *  says it, for a tag's label. */
+export const TURN_TOOL_NAMES: Record<TurnTool, string> = {
   graph: 'Citation Graph',
   knowledge: 'Knowledge Graph',
   reader: 'Reader',
-  across: 'Across papers',
 }
 
 /** Between a paper's title and its tool's name in a tag's label. */
 const LABEL_SEPARATOR = ' › '
-
-/** Between the papers a bridge question names, in its tag's label. */
-export const PAPER_SEPARATOR = ' · '
 
 /**
  * Whether a thread is a chat (it holds a conversation) rather than a paper.
@@ -142,12 +138,30 @@ export function mentionsChat(message: string, chat: ChatEntry): boolean {
   return message.includes(`@thread[${chat.label}]`)
 }
 
+/** A tag naming one paper's view, the only kind a transcript shows. */
+export type PaperTag = TurnTag & { tool: TurnTool }
+
+/**
+ * Where a question reads as asked: its tag, except that a bridge question
+ * reads as General (Patrick, 2026-10-30). It was its own place, its tag the
+ * papers' titles each linked, but no view holds a bridge question, and the
+ * papers it is about are in its answer already, cited `[n]` like any
+ * search's. The tag itself is kept: it is what asks the question again
+ * across those papers (`askAt`).
+ *
+ * @param tag The tag; absent means General.
+ * @returns The place to show, or undefined for General.
+ */
+export function shownPlace(tag: TurnTag | undefined): PaperTag | undefined {
+  return tag && tag.tool !== 'across' ? { ...tag, tool: tag.tool } : undefined
+}
+
 /**
  * A tag's label: `General`, or the paper and the tool it was asked from,
- * e.g. `Attention Is All You Need › Reader`, or a bridge question's papers,
- * `Attention Is All You Need · Soft Actor-Critic` (no view to name). A paper's
- * title is read off its thread, so a rename follows; a paper deleted since
- * keeps the title the tag was stamped with.
+ * e.g. `Attention Is All You Need › Reader`. A bridge question reads as
+ * General (`shownPlace`). A paper's title is read off its thread, so a
+ * rename follows; a paper deleted since keeps the title the tag was stamped
+ * with.
  *
  * @param record The exploration, for the paper's current title.
  * @param tag The tag; absent means General.
@@ -157,12 +171,10 @@ export function tagLabel(
   record: Pick<ExplorationRecord, 'threads'> | undefined,
   tag?: TurnTag,
 ): string {
-  if (!tag) return 'General'
-  const titles = tagPapers(tag).map(
-    (paper) => record?.threads.find((thread) => thread.id === paper.threadId)?.title ?? paper.title,
-  )
-  if (tag.tool === 'across') return titles.join(PAPER_SEPARATOR)
-  return `${titles.join(PAPER_SEPARATOR)}${LABEL_SEPARATOR}${TURN_TOOL_NAMES[tag.tool]}`
+  const place = shownPlace(tag)
+  if (!place) return 'General'
+  const title = record?.threads.find((thread) => thread.id === place.threadId)?.title ?? place.title
+  return `${title}${LABEL_SEPARATOR}${TURN_TOOL_NAMES[place.tool]}`
 }
 
 /**

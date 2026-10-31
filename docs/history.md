@@ -1004,6 +1004,25 @@
 
 ### AI teacher & lectures
 
+- [x] **A question about several papers reads as General** *(v9.4.1;
+      Patrick, 2026-10-30)* — a bridge question (v9.0.0, stage 4c: "how does
+      DQN compare with Soft Actor-Critic?") wore a tag of the papers' titles,
+      each a link, and had its own "Across papers" entry in the Showing
+      filter. Now its tag says **General** and the filter files it there,
+      since no one view holds it; a chat of General and bridge questions
+      alone shows no tags, as an all-General chat doesn't. The papers live in
+      its answer instead: its `[n]`s are now the gold paper refs a search's
+      are, each opening its paper's thread. They had been resolved as graph
+      refs and drawn as the blue spotlight chip, which promises a glow on a
+      canvas a bridge answer doesn't have; saved answers turn gold too.
+      Testing found one consequence: typed in General, the bubble offered
+      "Ask from General instead" under a General tag, so the offer now hides
+      whenever where it was typed and where it shows read as one place. The
+      question keeps its `across` tag underneath, which is what asks it again
+      across the same papers; `store/chats`'s `shownPlace` is the one rule.
+      The DQN-vs-SAC example is worked through, place by place, in
+      `frontend/src/assistant/README.md` ("One question, three places").
+
 - [x] **The last chat deletes too, starting over as a New chat**
       *(v9.3.0; Patrick, 2026-10-30)* — an exploration keeps one chat, so its
       last chat offered no Delete at all. Now its rail ⋮ and the dock's 🗑

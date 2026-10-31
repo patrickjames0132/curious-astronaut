@@ -20,6 +20,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { TurnTag } from '../api'
+import { shownPlace } from '../store/chats'
 import { TagText } from '../teacher/transcript/ChatMessage'
 import { usePresence } from '../ui/usePresence'
 
@@ -27,27 +28,25 @@ import { usePresence } from '../ui/usePresence'
 export interface TagChoice {
   /** Its filter key (`tagKey`). */
   key: string
-  /** Its label, `General`, `Across papers` or `<paper> › <tool>`. */
+  /** Its label, `General` or `<paper> › <tool>`. */
   label: string
-  /** The paper's title, null for General and Across papers. */
+  /** The paper's title, null for General. */
   paper: string | null
   /** The tool's name, null for General. */
   tool: string | null
 }
 
-/** The filter key every bridge question shares (v9.0.0, stage 4c). */
-export const ACROSS_KEY = 'across'
-
 /**
- * A tag as a filter key: `general`, `across` for any question about several
- * papers, or the paper and its tool.
+ * A tag as a filter key: `general`, or the paper and its tool. A bridge
+ * question is General here too (`shownPlace`): it had a key of its own,
+ * "Across papers", until it read as General everywhere (Patrick).
  *
  * @param tag The tag; absent means General.
  * @returns The key.
  */
 export function tagKey(tag: TurnTag | undefined): string {
-  if (!tag) return 'general'
-  return tag.tool === 'across' ? ACROSS_KEY : `${tag.threadId}:${tag.tool}`
+  const place = shownPlace(tag)
+  return place ? `${place.threadId}:${place.tool}` : 'general'
 }
 
 /**
@@ -99,10 +98,9 @@ export default function TagFilter({
     onChange(key)
     setOpen(false)
   }
-  // General first, then the questions across papers, then each paper with
-  // its tools under it, in the order the chat first asked from them.
+  // General first, then each paper with its tools under it, in the order the
+  // chat first asked from them.
   const general = tags.find((tag) => tag.key === 'general')
-  const across = tags.find((tag) => tag.key === ACROSS_KEY)
   const papers = new Map<string, TagChoice[]>()
   for (const tag of tags)
     if (tag.paper !== null) papers.set(tag.paper, [...(papers.get(tag.paper) ?? []), tag])
@@ -162,7 +160,6 @@ export default function TagFilter({
           </div>
           {item(null, 'All')}
           {general && item(general.key, 'General')}
-          {across && item(across.key, across.label)}
           {[...papers].map(([paper, tools]) => (
             <div key={paper} role="group" aria-label={paper}>
               <div className="tag-filter-paper" title={paper}>

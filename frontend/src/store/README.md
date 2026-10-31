@@ -180,8 +180,10 @@ An exploration is **a set of papers plus several chats** (the OnePager's
   stamped on the tag once the paper is deleted. `workspace.openTag` goes
   there: the paper on that tool, or the chat itself. A question about
   several papers at once (stage 4c) is tagged `across`, naming each of
-  them (`acrossTag`, `tagPapers`); with no one view to go to, its tag
-  opens a paper's cards.
+  them (`acrossTag`, `tagPapers`), which is what asks it again across
+  them; but it **reads as General** (`shownPlace`: its label, its filter
+  key, and whether a chat crosses views), since no view holds it and its
+  answer cites the papers `[n]` already (Patrick, 2026-10-30).
 - **One answer in flight per chat**, whichever view asked
   (`assistant/inFlight`): both stream engines share a chat now, so a new
   question supersedes whatever the chat was answering.
