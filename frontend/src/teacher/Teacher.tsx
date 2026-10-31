@@ -270,6 +270,22 @@ export default function Teacher({
   // lecture or an answer.
   const [placing, setPlacing] = useState(false)
   const asking = conversing || placing
+  // **Seen at once** (Patrick, 2026-10-30): a question's turns appear only
+  // once it is routed (where it is about, then lecture or answer, or guide
+  // or answer in the Reader), a server round trip each, and until then the
+  // chat showed nothing on Enter. So the question and a thinking answer
+  // stand in from the moment it is sent, until the chat grows (its turns
+  // arrived) or the ask settles (it failed, or went to another view).
+  const [pending, setPending] = useState<{ question: string; at: number; id: number } | null>(null)
+  const pendingId = useRef(0)
+  const awaiting = (question: string, work: unknown) => {
+    const id = ++pendingId.current
+    setPending({ question, at: chat.length, id })
+    void Promise.resolve(work).finally(() =>
+      setPending((current) => (current?.id === id ? null : current)),
+    )
+  }
+  const waiting = pending !== null && chat.length === pending.at
   // The turn being answered: the last, and still unfinished. Being last is
   // not enough, because the bar is busy before the new turns exist (while
   // the router places the question, or picks a lecture): the previous
@@ -506,7 +522,7 @@ export default function Teacher({
     // a question, so Send waits for the words. Searching has its own row in
     // the `@` list, and a chip used to double as one when sent alone — which
     // made Enter mean two things depending on whether anything was typed.
-    if (!typed || asking || searching) return
+    if (!typed || asking || searching || waiting) return
     // Beside the course or the Reader, the view asks (v9.0.0): with any
     // passage a highlight's Chat attached, and the passage's place and
     // labels for the Reader to light.
@@ -522,7 +538,7 @@ export default function Teacher({
       onQuoteClear?.()
       followNextTurn()
       const askHere = () =>
-        void dispatch(
+        dispatch(
           view.ask({
             threadId: view.thread.id,
             question,
@@ -536,8 +552,7 @@ export default function Teacher({
             typed: !passage,
           }),
         )
-      if (placeable) void placeOrHere(question, askHere)
-      else askHere()
+      awaiting(question, placeable ? placeOrHere(question, askHere) : askHere())
       return
     }
     const question = attachedMessage(attached, typed)
@@ -583,9 +598,9 @@ export default function Teacher({
     // where it is about (v9.0.0, stage 4b): a message naming a paper on the
     // graph points at it, here; anything else may be about another paper.
     const mentioned = intent.kind === 'ask' ? intent.mentioned : []
-    const askHere = () => void send(question, scopeArg, activeOptions, mentioned, true)
-    if (mentioned.length || attached.some((choice) => choice.kind === 'paper')) askHere()
-    else void placeOrHere(question, askHere)
+    const askHere = () => send(question, scopeArg, activeOptions, mentioned, true)
+    const direct = mentioned.length || attached.some((choice) => choice.kind === 'paper')
+    awaiting(question, direct ? askHere() : placeOrHere(question, askHere))
   }
 
   /**
@@ -601,10 +616,10 @@ export default function Teacher({
    * @param question The message, as it will be sent.
    * @param askHere Ask it where it was typed.
    */
-  const placeOrHere = async (question: string, askHere: () => void) => {
+  const placeOrHere = async (question: string, askHere: () => Promise<unknown>) => {
     const papers = explorationRecord?.threads.filter((thread) => thread.identity) ?? []
     if (!papers.some((paper) => paper.id !== screenTag?.threadId)) {
-      askHere()
+      await askHere()
       return
     }
     const screenPaper = screenTag
@@ -629,7 +644,7 @@ export default function Teacher({
             : screenTag
     if (sameTag(elsewhere, screenTag)) {
       setPlacing(false)
-      askHere()
+      await askHere()
       return
     }
     // **To be taught, it goes there** (Patrick, 2026-10-27): a lecture or a
@@ -650,7 +665,7 @@ export default function Teacher({
       }
     }
     setPlacing(false)
-    void dispatch(
+    await dispatch(
       askAt(elsewhere, {
         threadId: '',
         question,
@@ -1110,6 +1125,12 @@ export default function Teacher({
   const askTop = useRef<number | null>(null)
   const wasEmpty = useRef(false)
   const empty = landing && chat.length === 0
+  // The sent question stands in (`awaiting`) only in a chat with turns
+  // already. An empty full-screen chat keeps its centred bar, the send
+  // button's dots saying it was heard, until the real turns arrive and the
+  // bar moves down as it always has (Patrick: the stand-in flashed in the
+  // middle of the screen, then jumped as the layout changed under it).
+  const standIn = waiting && !empty
   useLayoutEffect(() => {
     const bar = askRef.current
     if (!bar) return
@@ -1632,7 +1653,28 @@ export default function Teacher({
           />
         )}
         {chatTurns}
+        {/* The question just sent, and Nova thinking, until its turns arrive
+            (`awaiting`): the same bubble and the same hopping dots the real
+            ones open with, so the swap doesn't show. Not in an empty chat
+            (`standIn`). */}
+        {standIn && (
+          <>
+            <ChatMessage
+              message={{ role: 'user', text: pending.question }}
+              active={false}
+              streaming
+              onEnlarge={setLightbox}
+            />
+            <ChatMessage
+              message={{ role: 'assistant', text: '', unfinished: true }}
+              active={false}
+              streaming
+              onEnlarge={setLightbox}
+            />
+          </>
+        )}
         {chat.length === 0 &&
+          !standIn &&
           (view ? (
             <div className="teacher-hint">{view.copy.hint}</div>
           ) : landing ? (
@@ -1735,7 +1777,11 @@ export default function Teacher({
             inputRef.current?.focus()
           }}
         />
-        <form className="teacher-ask" data-tour="ask" onSubmit={onAsk}>
+        <form
+          className={`teacher-ask${asking || searching || waiting ? ' is-working' : ''}`}
+          data-tour="ask"
+          onSubmit={onAsk}
+        >
           {/* The `@` dropdown, anchored to the bar (which is positioned) and
               opening upward — the composer sits at the bottom of the panel, so
               a list below it would open off-screen. */}
@@ -1793,9 +1839,11 @@ export default function Teacher({
               it. Deliberately not disabled mid-flight: that was the old ellipsis,
               which looked inert and offered no way out of a long run. */}
           <button
-            type={asking || searching ? 'button' : 'submit'}
+            type={asking || searching || waiting ? 'button' : 'submit'}
             className={asking ? 'is-stop' : undefined}
-            disabled={(!asking && (!input.trim() || (!!view && !view.available))) || searching}
+            disabled={
+              (!asking && (!input.trim() || (!!view && !view.available))) || searching || waiting
+            }
             onClick={asking ? stopAsk : undefined}
             title={asking ? 'Stop generating' : undefined}
             aria-label={asking ? 'Stop generating' : 'Ask'}
@@ -1805,9 +1853,11 @@ export default function Teacher({
                 <HopDots />
                 <span className="stop-glyph" aria-hidden="true" />
               </>
-            ) : searching ? (
+            ) : searching || waiting ? (
               // A direct search is short and has no partial result worth
-              // keeping, so it shows progress without offering a stop.
+              // keeping, so it shows progress without offering a stop; so
+              // does a question the Reader is still routing (`awaiting`),
+              // which has nothing yet to stop.
               <HopDots />
             ) : (
               <SendGlyph />

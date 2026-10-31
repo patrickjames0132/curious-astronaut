@@ -220,6 +220,47 @@ describe('where a message is about (stage 4b)', () => {
     expect(place).toHaveBeenCalledOnce()
   })
 
+  it('shows the question and Nova thinking the moment it is sent, before routing ends', async () => {
+    // The router's round trip used to leave the chat blank after Enter
+    // (Patrick, 2026-10-30): a stand-in shows at once, then gives way.
+    chatWith({ chat: [], layout: 'force' }, (record) => {
+      record.threads[0].data.chat = [
+        { role: 'user', text: 'Hello' },
+        { role: 'assistant', text: 'Hi! What would you like to explore?' },
+      ]
+    })
+    let route: (value: Awaited<ReturnType<typeof api.routePlace>>) => void = () => {}
+    vi.spyOn(api, 'routePlace').mockReturnValue(new Promise((resolve) => (route = resolve)))
+    vi.spyOn(api, 'streamAskSources').mockImplementation(async (_body, handlers) => {
+      handlers.onToken('Reusing past transitions.')
+    })
+    ask('What is replay?')
+    expect(screen.getByText('What is replay?')).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'Thinking' })).toBeTruthy()
+    route({ place: 'general' })
+    await screen.findByText('Reusing past transitions.')
+    expect(screen.getAllByText('What is replay?')).toHaveLength(1)
+    // Done, the ring is still.
+    await waitFor(() => expect(document.querySelector('.teacher-ask.is-working')).toBeNull())
+  })
+
+  it('in an empty chat, keeps the bar where it is and shows only the send button’s dots', async () => {
+    // A stand-in there flashed mid-screen, then jumped as the first turns
+    // moved the bar down (Patrick): until they arrive, only the button says
+    // the question was heard.
+    chatWithPaper()
+    vi.spyOn(api, 'routePlace').mockReturnValue(new Promise(() => {}))
+    ask('What is replay?')
+    await waitFor(() => expect(api.routePlace).toHaveBeenCalled())
+    expect(screen.queryByText('What is replay?')).toBeNull()
+    expect(screen.queryByRole('img', { name: 'Thinking' })).toBeNull()
+    expect(document.querySelector('.teacher.empty')).not.toBeNull()
+    // The bar's button hops (placing counts as asking, so it offers Stop).
+    expect(document.querySelector('.teacher-ask .hop-dots')).not.toBeNull()
+    // And the bar's ring turns, from Enter on (Patrick, 2026-10-30).
+    expect(document.querySelector('.teacher-ask.is-working')).not.toBeNull()
+  })
+
   it('leaves a finished answer’s steps folded while the next question is placed', async () => {
     // The bar is busy while the router places the question, before its turns
     // exist; the last turn then was the finished answer, whose steps opened

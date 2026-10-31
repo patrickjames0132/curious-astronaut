@@ -126,6 +126,25 @@ question with `quick: true`, the researcher with no tools. `ask` keeps what
 it was given in `lastAsk` (the question, named papers, scope and filters),
 so the quick answer is about exactly the same papers.
 
+**A sent question shows at once** (`awaiting` in `Teacher.tsx`; Patrick,
+2026-10-30). Its turns appear only once it is routed: where it is about
+(`placeOrHere`), then lecture or answer on the Citation Graph, or guide or
+answer in the Reader, a server round trip each, so the chat used to sit
+unchanged for a second after Enter. Now the question and an answer with the
+"Thinking" dots stand in from the moment it is sent, hidden as soon as the
+chat grows and cleared when the ask settles (a failure, or a lecture taken
+to another view, leaves nothing behind). The bar refuses a second send
+meanwhile, which the Reader's own routing never did, and its button shows
+the hopping dots. **Not in an empty chat** (`standIn`): there the bar sits
+centred until the first turns move it down, so a stand-in flashed mid-screen
+and then jumped (Patrick). It stays put, the button's dots saying the
+question was heard, until the router is done and the move plays as before.
+**The bar's ring turns while Nova works** (`.teacher-ask.is-working`,
+`teacher.css`; Patrick): from Enter until the answer is done, the light-blue
+focus ring holds and three faint white streaks sweep round it, a conic
+gradient masked to the ring and turned through a registered `@property`
+angle. Reduced motion keeps the ring and drops the streaks.
+
 ✎ **Editing a question** (`editQuestion` in `Teacher.tsx`) is the reader's
 own replace: any question in the chat opens in its bubble (`ChatMessage`'s
 `onEdit`), and Resend **cuts the chat there** (`transcript.turnsDroppedFrom`),
