@@ -1597,6 +1597,12 @@ export default function Teacher({
           aria-label="Resize panel"
         />
       )}
+      {/* Nova waving from the right margin of a full-screen chat, once the
+          painting over the greeting has gone (v9.7.0, Patrick). Decorative,
+          and teacher.css hides it when the margin is too narrow to hold it. */}
+      {landing && chat.length > 0 && (
+        <img className="nova-margin" src="/nova-wave.webp" alt="" aria-hidden="true" />
+      )}
       <div className="teacher-head">
         {/* The landing surface has no panel title and nothing to close — the
             row would be an empty strip of chrome. */}

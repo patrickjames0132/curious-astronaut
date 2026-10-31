@@ -112,6 +112,45 @@
   width: min(720px, 100%);
   margin-inline: auto;
 }
+/* Nova waving from the right margin of a conversation (v9.7.0), pinned
+   beside the ask bar so the transcript scrolls past it. The cutout
+   (`public/nova-wave.webp`) has a transparent background, so it sits on
+   either theme's page as is. Always shown, and Nova is what gives as the
+   window narrows, never the column (Patrick: a narrowing column was tried
+   and undone). A first cut hid it when the margin got narrow, which a laptop
+   window with the rail open always was, so it never showed. The landing is
+   a size container so Nova is laid out from its width, which the rail eats
+   into, rather than the viewport's. */
+.teacher.landing {
+  container-type: inline-size;
+}
+.teacher.landing > .nova-margin {
+  /* The gutter: from the column's right edge to the landing's, its padding
+     included. `cqw` is the landing's content width, the box the 720px
+     column centres in; below 720px the column fills it and only the 24px
+     padding is left. */
+  --gutter: max(24px, (100cqw - 720px) / 2 + 24px);
+  /* 80px at most (200, then 96, both loomed, Patrick), else the gutter less
+     8px of air each side, but never under 36px so he's always there. */
+  --nova: clamp(36px, var(--gutter) - 16px, 80px);
+  position: absolute;
+  /* Centred in the gutter, so he clears the column on either side for as
+     long as the gutter can hold him (Patrick: pinned 20px past the column,
+     a narrow window pressed him into it). `left` is measured from the
+     padding edge, so the landing's right edge is 100cqw + 48px. Feet a
+     little above the bar's top (it runs about 40–96px up from the bottom,
+     so 16px of air); level with the bar's bottom, the bar clipped him.
+     A gutter narrower than Nova's 36px floor would centre him half off the
+     window (Patrick), so he stops 4px short of the right edge and leans
+     into the column instead. */
+  left: min(100cqw + 48px - var(--gutter) / 2 - var(--nova) / 2, 100cqw + 44px - var(--nova));
+  bottom: 112px;
+  width: var(--nova);
+  margin: 0;
+  pointer-events: none;
+  user-select: none;
+  animation: fade 0.55s var(--ease-fade) both;
+}
 /* Nothing to label and nothing to close — the head would be an empty bar. */
 .teacher.landing .teacher-head {
   border-bottom: none;
@@ -642,6 +681,7 @@
   .teacher.landing.empty .landing-hero,
   .teacher.landing.empty .landing-greeting,
   .teacher.landing.empty .ask-dock,
+  .teacher.landing > .nova-margin,
   .trace-line,
   .chat {
     animation: none;

@@ -330,6 +330,30 @@ drop a half-typed question. Both WebPs live in `frontend/public/`; the
 full-size source paintings are deliberately kept out of the repo. The images
 are decorative (`alt=""`): the greeting is the content.
 
+**Nova in the margin (v9.7.0).** Once a full-screen chat has a conversation,
+and the painting above the greeting is gone, Nova waves from the right margin
+(`public/nova-wave.webp`). It's centred in the gutter right of the column, its
+feet a little above the ask bar's top, so the transcript scrolls past it, and
+it fades in. Three earlier placements were undone: 200px wide and centred
+halfway up the gutter (it loomed), feet level with the bar's bottom (the bar
+clipped Nova on a narrow window), and pinned 20px past the column (a narrow
+window pressed Nova into it). One cut serves both themes: Patrick's painting on white paper, with the paper flood-filled away
+from the border to transparent, the edge pulled in 2px, and the white fringe
+un-premultiplied so it doesn't glow on the dark page.
+
+Nova is always shown, and **Nova is what resizes, never the column** (Patrick's
+call: a column that narrowed to make room was tried and undone). Nova is
+`clamp(36px, gutter − 16px, 80px)`: 80px at most (200px and then 96px both
+loomed), shrinking with the gutter to keep 8px of air each side, and never
+under 36px. Only a gutter under 52px leaves Nova overlapping the column, and
+one narrower than Nova stops him 4px short of the window's right edge, where
+centring would have cut him off. The
+landing is a CSS size container, so the gutter is measured from the landing's
+own width (the rail counts against it), not the viewport's. A first cut hid Nova when
+the margin got narrow instead, and a laptop window with the rail open was always
+too narrow, so Nova never appeared. The source JPG stays out of the repo like
+the others.
+
 ## Verification
 
 `test/teacher/useConversation.test.tsx` runs the real hook through a lecture and
