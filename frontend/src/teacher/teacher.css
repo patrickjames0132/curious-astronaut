@@ -133,17 +133,19 @@
   /* 80px at most (200, then 96, both loomed, Patrick), else the gutter less
      8px of air each side, but never under 36px so he's always there. */
   --nova: clamp(36px, var(--gutter) - 16px, 80px);
+  /* Nova's distance from the column, held however wide the window gets. */
+  --nova-gap: 24px;
   position: absolute;
-  /* Centred in the gutter, so he clears the column on either side for as
-     long as the gutter can hold him (Patrick: pinned 20px past the column,
-     a narrow window pressed him into it). `left` is measured from the
-     padding edge, so the landing's right edge is 100cqw + 48px. Feet a
-     little above the bar's top (it runs about 40–96px up from the bottom,
-     so 16px of air); level with the bar's bottom, the bar clipped him.
-     A gutter narrower than Nova's 36px floor would centre him half off the
-     window (Patrick), so he stops 4px short of the right edge and leans
-     into the column instead. */
-  left: min(100cqw + 48px - var(--gutter) / 2 - var(--nova) / 2, 100cqw + 44px - var(--nova));
+  /* A set gap past the column's right edge, so he stays with the chat
+     (Patrick: centred in the gutter, an ultrawide monitor left him far off
+     from everything). `left` is measured from the padding edge, so the
+     column's right edge is 100cqw + 48px - gutter and the landing's is
+     100cqw + 48px. Once the gutter can't hold the gap and Nova, he stops 6px
+     short of the window's right edge and leans into the column instead, so a
+     narrow window never cuts him off. Feet a little above the bar's top (it
+     runs about 40–96px up from the bottom, so 16px of air); level with the
+     bar's bottom, the bar clipped him. */
+  left: min(100cqw + 48px - var(--gutter) + var(--nova-gap), 100cqw + 42px - var(--nova));
   bottom: 112px;
   width: var(--nova);
   margin: 0;
