@@ -1004,6 +1004,16 @@
 
 ### AI teacher & lectures
 
+- [x] **Nova stands by the chat, not out in the margin** *(v9.8.1;
+      Patrick, 2026-10-31)* — Nova was centred in the gutter right of the
+      full-screen column, so on an ultrawide monitor he stood far off from
+      everything. He now stands a set 24px (`--nova-gap`) past the column's
+      right edge, however wide the window gets, and once the gutter can't
+      hold the gap and Nova both, he stops 6px short of the window's right
+      edge and leans into the column, so a narrow window never cuts him off.
+      Also bumps `pyasn1` 0.6.4 → 0.6.5 in `uv.lock` (transitive, via
+      google-auth): four new HIGH CVEs had turned the security gate red.
+
 - [x] **A sent question is seen at once, and the bar's ring turns while
       Nova works** *(v9.6.0; Patrick, 2026-10-30)* — a question's turns
       appear only once it is routed (where it is about, then lecture or
