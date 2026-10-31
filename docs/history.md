@@ -1004,6 +1004,27 @@
 
 ### AI teacher & lectures
 
+- [x] **Edit any question; every question tagged, its tooltips in words**
+      *(v9.5.0; Patrick, 2026-10-30)* — a round of chat polish from testing.
+      **Any question you typed is editable**, not only the latest, as in
+      ChatGPT: Resend cuts the chat there (`transcript.turnsDroppedFrom`),
+      dropping it and every exchange after it, and asks the edited words
+      from that point, where it was asked (`askAt` for a question asked
+      beside another view or across papers). Lecture folds on the dropped
+      turns are forgotten. **Every question wears its tag** from the first,
+      `General` included; tags used to wait for a chat to cross views, then
+      appeared on every question at once. **Tooltips say it in words**
+      (`store/chats`' `placePhrase`): a tag says where it was asked and
+      where a click goes ("Asked about the Citation Graph of …. Click to go
+      there."), and "Ask from … instead" says what Nova took the question as
+      and what a click asks instead. Full screen, a General tag no longer
+      pretends to go anywhere. "Ask from … instead" stays on one line in a
+      narrow dock, the paper's title giving way to "…", and is named whole
+      for screen readers. Two bugs found and fixed along the way (see
+      docs/bugs.md): a finished answer's steps flashed open while the next
+      question was placed, and placed questions lost their typed stamp, so
+      their ✎ never showed.
+
 - [x] **A question about several papers reads as General** *(v9.4.1;
       Patrick, 2026-10-30)* — a bridge question (v9.0.0, stage 4c: "how does
       DQN compare with Soft Actor-Critic?") wore a tag of the papers' titles,

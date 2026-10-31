@@ -22,6 +22,44 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### A placed question lost its ✎ (v9.5.0)
+
+- **Symptom.** Once every question became editable, some still had no ✎:
+  "What's the difference between DQN and SAC?", typed in the bar, sat
+  uneditable between editable ones.
+- **Root cause.** Editing is gated on `ChatMsg.typed`, a stamp the bar sets
+  so that button messages and quoted passages stay uneditable. The router's
+  path (`placeOrHere` → `askAt`) built its own request and never passed
+  the stamp, and nor did a lecture placed on another view or "Ask from …
+  instead". While only the latest question was editable this hid: most
+  latest questions came straight from the bar.
+- **Fix.** `teacher/Teacher`: the placed request sets `typed: true` (only
+  the bar's typed messages are placed), and the re-asks carry the
+  original's stamp. Saved questions placed before the fix have only
+  `placedFrom` to show for it, which only the router sets, so `typed ||
+  placedFrom` makes them editable too.
+- **Lesson / guard.** A positive stamp is safe by default (a new button is
+  uneditable without opting out) but every path that sends on the reader's
+  behalf has to carry it. `test/teacher/crossView.test.tsx`'s placing tests
+  assert the stamp; `Teacher.test.tsx` covers a saved placed question.
+
+### A finished answer's steps flashed open on the next question (v9.5.0)
+
+- **Symptom.** Sending a question in a chat with history opened the
+  previous answer's "N steps" as "Working" for a moment, then folded it
+  again as the new answer began.
+- **Root cause.** `Teacher` marked the chat's *last* turn as the working
+  one whenever the bar was busy. But the bar is busy before the new turns
+  exist, while the router places the question (a server round trip), so
+  the last turn then was the previous, finished answer.
+- **Fix.** `isLive` in `teacher/Teacher`: working means last *and* still
+  `unfinished` (which `turnStarted` sets on every live answer) and not
+  failed.
+- **Lesson / guard.** "Busy" and "this turn is the one being answered" are
+  different facts; derive the second from the turn itself.
+  `test/teacher/crossView.test.tsx` holds the router pending and checks
+  the earlier answer stays folded.
+
 ### A question asked in a chat started from the dock vanished (v9.3.0)
 
 - **Symptom.** After deleting the last chat from the dock beside a paper, a

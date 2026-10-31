@@ -8,10 +8,11 @@
  * question, about several papers at once, wears General (`shownPlace`): the
  * papers it is about are cited in its answer.
  *
- * **Shown once a chat crosses views.** A chat whose questions were all asked
- * with no view open is General throughout, and a `General` on every bubble
- * would say nothing; the first question asked beside a paper is what makes
- * the tags worth reading, and from then on every question wears one.
+ * **Every question wears one** (Patrick, 2026-10-30). Until then tags waited
+ * for a chat to cross views, on the reading that a `General` on every bubble
+ * of an all-General chat would say nothing; but a chat's first question
+ * asked beside a paper then tagged every question at once, earlier ones
+ * included, and until it came none said where it was asked.
  *
  * **A tag clicked keeps its place** (Patrick). Going there opens another
  * view, which remounts the panel (it is keyed on the workspace epoch), and a
@@ -26,7 +27,7 @@
 import { useCallback } from 'react'
 import type { ChatMsg } from '../api'
 import { useAppDispatch, useAppSelector } from '../store'
-import { shownPlace, tagLabel } from '../store/chats'
+import { placePhrase, shownPlace, tagLabel } from '../store/chats'
 import { openTag } from '../store/workspace'
 
 /** The question whose tag was just clicked, for the panel to keep in view. */
@@ -62,6 +63,8 @@ export function takeTurnAnchor(chatKey: string): number | null {
 /** What a question's bubble shows of its tag (`ChatMessage`'s props). */
 export interface TurnTagProps {
   tagLabel?: string
+  /** The tag's tooltip: where it was asked, and where a click goes. */
+  tagHint?: string
   onTagOpen?: () => void
 }
 
@@ -69,37 +72,46 @@ export interface TurnTagProps {
  * The tag props for each turn of a chat.
  *
  * @param chatKey The chat's key: where a General tag leads.
- * @param chat The chat's turns.
+ * @param fullScreen The chat is shown full screen, where a General tag
+ *   leads, so there it goes nowhere.
  * @param onLeave Told before a tag is followed away (the full-screen chat
  *   keeps itself in view, `keepChatInView`).
  * @returns For a turn and its index, its tag's label and where a click goes;
- *   nothing for an answer, or while the chat hasn't crossed views.
+ *   nothing for an answer.
  */
 export function useTurnTags(
   chatKey: string,
-  chat: ChatMsg[],
+  fullScreen: boolean,
   onLeave?: () => void,
 ): (message: ChatMsg, index: number) => TurnTagProps {
   const dispatch = useAppDispatch()
   const record = useAppSelector((state) => state.explorations.byId[state.explorations.activeId])
-  // A chat of General and bridge questions alone reads as General throughout.
-  const crosses = chat.some((message) => !!shownPlace(message.tag))
   return useCallback(
     (message: ChatMsg, index: number) => {
-      if (message.role !== 'user' || !crosses) return {}
+      if (message.role !== 'user') return {}
       const tag = shownPlace(message.tag)
       const go = (target: typeof tag) => () => {
         onLeave?.()
         anchorTurn(chatKey, index)
         void dispatch(openTag({ tag: target, chatId: chatKey }))
       }
+      const label = tagLabel(record, tag)
+      // The tooltip says where it was asked, then where a click goes, in
+      // words rather than the label again (Patrick, 2026-10-30).
+      if (!tag)
+        return fullScreen
+          ? { tagLabel: label, tagHint: 'Asked as a general question.' }
+          : {
+              tagLabel: label,
+              tagHint: 'Asked as a general question. Click to open this chat full screen.',
+              onTagOpen: go(tag),
+            }
+      const asked = `Asked about ${placePhrase(record, tag)}.`
       // A paper deleted since keeps its label but goes nowhere.
-      const live = (threadId: string) => !!record?.threads.some((thread) => thread.id === threadId)
-      return {
-        tagLabel: tagLabel(record, tag),
-        onTagOpen: tag && !live(tag.threadId) ? undefined : go(tag),
-      }
+      if (!record?.threads.some((thread) => thread.id === tag.threadId))
+        return { tagLabel: label, tagHint: `${asked} That paper has since been deleted.` }
+      return { tagLabel: label, tagHint: `${asked} Click to go there.`, onTagOpen: go(tag) }
     },
-    [chatKey, crosses, dispatch, record, onLeave],
+    [chatKey, fullScreen, dispatch, record, onLeave],
   )
 }

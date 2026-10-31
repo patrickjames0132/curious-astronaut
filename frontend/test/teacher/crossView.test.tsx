@@ -205,18 +205,47 @@ describe('where a message is about (stage 4b)', () => {
     const [asked] = selectConversation(store.getState()).chat
     expect(asked.tag).toMatchObject({ threadId: 'atari', tool: 'reader' })
     expect(asked.placedFrom).toBe('general')
-    // The correction asks it where it was typed: General, here.
-    fireEvent.click(screen.getByRole('button', { name: 'Ask from General instead' }))
+    // Typed in the bar, so editable wherever the router put it (Patrick).
+    expect(asked.typed).toBe(true)
+    // The correction asks it where it was typed: General, here. Its tooltip
+    // says both ends in words.
+    const instead = screen.getByRole('button', { name: 'Ask from General instead' })
+    expect(instead.getAttribute('title')).toBe(
+      'Nova took this as a question about Playing Atari in the Reader. ' +
+        'Click to ask it as a general question instead.',
+    )
+    fireEvent.click(instead)
     await screen.findByText('From the chat.')
     expect(general).toHaveBeenCalledOnce()
     expect(place).toHaveBeenCalledOnce()
   })
 
+  it('leaves a finished answer’s steps folded while the next question is placed', async () => {
+    // The bar is busy while the router places the question, before its turns
+    // exist; the last turn then was the finished answer, whose steps opened
+    // as "Working" and closed again when the new turns came (Patrick).
+    chatWith({ chat: [], layout: 'force' }, (record) => {
+      record.threads[0].data.chat = [
+        { role: 'user', text: 'What is replay?' },
+        {
+          role: 'assistant',
+          text: 'Reusing past transitions.',
+          trace: [{ action: 'search', ok: true, query: 'replay', provider: 's2', found: 3 }],
+        },
+      ] as ChatMsg[]
+    })
+    vi.spyOn(api, 'routePlace').mockReturnValue(new Promise(() => {}))
+    expect(screen.getByText('1 step')).toBeTruthy()
+    ask('How does DQN compare with Soft Actor Critic?')
+    await waitFor(() => expect(api.routePlace).toHaveBeenCalled())
+    expect(screen.queryByText('Working')).toBeNull()
+    expect(screen.getByText('1 step')).toBeTruthy()
+  })
+
   it('offers no way back when a bridge question reads as where it was typed', async () => {
     // Typed in General and placed across two papers, it reads as General
-    // (`shownPlace`), so "Ask from General instead" would offer nothing. The
-    // chat has crossed views already (a question from the Reader), which is
-    // when tags, and the offer under them, show at all.
+    // (`shownPlace`), so "Ask from General instead" would offer nothing. An
+    // earlier question from the Reader shows a real place's tag beside it.
     const store = chatWith({ chat: [], layout: 'force' }, (record) => {
       record.threads[0].data.chat = [
         {
@@ -244,6 +273,8 @@ describe('where a message is about (stage 4b)', () => {
     const asked = selectConversation(store.getState()).chat.at(-2)
     expect(asked?.tag?.tool).toBe('across')
     expect(asked?.placedFrom).toBe('general')
+    expect(asked?.typed).toBe(true)
+    expect(screen.getAllByRole('button', { name: 'Edit question' })).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'Playing Atari › Reader' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /instead/ })).toBeNull()
   })

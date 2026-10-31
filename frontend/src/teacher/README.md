@@ -126,11 +126,17 @@ question with `quick: true`, the researcher with no tools. `ask` keeps what
 it was given in `lastAsk` (the question, named papers, scope and filters),
 so the quick answer is about exactly the same papers.
 
-✎ **Editing the latest question** (`editQuestion` in `Teacher.tsx`) is the
-reader's own replace: the chat's last question, when the view on screen asked
-it, opens in its bubble (`ChatMessage`'s `onEdit`), and Resend drops its
-exchange and asks the edited words in its place. Only the latest, so the
-history behind it is never rewritten. **Only what the reader typed**
+✎ **Editing a question** (`editQuestion` in `Teacher.tsx`) is the reader's
+own replace: any question in the chat opens in its bubble (`ChatMessage`'s
+`onEdit`), and Resend **cuts the chat there** (`transcript.turnsDroppedFrom`),
+dropping it and every exchange after it, which answered a question that no
+longer stands, and asks the edited words from that point (Patrick,
+2026-10-30, as ChatGPT does; until then only the latest question was
+editable). It is asked where it was asked, not placed again: the view on
+screen asks its own questions as the bar would, and one asked beside
+another view, or across papers, goes there (`askAt`), keeping where it was
+typed. Lecture folds chosen on the dropped turns are forgotten, or they'd
+land on whichever turns take their indices. **Only what the reader typed**
 (Patrick): the bar stamps what it sends `ChatMsg.typed` — never a passage
 quoted from a highlight, and never a button's predetermined message (a
 lecture, Explain, Simplify), which go out unstamped and so can't be edited.

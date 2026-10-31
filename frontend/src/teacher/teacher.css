@@ -1530,8 +1530,11 @@ button.chat-tag {
 /* The router placed the question elsewhere (v9.0.0, stage 4b): ask it
    where it was typed instead. Quiet, like "Answer it instead". */
 .chat-tag-instead {
-  display: block;
+  display: flex;
+  max-width: 100%;
   margin: -2px 0 6px;
+  text-align: left;
+  white-space: nowrap;
   padding: 0;
   font: inherit;
   font-size: 11px;
@@ -1544,7 +1547,7 @@ button.chat-tag {
 .chat-tag-instead:hover {
   color: var(--text-strong);
 }
-/* Edit the latest question and send it again. The ✎ sits quietly at the
+/* Edit a question and send it again, the chat cut there. The ✎ sits quietly at the
    bubble's end, brightening on the bubble's hover or its own focus. */
 .chat.user:has(.chat-edit-open) {
   position: relative;

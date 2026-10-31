@@ -70,14 +70,19 @@ import { stopChat } from '../assistant/inFlight'
 import { askOnArrival, takeArrival } from '../assistant/pendingAsk'
 import { keepChatInView } from '../assistant/keepChatInView'
 import { useAppDispatch, useAppSelector } from '../store'
-import { failedTurnDropped, selectChatKey, selectConversation } from '../store/transcript'
+import {
+  failedTurnDropped,
+  selectChatKey,
+  selectConversation,
+  turnsDroppedFrom,
+} from '../store/transcript'
 import { quotedMessage, type PassageQuote } from '../assistant/askAssistant'
 import DockChatPicker from '../assistant/DockChatPicker'
 import { anchorTurn, takeTurnAnchor, useTurnTags } from '../assistant/useTurnTags'
 import TagFilter, { tagKey, type TagChoice } from '../assistant/TagFilter'
 import { highlightSet, passagesLit } from '../store/highlight'
 import { answerLight, beatLight } from '../reader/askReader'
-import { TURN_TOOL_NAMES, shownPlace, tagLabel } from '../store/chats'
+import { TURN_TOOL_NAMES, placePhrase, shownPlace, tagLabel } from '../store/chats'
 import { acrossTag, explorationChats, paperTag, tagPapers } from '../store/chats'
 import { threadTool } from '../store/explorations'
 import { useCourseView } from '../knowledge/assistant/useCourseView'
@@ -265,6 +270,13 @@ export default function Teacher({
   // lecture or an answer.
   const [placing, setPlacing] = useState(false)
   const asking = conversing || placing
+  // The turn being answered: the last, and still unfinished. Being last is
+  // not enough, because the bar is busy before the new turns exist (while
+  // the router places the question, or picks a lecture): the previous
+  // answer was last then, and its finished steps unfolded as "Working" and
+  // folded again as the new turns arrived (Patrick, 2026-10-30).
+  const isLive = (message: ChatMsg, index: number) =>
+    index === chat.length - 1 && !!message.unfinished && !message.failed
 
   // The other chats in this exploration (`store/chats`), offered as `@` rows
   // above the paper results so a question can carry one along. The chat on
@@ -292,7 +304,7 @@ export default function Teacher({
     leaving()
     seedPaper(...args)
   }
-  const tags = useTurnTags(activeKey, chat, leaving)
+  const tags = useTurnTags(activeKey, landing, leaving)
   // Where a question asked here is tagged (v9.0.0): the view's paper and tool,
   // the Citation Graph's, or General. An answer is this view's to retry,
   // re-ask or light when its question was asked here: the chat also holds
@@ -645,6 +657,9 @@ export default function Teacher({
         provider,
         sourceIds: scopeArg,
         placedFrom: screenTag ?? 'general',
+        // Only the bar's typed messages are placed (a quoted passage never
+        // is), so a placed question stays editable like one asked here.
+        typed: true,
       }),
     )
   }
@@ -663,10 +678,12 @@ export default function Teacher({
     const target = typedAt === 'general' ? undefined : typedAt
     followNextTurn()
     if (!sameTag(target, screenTag)) {
-      void dispatch(askAt(target, { threadId: '', question: question.text, provider }))
+      void dispatch(
+        askAt(target, { threadId: '', question: question.text, provider, typed: question.typed }),
+      )
       return
     }
-    askOnScreen(question.text)
+    askOnScreen(question.text, question.typed)
   }
 
   /**
@@ -674,8 +691,9 @@ export default function Teacher({
    * own asking, or the Citation Graph's and a chat's (`useConversation`).
    *
    * @param question The question.
+   * @param typed Whether the reader typed it, which keeps it editable.
    */
-  const askOnScreen = (question: string) => {
+  const askOnScreen = (question: string, typed?: boolean) => {
     if (view)
       void dispatch(
         view.ask({
@@ -683,39 +701,71 @@ export default function Teacher({
           question,
           provider: viewProvider,
           sourceIds: scopeArg,
+          typed,
         }),
       )
-    else void send(question, scopeArg, activeOptions, [])
+    else void send(question, scopeArg, activeOptions, [], typed)
   }
 
   /**
-   * **Edit the latest question and send it again** (Patrick): its exchange
-   * goes and the edited question is asked in its place, as a retry's failed
-   * one does. Only the latest, so the history behind it is never rewritten
-   * — and an answer still working is stopped first, so a typo caught just
-   * after Enter costs nothing. The exchange is released from the chat's
-   * in-flight slot as it is stopped (`stopChat`), so the stopped run ends as
-   * superseded and never marks the new turn failed.
+   * **Edit a question and send it again** (Patrick): any question in the
+   * chat, not only the latest (2026-10-30, as ChatGPT does). The chat is cut
+   * at it (`turnsDroppedFrom`): it and everything after it go, since the
+   * later exchanges answered a question that no longer stands, and the
+   * edited question is asked in its place. An answer still working is
+   * stopped first, so a typo caught just after Enter costs nothing; the
+   * exchange is released from the chat's in-flight slot as it is stopped
+   * (`stopChat`), so the stopped run ends as superseded and never marks the
+   * new turn failed.
    *
    * **Only what the reader typed** (Patrick): a question marked `typed`,
    * never a button's predetermined message or one quoting a passage, so an
-   * edit never has a passage's places to keep or lose. Asked where it was
-   * asked (only a question this view owns is editable), through the same
-   * path the bar would take, minus the placing: the reader already said
-   * where it goes. Its `@` attachments ride along, and a direct search
-   * searches again.
+   * edit never has a passage's places to keep or lose. **Asked where it was
+   * asked**, not placed again: the reader already said where it goes. One
+   * asked here goes through the path the bar would take; one asked beside
+   * another view, or across papers, goes there (`askAt`), as a placed
+   * question does, and keeps where it was typed (`placedFrom`). Its `@`
+   * attachments ride along, and a direct search searches again.
    *
    * @param index The question's turn.
    * @param body The edited words, without the attachments' line.
    */
   const editQuestion = (index: number, body: string) => {
     const question = chat[index]
-    if (question?.role !== 'user' || chat[index + 1]?.role !== 'assistant') return
+    if (question?.role !== 'user') return
     const text = withBody(question.text, body)
+    const here = owns(index + 1)
     stopAsk()
     stopChat(activeKey)
-    dispatch(failedTurnDropped(index + 1, activeKey))
+    dispatch(turnsDroppedFrom(index, activeKey))
+    // A lecture's fold, chosen on a turn that is gone, would land on
+    // whichever turn takes its index next.
+    lectureFolds.set(
+      activeKey,
+      Object.fromEntries(Object.entries(openByReader).filter(([turn]) => Number(turn) < index)),
+    )
     followNextTurn()
+    if (question.searched) {
+      void runSearch(text)
+      return
+    }
+    if (ID_RE.test(text)) {
+      onPaperSeed(text)
+      return
+    }
+    if (!here) {
+      void dispatch(
+        askAt(question.tag, {
+          threadId: '',
+          question: text,
+          provider,
+          sourceIds: scopeArg,
+          typed: true,
+          placedFrom: question.placedFrom,
+        }),
+      )
+      return
+    }
     if (view) {
       // Typed, so it carries no passage (no places, boxes or labels) to keep:
       // what its answer lights is read off its words, as for any question.
@@ -730,14 +780,6 @@ export default function Teacher({
       )
       return
     }
-    if (question.searched) {
-      void runSearch(text)
-      return
-    }
-    if (ID_RE.test(text)) {
-      onPaperSeed(text)
-      return
-    }
     // The papers its chips attached: docked, those are the graph's own, so
     // they are found again by title (the bar's picks are gone by now).
     const titles = new Set(
@@ -748,18 +790,14 @@ export default function Teacher({
     const mentioned = graphPapers.filter((paper) => titles.has(paper.title))
     void send(text, scopeArg, activeOptions, mentioned, true)
   }
-  // Only the chat's latest question is editable, only one the reader typed
-  // (`ChatMsg.typed`: never a button's message or a quoted passage), and
-  // only by the view that asked it; not while a search runs or a message is
-  // being placed, when the latest exchange is not yet the one on screen.
-  const lastQuestion = chat.length - 2
+  // Any question the reader typed (`ChatMsg.typed`: never a button's message
+  // or a quoted passage) is editable, wherever it was asked; not while a
+  // search runs or a message is being placed, when the latest exchange is
+  // not yet the one on screen. A placed question counts as typed: only the
+  // bar's typed messages are placed, and until 2026-10-30 placing dropped
+  // the stamp, so a saved one has `placedFrom` alone to show for it.
   const editable = (message: ChatMsg, index: number) =>
-    message.role === 'user' &&
-    message.typed &&
-    index === lastQuestion &&
-    owns(index + 1) &&
-    !searching &&
-    !placing
+    message.role === 'user' && (message.typed || !!message.placedFrom) && !searching && !placing
       ? (body: string) => editQuestion(index, body)
       : undefined
 
@@ -772,7 +810,8 @@ export default function Teacher({
     const question = takeArrival(activeKey, screenTag)
     if (question === null) return
     followNextTurn()
-    askOnScreen(question)
+    // Placed here from the bar (`placeOrHere`), so the reader typed it.
+    askOnScreen(question, true)
     // Keyed on what is on screen and whether it's ready; the rest is read
     // as it stands when the question goes out.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1336,7 +1375,18 @@ export default function Teacher({
     if (message.role !== 'user' || !message.placedFrom || asking) return undefined
     const typedAt = message.placedFrom === 'general' ? undefined : message.placedFrom
     if (tagKey(typedAt) === tagKey(message.tag)) return undefined
-    return { label: tagLabel(explorationRecord, typedAt), onAsk: () => askInstead(index) }
+    // Said in words, both ends: what Nova took it as, and what a click asks
+    // instead (Patrick, 2026-10-30; it was "Nova took this to be about where
+    // its tag says", which made the reader decode the tag).
+    const placed = placePhrase(explorationRecord, message.tag)
+    const typed = placePhrase(explorationRecord, typedAt)
+    const tookAs = placed ? `a question about ${placed}` : 'a general question'
+    const instead = typed ? `about ${typed}` : 'as a general question'
+    return {
+      label: tagLabel(explorationRecord, typedAt),
+      hint: `Nova took this as ${tookAs}. Click to ask it ${instead} instead.`,
+      onAsk: () => askInstead(index),
+    }
   }
 
   // **Filtered by where it was asked** (v9.0.0, stage 4a): once a chat
@@ -1409,7 +1459,7 @@ export default function Teacher({
               : undefined
           }
           streaming={asking}
-          working={asking && index === chat.length - 1}
+          working={asking && isLive(message, index)}
           onRetry={message.failed && owns(index) ? () => retryInView(index) : undefined}
           onQuick={
             asking && index === chat.length - 1 && owns(index) && !message.beats?.length
@@ -1450,9 +1500,9 @@ export default function Teacher({
         onThreadOpen={(id) => void dispatch(openChat(id))}
         active={activeChat === index}
         streaming={asking || searching}
-        // Only the LAST turn can be the one being generated, so only it gets
-        // the live trace treatment; every earlier turn's trace stays folded.
-        working={(asking || searching) && index === chat.length - 1}
+        // Only the turn being generated gets the live trace treatment (`isLive`);
+        // every other turn's trace stays folded.
+        working={(asking || searching) && isLive(message, index)}
         onActivate={clickable ? () => onChatClick(index, grounded) : undefined}
         // Retried and re-asked only where it was asked (v9.0.0): a turn from
         // another view needs that view's context.

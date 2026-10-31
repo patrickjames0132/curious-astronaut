@@ -35,7 +35,11 @@ import type { MentionThread } from '../../src/mentions/parse'
 import type { Source } from '../../src/api'
 import highlightReducer from '../../src/store/highlight'
 import libraryReducer from '../../src/store/library'
-import transcriptReducer, { chatBeatAdded, turnStarted } from '../../src/store/transcript'
+import transcriptReducer, {
+  chatBeatAdded,
+  turnStarted,
+  turnsDroppedFrom,
+} from '../../src/store/transcript'
 import workspaceReducer from '../../src/store/workspace'
 import { paperTag } from '../../src/store/chats'
 import type { ThreadRecord } from '../../src/store/explorations'
@@ -77,8 +81,14 @@ const state = () => ({
   library: { ...libraryReducer(undefined, { type: '@@test/init' }), sources, loaded: true },
 })
 
+// What the panel dispatched, for tests that check an action went out (the
+// store itself is a stand-in, so nothing it dispatches changes `state()`).
+let dispatched: unknown[] = []
+
 vi.mock('../../src/store', () => ({
-  useAppDispatch: () => () => {},
+  useAppDispatch: () => (action: unknown) => {
+    dispatched.push(action)
+  },
   useAppSelector: (selector: (rootState: ReturnType<typeof state>) => unknown) => selector(state()),
 }))
 
@@ -169,6 +179,7 @@ beforeEach(() => {
   hasGraph = true
   sources = []
   turns = []
+  dispatched = []
   onChatClick.mockClear()
   onPaperSeed.mockClear()
   send.mockClear()
@@ -607,21 +618,20 @@ describe('a draft from the rail (v8.31.0)', () => {
   })
 })
 
-describe('editing the latest question', () => {
+describe('editing a question', () => {
   /** A question the reader typed in the bar (`ChatMsg.typed`). */
   const typed = (text: string, extras: Parameters<typeof turnStarted>[4] = {}) =>
     turnStarted(text, undefined, undefined, false, { typed: true, ...extras })
 
   /**
-   * Open the ✎ on the panel's only editable question and send an edit.
+   * Open the ✎ on one of the panel's questions and send an edit.
    *
    * @param edited The edited words.
+   * @param which Which editable question, in order: the first by default.
    */
-  function resend(edited: string) {
+  function resend(edited: string, which = 0) {
     render(<Teacher landing />)
-    const pencils = screen.getAllByRole('button', { name: 'Edit question' })
-    expect(pencils).toHaveLength(1)
-    fireEvent.click(pencils[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit question' })[which])
     const field = screen.getByRole('textbox', { name: 'Edit your question' })
     fireEvent.change(field, { target: { value: edited } })
     fireEvent.click(screen.getByRole('button', { name: 'Resend' }))
@@ -641,10 +651,31 @@ describe('editing the latest question', () => {
     return { ask, tag: paperTag(thread, 'reader') }
   }
 
-  it('offers it on the latest question alone, so history is never rewritten', () => {
-    turns = [typed('first questoin'), typed('second questoin')]
-    resend('second question')
-    expect(screen.getAllByText('first questoin')).toHaveLength(1)
+  // Every typed question, not only the latest (Patrick, 2026-10-30, as
+  // ChatGPT does): editing an early one cuts the chat there, so everything
+  // after it goes, and the edited question is asked from that point.
+  it('offers it on every typed question, and cuts the chat at the one edited', () => {
+    turns = [typed('first questoin'), typed('second question')]
+    render(<Teacher landing />)
+    expect(screen.getAllByRole('button', { name: 'Edit question' })).toHaveLength(2)
+    cleanup()
+    resend('first question')
+    const cut = turnsDroppedFrom(0, '')
+    expect(dispatched).toContainEqual(expect.objectContaining({ type: cut.type, payload: 0 }))
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send.mock.calls[0][0]).toBe('first question')
+  })
+
+  it('offers it on a question placed before placing kept the typed stamp', () => {
+    // Only the bar's typed messages are placed, so `placedFrom` alone says
+    // the reader typed it: saves from before 2026-10-30 have nothing else.
+    turns = [
+      turnStarted('How does DQN compare with SAC?', undefined, undefined, false, {
+        placedFrom: 'general',
+      }),
+    ]
+    render(<Teacher landing />)
+    expect(screen.getAllByRole('button', { name: 'Edit question' })).toHaveLength(1)
   })
 
   it('asks the edited question, its attachments kept, and marks it typed again', () => {
