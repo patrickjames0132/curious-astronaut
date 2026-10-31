@@ -4153,6 +4153,21 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### Saved sessions & workspaces
 
+- [x] **Opening an exploration leaves it in place; a question slides it to
+      the top** *(v9.8.0; Patrick, 2026-10-31)* — clicking an exploration in
+      the rail pulled it to the top of the list. The list sorts by
+      `updated_at`, and every autosave moved it. Opening an exploration
+      autosaves its view: the open thread, the Reader's page, the tool beside
+      a paper. So just looking counted as working on it. Now `save_session`
+      compares the stored conversation with the new one (`_conversation_of`:
+      each thread's turns, in either blob shape). It keeps the old
+      `updated_at` when they match, the same rule `rename_session` already
+      followed. The blob is still written. A new chat with nothing said in it
+      doesn't count. When the order does change, the row slides to its new
+      place instead of jumping (`shell/useSlide.ts`, FLIP over `offsetTop`),
+      its thread list with it, and the rows it passes move down. Reduced
+      motion skips the slide (Patrick: "It should slide its way to the top").
+
 - [x] **The Reader's PDF: every open copy tried, and no stale failures**
       *(v9.1.0; Patrick, 2026-10-30)* — "Benchmarking Table Extraction:
       Multimodal LLMs vs Traditional OCR" said *Not on arXiv* though its PDF

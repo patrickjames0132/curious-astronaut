@@ -538,7 +538,9 @@ just before the bar's rounded right end.
    progress) or paste URLs; scope any conversation to a subset of them.
 6. **Explorations** — every sitting saves itself, so there is no Save button:
    ask a question and it appears in the rail, named after what you asked, kept
-   up to date as you work. Leave an answer running and start another
+   up to date as you work. The latest conversation sits at the top: asking a
+   question slides its exploration up there, while just opening one leaves it
+   in place. Leave an answer running and start another
    exploration — it keeps going in the background and is waiting when you come
    back. With the sidebar collapsed, the **Explorations** bubble opens the
    expandable list of explorations, chats and papers in a compact modal. Select

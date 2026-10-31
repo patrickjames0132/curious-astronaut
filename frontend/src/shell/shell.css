@@ -638,3 +638,12 @@
   flex-direction: column;
   gap: 2px;
 }
+
+/* The explorations list, and each row with its threads beneath it: one box
+   per exploration, so the two slide together when a question lifts it to the
+   top (`useSlide`). They keep the rail's own column spacing. */
+.rail-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

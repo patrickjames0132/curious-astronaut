@@ -5,6 +5,13 @@ parent navigation; `SessionRow.tsx` supplies the shared rows and menus; `ThreadL
 threads beneath the active exploration. A row selects that discussion and its
 graph together. The ellipsis opens Rename/Delete, with inline editing after Rename. Running conversations show a working indicator even off-screen.
 
+The list is ordered by when each exploration last held a conversation: a
+question asked lifts it to the top, and opening one leaves it where it is (the
+backend's `save_session` decides, v9.8.0). `useSlide.ts` animates that move.
+Each exploration and its thread list are one `[data-slide]` box. When the order
+changes, every box that moved is drawn back at its old offset and slid to rest
+(FLIP). Reduced motion skips it.
+
 `useSessions.ts` remains the thin server-list CRUD client. `useExplorations.ts`
 coordinates that list with the live Redux exploration records. Returning to a
 live exploration uses memory, not an older server response. A first server load
