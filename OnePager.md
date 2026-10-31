@@ -1,6 +1,6 @@
 # Curious Astronaut — One-Pager
 
-> **Status:** v9.5.0 · living document · MIT-licensed · on PyPI as
+> **Status:** v9.6.0 · living document · MIT-licensed · on PyPI as
 > `curious-astronaut` (`pip install curious-astronaut`, then `astronaut
 > serve`). The core loop has shipped: the provider-selectable citation graph
 > (Semantic Scholar or OpenAlex, with an optional offline S2 citations corpus
@@ -1192,6 +1192,37 @@ than deleted so the plan doesn't get re-proposed.
       grows, so the split waits until there's enough to fill its sub-page.
 
 ### Enhancements & tech debt
+
+- [ ] **Rename Teacher and Assistant to Nova in the code** — Patrick,
+      2026-10-30. The UI has said **Nova** since v9.0.0, but the code still
+      splits one assistant across two frontend packages named for its past:
+      `frontend/src/teacher/` (the panel, `Teacher.tsx`, the composer and
+      its pickers, `useConversation`, `transcript/`, `teacher.css`) and
+      `frontend/src/assistant/` (the stream engine, `askAt`, tags, the
+      launcher, the dock's chat picker). To Patrick they're the same thing,
+      and a reader of the code has to learn the history to know where
+      anything lives. v9.0.0 kept "assistant" in the code on purpose
+      (`assistant/README.md`); this reverses that. The shape to start from:
+      - **One package, `frontend/src/nova/`**, its sub-packages kept
+        (`nova/transcript/`), `Teacher.tsx` → `Nova.tsx`, and the files
+        grouped by what they are (panel, composer, asking, tags) rather
+        than by which package they came from. `test/` mirrors it.
+      - **CSS too**: `teacher.css` and its `.teacher-*` classes (about 80
+        uses there, a dozen more in components), so the stylesheet and the
+        markup say the same name.
+      - **Docs in the same change** (CLAUDE.md, "Every package has a
+        README"): merge the two READMEs into `nova/README.md`, and fix every
+        README that names either package: `frontend/src/README.md`'s map,
+        `frontend/test/README.md`, cross-references in `reader/`,
+        `knowledge/`, `store/`.
+      - **Leave alone unless decided**: the `/api/assistant` routes and the
+        backend's `assistant` orchestrator (an API contract, and the backend
+        has no "teacher" package, only the word in prose), and anything
+        persisted, such as saved session fields or `localStorage` keys, so
+        no existing save or setting breaks.
+      - **Mechanical, so in one sweep**: about 40 files import from the two
+        packages. `git mv` keeps history; the gate (tsc, oxlint, vitest)
+        catches a missed import.
 
 - [ ] **Publish only from a commit whose CI is green** — filed 2026-10-24
       after v8.36.1 through v8.38.0 published while CI on `main` was red

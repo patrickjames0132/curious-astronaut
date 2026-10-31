@@ -1004,6 +1004,27 @@
 
 ### AI teacher & lectures
 
+- [x] **A sent question is seen at once, and the bar's ring turns while
+      Nova works** *(v9.6.0; Patrick, 2026-10-30)* — a question's turns
+      appear only once it is routed (where it is about, then lecture or
+      answer on the Citation Graph, or guide or answer in the Reader), a
+      server round trip each, so the chat sat unchanged for a second after
+      Enter, and the Reader's routing didn't even mark the bar busy. Now, in
+      a chat with history, the question and an answer with the "Thinking"
+      dots stand in from Enter (`awaiting` in `Teacher`), giving way as the
+      real turns arrive and clearing when the ask settles, so a failure or a
+      lecture taken to another view leaves nothing behind. In an empty
+      full-screen chat there's no stand-in: it flashed mid-screen and then
+      jumped as the first turns moved the bar down, so the bar stays
+      centred, its button's dots saying the question was heard, until the
+      router is done. The bar refuses a second send meanwhile. And from
+      Enter until the answer is done, the bar's light-blue ring holds and
+      three faint white streaks sweep round it (`.teacher-ask.is-working`, a
+      conic gradient masked to the ring, turned through an `@property`
+      angle; reduced motion keeps the ring, drops the streaks). Filed
+      alongside: renaming the code's Teacher and Assistant packages to Nova
+      (OnePager, "Enhancements & tech debt").
+
 - [x] **Edit any question; every question tagged, its tooltips in words**
       *(v9.5.0; Patrick, 2026-10-30)* — a round of chat polish from testing.
       **Any question you typed is editable**, not only the latest, as in

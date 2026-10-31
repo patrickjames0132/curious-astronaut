@@ -1364,6 +1364,53 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
 }
+/* **Working, the ring turns** (Patrick, 2026-10-30): from Enter until the
+   answer is done, the same light-blue ring as focus (held even if focus
+   leaves the bar), with three faint white streaks sweeping round it, so
+   the bar itself says the question was heard. The streaks are an overlay
+   cut to exactly the ring: a conic gradient, masked to a 2px band from the
+   border's inner edge to the focus shadow's outer one, its angle turned
+   through a registered custom property so the gradient itself animates. */
+@property --ask-sweep {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes ask-sweep {
+  to {
+    --ask-sweep: 360deg;
+  }
+}
+.teacher-ask.is-working {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.teacher-ask.is-working::after {
+  content: '';
+  position: absolute;
+  /* The padding box sits 1px inside the border; out 2px is the shadow's
+     outer edge, and a 2px band from there covers border and shadow both. */
+  inset: -2px;
+  padding: 2px;
+  border-radius: 28px;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    from var(--ask-sweep),
+    rgb(255 255 255 / 0) 0deg,
+    rgb(255 255 255 / 0.55) 22deg,
+    rgb(255 255 255 / 0) 44deg,
+    rgb(255 255 255 / 0) 120deg
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  animation: ask-sweep 2.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .teacher-ask.is-working::after {
+    display: none;
+  }
+}
 .teacher-ask textarea {
   flex: 1;
   min-width: 0;
