@@ -273,6 +273,7 @@ export default function ChatMessage({
   onReroute,
   onQuick,
   tagLabel,
+  tagHint,
   onTagOpen,
   askInstead,
   onEdit,
@@ -317,14 +318,16 @@ export default function ChatMessage({
   /** Where this question was asked (v9.0.0): `General`, or a paper and its
    *  tool. Shown on the question; absent, nothing is. */
   tagLabel?: string
+  /** The tag's tooltip: where it was asked, and where a click goes. */
+  tagHint?: string
   /** Go where it was asked (undefined: the tag is plain text). */
   onTagOpen?: () => void
   /** The router placed this question elsewhere (v9.0.0, stage 4b): ask it
-   *  where it was typed instead, named by `label`. */
-  askInstead?: { label: string; onAsk: () => void }
-  /** Edit this question and send it again in place of the exchange it
-   *  began (undefined: not editable — only the chat's latest question is,
-   *  so earlier history is never rewritten). Given the edited words. */
+   *  where it was typed instead, named by `label`, `hint` its tooltip. */
+  askInstead?: { label: string; hint: string; onAsk: () => void }
+  /** Edit this question and send it again, the chat cut at it (undefined:
+   *  not editable — only a question the reader typed is). Given the edited
+   *  words. */
   onEdit?: (body: string) => void
   /** Its index in the chat, so the panel can find it again however the chat
    *  is filtered (`data-turn`). */
@@ -462,13 +465,13 @@ export default function ChatMessage({
               event.stopPropagation()
               onTagOpen()
             }}
-            title={`Asked from ${tagLabel}: go there`}
+            title={tagHint}
             aria-label={tagLabel}
           >
             <TagText label={tagLabel} />
           </button>
         ) : (
-          <span className="chat-tag" title={tagLabel}>
+          <span className="chat-tag" title={tagHint ?? tagLabel}>
             <TagText label={tagLabel} />
           </span>
         ))}
@@ -483,9 +486,16 @@ export default function ChatMessage({
             event.stopPropagation()
             askInstead.onAsk()
           }}
-          title={`Nova took this to be about where its tag says; ask it from ${askInstead.label} instead`}
+          title={askInstead.hint}
+          // Said whole: the spans' edge spaces drop out of a computed name.
+          aria-label={`Ask from ${askInstead.label} instead`}
         >
-          Ask from {askInstead.label} instead
+          {/* One line like the tag above it: the title gives way, never
+              "› Citation Graph instead" (Patrick: wrapped, it centred into a
+              ragged block in a narrow dock). The tooltip has it whole. */}
+          <span className="chat-tag-tool">Ask from </span>
+          <TagText label={askInstead.label} />
+          <span className="chat-tag-tool"> instead</span>
         </button>
       )}
       <AttachedChips

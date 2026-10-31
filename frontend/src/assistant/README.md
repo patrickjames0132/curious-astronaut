@@ -82,11 +82,17 @@ reads and which tools it gets.
   and a new question supersedes whichever was answering. And **only a tool's
   own answers light it** (`AnswerPassages.owns`): the dock's chat also holds
   turns asked beside other views and papers, which stay unclickable here.
-- **Tags show once a chat crosses views** (`useTurnTags.ts`). A chat whose
-  questions were all asked with no view open is General throughout; from
-  the first question asked beside a paper, every question wears its tag,
-  and clicking one goes there (`workspace.openTag`), keeping the question in
-  view across the remount the navigation causes (`anchorTurn`).
+- **Every question wears its tag** (`useTurnTags.ts`; Patrick,
+  2026-10-30), `General` or a paper and its tool, and clicking one goes
+  there (`workspace.openTag`), keeping the question in view across the
+  remount the navigation causes (`anchorTurn`). Tags used to wait for a
+  chat to cross views, so an all-General chat wore none, and its first
+  question asked beside a paper tagged every question at once. **Tooltips
+  say it in words** (Patrick, 2026-10-30): where it was asked and where a
+  click goes ("Asked about the Citation Graph of …. Click to go there."),
+  and "Ask from … instead" says what Nova took it as and what a click asks
+  instead, both from `store/chats`' `placePhrase`. Full screen, a General
+  tag goes nowhere, since the chat is already there.
 - **An answer from another view links there** (stage 4a, `teacher/Teacher`'s
   `elsewhere`). What it lights is in that view: a graph's papers, a Reader's
   passages. So clicking the answer, a `[n]`, a quote or a beat goes there

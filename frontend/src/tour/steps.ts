@@ -737,7 +737,7 @@ export const GRAPH_TOUR: TourStep[] = [
       'new papers past the graph: that’s what your chats (Chats in the rail) are for. While it’s still ' +
       'searching, “Quick response” beside “Working” stops the search and answers now, ' +
       'from what’s on screen and the model’s own knowledge. Press Enter to send; ⇧ Shift+Enter starts a new line for longer questions. ' +
-      'Spotted a typo after sending? The ✎ on the latest question you typed edits it and sends it again in place of its answer.',
+      'Spotted a typo, or want to take the chat another way? The ✎ on any question you typed edits it and sends it again; everything after it goes, and the chat picks up from there.',
   },
   {
     target: '[data-tour="ask"]',

@@ -182,7 +182,7 @@ An exploration is **a set of papers plus several chats** (the OnePager's
   several papers at once (stage 4c) is tagged `across`, naming each of
   them (`acrossTag`, `tagPapers`), which is what asks it again across
   them; but it **reads as General** (`shownPlace`: its label, its filter
-  key, and whether a chat crosses views), since no view holds it and its
+  key, and its "Ask from … instead"), since no view holds it and its
   answer cites the papers `[n]` already (Patrick, 2026-10-30).
 - **One answer in flight per chat**, whichever view asked
   (`assistant/inFlight`): both stream engines share a chat now, so a new

@@ -414,6 +414,23 @@ const transcriptSlice = createSlice({
       prepare: keyed<number>(),
     },
     /**
+     * Cut the chat at a question: it and everything after it go, so an edited
+     * question is asked again from that point (Patrick, 2026-10-30, as
+     * ChatGPT does). The later exchanges answered a question that no longer
+     * stands, so they are dropped rather than kept beside the new answer.
+     *
+     * @param state  The slice state (mutated via immer).
+     * @param action Carries the question's index, and the conversation in `meta`.
+     */
+    turnsDroppedFrom: {
+      reducer(state, action: PayloadAction<number, string, Keyed>) {
+        const conversation = target(state, action.meta.key)
+        if (!conversation || conversation.chat[action.payload]?.role !== 'user') return
+        conversation.chat.splice(action.payload)
+      },
+      prepare: keyed<number>(),
+    },
+    /**
      * A question begins: the user turn plus the empty assistant turn the
      * answer streams into.
      *
@@ -798,6 +815,7 @@ export const {
   answerFailed,
   tracesSettled,
   failedTurnDropped,
+  turnsDroppedFrom,
   conversationStarted,
   conversationActivated,
   conversationEnsured,

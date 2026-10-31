@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { tagKey } from '../../src/assistant/TagFilter'
 import {
   acrossTag,
+  placePhrase,
   chatOnScreen,
   chatTurns,
   dockChatId,
@@ -102,6 +103,19 @@ describe('tags', () => {
       'Transformers › Knowledge Graph',
     )
     expect(tagLabel({ threads: [] }, tag)).toBe('Attention › Knowledge Graph')
+  })
+  // The tooltips' words for a place (Patrick, 2026-10-30): each tool its own
+  // way, General left to each sentence, a bridge question General too.
+  it('say a place in words for a tooltip', () => {
+    const record = { threads: [paperThread('p', 'Attention')] }
+    const atari = paperThread('p', 'Attention')
+    expect(placePhrase(record, paperTag(atari, 'graph'))).toBe('the Citation Graph of Attention')
+    expect(placePhrase(record, paperTag(atari, 'knowledge'))).toBe(
+      'the Knowledge Graph of Attention',
+    )
+    expect(placePhrase(record, paperTag(atari, 'reader'))).toBe('Attention in the Reader')
+    expect(placePhrase(record, undefined)).toBeNull()
+    expect(placePhrase(record, acrossTag([atari, paperThread('q', 'SAC')]))).toBeNull()
   })
   // A bridge question keeps its papers on its tag, for asking it again across
   // them, but reads as General: label and filter key alike (Patrick,

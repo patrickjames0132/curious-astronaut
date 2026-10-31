@@ -471,10 +471,10 @@ just before the bar's rounded right end.
      Citation Graph quick answers retain “Answered as a question” and the
      completed answer’s “Lecture on it instead” action. Every chat bar
      underlines typos with the browser’s own spellcheck, never rewriting what
-     you typed, and a ✎ on the **latest question you typed** edits it and
-     sends it again in place of its answer, even mid-answer; a quoted
-     passage or a button’s message (a lecture, Explain) isn’t editable, and
-     neither is anything earlier, so history is never rewritten. Over a graph the assistant works from the graph and
+     you typed, and a ✎ on **any question you typed** edits it and sends it
+     again, even mid-answer: as in ChatGPT, everything after the edited
+     question goes and the chat picks up from there. A quoted passage or a
+     button’s message (a lecture, Explain) isn’t editable. Over a graph the assistant works from the graph and
      grows it along citations rather than searching for papers, so the paper
      filters stay on your chats. It was a stack of two folding
      sections from v7.10.0, a **Lecture** section above a **Chat** one, which

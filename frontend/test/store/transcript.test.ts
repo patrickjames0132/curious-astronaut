@@ -36,6 +36,7 @@ import reducer, {
   turnRouted,
   tokenAppended,
   turnStarted,
+  turnsDroppedFrom,
 } from '../../src/store/transcript'
 import type { Conversation, TranscriptState } from '../../src/store/transcript'
 
@@ -250,6 +251,27 @@ describe('an answer that never arrived', () => {
       tokenAppended('an answer'),
       failedTurnDropped(0), // a user turn, not a failed answer
     )
+    expect(active(state).chat).toHaveLength(2)
+  })
+})
+
+describe('a question edited', () => {
+  // Editing any question cuts the chat there (Patrick, 2026-10-30): it and
+  // every exchange after it go, since they answered a question that no
+  // longer stands, and the edit is asked from that point.
+  it('drops the question and everything after it', () => {
+    const state = play(
+      turnStarted('first'),
+      tokenAppended('an answer'),
+      turnStarted('second'),
+      tokenAppended('another'),
+      turnsDroppedFrom(2),
+    )
+    expect(active(state).chat.map((turn) => turn.text)).toEqual(['first', 'an answer'])
+  })
+
+  it('ignores a cut aimed at an answer rather than a question', () => {
+    const state = play(turnStarted('first'), tokenAppended('an answer'), turnsDroppedFrom(1))
     expect(active(state).chat).toHaveLength(2)
   })
 })

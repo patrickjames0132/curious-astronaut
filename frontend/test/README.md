@@ -22,8 +22,8 @@ test/
     askAt.test.ts             — asking where the router placed a question:
                                 General, a parked graph, a graph built
                                 quietly (v9.0.0, stage 4b)
-    useTurnTags.test.tsx      — a tag shows once a chat crosses views; a
-                                clicked one anchors its question, once (v9.0.0)
+    useTurnTags.test.tsx      — every question wears its tag; a clicked
+                                one anchors its question, once (v9.0.0)
   detail/
     DetailPanel.test.tsx      — the joint loading gate: one skeleton set, one
                                 reveal, once every fetch has answered

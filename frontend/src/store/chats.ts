@@ -178,6 +178,28 @@ export function tagLabel(
 }
 
 /**
+ * Where a question was asked, as words for a sentence, the tooltips' way of
+ * saying a tag: `the Citation Graph of Attention Is All You Need`, `the
+ * Knowledge Graph of …`, `… in the Reader`. Null for General, which each
+ * sentence words its own way ("a general question").
+ *
+ * @param record The exploration, for the paper's current title.
+ * @param tag The tag; absent means General.
+ * @returns The phrase, or null for General.
+ */
+export function placePhrase(
+  record: Pick<ExplorationRecord, 'threads'> | undefined,
+  tag?: TurnTag,
+): string | null {
+  const place = shownPlace(tag)
+  if (!place) return null
+  const title = record?.threads.find((thread) => thread.id === place.threadId)?.title ?? place.title
+  return place.tool === 'reader'
+    ? `${title} in the Reader`
+    : `the ${TURN_TOOL_NAMES[place.tool]} of ${title}`
+}
+
+/**
  * The papers a tag names: a bridge question's, or the one paper.
  *
  * @param tag The tag.

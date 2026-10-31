@@ -588,7 +588,7 @@ describe('a question’s tag (v9.0.0)', () => {
   })
 })
 
-describe('editing the latest question', () => {
+describe('editing a question', () => {
   /** A user turn rendered editable, its edits spied. */
   const renderQuestion = (text: string, onEdit = vi.fn()) => {
     render(
