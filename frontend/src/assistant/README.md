@@ -111,9 +111,13 @@ reads and which tools it gets.
   numbered as peers the researcher can read and expand, with no graph
   built (Patrick, 2026-10-27; `api.streamAcross`, the `papers` view). A
   paper with no hydrated details yet has them fetched and kept on its
-  thread, as its cards would. Its tag has no one view to go to, so each
-  title in it is a link of its own, to that paper's cards, and so is a
-  `[n]` naming one of them; a `[n]` for a paper it expanded into opens it.
+  thread, as its cards would. No one view holds it, so it **reads as
+  General** (Patrick, 2026-10-30; `shownPlace`), and its `[n]`s are the
+  gold paper refs a search's are, from the `paper_refs` the backend sends
+  for the peers and any paper an expand numbered past them: each opens its
+  paper's thread, on its cards. They were resolved as graph refs once,
+  which drew them as the blue spotlight chip, promising a glow on a canvas
+  that isn't there. Worked through in "One question, three places" below.
   **A lecture goes there** (Patrick, 2026-10-27): placed on another paper's
   Citation Graph or Reader and read as a lecture or a guided read, the
   question can't be answered off-screen, since it lights its graph or paper
@@ -131,9 +135,12 @@ reads and which tools it gets.
   and only the exchanges asked there show: each tool's conversation, back
   when it is wanted. Per chat, forgotten on leaving it. A menu, grouped by
   paper, rather than the row of chips it started as, which wrapped into
-  rows over the transcript as places added up (Patrick). Every bridge
-  question is one entry, "Across papers", after General, whichever papers
-  it named (Patrick).
+  rows over the transcript as places added up (Patrick). A bridge question
+  (several papers at once) is General here, as on its bubble: it had an
+  entry of its own, "Across papers", and a tag of the papers' titles, each
+  a link, until it read as General everywhere (Patrick, 2026-10-30). The
+  papers it is about are cited `[n]` in its answer, gold like any search's,
+  each opening its paper. `store/chats`' `shownPlace` is the one rule.
 - **A passage is quoted with where it's from.** `PassageQuote` is `{text,
   from}`, `from` a phrase ("the lesson on Q-learning", "section 3.2,
   Attention") that the quote card shows ("From …") and the messages carry
@@ -169,6 +176,27 @@ reads and which tools it gets.
   so the swap doesn't jump. It moves the moment it is hovered (Patrick): the
   video's still opening and long rests are cut to a beat, its doubled
   frames dropped, and the motion runs 1.5× the video's speed (a 3.3s loop).
+
+## One question, three places (worked example)
+
+An exploration holds *Playing Atari with Deep Reinforcement Learning*
+(DQN) and *Soft Actor-Critic* (SAC) as papers. The reader types **"How
+does DQN compare with Soft Actor Critic?"** Where it goes is
+`teacher/Teacher`'s `placeOrHere`, asking `api.routePlace`:
+
+| Typed in | SAC in the exploration? | Router places it | Tag | Its `[n]`s |
+| --- | --- | --- | --- | --- |
+| Home, the full-screen General chat | yes | `papers` [DQN, SAC]: a bridge question (`acrossTag`) | **General**, with no "Ask from General instead": typed and shown read as one place | gold, each opening its paper |
+| DQN's Reader, course or Citation Graph (or its cards or Criticisms, which ask as its Citation Graph once that's loaded) | yes | the same bridge question, moved off the view | **General**, offering "Ask from Playing Atari… › *tool* instead" | gold |
+| DQN's Citation Graph | no | nowhere else to mean (`placeOrHere` skips the router with no other paper) | `Playing Atari… › Citation Graph` | blue, lighting the papers on that canvas |
+
+The rule underneath: a bridge question is answered from the papers
+themselves (`api.streamAcross`), with no graph, so nothing it cites is on a
+canvas, and it belongs to no one view, so its tag and the "Showing:"
+filter call it General. Blue spotlight chips are only for an answer whose
+papers are on the graph it was asked beside. Typed on a view, the bubble's
+"Ask from … instead" puts the question back there, answered with that
+view's context.
 
 ## What an answer can light (v8.45.0)
 

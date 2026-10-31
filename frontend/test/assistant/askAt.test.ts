@@ -134,6 +134,10 @@ describe('asking where the router placed it', () => {
     const ask = vi.spyOn(api, 'streamAcross').mockImplementation(async (body, handlers) => {
       expect(body.papers.map((item) => item.id)).toEqual(['atari-paper', 'sac-paper'])
       handlers.onToken('[1] plays, [2] acts.')
+      handlers.onPaperRefs?.({
+        1: { node_id: 'atari-paper', title: 'Playing Atari', url: '', provider: 's2' },
+        2: { node_id: 'sac-paper', title: 'Soft Actor-Critic', url: '', provider: 's2' },
+      })
     })
     const tag = {
       threadId: 'atari',
@@ -150,7 +154,10 @@ describe('asking where the router placed it', () => {
     expect(build).not.toHaveBeenCalled()
     const [asked, answer] = selectConversation(store.getState()).chat
     expect(asked.tag).toEqual(tag)
-    expect(answer.graphRefs).toEqual({ 1: 'atari-paper', 2: 'sac-paper' })
+    // No graph, so no graph refs: its `[n]`s are gold paper refs, as a
+    // search's are, rather than the blue chip that promises a canvas glow.
+    expect(answer.graphRefs).toBeUndefined()
+    expect(answer.paperRefs?.['2']?.node_id).toBe('sac-paper')
     const atari = store.getState().explorations.byId.x.threads.find((item) => item.id === 'atari')
     expect(atari?.paper?.id).toBe('atari-paper')
   })

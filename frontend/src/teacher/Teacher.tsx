@@ -77,7 +77,7 @@ import { anchorTurn, takeTurnAnchor, useTurnTags } from '../assistant/useTurnTag
 import TagFilter, { tagKey, type TagChoice } from '../assistant/TagFilter'
 import { highlightSet, passagesLit } from '../store/highlight'
 import { answerLight, beatLight } from '../reader/askReader'
-import { TURN_TOOL_NAMES, tagLabel } from '../store/chats'
+import { TURN_TOOL_NAMES, shownPlace, tagLabel } from '../store/chats'
 import { acrossTag, explorationChats, paperTag, tagPapers } from '../store/chats'
 import { threadTool } from '../store/explorations'
 import { useCourseView } from '../knowledge/assistant/useCourseView'
@@ -1267,25 +1267,15 @@ export default function Teacher({
   }
   const elsewhere = (message: ChatMsg, index: number) => {
     const tag = chat[index - 1]?.tag
+    // No one view holds a bridge question's papers, and no graph: its `[n]`s
+    // are gold paper refs, each opening its paper (`askAt`). Answers saved
+    // before that also carry graph refs, which with a click handler render
+    // as the blue spotlight chip; without one they fall through to gold.
+    // Checked first, so it holds wherever the question was asked.
+    if (message.role === 'assistant' && tag?.tool === 'across') return { onRefClick: undefined }
     if (message.role !== 'assistant' || message.failed || !tag || owns(index)) return {}
     if (!explorationRecord?.threads.some((thread) => thread.id === tag.threadId)) return {}
     const beats = message.beats ?? []
-    if (tag.tool === 'across') {
-      // No one view holds a bridge question's papers: a `[n]` for one of
-      // them goes to its cards, and for a paper it expanded into, opens it.
-      const go = (nodeId: string) => {
-        const thread = explorationRecord.threads.find(
-          (item) =>
-            item.paper?.id === nodeId && tagPapers(tag).some((paper) => paper.threadId === item.id),
-        )
-        if (thread) {
-          leaving()
-          anchorTurn(activeKey, index)
-          void dispatch(openTag({ tag: { ...tag, threadId: thread.id }, chatId: activeKey }))
-        } else onPaperSeed(nodeId)
-      }
-      return { onRefClick: go }
-    }
     if (tag.tool === 'graph') {
       const grounded = message.cited?.length
         ? message.cited
@@ -1338,17 +1328,16 @@ export default function Teacher({
   }
 
   // A question the router placed elsewhere offers to be asked where it was
-  // typed (stage 4b), while nothing else is being asked.
-  const placedInstead = (message: ChatMsg, index: number) =>
-    message.role === 'user' && message.placedFrom && !asking
-      ? {
-          label: tagLabel(
-            explorationRecord,
-            message.placedFrom === 'general' ? undefined : message.placedFrom,
-          ),
-          onAsk: () => askInstead(index),
-        }
-      : undefined
+  // typed (stage 4b), while nothing else is being asked. Not when the two
+  // read as one place: a bridge question typed in General shows as General
+  // (`shownPlace`), and "Ask from General instead" under a General tag
+  // offers nothing the reader can see (Patrick).
+  const placedInstead = (message: ChatMsg, index: number) => {
+    if (message.role !== 'user' || !message.placedFrom || asking) return undefined
+    const typedAt = message.placedFrom === 'general' ? undefined : message.placedFrom
+    if (tagKey(typedAt) === tagKey(message.tag)) return undefined
+    return { label: tagLabel(explorationRecord, typedAt), onAsk: () => askInstead(index) }
+  }
 
   // **Filtered by where it was asked** (v9.0.0, stage 4a): once a chat
   // crosses views, a menu over it picks one place, and only the exchanges
@@ -1360,17 +1349,14 @@ export default function Teacher({
     for (const message of chat) {
       const key = tagKey(message.tag)
       if (message.role !== 'user' || seen.has(key)) continue
-      const label = tagLabel(explorationRecord, message.tag)
-      const split = label.lastIndexOf(' › ')
-      // Every bridge question is one place, "Across papers", whichever
-      // papers it named (Patrick).
-      const across = message.tag?.tool === 'across'
-      const paper = message.tag && !across ? label.slice(0, split) : null
+      // A bridge question is General here, as on its bubble (`shownPlace`).
+      const place = shownPlace(message.tag)
+      const label = tagLabel(explorationRecord, place)
       seen.set(key, {
         key,
-        label: across ? TURN_TOOL_NAMES.across : label,
-        paper,
-        tool: message.tag ? TURN_TOOL_NAMES[message.tag.tool] : null,
+        label,
+        paper: place ? label.slice(0, label.lastIndexOf(' › ')) : null,
+        tool: place ? TURN_TOOL_NAMES[place.tool] : null,
       })
     }
     return [...seen.values()]

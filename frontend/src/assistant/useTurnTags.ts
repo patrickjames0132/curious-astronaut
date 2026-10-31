@@ -4,7 +4,9 @@
  * Description:
  * The tags a chat's questions wear (v9.0.0): where each was asked, `General`
  * or a paper and its tool, as a link back there (`store/chats`), on the one
- * assistant's turns (`teacher/Teacher`), full screen or docked.
+ * assistant's turns (`teacher/Teacher`), full screen or docked. A bridge
+ * question, about several papers at once, wears General (`shownPlace`): the
+ * papers it is about are cited in its answer.
  *
  * **Shown once a chat crosses views.** A chat whose questions were all asked
  * with no view open is General throughout, and a `General` on every bubble
@@ -24,7 +26,7 @@
 import { useCallback } from 'react'
 import type { ChatMsg } from '../api'
 import { useAppDispatch, useAppSelector } from '../store'
-import { tagLabel, tagPapers } from '../store/chats'
+import { shownPlace, tagLabel } from '../store/chats'
 import { openTag } from '../store/workspace'
 
 /** The question whose tag was just clicked, for the panel to keep in view. */
@@ -57,20 +59,10 @@ export function takeTurnAnchor(chatKey: string): number | null {
   return Date.now() - at < ANCHOR_LIFE ? index : null
 }
 
-/** One paper a bridge question's tag names, and where its title goes. */
-export interface TagPaperLink {
-  title: string
-  /** Its cards; absent for a paper deleted since. */
-  onOpen?: () => void
-}
-
 /** What a question's bubble shows of its tag (`ChatMessage`'s props). */
 export interface TurnTagProps {
   tagLabel?: string
   onTagOpen?: () => void
-  /** A bridge question's papers (v9.0.0, stage 4c), each title a link of
-   *  its own: there's no one view to go to. */
-  tagPapers?: TagPaperLink[]
 }
 
 /**
@@ -90,11 +82,12 @@ export function useTurnTags(
 ): (message: ChatMsg, index: number) => TurnTagProps {
   const dispatch = useAppDispatch()
   const record = useAppSelector((state) => state.explorations.byId[state.explorations.activeId])
-  const crosses = chat.some((message) => !!message.tag)
+  // A chat of General and bridge questions alone reads as General throughout.
+  const crosses = chat.some((message) => !!shownPlace(message.tag))
   return useCallback(
     (message: ChatMsg, index: number) => {
       if (message.role !== 'user' || !crosses) return {}
-      const { tag } = message
+      const tag = shownPlace(message.tag)
       const go = (target: typeof tag) => () => {
         onLeave?.()
         anchorTurn(chatKey, index)
@@ -102,17 +95,6 @@ export function useTurnTags(
       }
       // A paper deleted since keeps its label but goes nowhere.
       const live = (threadId: string) => !!record?.threads.some((thread) => thread.id === threadId)
-      if (tag?.tool === 'across')
-        return {
-          tagLabel: tagLabel(record, tag),
-          tagPapers: tagPapers(tag).map((paper) => ({
-            title:
-              record?.threads.find((thread) => thread.id === paper.threadId)?.title ?? paper.title,
-            onOpen: live(paper.threadId)
-              ? go({ ...paper, tool: 'across', papers: tag.papers })
-              : undefined,
-          })),
-        }
       return {
         tagLabel: tagLabel(record, tag),
         onTagOpen: tag && !live(tag.threadId) ? undefined : go(tag),

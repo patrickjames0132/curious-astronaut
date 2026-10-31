@@ -103,11 +103,15 @@ describe('tags', () => {
     )
     expect(tagLabel({ threads: [] }, tag)).toBe('Attention › Knowledge Graph')
   })
-  it('name every paper a bridge question is about, and file them all as one place', () => {
+  // A bridge question keeps its papers on its tag, for asking it again across
+  // them, but reads as General: label and filter key alike (Patrick,
+  // 2026-10-30). Its answer cites the papers.
+  it('keep a bridge question’s papers, and read it as General', () => {
     const tag = acrossTag([paperThread('p', 'Attention'), paperThread('q', 'Soft Actor-Critic')])
     expect(tag).toMatchObject({ threadId: 'p', title: 'Attention', tool: 'across' })
-    expect(tagLabel({ threads: [paperThread('q', 'SAC')] }, tag)).toBe('Attention · SAC')
-    expect(tagKey(tag)).toBe(tagKey(acrossTag([paperThread('r', 'DQN'), paperThread('p', 'A')])))
+    expect(tag.papers?.map((paper) => paper.threadId)).toEqual(['p', 'q'])
+    expect(tagLabel({ threads: [paperThread('q', 'SAC')] }, tag)).toBe('General')
+    expect(tagKey(tag)).toBe(tagKey(undefined))
     expect(tagKey(tag)).not.toBe(tagKey(paperTag(paperThread('p', 'Attention'), 'reader')))
   })
 })

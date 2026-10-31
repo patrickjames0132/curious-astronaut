@@ -21,6 +21,7 @@ import type { ChatMsg, GraphResponse } from '../../src/api'
 import explorations, {
   explorationOpened,
   newExploration,
+  type ExplorationRecord,
   type ThreadRecord,
 } from '../../src/store/explorations'
 import highlight from '../../src/store/highlight'
@@ -145,9 +146,10 @@ describe('where a message is about (stage 4b)', () => {
 
   /** A chat on screen, in an exploration with the Atari paper and its data.
    * @param data The paper thread's saved data.
+   * @param adjust Change the exploration before it opens (more papers, turns).
    * @returns The store.
    */
-  function chatWith(data: ThreadRecord['data']) {
+  function chatWith(data: ThreadRecord['data'], adjust?: (record: ExplorationRecord) => void) {
     vi.spyOn(api, 'listSources').mockResolvedValue({ available: false, sources: [] })
     const store = configureStore({
       reducer: { workspace, transcript, explorations, highlight, library },
@@ -165,6 +167,7 @@ describe('where a message is about (stage 4b)', () => {
         title: 'Playing Atari',
       } as ThreadRecord['paper'],
     })
+    adjust?.(record)
     store.dispatch(explorationOpened(record))
     render(
       <Provider store={store}>
@@ -207,6 +210,42 @@ describe('where a message is about (stage 4b)', () => {
     await screen.findByText('From the chat.')
     expect(general).toHaveBeenCalledOnce()
     expect(place).toHaveBeenCalledOnce()
+  })
+
+  it('offers no way back when a bridge question reads as where it was typed', async () => {
+    // Typed in General and placed across two papers, it reads as General
+    // (`shownPlace`), so "Ask from General instead" would offer nothing. The
+    // chat has crossed views already (a question from the Reader), which is
+    // when tags, and the offer under them, show at all.
+    const store = chatWith({ chat: [], layout: 'force' }, (record) => {
+      record.threads[0].data.chat = [
+        {
+          role: 'user',
+          text: 'What is replay?',
+          tag: { threadId: 'atari', title: 'Playing Atari', tool: 'reader' },
+        },
+        { role: 'assistant', text: 'Reusing past transitions.' },
+      ]
+      record.threads.push({
+        id: 'sac',
+        title: 'Soft Actor-Critic',
+        identity: 's2:sac',
+        tool: 'cards',
+        data: { chat: [], layout: 'force' },
+        paper: { id: 'sac', title: 'Soft Actor-Critic' } as ThreadRecord['paper'],
+      })
+    })
+    vi.spyOn(api, 'routePlace').mockResolvedValue({ place: 'papers', papers: [1, 2] })
+    vi.spyOn(api, 'streamAcross').mockImplementation(async (_body, handlers) => {
+      handlers.onToken('They differ.')
+    })
+    ask('How does DQN compare with Soft Actor Critic?')
+    await screen.findByText('They differ.')
+    const asked = selectConversation(store.getState()).chat.at(-2)
+    expect(asked?.tag?.tool).toBe('across')
+    expect(asked?.placedFrom).toBe('general')
+    expect(screen.getByRole('button', { name: 'Playing Atari › Reader' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /instead/ })).toBeNull()
   })
 
   it('takes a lecture placed on another paper’s graph there, and gives it once built', async () => {

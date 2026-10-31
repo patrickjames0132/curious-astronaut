@@ -110,25 +110,18 @@ export function askAt(tag: TurnTag | undefined, request: AssistantQuestion) {
       const peers = (tag.papers ?? []).flatMap(
         (paper) => threads.find((item) => item.id === paper.threadId) ?? [],
       )
-      const key = selectChatKey(getState())
-      let numbered: string[] = []
+      // No graph refs: a bridge question has no graph, so its `[n]`s are the
+      // gold paper refs a search's are (`paper_refs`, sent for the peers and
+      // any paper an expand numbered past them), each opening its paper's
+      // thread. Resolved as graph refs they wore the blue spotlight chip,
+      // which promises a glow on a canvas that isn't there (Patrick).
       await dispatch(
         streamAnswer(
           tag,
           { ...request, provider: thread.data.provider ?? 's2' },
           async (body, handlers) => {
             const papers = await Promise.all(peers.map((peer) => paperOf(peer, dispatch)))
-            numbered = papers.map((paper) => paper.id)
             await streamAcross({ ...body, papers }, handlers)
-          },
-          {
-            // An expand numbers papers past the peers: kept for the `[n]`s, and
-            // put on no graph, since a bridge question has none.
-            onDiscovery: (discovery) => {
-              for (const node of discovery.nodes)
-                if (typeof node.idx === 'number' && node.idx >= 1) numbered[node.idx - 1] = node.id
-            },
-            onAnswered: (text) => dispatch(graphRefsSet(resolveGraphRefs(text, numbered), key)),
           },
         ),
       )
