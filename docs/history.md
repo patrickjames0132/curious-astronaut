@@ -5628,6 +5628,29 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Nova waves from the full-screen chat's margin** *(v9.7.0)* — Patrick
+      painted Nova waving and asked for it in the right margin of the
+      full-screen chat. **The cutout:** the painting is on white paper, so
+      `public/nova-wave.webp` is the paper flood-filled away from the border
+      to transparent, the edge pulled in 2px and the white fringe
+      un-premultiplied, which leaves one cut that sits on both themes with no
+      halo. **Placement** took five rounds in the browser. Nova appears only
+      once the chat has a conversation, since the empty landing already shows
+      the tractor-beam painting. He's centred in the gutter right of the
+      720px column, his feet 16px above the ask bar, and scales between 80px
+      and 36px with that gutter. The landing is a CSS size container, so the
+      gutter is measured from the landing's width, which the rail eats into,
+      not the viewport's. **Recorded so nobody repeats them:** (1) hiding Nova
+      under a 1180px landing meant a laptop window with the rail open never
+      showed him; (2) 200px, then 96px, loomed; (3) a column that narrowed to
+      make room for a fixed-size Nova was undone, since Nova is what gives;
+      (4) feet level with the bar's bottom let the bar clip him; (5) pinned
+      20px past the column, a narrow window pressed him into it; and (6)
+      centring alone, in a gutter narrower than his 36px floor, pushed him
+      half off the window, so he now stops 4px short of the right edge. The
+      source JPG stays out of the repo. *(Patrick's ask, 2026-10-31;
+      browser-tested and approved the same day.)*
+
 - [x] **A paper reopens where you left it** *(v9.4.0)* — Patrick,
       2026-10-30: clicking a paper in the sidebar reset it to its cards, so
       going back to a paper meant finding your place again. Now the **first
