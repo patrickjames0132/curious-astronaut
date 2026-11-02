@@ -151,18 +151,45 @@ export default function Tour({ steps, onClose, onStage }: TourProps) {
   // Measure the active step's target, polling briefly: a staged panel mounts
   // a beat after `onStage` asks for it, and a target that vanished mid-tour
   // gets the same grace window before its stop is dropped from the walk.
+  // Once found, the target is tracked every animation frame rather than on
+  // resize/scroll alone: on a fresh window the first-launch tour starts while
+  // the layout is still settling (web fonts swapping in, panels animating
+  // open), none of which fires an event, so a once-measured rect went stale
+  // and the spotlight sat beside its target.
   useEffect(() => {
     if (!stops || !step) return undefined
     let tries = 0
     let timer: number | undefined
+    let frame: number | undefined
+    let lastRect: DOMRect | null = null
     const maxTries = step.stage !== undefined ? STAGED_MEASURE_TRIES : MEASURE_TRIES
+    const track = (element: Element) => {
+      if (!element.isConnected || !isVisible(element)) {
+        // Gone from under the spotlight: back to polling, same grace window.
+        lastRect = null
+        attempt()
+        return
+      }
+      const rect = element.getBoundingClientRect()
+      if (
+        !lastRect ||
+        rect.top !== lastRect.top ||
+        rect.left !== lastRect.left ||
+        rect.width !== lastRect.width ||
+        rect.height !== lastRect.height
+      ) {
+        lastRect = rect
+        setTargetRect(rect)
+      }
+      frame = window.requestAnimationFrame(() => track(element))
+    }
     const attempt = () => {
       const element = document.querySelector(step.target)
       if (element && isVisible(element)) {
         // Bring a below-the-fold section (deep in a scrollable panel) into
-        // view first — the scroll fires this listener again, re-measuring.
+        // view first — once, on arrival, so it never fights the user's scroll.
         element.scrollIntoView?.({ block: 'nearest' })
-        setTargetRect(element.getBoundingClientRect())
+        track(element)
         return
       }
       setTargetRect(null)
@@ -176,13 +203,9 @@ export default function Tour({ steps, onClose, onStage }: TourProps) {
       setIndex((current) => Math.min(current, Math.max(stops.length - 2, 0)))
     }
     attempt()
-    window.addEventListener('resize', attempt)
-    // Capture-phase so scrolls inside panels (the teacher transcript) re-anchor too.
-    window.addEventListener('scroll', attempt, true)
     return () => {
       window.clearTimeout(timer)
-      window.removeEventListener('resize', attempt)
-      window.removeEventListener('scroll', attempt, true)
+      if (frame !== undefined) window.cancelAnimationFrame(frame)
     }
   }, [stops, step])
 

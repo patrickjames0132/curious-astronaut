@@ -546,7 +546,7 @@ just before the bar's rounded right end.
    back. With the sidebar collapsed, the **Explorations** bubble opens the
    expandable list of explorations, chats and papers in a compact modal. Select
    a thread to resume it; Escape or a click outside closes the list.
-7. **Lost?** Hit the header's **?** for a guided coach-mark tour — it auto-runs
+7. **Lost?** Hit **Help** (the **?** at the foot of the side rail) for a guided coach-mark tour — it auto-runs
    once on first launch (the search surface) and once more on your first graph
    (the graph tools), spotlighting one control at a time; the bubble's title
    doubles as a jump select that skips straight to whichever tip you came

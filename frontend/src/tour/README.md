@@ -123,7 +123,11 @@ seen — the auto-run never nags twice; re-runs are a deliberate click.
 
 The bubble prefers the target's right (the controls live top-left), falls back
 to the left, then below, and always clamps into the viewport; the spotlight
-re-measures on window resize and (capture-phase) scroll. If a step's target
+tracks its target every animation frame (only re-rendering when the rect
+actually moves), not just on resize and scroll — on a fresh window the
+first-launch tour starts while the layout is still settling (fonts swapping
+in, panels animating open), none of which fires an event, and a rect measured
+once left the spotlight beside its target. If a step's target
 disappears mid-tour — its panel was closed under the spotlight — the stop is
 dropped rather than pointing at nothing.
 

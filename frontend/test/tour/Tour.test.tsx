@@ -216,4 +216,17 @@ describe('Tour', () => {
     expect(screen.getByText('Fresh stop')).toBeTruthy()
     expect(screen.getByText('1 / 2')).toBeTruthy()
   })
+
+  it('the spotlight follows a target that moves without any resize or scroll', async () => {
+    renderTour()
+    const alpha = document.querySelector('[data-tour="alpha"]') as HTMLElement
+    let top = 100
+    // jsdom has no layout, so the target's rect is stubbed: a first-launch
+    // layout settling (fonts, an entrance animation) moves it and fires no event.
+    alpha.getBoundingClientRect = () => new DOMRect(40, top, 120, 30)
+    const spotlight = () => document.querySelector('.tour-spotlight') as HTMLElement | null
+    await waitFor(() => expect(spotlight()?.style.top).toBe('94px'))
+    top = 260
+    await waitFor(() => expect(spotlight()?.style.top).toBe('254px'))
+  })
 })

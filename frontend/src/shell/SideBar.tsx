@@ -483,7 +483,7 @@ export default function SideBar({
           <span className="rail-glyph" aria-hidden="true">
             ?
           </span>
-          {open && <span className="rail-label">Take the tour</span>}
+          {open && <span className="rail-label">Help</span>}
         </button>
       </div>
 
