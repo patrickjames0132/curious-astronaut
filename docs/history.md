@@ -2815,6 +2815,20 @@ now lives in the parent exploration; switching graphs resumes its own transcript
 
 ### Bring-your-own sources
 
+- [x] **A web-page source's citation opens the page** *(v9.8.2; Patrick,
+      2026-11-01)* — a citation of a source added by URL ("(Diffusion Models,
+      Explained Simply | Towards Data Science)") was grey text you couldn't
+      click. Citations linked only to a stored PDF, and a web page has none,
+      though the library had its address all along (`origin`). Now
+      `prompts.source_refs` looks the source up (`_source_url`) and, for a URL
+      source, adds its `url`. Only an http(s) address is kept, because it
+      becomes the link's `href`. `AnswerMarkdown` opens it in a new tab.
+      Answers saved before this stay unlinked: each turn kept its refs as they
+      were when written. The first build broke every such answer with
+      `extra_forbidden`: the streamed `events.SourceRef` forbids unknown
+      fields and hadn't been told about `url`. A test now wraps every ref
+      `source_refs` builds in that event, the way the orchestrators do.
+
 - [x] **Library citations open their source at the page** *(v8.51.0)* —
       a `[Sn, p.N]` citation in any chat answer (General, the Citation Graph,
       Knowledge Graph and Reader assistants, and lectures) now opens the

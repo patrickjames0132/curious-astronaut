@@ -276,7 +276,10 @@ a real title the moment it streams instead of showing raw until the answer
 lands. Each entry also carries `pdf`, whether the source has a stored PDF
 (`sources_store.pdf_path`), so the frontend can make the marker a link that
 opens it at the cited page (`/api/sources/<id>/pdf#page=N`, the route a
-lesson image's credit uses); a URL source has none and stays plain text.
+lesson image's credit uses). A URL source has no PDF, so its entry carries
+`url` instead: the address it was added from, looked up in the store
+(`_source_url`) and kept only if it's http(s), because it becomes the link's
+`href`.
 Both agents that show library passages use this: the researcher
 (`search_sources`) and the lecturer (intuition mode). `history(turns)`
 converts the routes layer's `[{role, content}]` turns into PydanticAI

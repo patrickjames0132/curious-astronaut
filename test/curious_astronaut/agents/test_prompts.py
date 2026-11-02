@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 from pydantic_ai.messages import ModelRequest, ModelResponse
 
-from curious_astronaut.agents import prompts
+from curious_astronaut.agents import events, prompts
 from curious_astronaut.services.graph import Node
 from curious_astronaut.services.sources import store as sources_store
 
@@ -205,6 +205,50 @@ def test_source_refs_flags_a_source_with_a_stored_pdf():
     refs = prompts.source_refs(prompts.source_order(_library_hits()), "")
     assert refs["1"]["pdf"] is True
     assert refs["2"]["pdf"] is False
+
+
+def _stored_source(source_id: str, kind: str, origin: str) -> None:
+    """Put a bare source row in the library (no chunks, so no embedding needed).
+
+    Args:
+        source_id: The row's id.
+        kind: ``"pdf"`` or ``"url"``.
+        origin: The filename or address it was added from.
+    """
+    with sources_store.connect() as conn:
+        conn.execute(
+            "INSERT INTO sources (id, title, kind, origin, pages, n_chunks) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (source_id, source_id, kind, origin, None, 0),
+        )
+
+
+def test_source_refs_link_a_url_source_to_its_page():
+    # A web page has no PDF to open; its citation opens the page itself.
+    _stored_source("src-web", "url", "https://example.org/diffusion")
+    _stored_source("src-dl", "pdf", "deep_learning.pdf")
+    refs = prompts.source_refs(prompts.source_order(_library_hits()), "")
+    assert refs["2"]["url"] == "https://example.org/diffusion"
+    assert "url" not in refs["1"]  # a PDF source's filename is no address
+
+
+def test_every_source_ref_fits_the_event_it_streams_in():
+    # The orchestrators wrap each ref as `events.SourceRef(**ref)`, which
+    # forbids unknown fields: a key added here must be added there too.
+    _stored_source("src-web", "url", "https://example.org/diffusion")
+    sources_store.pdf_path("src-dl").write_bytes(b"%PDF-1.4")
+    refs = prompts.source_refs(prompts.source_order(_library_hits()), "")
+    wrapped = {key: events.SourceRef(**ref) for key, ref in refs.items()}
+    assert wrapped["2"].url == "https://example.org/diffusion"
+    assert wrapped["1"].pdf is True
+
+
+@pytest.mark.parametrize("origin", ["javascript:alert(1)", "file:///etc/passwd", ""])
+def test_source_refs_link_only_a_web_address(origin):
+    # The address becomes a link's href: nothing but http(s) goes there.
+    _stored_source("src-web", "url", origin)
+    refs = prompts.source_refs(prompts.source_order(_library_hits()), "")
+    assert "url" not in refs["2"]
 
 
 def test_source_refs_with_no_text_maps_the_whole_library():
