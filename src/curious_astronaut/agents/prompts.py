@@ -321,22 +321,56 @@ def source_refs(sources: Sequence[dict], text: str) -> dict[str, dict]:
     Returns:
         ``{"3": {"source_id": ..., "title": ..., "pdf": ...}, ...}`` — keyed
         by the marker's index as a string, ``pdf`` true when the source has a
-        stored PDF a click can open. Out-of-range indices are dropped: a
-        hallucinated marker degrades to plain text, it never raises.
+        stored PDF a click can open. A web page has no PDF, so a URL source
+        carries its ``url`` instead, for the click to open (``_source_url``).
+        Out-of-range indices are dropped: a hallucinated marker degrades to
+        plain text, it never raises.
     """
     if text:
         wanted = {int(match.group(1)) for match in _SOURCE_MARKER.finditer(text)}
     else:
         wanted = set(range(1, len(sources) + 1))
-    return {
-        str(index): {
-            "source_id": sources[index - 1]["id"],
+    refs: dict[str, dict] = {}
+    for index in sorted(wanted):
+        if not 1 <= index <= len(sources):
+            continue
+        source_id = sources[index - 1]["id"]
+        ref = {
+            "source_id": source_id,
             "title": sources[index - 1]["title"],
-            "pdf": sources_store.pdf_path(sources[index - 1]["id"]).exists(),
+            "pdf": sources_store.pdf_path(source_id).exists(),
         }
-        for index in sorted(wanted)
-        if 1 <= index <= len(sources)
-    }
+        url = None if ref["pdf"] else _source_url(source_id)
+        if url:
+            ref["url"] = url
+        refs[str(index)] = ref
+    return refs
+
+
+def _source_url(source_id: str) -> str | None:
+    """The web address a URL source was added from, for its citation's link.
+
+    The library's citations opened only a stored PDF, so a source added by
+    URL — a blog post, a docs page — was cited as plain text with nowhere to
+    go. Its address is in the store (``origin``), but the sources reaching
+    ``source_refs`` are only ``{id, title}`` when they come from retrieval
+    (``source_order``), so it is looked up by id. Only an http(s) address is
+    returned: it becomes a link's ``href``, and nothing else belongs there.
+
+    Args:
+        source_id: The source's id.
+
+    Returns:
+        The URL, or None for a source that isn't a web page or isn't found.
+
+    Raises:
+        sqlite3.Error: On database failures.
+    """
+    record = sources_store.get_source(source_id)
+    if not record or record["kind"] != "url":
+        return None
+    origin = record["origin"] or ""
+    return origin if origin.startswith(("https://", "http://")) else None
 
 
 def history(turns: list[dict] | None) -> list[ModelMessage]:

@@ -509,7 +509,8 @@ just before the bar's rounded right end.
      to re-light them all. A claim drawn from **your own uploaded sources** is
      attributed with its real title and page, resolved server-side rather than
      written out by the model; when it's a PDF you uploaded, clicking the
-     citation opens it at that page in a new tab.
+     citation opens it at that page in a new tab, and when it's a web page you
+     added by URL, it opens that page.
      Underneath each answer, a line says what actually grounded it — which of
      your sources, which papers, how much of the web — computed from what the
      agent did, not from what it claims. When nothing grounded it, it says that too: Curious Astronaut grounds

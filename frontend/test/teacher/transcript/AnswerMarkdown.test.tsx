@@ -101,8 +101,17 @@ describe('AnswerMarkdown library citations', () => {
     expect(screen.getByRole('link').getAttribute('href')).toBe('/api/sources/src-rl/pdf')
   })
 
-  it('leaves a source with no stored PDF as plain text', () => {
-    // A URL source, or a save from before the flag: nothing to open.
+  it('links a URL source to its web page, in a new tab', () => {
+    const page = { '2': { ...SOURCE_REFS['2'], url: 'https://example.org/rl' } }
+    render(<AnswerMarkdown text="A note [S2]." sourceRefs={page} />)
+    const link = screen.getByRole('link', { name: '(Reinforcement Learning: An Introduction)' })
+    expect(link.getAttribute('href')).toBe('https://example.org/rl')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toBe('noreferrer')
+  })
+
+  it('leaves a source with no stored PDF and no web page as plain text', () => {
+    // An old upload, or a save from before the flags: nothing to open.
     render(<AnswerMarkdown text="Defined recursively [S2, p.460]." sourceRefs={SOURCE_REFS} />)
     expect(screen.queryByRole('link')).toBeNull()
   })

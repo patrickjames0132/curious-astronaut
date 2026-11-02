@@ -697,6 +697,10 @@ export interface SourceRef {
   /** It has a stored PDF, so the marker opens it at its page. Absent on
    *  saves from before the flag, which stay plain text. */
   pdf?: boolean
+  /** The web page a URL source was added from, which its marker opens
+   *  instead (a web page has no stored PDF). Absent for every other source,
+   *  and on saves from before it; null when the backend sends none. */
+  url?: string | null
 }
 
 /**

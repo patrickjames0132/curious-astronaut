@@ -100,8 +100,10 @@ transcript/
   `[Sn]` from `sourceRefs` (the real source title and page). A source with a
   stored PDF (`pdf` on its ref) is a link that opens it at that page in a new
   tab, `/api/sources/<id>/pdf#page=N`, the way a lesson image's credit opens
-  its book; one without (a URL source, or a save from before the flag) stays
-  quiet grey text. The spotlight and
+  its book. A URL source has no PDF, so its ref carries the `url` it was
+  added from, and the link opens that web page instead (`prompts.source_refs`
+  returns only http(s) addresses). One with neither (an old upload, or a save
+  from before the flags) stays quiet grey text. The spotlight and
   graph glyphs distinguish these actions; neither opens a paper modal.
   Unresolved markers retain their text. Whole-answer and beat clicks can still
   spotlight the associated papers.
