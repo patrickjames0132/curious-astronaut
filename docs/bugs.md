@@ -22,6 +22,22 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The tour's spotlight missed its target on a fresh window (v9.8.3)
+
+- **Symptom.** Opening the app in a fresh window, the first-launch tour's
+  highlight box sometimes sat offset from the control it described.
+- **Root cause.** `tour/Tour` measured the target's rect once and
+  re-measured only on `resize` and `scroll`. The auto-run tour mounts while
+  the page is still settling — web fonts swap in, panels animate open — and
+  none of that fires an event, so the rect went stale the moment layout
+  moved. A re-run from a settled page was always fine, which hid it.
+- **Fix.** The step's target is tracked every animation frame while the step
+  is up (`setTargetRect` only when the rect changes); `scrollIntoView` runs
+  once on arrival instead of on every scroll.
+- **Lesson / guard.** Anything anchored to another element's rect has to
+  follow layout, not events. `test/tour/Tour.test.tsx` moves a target with no
+  event at all and expects the spotlight to follow.
+
 ### A placed question lost its ✎ (v9.5.0)
 
 - **Symptom.** Once every question became editable, some still had no ✎:

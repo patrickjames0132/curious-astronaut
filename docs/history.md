@@ -5667,6 +5667,18 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **"Take the tour" is "Help"; the spotlight stays on its target**
+      *(v9.8.3)* — the rail's tour item now reads **Help** (same **?** glyph,
+      same tooltip). And on a fresh window the first-launch tour's highlight
+      box sometimes sat beside what it was pointing at: the tour measured its
+      target once and re-measured only on resize and scroll, while the page
+      was still settling (fonts swapping in, panels animating open), none of
+      which fires an event. `tour/Tour` now tracks the target every
+      animation frame while a step is up, re-rendering only when the rect
+      actually moves, and scrolls a target into view once on arrival rather
+      than on every scroll. Guarded by a test that moves the target with no
+      event at all. *(Patrick's ask, 2026-11-02.)*
+
 - [x] **Nova waves from the full-screen chat's margin** *(v9.7.0)* — Patrick
       painted Nova waving and asked for it in the right margin of the
       full-screen chat. **The cutout:** the painting is on white paper, so
