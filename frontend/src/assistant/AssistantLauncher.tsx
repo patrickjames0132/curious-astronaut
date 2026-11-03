@@ -9,10 +9,14 @@
  * of the find bars the views keep at the bottom right and of the graphs'
  * detail panels beside their canvas.
  *
- * **Still until you reach for it** (Patrick): the astronaut is a still frame,
- * and floats only while the pointer is over it; a click, or the pointer
- * leaving, stills it again. The still is the animation's first frame, so the
- * swap doesn't jump. With reduced motion asked for, it never floats.
+ * **Still until you reach for it** (Patrick): the astronaut is a still frame
+ * until the pointer is over it. Hovered, he turns to face you and bobs up and
+ * down for as long as the pointer stays; the pointer leaving, he finishes the
+ * drop he is in and turns back to rest (v9.9.0 — which frame follows which is
+ * `launcherFrames.ts`). An `<img>` can't be told to play part of an animation,
+ * so he is drawn from a sprite sheet, a frame at a time at the video's own
+ * rate. A click stills him at once. With reduced motion asked for, he never
+ * moves.
  *
  * **Draggable** (Patrick, back with the astronaut): drag it anywhere over the
  * view and it stays there, remembered across reloads and views; once moved,
@@ -26,11 +30,21 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import {
+  FRAME_MS,
+  REST,
+  SHEET,
+  SHEET_COLUMNS,
+  SHEET_ROWS,
+  framePosition,
+  nextFrame,
+} from './launcherFrames'
 
-/** The astronaut, still and floating (`public/`, cut from Patrick's animation). */
+/** The astronaut at rest (`public/`, the sprite sheet's first frame). */
 const STILL = '/astronaut-still.png'
-const FLOATING = '/astronaut.webp'
+/** Back from a hidden tab, he picks up where he was rather than racing to catch up. */
+const MAX_CATCH_UP_MS = 250
 /** Where it was dragged to, remembered. */
 const SPOT_KEY = 'ca.launcherSpot'
 /** How far a press must move before it is a drag rather than a click. */
@@ -85,7 +99,10 @@ function storeSpot(spot: Spot | null): void {
  * @returns The astronaut, and its way back to the corner once moved.
  */
 export default function AssistantLauncher({ onOpen }: { onOpen: () => void }) {
-  const [floating, setFloating] = useState(false)
+  const [frame, setFrame] = useState(REST)
+  const frameRef = useRef(REST)
+  const hovered = useRef(false)
+  const animation = useRef<number | null>(null)
   const [spot, setSpot] = useState<Spot | null>(storedSpot)
   const [dragging, setDragging] = useState(false)
   const press = useRef<{ startX: number; startY: number; from: Spot; moved: boolean } | null>(null)
@@ -94,6 +111,53 @@ export default function AssistantLauncher({ onOpen }: { onOpen: () => void }) {
   const stillOnly =
     typeof window !== 'undefined' &&
     !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+  // The sheet is fetched up front, so the first hover has it to hand.
+  useEffect(() => {
+    if (stillOnly) return
+    const sheet = new Image()
+    sheet.src = SHEET
+  }, [stillOnly])
+  // Gone mid-bob (the assistant opened), he stops with it.
+  useEffect(
+    () => () => {
+      if (animation.current !== null) cancelAnimationFrame(animation.current)
+    },
+    [],
+  )
+
+  /** Step through the frames until he comes to rest; a no-op while already stepping. */
+  const animate = () => {
+    if (stillOnly || animation.current !== null) return
+    let last: number | null = null
+    const tick = (now: number) => {
+      if (last === null || now - last > MAX_CATCH_UP_MS) last = now - FRAME_MS
+      let current = frameRef.current
+      let resting = false
+      while (now - last >= FRAME_MS) {
+        last += FRAME_MS
+        const next = nextFrame(current, hovered.current)
+        if (next === null) {
+          resting = true
+          break
+        }
+        current = next
+      }
+      frameRef.current = current
+      setFrame(current)
+      animation.current = resting ? null : requestAnimationFrame(tick)
+    }
+    animation.current = requestAnimationFrame(tick)
+  }
+
+  /** Back to rest at once, as a click asks. */
+  const still = () => {
+    if (animation.current !== null) cancelAnimationFrame(animation.current)
+    animation.current = null
+    hovered.current = false
+    frameRef.current = REST
+    setFrame(REST)
+  }
 
   const onPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return
@@ -123,6 +187,9 @@ export default function AssistantLauncher({ onOpen }: { onOpen: () => void }) {
     if (!pressed.moved && Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD) return
     pressed.moved = true
     setDragging(true)
+    // Carried about, he keeps bobbing.
+    hovered.current = true
+    animate()
     const bounds = canvas.getBoundingClientRect()
     const size = wrap.offsetWidth
     setSpot({
@@ -166,23 +233,35 @@ export default function AssistantLauncher({ onOpen }: { onOpen: () => void }) {
             dragged.current = false
             return
           }
-          setFloating(false)
+          still()
           onOpen()
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        onPointerEnter={() => setFloating(!stillOnly)}
-        onPointerLeave={() => setFloating(false)}
+        onPointerEnter={() => {
+          hovered.current = true
+          animate()
+        }}
+        onPointerLeave={() => {
+          hovered.current = false
+        }}
         title="Ask Nova"
         aria-label="Open Nova"
       >
-        <img
-          src={(floating || dragging) && !stillOnly ? FLOATING : STILL}
-          alt=""
-          draggable={false}
-        />
+        {frame === REST ? (
+          <img src={STILL} alt="" draggable={false} />
+        ) : (
+          <span
+            className="assistant-launcher-sprite"
+            style={{
+              backgroundImage: `url(${SHEET})`,
+              backgroundSize: `${SHEET_COLUMNS * 100}% ${SHEET_ROWS * 100}%`,
+              backgroundPosition: framePosition(frame),
+            }}
+          />
+        )}
       </button>
       {spot && !dragging && (
         <button
