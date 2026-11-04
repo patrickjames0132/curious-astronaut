@@ -215,11 +215,16 @@ reads and which tools it gets.
   skipped frames — the rigid settled pose stays.
 
   **A rest between bobs** (Patrick: give him a second after his bounces
-  finish). Once the rebound settles he holds still for `BOB_REST_MS` (1s)
-  before rising again. It is a longer *duration* on the bob's last frame
+  finish). Once the rebound settles he holds still for `BOB_REST_MS` (0.5s;
+  a full second, then 0.7s, were tried first and felt long) before rising again. It is a longer *duration* on the bob's last frame
   (`frameDuration`), not repeated frames on the sheet, and it applies only
   while hovered: a pointer leaving mid-rest turns him back at once. The
   first rise after he turns to face you stays immediate.
+
+  **Quicker turns** (Patrick). The turn to face you and the turn back play
+  `TURN_SPEED` (1.25×) faster than the video — about 0.4s each instead of
+  0.5s; 1.5× was tried and was a touch too quick — and so does a turn unwinding half way, since the speed belongs to
+  the turn's frames, not to a direction. The bob keeps the video's own rate.
 
   **Where the frames came from.** Patrick's generated video, re-cut from his
   cleaned-up second video (2026-11-02): its plain paper background keyed out

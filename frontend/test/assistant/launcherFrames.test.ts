@@ -15,6 +15,7 @@ import {
   BOB_REST_MS,
   FRAME_MS,
   REST,
+  TURN_SPEED,
   frameDuration,
   framePosition,
   nextFrame,
@@ -69,6 +70,13 @@ it('rests a second between bobs, but only while hovered', () => {
   expect(frameDuration(62, false)).toBe(FRAME_MS)
   expect(frameDuration(30, true)).toBe(FRAME_MS)
   expect(frameDuration(13, true)).toBe(FRAME_MS)
+})
+
+it('turns quicker than he bobs, either way round', () => {
+  for (const frame of [0, 6, 12, 63, 70, 75])
+    for (const hovered of [true, false])
+      expect(frameDuration(frame, hovered)).toBe(FRAME_MS / TURN_SPEED)
+  expect(frameDuration(30, false)).toBe(FRAME_MS)
 })
 
 it('places frames on the 8 × 10 sheet', () => {

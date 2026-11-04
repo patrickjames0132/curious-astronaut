@@ -21,9 +21,12 @@
  *   rising fastest, a damped spring takes over, so he whips past rest, swings
  *   back below it, wobbles once more and settles — his settled frame shifted
  *   along the spring's path. (Earlier tries, and why they went, are in the
- *   package README.) Settled, he **rests a second before rising again**
+ *   package README.) Settled, he **rests a moment before rising again**
  *   (Patrick) — held on the bob's last frame, and only while hovered, so a
  *   pointer leaving mid-rest turns him back at once.
+ *
+ * Both turns play `TURN_SPEED` (1.25×) faster than the video (Patrick), forwards
+ * or unwinding; the bob keeps the video's own rate.
  *   Its last frame is closer to its first than most neighbouring frames are
  *   to each other, so it loops without a seam.
  * - `63–75` the turn back, whose last frame is the resting pose again.
@@ -40,7 +43,9 @@ export const SHEET_ROWS = 10
 export const FRAME_MS = 1001 / 24
 
 /** How long he rests between bobs, once the rebound settles. */
-export const BOB_REST_MS = 1000
+export const BOB_REST_MS = 500
+/** The turns run quicker than the video (Patrick), either way round. */
+export const TURN_SPEED = 1.25
 
 /** The resting pose: the sheet's first frame, and the still. */
 export const REST = 0
@@ -79,7 +84,9 @@ export function nextFrame(frame: number, hovered: boolean): number | null {
  * @returns Its time on screen, in milliseconds.
  */
 export function frameDuration(frame: number, hovered: boolean): number {
-  return frame === BOB_END && hovered ? BOB_REST_MS : FRAME_MS
+  if (frame === BOB_END && hovered) return BOB_REST_MS
+  if (frame <= TURN_IN_END || frame > BOB_END) return FRAME_MS / TURN_SPEED
+  return FRAME_MS
 }
 
 /**
