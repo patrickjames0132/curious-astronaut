@@ -34,6 +34,7 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } fr
 import {
   FRAME_MS,
   REST,
+  frameDuration,
   SHEET,
   SHEET_COLUMNS,
   SHEET_ROWS,
@@ -131,11 +132,16 @@ export default function AssistantLauncher({ onOpen }: { onOpen: () => void }) {
     if (stillOnly || animation.current !== null) return
     let last: number | null = null
     const tick = (now: number) => {
-      if (last === null || now - last > MAX_CATCH_UP_MS) last = now - FRAME_MS
+      // The first tick steps straight away, so he moves the moment he's hovered.
+      if (last === null) last = now - FRAME_MS
       let current = frameRef.current
       let resting = false
-      while (now - last >= FRAME_MS) {
-        last += FRAME_MS
+      for (;;) {
+        // Frames don't all last the same: he rests between bobs.
+        const duration = frameDuration(current, hovered.current)
+        if (now - last < duration) break
+        if (now - last > duration + MAX_CATCH_UP_MS) last = now - duration
+        last += duration
         const next = nextFrame(current, hovered.current)
         if (next === null) {
           resting = true

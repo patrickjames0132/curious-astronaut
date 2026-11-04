@@ -11,7 +11,14 @@
  */
 
 import { expect, it } from 'vitest'
-import { REST, framePosition, nextFrame } from '../../src/assistant/launcherFrames'
+import {
+  BOB_REST_MS,
+  FRAME_MS,
+  REST,
+  frameDuration,
+  framePosition,
+  nextFrame,
+} from '../../src/assistant/launcherFrames'
 
 /**
  * Step from a frame for a while, hovered or not.
@@ -37,8 +44,8 @@ it('turns in, then bobs round and round while hovered', () => {
   const shown = run(REST, true, 80)
   expect(shown.slice(0, 13)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
   // The bob's last frame loops to its first, and it never turns back.
-  expect(shown[shown.indexOf(58) + 1]).toBe(13)
-  expect(Math.max(...shown)).toBe(58)
+  expect(shown[shown.indexOf(62) + 1]).toBe(13)
+  expect(Math.max(...shown)).toBe(62)
 })
 
 it('unwinds a turn let go of half way', () => {
@@ -48,18 +55,25 @@ it('unwinds a turn let go of half way', () => {
 it('finishes the drop, turns back and stops at rest once let go', () => {
   const shown = run(20, false, 80)
   expect(shown[0]).toBe(21)
-  expect(shown.at(-2)).toBe(71)
+  expect(shown.at(-2)).toBe(75)
   expect(shown.at(-1)).toBe(REST)
   expect(nextFrame(REST, false)).toBeNull()
 })
 
 it('runs a turn back hovered again in reverse, into the bob', () => {
-  expect(run(62, true, 6)).toEqual([61, 60, 59, 58, 13, 14])
+  expect(run(66, true, 6)).toEqual([65, 64, 63, 62, 13, 14])
 })
 
-it('places frames on the 8 × 9 sheet', () => {
+it('rests a second between bobs, but only while hovered', () => {
+  expect(frameDuration(62, true)).toBe(BOB_REST_MS)
+  expect(frameDuration(62, false)).toBe(FRAME_MS)
+  expect(frameDuration(30, true)).toBe(FRAME_MS)
+  expect(frameDuration(13, true)).toBe(FRAME_MS)
+})
+
+it('places frames on the 8 × 10 sheet', () => {
   expect(framePosition(0)).toBe('0% 0%')
   expect(framePosition(7)).toBe('100% 0%')
-  expect(framePosition(8)).toBe('0% 12.5%')
-  expect(framePosition(71)).toBe('100% 100%')
+  expect(framePosition(8)).toBe('0% 11.11111111111111%')
+  expect(framePosition(75)).toBe('42.857142857142854% 100%')
 })

@@ -13,6 +13,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import AssistantLauncher from '../../src/assistant/AssistantLauncher'
+import { framePosition } from '../../src/assistant/launcherFrames'
 
 afterEach(cleanup)
 beforeEach(() => {
@@ -42,6 +43,19 @@ it('moves while the pointer is over it, comes back to rest after leaving, and st
     // Long past the turn in, he is still going.
     act(() => vi.advanceTimersByTime(5000))
     expect(sprite()).not.toBeNull()
+    // Hovered, he holds the rest between bobs for a second, then rises again.
+    const resting = framePosition(62)
+    for (
+      let elapsed = 0;
+      elapsed < 6000 && sprite()?.style.backgroundPosition !== resting;
+      elapsed += 16
+    )
+      act(() => vi.advanceTimersByTime(16))
+    expect(sprite()?.style.backgroundPosition).toBe(resting)
+    act(() => vi.advanceTimersByTime(500))
+    expect(sprite()?.style.backgroundPosition).toBe(resting)
+    act(() => vi.advanceTimersByTime(600))
+    expect(sprite()?.style.backgroundPosition).not.toBe(resting)
     // Let go, he finishes the bob and turns back to rest.
     fireEvent.pointerLeave(button)
     act(() => vi.advanceTimersByTime(3000))

@@ -14,17 +14,19 @@
  *
  * - `0–12` the turn in. Frame 0 is the resting pose, the same picture as
  *   `public/astronaut-still.png`, so swapping still for sheet doesn't jump.
- * - `13–58` the bob: the rise, the video's half-second hang at the top (kept
+ * - `13–62` the bob: the rise, the video's half-second hang at the top (kept
  *   whole — Patrick tried it cut to a beat and preferred the pause), the drop
- *   and its dip below rest, then a rebound (Patrick asked for more bounce at
- *   the bottom): springing back, his momentum carries him a little *above*
- *   rest before he settles — his settled frame lifted along a damped arc,
- *   each step slower than the last. (Replaying the dip's frames backwards
- *   for a second dip was tried first: reversing straight back down read as a
- *   stutter step, not a bounce.)
+ *   and its dip below rest, then a rebound (Patrick asked for more bounce and
+ *   momentum at the bottom): from the frame where the video's spring-back is
+ *   rising fastest, a damped spring takes over, so he whips past rest, swings
+ *   back below it, wobbles once more and settles — his settled frame shifted
+ *   along the spring's path. (Earlier tries, and why they went, are in the
+ *   package README.) Settled, he **rests a second before rising again**
+ *   (Patrick) — held on the bob's last frame, and only while hovered, so a
+ *   pointer leaving mid-rest turns him back at once.
  *   Its last frame is closer to its first than most neighbouring frames are
  *   to each other, so it loops without a seam.
- * - `59–71` the turn back, whose last frame is the resting pose again.
+ * - `63–75` the turn back, whose last frame is the resting pose again.
  *
  * Authors:
  * Charles Patrick James <charles.patrick.james@gmail.com>
@@ -33,16 +35,19 @@
 /** The sprite sheet, and how it is laid out: 192px frames, left to right, top to bottom. */
 export const SHEET = '/astronaut-frames.webp'
 export const SHEET_COLUMNS = 8
-export const SHEET_ROWS = 9
+export const SHEET_ROWS = 10
 /** The video's own rate, 23.976 frames a second. */
 export const FRAME_MS = 1001 / 24
+
+/** How long he rests between bobs, once the rebound settles. */
+export const BOB_REST_MS = 1000
 
 /** The resting pose: the sheet's first frame, and the still. */
 export const REST = 0
 const TURN_IN_END = 12
 const BOB_START = 13
-const BOB_END = 58
-const TURN_BACK_END = 71
+const BOB_END = 62
+const TURN_BACK_END = 75
 
 /**
  * The frame after this one.
@@ -64,6 +69,17 @@ export function nextFrame(frame: number, hovered: boolean): number | null {
   if (frame <= TURN_IN_END) return frame - 1
   if (frame < TURN_BACK_END) return frame + 1
   return REST
+}
+
+/**
+ * How long a frame stays up before the next.
+ *
+ * @param frame The frame showing now.
+ * @param hovered Whether the pointer is (still) over him.
+ * @returns Its time on screen, in milliseconds.
+ */
+export function frameDuration(frame: number, hovered: boolean): number {
+  return frame === BOB_END && hovered ? BOB_REST_MS : FRAME_MS
 }
 
 /**

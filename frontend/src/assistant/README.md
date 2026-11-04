@@ -188,27 +188,38 @@ reads and which tools it gets.
 
   **Why a sprite sheet.** An `<img>` plays an animated WebP start to finish
   and can't be told to hold a stretch or stop part way, so the frames are one
-  sheet (`public/astronaut-frames.webp`, 72 frames of 192px, 8 × 9) and the
+  sheet (`public/astronaut-frames.webp`, 76 frames of 192px, 8 × 10) and the
   launcher paints one at a time as a `background-position`, at the video's own
   23.976 fps. `launcherFrames.ts` is the whole choreography — a pure
   `nextFrame(frame, hovered)` over three runs laid end to end: the turn in
-  (0–12), the bob (13–56: the rise, the half-second hang at the top, the
-  drop and its dip below rest, then a rebound), the turn back (59–71, ending
+  (0–12), the bob (13–62: the rise, the half-second hang at the top, the
+  drop and its dip below rest, then a rebound), the turn back (63–75, ending
   on the resting pose).
 
-  **The rebound** (Patrick wanted more bounce at the bottom). Springing back
-  from the dip, his momentum carries him a little *above* rest before he
-  settles: eleven frames of his settled frame lifted along a damped arc (9px
-  of the 192 at the peak against the dip's 17 — first 6px, which Patrick
-  found a little small), each step up slower than the
-  last, continuing the speed he was already rising at — lifted at full
-  resolution before scaling, so the motion isn't steppy. No new drawing was
-  needed. Replaying the dip's own frames backwards for a second, smaller dip
-  was tried first and read as a stutter step: reversing straight back down
-  throws away the momentum the spring-back built. The bob loops without a seam because its last frame is closer to its
-  first than most neighbouring frames are to each other (measured, not
-  eyeballed). The still is the sheet's first frame, so swapping one for the
-  other doesn't jump; the sheet is fetched on mount so the first hover has it.
+  **The rebound** (Patrick wanted more bounce and momentum at the bottom).
+  From frame 56 of the video — the instant its spring-back is rising
+  fastest, 42px a frame at full resolution — a simulated damped spring takes
+  over (ω 0.55 rad/frame, ζ 0.3, its swing scaled 1.25×), so his momentum
+  whips him about 11px (of the 192) above rest in two frames, swings him 4px
+  back below, wobbles once more and settles, all in about ¾ s; its tail is
+  cut where the motion drops under a pixel on screen. The frames are his
+  settled pose (frame 58) shifted along that path at full resolution before
+  scaling, so the motion isn't steppy. No new drawing was needed. Three tries
+  came first and are worth not repeating: replaying the dip's own frames
+  backwards for a second dip read as a stutter step (reversing straight
+  back down throws away the momentum the spring-back built), and a gentle
+  lift that began only after the video had slowed him to rest read as
+  floaty (the momentum had already died at the handoff). And borrowing the
+  video's arm poses for the rebound (arms winging up and drooping with the
+  spring's acceleration) looked jumpy, the borrowed frames reading as
+  skipped frames — the rigid settled pose stays.
+
+  **A rest between bobs** (Patrick: give him a second after his bounces
+  finish). Once the rebound settles he holds still for `BOB_REST_MS` (1s)
+  before rising again. It is a longer *duration* on the bob's last frame
+  (`frameDuration`), not repeated frames on the sheet, and it applies only
+  while hovered: a pointer leaving mid-rest turns him back at once. The
+  first rise after he turns to face you stays immediate.
 
   **Where the frames came from.** Patrick's generated video, re-cut from his
   cleaned-up second video (2026-11-02): its plain paper background keyed out
