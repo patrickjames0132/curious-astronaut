@@ -10,9 +10,10 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import AssistantLauncher from '../../src/assistant/AssistantLauncher'
+import { BOB_REST_MS, framePosition } from '../../src/assistant/launcherFrames'
 
 afterEach(cleanup)
 beforeEach(() => {
@@ -28,18 +29,47 @@ it('opens the assistant on a click', () => {
   expect(onOpen).toHaveBeenCalledOnce()
 })
 
-it('floats while the pointer is over it, and stills on leaving or a click', () => {
-  const { container } = render(<AssistantLauncher onOpen={() => {}} />)
-  const button = screen.getByRole('button', { name: 'Open Nova' })
-  const image = () => container.querySelector('img')?.getAttribute('src')
-  expect(image()).toBe('/astronaut-still.png')
-  fireEvent.pointerEnter(button)
-  expect(image()).toBe('/astronaut.webp')
-  fireEvent.pointerLeave(button)
-  expect(image()).toBe('/astronaut-still.png')
-  fireEvent.pointerEnter(button)
-  fireEvent.click(button)
-  expect(image()).toBe('/astronaut-still.png')
+it('moves while the pointer is over it, comes back to rest after leaving, and stills on a click', () => {
+  vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+  try {
+    const { container } = render(<AssistantLauncher onOpen={() => {}} />)
+    const button = screen.getByRole('button', { name: 'Open Nova' })
+    const still = () => container.querySelector('img')?.getAttribute('src')
+    const sprite = () => container.querySelector<HTMLElement>('.assistant-launcher-sprite')
+    expect(still()).toBe('/astronaut-still.png')
+    fireEvent.pointerEnter(button)
+    act(() => vi.advanceTimersByTime(300))
+    expect(sprite()?.style.backgroundImage).toContain('/astronaut-frames.webp')
+    // Long past the turn in, he is still going.
+    act(() => vi.advanceTimersByTime(5000))
+    expect(sprite()).not.toBeNull()
+    // Hovered, he holds the rest between bobs, then rises again — caught on
+    // the rest's first frame, not part way through one.
+    const resting = framePosition(62)
+    const until = (done: () => boolean) => {
+      for (let elapsed = 0; elapsed < 6000 && !done(); elapsed += 16)
+        act(() => vi.advanceTimersByTime(16))
+    }
+    until(() => sprite()?.style.backgroundPosition !== resting)
+    until(() => sprite()?.style.backgroundPosition === resting)
+    expect(sprite()?.style.backgroundPosition).toBe(resting)
+    act(() => vi.advanceTimersByTime(BOB_REST_MS / 2))
+    expect(sprite()?.style.backgroundPosition).toBe(resting)
+    act(() => vi.advanceTimersByTime(BOB_REST_MS))
+    expect(sprite()?.style.backgroundPosition).not.toBe(resting)
+    // Let go, he finishes the bob and turns back to rest.
+    fireEvent.pointerLeave(button)
+    act(() => vi.advanceTimersByTime(3000))
+    expect(sprite()).toBeNull()
+    expect(still()).toBe('/astronaut-still.png')
+    // A click stills him at once.
+    fireEvent.pointerEnter(button)
+    act(() => vi.advanceTimersByTime(300))
+    fireEvent.click(button)
+    expect(sprite()).toBeNull()
+  } finally {
+    vi.useRealTimers()
+  }
 })
 
 /**

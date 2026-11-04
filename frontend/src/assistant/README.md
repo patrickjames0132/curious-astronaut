@@ -40,6 +40,8 @@ assistant/
                         it only once talked in (v9.3.0, `chatDeletable`)
   AssistantLauncher.tsx — the astronaut, top-right until dragged of the view's canvas: opens it
                         while closed (v9.0.0)
+  launcherFrames.ts     — his sprite sheet, and which frame follows which:
+                        turn in, bob while hovered, turn back (v9.9.0)
 ```
 
 The views' own layers are thin:
@@ -170,18 +172,70 @@ reads and which tools it gets.
   left (`ca.launcherSpot`, its distance from the canvas's top-right corner,
   clamped by the stylesheet so a smaller canvas never loses it), and a ↺ on
   hover puts it back. A press that moves under 4px is still a click.
-- **The astronaut floats only when reached for** (Patrick). The launcher is
+- **The astronaut moves only when reached for** (Patrick). The launcher is
   the project's astronaut, 96px and free of a box: a still frame
-  (`public/astronaut-still.png`) until the pointer is over it, when it
-  swaps to the animation (`public/astronaut.webp`); a click or the pointer
-  leaving stills it again, and reduced motion keeps it still. On the light
-  page it wears a thin ink outline and a firmer shadow, or its pale suit
-  fades into the white (Patrick, over a painted disc behind it). Both were cut
-  from Patrick's generated video (its painted background removed frame by
-  frame, the tether trimmed), the still being the animation's first frame
-  so the swap doesn't jump. It moves the moment it is hovered (Patrick): the
-  video's still opening and long rests are cut to a beat, its doubled
-  frames dropped, and the motion runs 1.5× the video's speed (a 3.3s loop).
+  (`public/astronaut-still.png`) until the pointer is over it. Hovered, he
+  turns to face you and **bobs up and down for as long as the pointer
+  stays**, hanging half a second at the top of each rise as the video does
+  (Patrick tried the hang cut to a beat and preferred the pause); the pointer leaving, he finishes the drop he is in and turns back
+  to rest (v9.9.0, Patrick — until then a WebP played the whole loop through
+  and snapped back to the still on leaving). A turn let go of half way
+  unwinds from where it got to, and a turn back hovered again runs back into
+  the bob, so a change of mind never jumps a frame. A click stills him at
+  once, and reduced motion keeps him still. On the light page he wears a thin
+  ink outline and a firmer shadow, or his pale suit fades into the white
+  (Patrick, over a painted disc behind it).
+
+  **Why a sprite sheet.** An `<img>` plays an animated WebP start to finish
+  and can't be told to hold a stretch or stop part way, so the frames are one
+  sheet (`public/astronaut-frames.webp`, 76 frames of 192px, 8 × 10) and the
+  launcher paints one at a time as a `background-position`, at the video's own
+  23.976 fps. `launcherFrames.ts` is the whole choreography — a pure
+  `nextFrame(frame, hovered)` over three runs laid end to end: the turn in
+  (0–12), the bob (13–62: the rise, the half-second hang at the top, the
+  drop and its dip below rest, then a rebound), the turn back (63–75, ending
+  on the resting pose).
+
+  **The rebound** (Patrick wanted more bounce and momentum at the bottom).
+  From frame 56 of the video — the instant its spring-back is rising
+  fastest, 42px a frame at full resolution — a simulated damped spring takes
+  over (ω 0.55 rad/frame, ζ 0.3, its swing scaled 1.25×), so his momentum
+  whips him about 11px (of the 192) above rest in two frames, swings him 4px
+  back below, wobbles once more and settles, all in about ¾ s; its tail is
+  cut where the motion drops under a pixel on screen. The frames are his
+  settled pose (frame 58) shifted along that path at full resolution before
+  scaling, so the motion isn't steppy. No new drawing was needed. Three tries
+  came first and are worth not repeating: replaying the dip's own frames
+  backwards for a second dip read as a stutter step (reversing straight
+  back down throws away the momentum the spring-back built), and a gentle
+  lift that began only after the video had slowed him to rest read as
+  floaty (the momentum had already died at the handoff). And borrowing the
+  video's arm poses for the rebound (arms winging up and drooping with the
+  spring's acceleration) looked jumpy, the borrowed frames reading as
+  skipped frames — the rigid settled pose stays.
+
+  **A rest between bobs** (Patrick: give him a second after his bounces
+  finish). Once the rebound settles he holds still for `BOB_REST_MS` (0.5s;
+  a full second, then 0.7s, were tried first and felt long) before rising again. It is a longer *duration* on the bob's last frame
+  (`frameDuration`), not repeated frames on the sheet, and it applies only
+  while hovered: a pointer leaving mid-rest turns him back at once. The
+  first rise after he turns to face you stays immediate.
+
+  **Quicker turns** (Patrick). The turn to face you and the turn back play
+  `TURN_SPEED` (1.25×) faster than the video — about 0.4s each instead of
+  0.5s; 1.5× was tried and was a touch too quick — and so does a turn unwinding half way, since the speed belongs to
+  the turn's frames, not to a direction. The bob keeps the video's own rate.
+
+  **Where the frames came from.** Patrick's generated video, re-cut from his
+  cleaned-up second video (2026-11-02): its plain paper background keyed out
+  frame by frame — a flood from the edges that stops at his ink outline, a
+  soft edge with the paper's white unmixed so no halo shows on the dark page;
+  his orange eyes and mouth shifted 15° of hue to gold (Patrick); the
+  constellation line in his visor lightened from a crisp cyan to the pale sky
+  blue it is in the landing painting and `nova-wave.webp`, with a soft glow
+  screened over the dark visor only, so it never spills onto the helmet's rim
+  (Patrick) — then scaled so his whole range of motion fills the 192px
+  height. Only the video's still opening is cut.
 
 ## One question, three places (worked example)
 
@@ -242,7 +296,8 @@ supersedes the other engine's answer in the same chat;
 `test/teacher/transcript/ChatMessage.test.tsx` the tag on the bubble; and
 `test/store/chats.test.ts` and `test/store/threads.test.ts` the dock's chat,
 listing, saving and where a tag goes; `test/assistant/AssistantLauncher.test.tsx`
-that the astronaut opens it; and
+that the astronaut opens it and bobs until let go,
+`test/assistant/launcherFrames.test.ts` his frame order; and
 `test/App.test.tsx` one assistant beside every view, docked right or bottom.
 
 Quick response stamps `ChatMsg.quickResponse` when the replacement turn starts,

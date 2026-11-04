@@ -485,17 +485,25 @@
   color: var(--text-strong);
 }
 /* The astronaut stands free of a box (Patrick): a soft shadow lifts it off
-   whatever the canvas shows behind it. */
-.assistant-launcher img {
+   whatever the canvas shows behind it. Moving, he is a frame of the sprite
+   sheet, painted as this span's background (the component sets which), so
+   the still and the sheet wear the same shadow and edge. */
+.assistant-launcher img,
+.assistant-launcher-sprite {
   width: var(--launcher-size);
   height: var(--launcher-size);
   filter: drop-shadow(0 3px 6px var(--shadow));
   pointer-events: none;
 }
+.assistant-launcher-sprite {
+  display: block;
+  background-repeat: no-repeat;
+}
 /* On the light page the pale astronaut fades into white, so it gets a thin
    ink edge and a firmer shadow there (Patrick picked it over a disc behind
    it); dark mode keeps the soft shadow alone. */
-:root[data-theme='light'] .assistant-launcher img {
+:root[data-theme='light'] .assistant-launcher img,
+:root[data-theme='light'] .assistant-launcher-sprite {
   filter: drop-shadow(0 0 0.6px rgba(11, 21, 36, 0.85)) drop-shadow(0 0 0.6px rgba(11, 21, 36, 0.6))
     drop-shadow(0 3px 5px rgba(11, 21, 36, 0.25));
 }
