@@ -5667,6 +5667,35 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **Nova turns to you and bobs while hovered** *(v9.9.0; Patrick,
+      2026-11-01–03)* — the launcher astronaut is **re-cut from Patrick's
+      cleaned-up second video**: its paper background keyed out frame by
+      frame (a flood that stops at his ink outline, the paper's white unmixed
+      from the soft edge so no halo shows on the dark page), his orange eyes
+      and mouth shifted 15° of hue to **gold**, and the visor's constellation
+      line lightened to the **pale sky blue with a soft glow** it has in the
+      landing painting and `nova-wave.webp`, the glow kept inside the visor.
+      (Adding his life-support pack with Runway was tried first and dropped:
+      it wouldn't come out the way Patrick wanted.) **The motion:** hovered,
+      he turns to face you and **bobs for as long as the pointer stays** —
+      the rise, the video's half-second hang at the top, the drop and its
+      dip, a spring rebound, then a 0.5s rest before the next rise; let go,
+      he finishes the drop he is in and turns back. A turn let go of half way
+      unwinds and a turn back hovered again runs back into the bob, so no
+      change of mind jumps a frame; both turns run 1.25× the video. **Why a
+      sprite sheet:** an `<img>` can't hold or loop part of an animated WebP,
+      so `astronaut.webp` gave way to `astronaut-frames.webp` (76 frames,
+      8 × 10) painted a frame at a time, with the choreography in
+      `assistant/launcherFrames.ts` — a pure `nextFrame` plus a
+      `frameDuration` for the rest and the quicker turns. **The rebound** is
+      a simulated damped spring that takes over at the instant the video's
+      spring-back rises fastest, so his momentum carries him past rest; his
+      settled pose is shifted along its path. **Recorded so nobody repeats
+      them** (all in `assistant/README.md`): replaying the dip's frames
+      backwards read as a stutter step; a gentle lift begun after the video
+      had slowed him to rest read as floaty; and borrowing the video's arm
+      poses so his arms bounce too looked like skipped frames.
+
 - [x] **"Take the tour" is "Help"; the spotlight stays on its target**
       *(v9.8.3)* — the rail's tour item now reads **Help** (same **?** glyph,
       same tooltip). And on a fresh window the first-launch tour's highlight
