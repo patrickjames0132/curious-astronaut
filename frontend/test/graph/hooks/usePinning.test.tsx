@@ -27,6 +27,7 @@ function makeBase(nodes: VNode[]): Base {
     nodes,
     links: [],
     minYear: 2018,
+    yearOrigin: 2018,
     maxYear: 2026,
     counts: {},
     minCitations: 0,

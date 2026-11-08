@@ -22,6 +22,25 @@ recur with the next data release, and its workaround must survive future cleanup
 
 ## Ours
 
+### The Timeline slid against its years after an expansion (v9.10.1)
+
+- **Symptom.** Sometimes, after expanding a paper in Timeline, the whole
+  graph sat decades off its axis: a 2020 seed drawn over 1994–95, the year
+  labels no longer under the papers they named.
+- **Root cause.** A paper's x was `(year − base.minYear) × YEAR_SPACING`,
+  and `minYear` is also the axis's left end. `useDiscovery` lowers
+  `base.minYear` in place when an expansion brings in a paper older than
+  anything on the graph, so the axis redrew from the new origin, but every
+  paper already pinned to its year kept the x it was given under the old one.
+  It took a hop reaching further back than the graph already did, which is
+  why it was only sometimes.
+- **Fix.** `Base.yearOrigin`, the build's earliest year, fixed for the life
+  of the graph; `nodeTimelineX` and the axis measure from it, and widening
+  `minYear` now only extends the axis leftward (`graph/hooks/useTimeline.ts`).
+- **Lesson / guard.** A coordinate origin must not share a field with a
+  range that grows. `test/graph/hooks/useTimeline.test.tsx` lowers `minYear`
+  the way a discovery does and expects every x to stay put.
+
 ### The tour's spotlight missed its target on a fresh window (v9.8.3)
 
 - **Symptom.** Opening the app in a fresh window, the first-launch tour's

@@ -237,11 +237,13 @@ export default function GraphExplorer({
       .map((node) => node.citation_count ?? 0)
     const minCitations = neighborCitations.length ? Math.min(...neighborCitations) : 0
     const maxCitations = neighborCitations.length ? Math.max(...neighborCitations) : 0
+    const minYear = years.length ? Math.min(...years) : 0
     return {
       nodes,
       links,
-      minYear: years.length ? Math.min(...years) : 0,
+      minYear,
       maxYear: years.length ? Math.max(...years) : 0,
+      yearOrigin: minYear,
       counts,
       minCitations,
       maxCitations,

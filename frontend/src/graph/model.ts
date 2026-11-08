@@ -88,6 +88,13 @@ export type Base = {
   links: VLink[]
   minYear: number
   maxYear: number
+  /**
+   * The year Timeline's x is measured from: the build's earliest, fixed for
+   * the life of the graph. Not `minYear`, which an older discovery lowers in
+   * place: measured from that, the axis moved and every paper already pinned
+   * to its year stayed put, sliding the whole graph against its years.
+   */
+  yearOrigin: number
   counts: Record<string, number>
   minCitations: number
   maxCitations: number

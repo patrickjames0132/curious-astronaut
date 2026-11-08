@@ -43,6 +43,7 @@ function base(nodes: VNode[]): Base {
     nodes,
     links: [],
     minYear: 2018,
+    yearOrigin: 2018,
     maxYear: 2026,
     counts: {},
     minCitations: 0,
@@ -82,6 +83,29 @@ describe('nodeTimelineX', () => {
   it('puts a paper with a year but no month on its year’s gridline', () => {
     const place = timelineX([node('seed', 2020, 3, true)])
     expect(place({ year: 2022, month: null })).toBe(4 * YEAR_SPACING)
+  })
+
+  it('keeps its origin when an older discovery widens the year range', () => {
+    // The regression (2026-11-07): an expansion reaching further back lowered
+    // `minYear`, x was measured from it, and the papers already pinned to
+    // their years slid against the redrawn axis.
+    const graph = base([node('seed', 2020, 3, true)])
+    const { result } = renderHook(() =>
+      useTimeline({
+        base: graph,
+        layout: 'timeline',
+        connected: false,
+        fgRef: { current: null },
+        size: { width: 800, height: 600 },
+        fitDone: { current: false },
+        yearLo: 2018,
+        yearHi: 2026,
+      }),
+    )
+    const before = result.current.nodeTimelineX({ year: 2021, month: 1 })
+    graph.minYear = 1995 // what useDiscovery does for a 1995 discovery
+    expect(result.current.nodeTimelineX({ year: 2021, month: 1 })).toBe(before)
+    expect(result.current.nodeTimelineX({ year: 1995, month: 1 })).toBe(-23 * YEAR_SPACING)
   })
 
   it('does not park an undated paper on the seed’s column', () => {

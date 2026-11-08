@@ -63,6 +63,7 @@ function makeWorld(seedId: string) {
     nodes: [seed, neighbor],
     links: [],
     minYear: 2019,
+    yearOrigin: 2019,
     maxYear: 2021,
     counts: { reference: 0, citation: 1 },
     minCitations: 0,
