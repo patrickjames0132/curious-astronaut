@@ -502,6 +502,32 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.reader-cite-card-tldr.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+/* "Show more" under a TL;DR cut short: the author list's disclosure, in
+   the card's own size (Patrick, 2026-11-07). */
+.reader-cite-card-more {
+  display: block;
+  margin: -2px 0 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.reader-cite-card-more:hover {
+  color: var(--text-strong);
+}
+.reader-cite-card-more:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
 .reader-cite-card-entry {
   overflow-wrap: anywhere;
 }
@@ -717,15 +743,26 @@
   padding: 4px 8px;
   border-radius: 8px;
 }
-/* A citation's jump lands here; mark where it landed. */
+/* A citation's jump lands here; mark where it landed, in the citations'
+   blue, as the card that sent it is (Patrick, 2026-11-07: it was the
+   Reader's red). */
 .reader-references li:target,
 .reader-references li.landed {
-  background: color-mix(in srgb, var(--reader-ink) 14%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+/* Each entry opens its citation card, as a citation in the text does: the
+   label is the citation's accent, the whole entry the click. */
+.reader-references li.reader-reference {
+  cursor: pointer;
+  transition: background-color var(--motion-pop) ease;
+}
+.reader-references li.reader-reference:hover {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 .reader-reference-label {
   flex: none;
+  align-self: flex-start;
   min-width: 3ch;
-  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 .reader-credit {

@@ -15,7 +15,7 @@
  * Charles Patrick James <charles.patrick.james@gmail.com>
  */
 
-import type { CSSProperties } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { PaperDetails, ReaderBibEntry } from '../api'
 import MathText from '../notation/MathText'
 import { plainText } from './links'
@@ -37,6 +37,42 @@ export interface CitationActions {
 }
 
 /**
+ * The cited paper's TL;DR, cut to four lines, with a "Show more" to read the
+ * rest when there is more (measured, so a short one gets no button).
+ *
+ * @param props Component props.
+ * @param props.text The TL;DR.
+ * @returns The TL;DR and, when it was cut, its toggle.
+ */
+function Tldr({ text }: { text: string }) {
+  const textRef = useRef<HTMLParagraphElement>(null)
+  const [cut, setCut] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  useLayoutEffect(() => {
+    const element = textRef.current
+    if (element && !expanded) setCut(element.scrollHeight > element.clientHeight + 1)
+  }, [text, expanded])
+  return (
+    <>
+      <p ref={textRef} className={`reader-cite-card-tldr${expanded ? ' expanded' : ''}`}>
+        <MathText>{text}</MathText>
+      </p>
+      {cut && (
+        <button
+          type="button"
+          className="reader-cite-card-more"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? 'Show less' : 'Show more'}{' '}
+          <span aria-hidden="true">{expanded ? '▴' : '▾'}</span>
+        </button>
+      )}
+    </>
+  )
+}
+
+/**
  * The card.
  *
  * @param props Component props.
@@ -47,6 +83,8 @@ export interface CitationActions {
  * @param props.inGraph Whether the paper is on this thread's Citation Graph:
  *   null when there's no graph yet (showing it builds one).
  * @param props.pinned Whether a click pinned it (it then has a close).
+ * @param props.inList Whether it was opened from the reference list itself,
+ *   where "Reference ↓" would go nowhere, so it's left out.
  * @param props.placement Where it sits.
  * @param props.actions What its buttons do.
  * @param props.onClose Close it.
@@ -61,6 +99,7 @@ export default function CitationCard({
   provider,
   inGraph,
   pinned,
+  inList = false,
   placement,
   actions,
   onClose,
@@ -73,6 +112,7 @@ export default function CitationCard({
   provider: string
   inGraph: boolean | null
   pinned: boolean
+  inList?: boolean
   placement: CardPlacement
   actions: CitationActions
   onClose: () => void
@@ -115,11 +155,7 @@ export default function CitationCard({
               {paper.citation_count === 1 ? '' : 's'}
             </p>
           )}
-          {paper.tldr && (
-            <p className="reader-cite-card-tldr">
-              <MathText>{paper.tldr}</MathText>
-            </p>
-          )}
+          {paper.tldr && <Tldr key={paper.id} text={paper.tldr} />}
         </>
       ) : (
         <>
@@ -162,13 +198,15 @@ export default function CitationCard({
             </button>
           </>
         )}
-        <button
-          type="button"
-          onClick={() => actions.goToReference(entry.id)}
-          title="Go to it in this paper’s reference list"
-        >
-          Reference ↓
-        </button>
+        {!inList && (
+          <button
+            type="button"
+            onClick={() => actions.goToReference(entry.id)}
+            title="Go to it in this paper’s reference list"
+          >
+            Reference ↓
+          </button>
+        )}
       </div>
     </div>
   )

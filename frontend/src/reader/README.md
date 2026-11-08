@@ -313,7 +313,9 @@ stay lit until something else is chosen.
   (`services/reader/citations.py`): each bibliography entry matched to the
   thread provider's reference list, by arXiv id, then title. Matched: title,
   authors · year · venue, citations, TL;DR (hydrated in the same request
-  on S2). Unmatched, or while matching: the entry's own text, and once
+  on S2), cut to four lines, with a **Show more** under it when it was
+  actually cut (measured, so a short one gets no button; `Tldr`, in
+  `CitationCard.tsx`). Unmatched, or while matching: the entry's own text, and once
   matching is done, a line saying the provider's list hasn't got it.
 - **Four ways on** (Patrick): **Open** it as its own thread on its card home
   (`openPaper`, by the thread's provider, as papers open elsewhere);
@@ -325,9 +327,22 @@ stay lit until something else is chosen.
   **Show in Citation Graph** leaves the way back: the graph shows **Back to
   reading** where its ↑ would be, as a lesson opened from a concept card
   does (`ThreadRecord.returnTo`, v8.49.0). **Reference ↓** marks the entry it
-  lands on in the Reader's red (`.landed`), and the mark stays until the
+  lands on in the citations' blue (`.landed`; the Reader's red until
+  2026-11-07, when it moved to match the card that sent it), and the mark stays until the
   reader presses anywhere or hits Esc (`markLanded`, v8.49.0; it used to
   fade after 1.6s, before the eye found it).
+- **The reference list opens them too** (Patrick, 2026-11-06). Each entry
+  at the bottom (`ReferenceEntry`, in `Reader.tsx`) is a trigger: its
+  `[13]` is a `.reader-cite` in the citation's accent, previewing the card
+  on hover, and a click anywhere on the entry pins it, anchored to the label
+  so the card sits tight under it rather than under a whole wide entry. The
+  entry's own links (a DOI, an arXiv id, a citation nested in it) keep their
+  clicks, and a click that ends a text selection is left to the highlight
+  menu, since the references can be asked about like any passage.
+  `CITE_TRIGGERS` adds the entries to the card's trigger selector, so a
+  press on one is its toggle rather than "a click elsewhere". A card opened
+  from the list leaves **Reference ↓** out (`inList`, read from the card's
+  `anchor`): it would go where the reader already is.
 - **Not in the PDF view.** A PDF's citations are drawn text; see
   `services/reader/README.md`.
 
