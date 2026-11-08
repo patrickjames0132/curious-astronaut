@@ -1191,6 +1191,37 @@ than deleted so the plan doesn't get re-proposed.
       Tutor. Patrick expects more Knowledge Graph settings to arrive as it
       grows, so the split waits until there's enough to fill its sub-page.
 
+- [ ] **A spinner on a paper's tool cards while that tool is busy in the
+      background** — leave a tool mid-load and go back up to the card home,
+      and nothing there says it is still working. Each card should spin while
+      its tool's work is in flight. What exists today: the **Citation Graph**'s
+      build is a Redux thunk (`workspace.loading`), so it already survives and
+      is readable, though returning to the cards mid-build currently lays the
+      full "Building graph…" overlay over them. The **Knowledge Graph**'s lesson
+      streams live in a module-level set (`useLessons`' `IN_FLIGHT`), while its
+      breakdowns and synthesis flags are component state that dies on unmount.
+      **Criticisms**' agent run is a module-level promise map (`GATHERED`) that
+      can't tell pending from finished. The **Reader** aborts its fetches on
+      unmount, so it never has background work to show. *(From Patrick's
+      notes, 2026-11-06.)*
+
+- [ ] **The Reader's reference list is clickable, like its inline
+      citations** — a `[13]` in the text opens a citation card (the matched
+      paper, with Open / Read / Show in Citation Graph), but the same entry in
+      the references at the bottom is inert apart from its DOI/arXiv links. The
+      entries carry the very ids the inline cites point at, so the card needs
+      no new data. *(From Patrick's notes, 2026-11-06.)*
+
+- [ ] **Expanded papers get their own colour and tag** — the papers a
+      **+ References** / **+ Citations** hop pulls onto the graph are coloured
+      and badged exactly like the seed's own references (blue) and citations
+      (green), so once a graph has grown you can't tell the seed's
+      neighbourhood from what an expansion brought in. Give a *reference of an
+      expanded paper* and a *citation of an expanded paper* colours and tags
+      of their own, distinct from the seed's and from each other. Papers the
+      expansion shares with the seed keep their seed colour. *(From Patrick's
+      notes, 2026-11-06.)*
+
 ### Enhancements & tech debt
 
 - [ ] **Rename Teacher and Assistant to Nova in the code** — Patrick,
