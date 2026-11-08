@@ -23,14 +23,10 @@ answers *where does this paper sit in the literature?*, the **Knowledge Graph**
 *what do I need to know before I read it?*, and the **Reader** (v8.37.0)
 *how do I read it?* The **Criticism card** (filed to the OnePager's Larger
 phases 2026-10-24, the former "Reviews" idea) will answer *what did the field
-object to?* Still unanswered: trying its idea, and what comes after it.
+object to?* The **Lab** (filed to the OnePager's Larger phases 2026-11-07,
+grown from the "Lab — can I try it?" idea into a notebook and notes for each
+exploration) will answer *can I try it?* Still unanswered: what comes after it.
 
-- **Lab — can I try it?** The agent writes a small runnable toy of the paper's
-  key mechanism (attention on a sentence, a Q-learning gridworld, a diffusion
-  step). It runs in the browser via Pyodide, with sliders and plots, so
-  there's nothing to install. Can also hold a problem set with worked
-  solutions. *Builds on:* the interactive visuals planned for Knowledge Graph
-  lessons.
 - **Frontier — what's still unsolved?** Mines the future-work and limitations
   sections of recent citing papers and clusters them into open questions.
   Each one shows who is working on it and how recently. *Builds on:* Latest
@@ -105,11 +101,10 @@ A suggested order, not a commitment:
 3. **Shareable snapshot.** The biggest reach win.
 4. **Lectures in the reader's language.** Cheap and wide.
 5. **Criticism card** (ex "Reviews"). Filed to the OnePager 2026-10-24; named **Peer Reviews** 2026-10-25.
-6. **Lab card.** The most ambitious.
+6. **Lab.** Filed to the OnePager 2026-11-07, as a notebook and notes for
+   each exploration rather than a card on one paper.
 
 To decide before filing:
 
 - [ ] Does Bridge two topics live on the homepage or inside a paper thread?
-- [ ] Does Lab run code in the browser (Pyodide), or produce a notebook to
-      download?
 - [ ] How many cards can the card home hold before it needs a new layout?

@@ -1931,6 +1931,91 @@ than deleted so the plan doesn't get re-proposed.
       bridge, and v9.0.0 answers a question across several papers at once
       (`docs/history.md`); what's left is any dedicated rendering of the
       link.)*
+- [ ] **Lab — a notebook and notes for each exploration** — workshopped with
+      Patrick 2026-11-03 → 2026-11-07, filed from `docs/brainstorm.md` (it
+      grows the brainstorm's "Lab — can I try it?" card, a Pyodide toy of a
+      paper's mechanism, into a place to write code *and* take notes). A big,
+      multi-release ticket; each stage below ships on its own.
+
+      **Where it landed, and the two roads not taken.** A JupyterLab session
+      in an iframe was rejected (Patrick: too heavy, and an iframe "just
+      wouldn't feel right"), and so was a Pyodide-only notebook, as too
+      limited (no torch, no real environment). The shape settled on: **use
+      Jupyter's engine and drop its UI.** A Jupyter *kernel* is a process that
+      runs code and streams results back over a documented JSON protocol;
+      JupyterLab is only one UI for it. We run the kernel half headless
+      (`jupyter_server` + `ipykernel`) and build **our own notebook in React,
+      with the Curious Astronaut look**, the way VS Code, Deepnote and Hex do.
+
+      **Settled decisions:**
+      - **It belongs to the exploration, not the paper.** Notes and code span
+        papers. A paper can still link into it (e.g. a notebook per paper
+        inside the exploration's workspace).
+      - **Files are the app's; kernels are only compute.** Each exploration
+        gets a real workspace folder of plain files (`.ipynb` notebooks, `.md`
+        notes) that outlives the app and opens in Jupyter or VS Code too. The
+        root is configurable, and it should be somewhere visible rather than
+        buried in `data/`. This rule keeps the Docker and cloud stages from
+        changing where your notes live.
+      - **Kernel providers sit behind a neutral seam**, like the S2 provider,
+        so one notebook UI drives a kernel wherever it runs:
+
+        | Provider | Install cost | Who pays for compute |
+        |---|---|---|
+        | Pyodide, in the browser | nothing | the reader's laptop |
+        | Local process (`lab` extra) | the extra | the reader |
+        | Local Docker | Docker | the reader |
+        | The reader's own AWS | an AWS account | the reader's cloud bill |
+        | Hosted by us (future) | nothing | us |
+
+        This is also the website story: Pyodide is a free tier that costs us
+        nothing, and bringing your own cloud avoids the hosting trap named
+        under Reach & access (paying for strangers' tokens — here, their
+        compute).
+      - **Markdown with LaTeX math comes nearly free**, because the frontend
+        already renders it (`react-markdown` + KaTeX, `src/notation/`).
+
+      **Stages:**
+      1. **The workspace and Markdown notes.** A folder per exploration, our
+         own note editor with KaTeX preview, saved to disk through the Flask
+         API. No code yet. Settles where the Lab lives in the UI.
+      2. **Our notebook plus a local kernel.** Opens with a short spike to
+         prove the browser can talk to a headless `jupyter_server`
+         (websocket, token, CORS) and that the server stops with
+         `astronaut serve`. Then: cells, CodeMirror 6, an execution queue,
+         interrupt and restart, output rendering (text, images, HTML,
+         tracebacks with ANSI colour), and `.ipynb` save. `jupyter_server` +
+         `ipykernel` go in a new **`lab` optional extra**, imported only
+         through `curious_astronaut.optional.require`. Notebooks run in their
+         **own uv-made environment**, never the app's venv, so a `pip install`
+         in a cell can't break the app.
+      3. **A Pyodide kernel provider**: the no-install path (JupyterLite
+         already runs Pyodide behind the Jupyter protocol). Limits: no torch,
+         no GPU, packages limited to Pyodide's builds.
+      4. **Local Docker**: a Jupyter image with the workspace folder mounted.
+      5. **The reader's own AWS**, which **starts with a research ticket**:
+         ECS Fargate vs EC2 (Fargate has no GPUs), signing in via the reader's
+         AWS SSO profile and never storing keys, a tunnel such as SSM rather
+         than a kernel open to the internet, automatic idle shutdown (a
+         forgotten GPU instance is a real bill), and syncing files to and from
+         the remote machine (S3 or EFS). Only after the local stages have
+         proven the UI.
+      6. **Nova writes notebooks into the workspace**: the brainstorm's
+         original "runnable toy of the paper's key mechanism", plus lecture
+         notes and Reader highlights exported as Markdown. It can come right
+         after stage 2.
+
+      **Open:**
+      - Where the Lab lives in the UI: on the exploration's row in the left
+        rail, or as a card on every thread's card home (cards live on a
+        thread's home today, and the rail only names explorations and
+        threads). Decide in stage 1.
+      - What deleting an exploration does to its workspace folder. Never
+        silently delete the reader's files.
+      - Interactive ipywidgets are genuinely hard, so they stay out at first.
+      - PDF export (nbconvert's LaTeX route needs pandoc and a TeX
+        distribution, which is gigabytes) is out of v1. Tectonic, a single
+        small TeX engine, is the likely route later.
 - ~~Phase 6 — Audio lecture (Podcastfy / Edge TTS / ElevenLabs)~~ and
   ~~Phase 7 — Polished media (AutoContent API)~~ — **retired 2026-08-16**,
   reasoning in the feature stack above. Don't re-file these from `todos.md`.
