@@ -5667,6 +5667,26 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **The Reader's reference list is clickable, like its inline
+      citations** *(v9.10.0; Patrick, 2026-11-06–07)* — a `[13]` in the text
+      opened a citation card, but the same entry in the references at the
+      bottom was inert apart from its DOI/arXiv links. **Each entry is now a
+      trigger** (`ReferenceEntry` in `Reader.tsx`): its `[13]` label wears the
+      citation accent and previews the card on hover, and a click anywhere on
+      the entry pins it, anchored to the label so the card sits tight under it.
+      The entry's own links keep their clicks, and a click that ends a text
+      selection is left to the highlight menu (the references can be asked
+      about like any passage). The entries carry the very ids the inline cites
+      point at, so the card needed no new data; `CITE_TRIGGERS` adds them to
+      the card's trigger selector so a press on one is its toggle rather than
+      "a click elsewhere". A card opened from the list leaves **Reference ↓**
+      out (`inList`, read from the card's new `anchor`) — it would go where the
+      reader already is. **Two touches at review (2026-11-07):** a TL;DR cut
+      to the card's four lines now has a **Show more** under it — measured, so
+      a short one gets no button (`Tldr` in `CitationCard.tsx`) — and the mark
+      "Reference ↓" leaves on the entry moved from the Reader's red to the
+      citations' blue, matching the card that sent it.
+
 - [x] **Nova turns to you and bobs while hovered** *(v9.9.0; Patrick,
       2026-11-01–03)* — the launcher astronaut is **re-cut from Patrick's
       cleaned-up second video**: its paper background keyed out frame by

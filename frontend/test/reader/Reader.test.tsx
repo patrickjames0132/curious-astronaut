@@ -339,6 +339,77 @@ it('goes to the reference from the card, which closes', async () => {
   expect(entry.classList.contains('landed')).toBe(false)
 })
 
+it('opens a reference’s card from the reference list, as a citation does', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  vi.spyOn(api, 'fetchCited').mockResolvedValue({ 'bib.bib2': BAHDANAU })
+  mount(<Reader thread={THREAD} />)
+  const label = await screen.findByText('[2]', { selector: 'a.reader-cite' })
+  // A click anywhere on the entry pins the card, anchored to its label.
+  fireEvent.click(screen.getByText('Bahdanau et al. Neural MT. 2014.'))
+  const card = await screen.findByRole('dialog', { name: `Cited: ${BAHDANAU.title}` })
+  expect(label.getAttribute('aria-expanded')).toBe('true')
+  expect(card.textContent).toContain('27,000 citations')
+  // It's already at the reference, so the card doesn't offer the way there.
+  expect(screen.queryByRole('button', { name: 'Reference ↓' })).toBeNull()
+  // A second click on the entry unpins it.
+  fireEvent.click(label)
+  expect(screen.queryByRole('dialog')).toBeNull()
+  // Opened from a citation in the text, the way to the reference is back.
+  fireEvent.click(screen.getByText('2', { selector: 'a.reader-cite' }))
+  await screen.findByRole('button', { name: 'Reference ↓' })
+})
+
+it('shows the rest of a TL;DR cut short, and only when it was', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
+  vi.spyOn(api, 'fetchCited').mockResolvedValue({ 'bib.bib2': BAHDANAU })
+  // jsdom lays nothing out: the TL;DR is "cut" while it is clamped.
+  const height = vi
+    .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+    .mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('reader-cite-card-tldr') ? 120 : 0
+    })
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.classList.contains('reader-cite-card-tldr') ? 80 : 0
+  })
+  mount(<Reader thread={THREAD} />)
+  fireEvent.click(await screen.findByText('2', { selector: 'a.reader-cite' }))
+  await screen.findByRole('dialog', { name: `Cited: ${BAHDANAU.title}` })
+  const more = screen.getByRole('button', { name: /Show more/ })
+  const tldr = document.querySelector('.reader-cite-card-tldr')!
+  fireEvent.click(more)
+  expect(tldr.classList.contains('expanded')).toBe(true)
+  expect(more.getAttribute('aria-expanded')).toBe('true')
+  fireEvent.click(screen.getByRole('button', { name: /Show less/ }))
+  expect(tldr.classList.contains('expanded')).toBe(false)
+  // One that fits gets no button.
+  height.mockReturnValue(80)
+  fireEvent.keyDown(document, { key: 'Escape' })
+  fireEvent.click(screen.getByText('2', { selector: 'a.reader-cite' }))
+  await screen.findByRole('dialog', { name: `Cited: ${BAHDANAU.title}` })
+  expect(screen.queryByRole('button', { name: /Show more/ })).toBeNull()
+})
+
+it('leaves a reference’s own links to themselves', async () => {
+  vi.spyOn(api, 'fetchDocument').mockResolvedValue({
+    ...DOCUMENT,
+    bibliography: [
+      {
+        id: 'bib.bib2',
+        label: '2',
+        text: [
+          { kind: 'text', text: 'Bahdanau et al. ' },
+          { kind: 'link', href: 'https://doi.org/10.1/x', text: 'doi' },
+        ],
+      },
+    ],
+  })
+  mount(<Reader thread={THREAD} />)
+  fireEvent.click(await screen.findByText('doi', { selector: 'a.reader-link' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+})
+
 it('previews a card on hover and lets it go when the pointer leaves', async () => {
   vi.spyOn(api, 'fetchDocument').mockResolvedValue(DOCUMENT)
   vi.spyOn(api, 'fetchCited').mockResolvedValue({ 'bib.bib2': BAHDANAU })

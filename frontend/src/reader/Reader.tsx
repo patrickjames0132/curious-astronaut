@@ -32,6 +32,7 @@ import {
   type CriticisedPaper,
   type PdfPlace,
   type PaperDetails,
+  type ReaderBibEntry,
   type ReaderDocument,
   type ReaderSection,
   type ReaderUnavailable,
@@ -83,7 +84,14 @@ import { usePdfPassages, type PdfLight } from './usePdfPassages'
 import PdfView, { type PdfMarginNote } from './PdfView'
 import type { PdfOutlineEntry } from './pdf'
 import { askReader, documentRef, guideReader, readerMessage, setReadingSection } from './askReader'
-import { PDF_TEXT_DRAWN, ReaderLinksContext, pdfPageId, plainText, readerDomId } from './links'
+import {
+  PDF_TEXT_DRAWN,
+  ReaderLinksContext,
+  pdfPageId,
+  plainText,
+  readerDomId,
+  type CardControls,
+} from './links'
 import { readerSelectionText, selectionSource } from './selectionText'
 import './reader.css'
 
@@ -214,6 +222,55 @@ function passageFrom(section: ReaderSection): string {
     .trim()
   if (section.number) return `section ${section.number}, ${title}`
   return title ? `the part on ${title}` : 'the paper'
+}
+
+/** What opens a citation card: a citation in the text, or an entry in the
+ *  reference list. A press on one is its own toggle, not a press elsewhere. */
+const CITE_TRIGGERS = '.reader-cite, .reader-references li'
+
+/**
+ * One entry in the reference list, clickable like a citation in the text:
+ * its `[13]` previews the cited paper's card on hover, and a click anywhere
+ * on the entry pins it, anchored to the label. A click on one of the entry's
+ * own links (a DOI, an arXiv id) still follows the link, and one that ends a
+ * text selection leaves it for the highlight menu. A second click unpins.
+ *
+ * @param props Component props.
+ * @param props.entry The bibliography entry.
+ * @param props.cite The citation card's controls.
+ * @returns The entry.
+ */
+function ReferenceEntry({ entry, cite }: { entry: ReaderBibEntry; cite: CardControls }) {
+  const labelRef = useRef<HTMLAnchorElement>(null)
+  return (
+    <li
+      id={readerDomId(entry.id)}
+      className="reader-reference"
+      onClick={(event) => {
+        // Its own links (and a citation inside it) handle their own clicks.
+        const link = event.target instanceof Element ? event.target.closest('a') : null
+        if (link && link !== labelRef.current) return
+        if (!link && !window.getSelection()?.isCollapsed) return
+        event.preventDefault()
+        if (labelRef.current) cite.pin(entry.id, labelRef.current)
+      }}
+    >
+      <a
+        ref={labelRef}
+        className="reader-cite reader-reference-label"
+        href={`#${readerDomId(entry.id)}`}
+        aria-haspopup="dialog"
+        aria-expanded={cite.open === entry.id}
+        onPointerEnter={(event) => cite.hover(entry.id, event.currentTarget)}
+        onPointerLeave={() => cite.leave()}
+      >
+        [{entry.label}]
+      </a>
+      <span>
+        <Inlines inlines={entry.text} />
+      </span>
+    </li>
+  )
 }
 
 /** The Reader's highlight menu: what each button does, and says. */
@@ -408,7 +465,7 @@ export default function Reader({
       })
     return () => controller.abort()
   }, [textAvailable, ref, provider])
-  const citationCard = useAnchoredCard(pageRef, '.reader-cite')
+  const citationCard = useAnchoredCard(pageRef, CITE_TRIGGERS)
   const closeCard = citationCard.close
   useEffect(() => closeCard(), [view, ref, closeCard])
   const graph = useAppSelector((state) => state.workspace.graph)
@@ -1245,12 +1302,7 @@ export default function Reader({
               <h2 id={readerDomId('bib')}>References</h2>
               <ol>
                 {doc.bibliography.map((entry) => (
-                  <li key={entry.id} id={readerDomId(entry.id)}>
-                    <span className="reader-reference-label">[{entry.label}]</span>
-                    <span>
-                      <Inlines inlines={entry.text} />
-                    </span>
-                  </li>
+                  <ReferenceEntry key={entry.id} entry={entry} cite={citationCard.controls} />
                 ))}
               </ol>
             </section>
@@ -1328,6 +1380,7 @@ export default function Reader({
               provider={provider}
               inGraph={graph ? graph.nodes.some((node) => node.id === cardPaper?.id) : null}
               pinned={openCard.pinned}
+              inList={!!openCard.anchor.closest('.reader-references')}
               placement={openCard.placement}
               actions={citationActions}
               onClose={citationCard.close}

@@ -1205,13 +1205,6 @@ than deleted so the plan doesn't get re-proposed.
       unmount, so it never has background work to show. *(From Patrick's
       notes, 2026-11-06.)*
 
-- [ ] **The Reader's reference list is clickable, like its inline
-      citations** — a `[13]` in the text opens a citation card (the matched
-      paper, with Open / Read / Show in Citation Graph), but the same entry in
-      the references at the bottom is inert apart from its DOI/arXiv links. The
-      entries carry the very ids the inline cites point at, so the card needs
-      no new data. *(From Patrick's notes, 2026-11-06.)*
-
 - [ ] **Expanded papers get their own colour and tag** — the papers a
       **+ References** / **+ Citations** hop pulls onto the graph are coloured
       and badged exactly like the seed's own references (blue) and citations

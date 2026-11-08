@@ -38,6 +38,8 @@ export interface OpenCard {
   id: string
   placement: CardPlacement
   pinned: boolean
+  /** The trigger it opened from, so a card can tell where it was asked for. */
+  anchor: HTMLElement
 }
 
 /**
@@ -86,7 +88,7 @@ export function useAnchoredCard(paneRef: RefObject<HTMLElement | null>, triggers
   const open = useCallback(
     (id: string, anchor: HTMLElement, pinned: boolean) => {
       const pane = paneRef.current
-      if (pane) setCard({ id, placement: place(anchor, pane), pinned })
+      if (pane) setCard({ id, placement: place(anchor, pane), pinned, anchor })
     },
     [paneRef],
   )
