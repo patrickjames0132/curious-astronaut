@@ -24,8 +24,8 @@ answers *where does this paper sit in the literature?*, the **Knowledge Graph**
 *how do I read it?* The **Criticism card** (filed to the OnePager's Larger
 phases 2026-10-24, the former "Reviews" idea) will answer *what did the field
 object to?* The **Lab** (filed to the OnePager's Larger phases 2026-11-07,
-grown from the "Lab — can I try it?" idea into a notebook and notes for each
-exploration) will answer *can I try it?* Still unanswered: what comes after it.
+grown from the "Lab — can I try it?" idea into one global notebook and notes
+space, with a folder per exploration) will answer *can I try it?* Still unanswered: what comes after it.
 
 - **Frontier — what's still unsolved?** Mines the future-work and limitations
   sections of recent citing papers and clusters them into open questions.
@@ -101,8 +101,8 @@ A suggested order, not a commitment:
 3. **Shareable snapshot.** The biggest reach win.
 4. **Lectures in the reader's language.** Cheap and wide.
 5. **Criticism card** (ex "Reviews"). Filed to the OnePager 2026-10-24; named **Peer Reviews** 2026-10-25.
-6. **Lab.** Filed to the OnePager 2026-11-07, as a notebook and notes for
-   each exploration rather than a card on one paper.
+6. **Lab.** Filed to the OnePager 2026-11-07, as one global notebook and
+   notes space, a folder per exploration, rather than a card on one paper.
 
 To decide before filing:
 

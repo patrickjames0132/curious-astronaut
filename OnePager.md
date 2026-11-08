@@ -1931,7 +1931,8 @@ than deleted so the plan doesn't get re-proposed.
       bridge, and v9.0.0 answers a question across several papers at once
       (`docs/history.md`); what's left is any dedicated rendering of the
       link.)*
-- [ ] **Lab — a notebook and notes for each exploration** — workshopped with
+- [ ] **Lab — one global notebook and notes space, a folder per
+      exploration** — workshopped with
       Patrick 2026-11-03 → 2026-11-07, filed from `docs/brainstorm.md` (it
       grows the brainstorm's "Lab — can I try it?" card, a Pyodide toy of a
       paper's mechanism, into a place to write code *and* take notes). A big,
@@ -1948,15 +1949,33 @@ than deleted so the plan doesn't get re-proposed.
       with the Curious Astronaut look**, the way VS Code, Deepnote and Hex do.
 
       **Settled decisions:**
-      - **It belongs to the exploration, not the paper.** Notes and code span
-        papers. A paper can still link into it (e.g. a notebook per paper
-        inside the exploration's workspace).
-      - **Files are the app's; kernels are only compute.** Each exploration
-        gets a real workspace folder of plain files (`.ipynb` notebooks, `.md`
-        notes) that outlives the app and opens in Jupyter or VS Code too. The
-        root is configurable, and it should be somewhere visible rather than
-        buried in `data/`. This rule keeps the Docker and cloud stages from
-        changing where your notes live.
+      - **The Lab is global, not per exploration** (Patrick, 2026-11-07,
+        revising the first filing's "belongs to the exploration"). Compute
+        and files are separate layers. There is **one** compute instance (one
+        Jupyter server, later one container), which runs every open notebook
+        as its own kernel inside it, and **one environment**, so a package is
+        installed once for every notebook. One container per exploration
+        would multiply startup time, memory, installs and cloud bills, and
+        notes cross explorations anyway (a page on Bellman equations serves
+        several). The model is VS Code's: one app, many folders.
+      - **Files are organised by exploration, then paper.** One workspace
+        root, configurable and somewhere visible rather than buried in
+        `data/`. Each exploration gets a folder inside it, and each paper a
+        subfolder inside its exploration's folder (Patrick's addition), for
+        the paper's notes and, later, Nova's toy notebooks for it. The reader
+        can also make their own folders anywhere, at the top level included.
+        Folders should appear when something is first written to them, not
+        for every paper ever opened, so the tree doesn't fill with empty
+        folders.
+      - **Files are the app's; kernels are only compute.** Plain files
+        (`.ipynb` notebooks, `.md` notes) that outlive the app and open in
+        Jupyter or VS Code too. This rule keeps the Docker and cloud stages
+        from changing where your notes live.
+      - **In the UI it is a top-level rail item**, its own entry beside
+        Explorations, not a row under each exploration. It opens on the file
+        tree. Inside an exploration or a paper thread, a link opens the Lab
+        at that folder, which keeps the connection without making the Lab
+        belong to any one exploration.
       - **Kernel providers sit behind a neutral seam**, like the S2 provider,
         so one notebook UI drives a kernel wherever it runs:
 
@@ -1976,9 +1995,10 @@ than deleted so the plan doesn't get re-proposed.
         already renders it (`react-markdown` + KaTeX, `src/notation/`).
 
       **Stages:**
-      1. **The workspace and Markdown notes.** A folder per exploration, our
-         own note editor with KaTeX preview, saved to disk through the Flask
-         API. No code yet. Settles where the Lab lives in the UI.
+      1. **The workspace and Markdown notes.** The global Lab in the rail,
+         its file tree with exploration and paper folders, and our own note
+         editor with KaTeX preview, saved to disk through the Flask API. No
+         code yet.
       2. **Our notebook plus a local kernel.** Opens with a short spike to
          prove the browser can talk to a headless `jupyter_server`
          (websocket, token, CORS) and that the server stops with
@@ -2006,11 +2026,9 @@ than deleted so the plan doesn't get re-proposed.
          after stage 2.
 
       **Open:**
-      - Where the Lab lives in the UI: on the exploration's row in the left
-        rail, or as a card on every thread's card home (cards live on a
-        thread's home today, and the rail only names explorations and
-        threads). Decide in stage 1.
-      - What deleting an exploration does to its workspace folder. Never
+      - Its name and icon (Lab, Skylab, Logbook were floated; Patrick wants a
+        glowing neon purple). Decide at the start of stage 1.
+      - What deleting or renaming an exploration does to its folder. Never
         silently delete the reader's files.
       - Interactive ipywidgets are genuinely hard, so they stay out at first.
       - PDF export (nbconvert's LaTeX route needs pandoc and a TeX
