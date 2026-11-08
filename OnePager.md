@@ -1214,6 +1214,15 @@ than deleted so the plan doesn't get re-proposed.
       of their own, distinct from the seed's and from each other. Papers the
       expansion shares with the seed keep their seed colour. *(From Patrick's
       notes, 2026-11-06.)*
+      **Parked, 2026-11-07.** Patrick's clarification: what's unclear is what
+      the *expanded paper* is to the seed, since its pink hides whether it was
+      a reference or a citation. A first cut coloured the expanded paper by
+      that relation (violet for an expanded reference, teal for an expanded
+      citation, pink for a paper an earlier hop brought in, with matching panel
+      tags and legend entries). On a real graph (Atari, a few hops deep) it was
+      *more* confusing, so it was backed out unshipped. Rethink before another
+      cut: three more fill colours on top of the relations didn't help, and the
+      answer may lie elsewhere (the edge, a label, the panel only).
 
 ### Enhancements & tech debt
 

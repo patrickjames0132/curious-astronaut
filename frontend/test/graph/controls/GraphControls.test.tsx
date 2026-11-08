@@ -31,6 +31,7 @@ function makeProps(overrides: Partial<GraphControlsProps> = {}): GraphControlsPr
     enabled: new Set(['reference', 'citation']),
     onToggleType: () => {},
     minYear: 2000,
+    yearOrigin: 2000,
     maxYear: 2026,
     yearLo: 2000,
     yearHi: 2026,

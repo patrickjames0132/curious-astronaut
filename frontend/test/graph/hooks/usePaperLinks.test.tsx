@@ -28,6 +28,7 @@ function makeBase(ids: string[]): Base {
     // The seed's own edge to b is drawn already.
     links: [{ source: 'seed', target: 'b', type: 'reference', _s: 'seed', _t: 'b' }],
     minYear: 2000,
+    yearOrigin: 2000,
     maxYear: 2020,
     counts: {},
     minCitations: 0,

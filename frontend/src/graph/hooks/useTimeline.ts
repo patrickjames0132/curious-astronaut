@@ -147,7 +147,7 @@ export function useTimeline({
   const yearToX = useCallback(
     (year: number) => {
       if (!base) return 0
-      return (year - base.minYear) * YEAR_SPACING
+      return (year - base.yearOrigin) * YEAR_SPACING
     },
     [base],
   )
@@ -165,7 +165,7 @@ export function useTimeline({
       if (!base) return 0
       if (typeof node.year !== 'number') return 0
       const frac = typeof node.month === 'number' ? (node.month - 1) / 12 : 0
-      return (node.year - base.minYear + frac) * YEAR_SPACING
+      return (node.year - base.yearOrigin + frac) * YEAR_SPACING
     },
     [base],
   )

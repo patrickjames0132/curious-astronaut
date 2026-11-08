@@ -196,7 +196,14 @@ Pins are just `fx`/`fy`, but their *semantics* are layout-aware:
   the date structure. `nodeTimelineX` maps year + month fraction to x, so
   papers sit *between* year gridlines by publication month (an unknown
   month means the year's own gridline; there's no day-level precision
-  anywhere in this system, only year+month).
+  anywhere in this system, only year+month). **x is measured from
+  `base.yearOrigin`, not `minYear`** (v9.10.1): the origin is the build's
+  earliest year and never moves, while `minYear` is the axis's left end, which
+  an older discovery lowers in place. Measured from `minYear`, an expansion
+  reaching further back than the graph redrew the axis from the new origin
+  while every paper already pinned kept its old x, so the whole graph slid
+  decades against its years (Patrick, 2026-11-07). Widening the range now
+  only extends the axis leftward.
 - **Undated papers are not on the Timeline at all** (v5.5.0). They used to
   sit at the **seed's own exact x**, reasoning that S2 not knowing a date
   isn't evidence a paper is old, and a citer tends to be contemporaneous
