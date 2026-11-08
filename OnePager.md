@@ -1971,11 +1971,15 @@ than deleted so the plan doesn't get re-proposed.
         (`.ipynb` notebooks, `.md` notes) that outlive the app and open in
         Jupyter or VS Code too. This rule keeps the Docker and cloud stages
         from changing where your notes live.
-      - **In the UI it is a top-level rail item**, its own entry beside
-        Explorations, not a row under each exploration. It opens on the file
-        tree. Inside an exploration or a paper thread, a link opens the Lab
-        at that folder, which keeps the connection without making the Lab
-        belong to any one exploration.
+      - **Two ways in** (Patrick, 2026-11-07):
+        - **A global rail item**, in the rail's bottom group with the other
+          app-wide things (Library, Settings, the data-source picker), not a
+          row under each exploration. It opens on the whole file tree.
+        - **A Lab card on the paper's card home**, beside Citation Graph,
+          Knowledge Graph, Reader and Criticisms. It opens the same global Lab
+          at that paper's folder (exploration → paper), creating the folder on
+          first write. The card is a doorway into the one instance, never a
+          separate Lab of its own.
       - **Kernel providers sit behind a neutral seam**, like the S2 provider,
         so one notebook UI drives a kernel wherever it runs:
 
@@ -1995,8 +1999,9 @@ than deleted so the plan doesn't get re-proposed.
         already renders it (`react-markdown` + KaTeX, `src/notation/`).
 
       **Stages:**
-      1. **The workspace and Markdown notes.** The global Lab in the rail,
-         its file tree with exploration and paper folders, and our own note
+      1. **The workspace and Markdown notes.** The global Lab in the rail and
+         the paper's Lab card, the file tree with exploration and paper
+         folders, and our own note
          editor with KaTeX preview, saved to disk through the Flask API. No
          code yet.
       2. **Our notebook plus a local kernel.** Opens with a short spike to
