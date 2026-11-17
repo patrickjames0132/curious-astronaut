@@ -838,7 +838,7 @@ it('a shared prerequisite becomes one node with two arrows into it', async () =>
 it('offers a retry when breaking the paper down fails', async () => {
   const expand = vi
     .spyOn(api, 'expandKnowledge')
-    .mockRejectedValueOnce(new Error('The tutor couldn’t break this down — try again.'))
+    .mockRejectedValueOnce(new Error('Nova couldn’t break this down — try again.'))
     .mockResolvedValue([])
   mount()
   expect(await screen.findByText(/couldn’t break this down/)).toBeTruthy()

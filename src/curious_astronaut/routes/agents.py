@@ -64,7 +64,7 @@ def _relay(workflow: Iterable[events.Event]) -> Iterator[str]:
             yield sse(event.type, event.model_dump(exclude={"type"}))
     except Exception:
         log.exception("agent stream failed")
-        yield sse("error", {"message": "The teacher hit an unexpected error."})
+        yield sse("error", {"message": "Nova hit an unexpected error."})
 
 
 @bp.post("/api/assistant/route")
