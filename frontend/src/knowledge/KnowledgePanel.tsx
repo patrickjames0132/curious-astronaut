@@ -355,7 +355,7 @@ function StepLine({
         {onQuick && (
           <QuickResponse
             onClick={onQuick}
-            title="Skip the image search: the lesson now, from the tutor's own knowledge"
+            title="Skip the image search: the lesson now, from Nova's own knowledge"
           />
         )}
       </div>
@@ -666,7 +666,7 @@ export default function KnowledgePanel({
                   role="menuitem"
                   className="danger"
                   onClick={fromMenu(() => setConfirming({ nodeId: node.id, action: 'again' }))}
-                  title="Ask the tutor for a fresh breakdown: everything below this starts over, new, with its lessons rewritten when opened (what something else still needs stays). Check-offs survive"
+                  title="Ask Nova for a fresh breakdown: everything below this starts over, new, with its lessons rewritten when opened (what something else still needs stays). Check-offs survive"
                 >
                   <MenuIcon name="again" />
                   Break it down again…

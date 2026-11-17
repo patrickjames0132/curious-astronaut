@@ -89,7 +89,7 @@ def reading_context(
         reader when there is nothing to read from.
     """
     if not isinstance(paper, str) or not paper.strip():
-        return "", "This paper has no text the assistant can read."
+        return "", "This paper has no text Nova can read."
     in_pdf = isinstance(section, str) and section.startswith(PAGE_PREFIX)
     if not in_pdf:
         block = _document_context(paper, section)
@@ -113,7 +113,7 @@ def _pdf_context(paper: str, section: object, provider: Provider, title: object)
     ref = arxiv.extract_id(paper) or paper.strip()
     url = pdf_service.paper_pdf_url(ref, provider)
     if not url:
-        return "", "This paper has no text the assistant can read."
+        return "", "This paper has no text Nova can read."
     if not optional.available("pdf"):
         return "", (
             "Reading a PDF needs the pdf extra, which this install doesn't have: "
@@ -121,7 +121,7 @@ def _pdf_context(paper: str, section: object, provider: Provider, title: object)
         )
     pages = pdf_service.get_pdf_pages(url).get("pages") or []
     if not any(pages):
-        return "", "This paper's PDF has no text the assistant can read (it may be scanned)."
+        return "", "This paper's PDF has no text Nova can read (it may be scanned)."
     opened = 0
     if isinstance(section, str):
         digits = section[len(PAGE_PREFIX):]

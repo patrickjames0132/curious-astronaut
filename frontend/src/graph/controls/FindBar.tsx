@@ -52,9 +52,9 @@ const PAPER_COPY: FindCopy = {
   placeholder: 'Find on graph…',
   inputLabel: 'Find a paper among those on screen (title or author)',
   inputTitle:
-    "Spotlight on-screen papers by title or author — local only, fetches nothing. Enter adds the matches to the teacher's scope.",
+    "Spotlight on-screen papers by title or author — local only, fetches nothing. Enter adds the matches to Nova's scope.",
   selectTitle: (count) =>
-    `Add all ${count} matching paper${count === 1 ? '' : 's'} to the teacher's scope`,
+    `Add all ${count} matching paper${count === 1 ? '' : 's'} to Nova's scope`,
 }
 
 /**

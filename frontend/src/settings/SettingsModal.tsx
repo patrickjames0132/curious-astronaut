@@ -1171,7 +1171,7 @@ const ROW_DEFS: RowDef[] = [
     page: 'providers',
     group: 'Google',
     label: 'API key',
-    hint: 'From aistudio.google.com/apikey. The free tier is quota-limited but costs nothing, making this one of the two ways to run the teacher for free.',
+    hint: 'From aistudio.google.com/apikey. The free tier is quota-limited but costs nothing, making this one of the two ways to run Nova for free.',
     control: (draft, edit) => (
       <VendorField draft={draft} edit={edit} vendor="google" field="api_key" />
     ),

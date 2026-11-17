@@ -104,7 +104,7 @@ const CARDS: ToolCard[] = [
     working: 'Building',
     title: 'Citation Graph',
     blurb:
-      'The papers it built on and the papers it spawned, with a teacher to narrate ' +
+      'The papers it built on and the papers it spawned, with Nova to narrate ' +
       'how the field got here.',
     icon: <GraphIcon />,
   },

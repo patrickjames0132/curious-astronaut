@@ -195,7 +195,7 @@ def api_expand() -> ResponseReturnValue:
         children = tutor.expand(item, path, references, existing)
     except Exception:
         log.exception("tutor expansion failed for %r", item.title)
-        return jsonify({"error": "The tutor couldn't break this down — try again."}), 502
+        return jsonify({"error": "Nova couldn't break this down — try again."}), 502
     dumped = [child.model_dump() for child in children]
     cache.set(key, dumped)
     return jsonify({"children": dumped})
@@ -247,7 +247,7 @@ def api_phrase() -> ResponseReturnValue:
         child = tutor.name_phrase(phrase, item, path, existing)
     except Exception:
         log.exception("phrase naming failed for %r", phrase[:80])
-        return jsonify({"error": "The tutor couldn't expand this — try again."}), 502
+        return jsonify({"error": "Nova couldn't expand this — try again."}), 502
     result = {"child": child.model_dump() if child else None}
     cache.set(key, result)
     return jsonify(result)
@@ -333,7 +333,7 @@ def _relay(key: str, cached: Any, lesson: Iterator[tutor.LessonEvent]) -> Iterat
             yield sse(event.type, event.model_dump(exclude={"type"}))
     except Exception:
         log.exception("lesson stream failed")
-        yield sse("error", {"message": "The tutor hit an unexpected error."})
+        yield sse("error", {"message": "Nova hit an unexpected error."})
 
 
 @bp.post("/api/knowledge/lesson")
@@ -443,7 +443,7 @@ def api_fit() -> ResponseReturnValue:
         text = tutor.fit_section(item, body, needed_by)
     except Exception:
         log.exception("fit section failed for %r", item.title)
-        return jsonify({"error": "The tutor couldn't update how this fits in — try again."}), 502
+        return jsonify({"error": "Nova couldn't update how this fits in — try again."}), 502
     cache.set(key, text)
     return jsonify({"text": text})
 
@@ -516,9 +516,9 @@ def api_synthesis() -> ResponseReturnValue:
         named = tutor.name_synthesis(members, toward, path)
     except Exception:
         log.exception("synthesis naming failed for %r", [member.title for member in members])
-        return jsonify({"error": "The tutor couldn't synthesize these — try again."}), 502
+        return jsonify({"error": "Nova couldn't synthesize these — try again."}), 502
     if not named.name:
-        return jsonify({"error": "The tutor couldn't synthesize these — try again."}), 502
+        return jsonify({"error": "Nova couldn't synthesize these — try again."}), 502
     dumped = named.model_dump()
     cache.set(key, dumped)
     return jsonify(dumped)
@@ -628,7 +628,7 @@ def api_place() -> ResponseReturnValue:
         placed = tutor.place(sections, concepts)
     except Exception:
         log.exception("placing concepts failed for %s", paper)
-        return jsonify({"error": "The tutor couldn't place the course in the paper — try again."}), 502
+        return jsonify({"error": "Nova couldn't place the course in the paper — try again."}), 502
     by_section: dict[str, list[str]] = {}
     for name in concepts:
         for section_id in placed.get(name, []):

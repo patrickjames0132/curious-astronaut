@@ -1242,6 +1242,13 @@ than deleted so the plan doesn't get re-proposed.
       - **Mechanical, so in one sweep**: about 40 files import from the two
         packages. `git mv` keeps history; the gate (tsc, oxlint, vitest)
         catches a missed import.
+      - **The UI copy is done** (v9.11.1, 2026-11-17): a sweep of every
+        user-facing string (tooltips, hints, tour, the cards, the server's
+        on-screen errors) put "Nova" where "teacher", "assistant" or the
+        Knowledge Graph's "tutor" had survived v9.0.0. Settings → Agents →
+        Tutor keeps "the tutor", the name of one of Nova's agents. What's left
+        here is the code and its comments and READMEs ("the teacher's scope"
+        and the like).
 
 - [ ] **Publish only from a commit whose CI is green** — filed 2026-10-24
       after v8.36.1 through v8.38.0 published while CI on `main` was red

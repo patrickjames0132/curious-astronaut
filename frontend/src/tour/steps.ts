@@ -298,9 +298,9 @@ export const KNOWLEDGE_TOUR: TourStep[] = [
     body:
       'A panel opens with what it is, why the course needs it, and its lesson — written ' +
       'for this course the first time you open it and kept after that. It opens on a picture ' +
-      'of the idea itself when the tutor finds one, and comes with a few more ' +
+      'of the idea itself when Nova finds one, and comes with a few more ' +
       'images from your library, the paper or the web where they help, each credited and ' +
-      'described (click one to enlarge it); a line says what the tutor is doing until it’s ready ' +
+      'described (click one to enlarge it); a line says what Nova is doing until it’s ready ' +
       '(click it for every step so far), ' +
       'and “Quick response” skips the images to have the lesson now. The ⋮ beside the ✕ ' +
       'writes a finished lesson again, and holds Hide, Delete and “Break it down again”. Its links stay lit ' +
@@ -685,7 +685,7 @@ export const GRAPH_TOUR: TourStep[] = [
     body:
       'Real figures pulled from the paper itself, captions included (click one to ' +
       'enlarge). Journal papers get theirs mined straight from the open-access PDF — ' +
-      'tables and algorithm boxes included. The teacher can pull these same figures ' +
+      'tables and algorithm boxes included. Nova can pull these same figures ' +
       'into its answers.',
   },
   {
@@ -819,7 +819,7 @@ export const SETTINGS_TOUR: TourStep[] = [
   },
   {
     target: '[data-tour="settings-vendor-apply"]',
-    title: 'The AI teacher’s vendors',
+    title: 'Nova’s vendors',
     body:
       'Model Providers holds the credentials for each vendor Curious Astronaut can reach — Google ' +
       'and a local Ollama cost nothing. Under each one, "Apply Default Models" puts the ' +
