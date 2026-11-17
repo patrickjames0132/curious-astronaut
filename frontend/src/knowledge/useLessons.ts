@@ -37,6 +37,7 @@ import {
   type Provider,
 } from '../api'
 import { useAppDispatch } from '../store'
+import { markBusy } from '../tools/busy'
 import { knowledgeLessonWritten } from '../store/explorations'
 import {
   fitIsStale,
@@ -78,6 +79,30 @@ const WRITING_STEP = 'Writing the lesson…'
  * same lesson a second time.
  */
 const IN_FLIGHT = new Set<string>()
+/** Each lesson's hold on the card home's spinner (`tools/busy.ts`), by key. */
+const HOLDS = new Map<string, () => void>()
+
+/**
+ * A lesson (or its refit) starts: in flight here, busy on the card home.
+ *
+ * @param flightKey `threadId:nodeId`, with `:fit` for a refit.
+ */
+function takeOff(flightKey: string) {
+  IN_FLIGHT.add(flightKey)
+  HOLDS.get(flightKey)?.()
+  HOLDS.set(flightKey, markBusy(`knowledge:${flightKey}`))
+}
+
+/**
+ * It ended, or was given up for a quick response.
+ *
+ * @param flightKey The same key.
+ */
+function land(flightKey: string) {
+  IN_FLIGHT.delete(flightKey)
+  HOLDS.get(flightKey)?.()
+  HOLDS.delete(flightKey)
+}
 
 /** How to stop a lesson being written, by the same key, for a quick response. */
 const STOPS = new Map<string, AbortController>()
@@ -118,7 +143,7 @@ export function useLessons(threadId: string, provider: Provider) {
       const node = map.nodes[nodeId]
       const flightKey = `${threadId}:${nodeId}`
       if (!node || node.lesson || IN_FLIGHT.has(flightKey)) return
-      IN_FLIGHT.add(flightKey)
+      takeOff(flightKey)
       const stop = new AbortController()
       STOPS.set(flightKey, stop)
       let text = ''
@@ -135,7 +160,7 @@ export function useLessons(threadId: string, provider: Provider) {
       // The items the closing section is written for, as of now.
       const fitFor = fitNeeds(map, nodeId)
       const release = () => {
-        IN_FLIGHT.delete(flightKey)
+        land(flightKey)
         if (STOPS.get(flightKey) === stop) STOPS.delete(flightKey)
       }
       const fail = (message: string) => {
@@ -224,7 +249,7 @@ export function useLessons(threadId: string, provider: Provider) {
       const flightKey = `${threadId}:${nodeId}`
       STOPS.get(flightKey)?.abort()
       STOPS.delete(flightKey)
-      IN_FLIGHT.delete(flightKey)
+      land(flightKey)
       start(map, nodeId, true)
     },
     [start, threadId],
@@ -237,7 +262,7 @@ export function useLessons(threadId: string, provider: Provider) {
       const node = map.nodes[nodeId]
       const flightKey = `${threadId}:${nodeId}:fit`
       if (!node?.lesson || !fitIsStale(map, nodeId) || IN_FLIGHT.has(flightKey)) return
-      IN_FLIGHT.add(flightKey)
+      takeOff(flightKey)
       const { body } = splitLesson(node.lesson)
       const fitFor = fitNeeds(map, nodeId)
       const setFlight = (on: boolean) =>
@@ -262,7 +287,7 @@ export function useLessons(threadId: string, provider: Provider) {
         // A failed rewrite keeps the old section; the next open tries again.
         .catch(() => undefined)
         .finally(() => {
-          IN_FLIGHT.delete(flightKey)
+          land(flightKey)
           setFlight(false)
         })
     },

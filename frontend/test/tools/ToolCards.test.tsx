@@ -17,10 +17,12 @@ import explorations, {
   type ThreadRecord,
 } from '../../src/store/explorations'
 import * as api from '../../src/api'
+import { forgetBusy, markBusy } from '../../src/tools/busy'
 
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  forgetBusy()
 })
 
 /** A paper thread, optionally already carrying its hydrated paper.
@@ -121,4 +123,39 @@ it('fetches a missing paper once and keeps it on the thread', async () => {
     const record = store.getState().explorations.byId.saved
     expect(record.threads.find((thread) => thread.id === 'dqn')?.paper?.year).toBe(2013)
   })
+})
+
+/** The cards' spinners, by card title. */
+const spinning = () =>
+  screen.queryAllByRole('status').map((spinner) => spinner.getAttribute('aria-label'))
+
+it('spins a card while its tool works in the background, and stops when it ends', async () => {
+  const { store } = mount(paperThread(true))
+  expect(spinning()).toEqual([])
+  // A lesson for this thread, and Criticisms gathering for this paper.
+  const lesson = markBusy('knowledge:dqn:concept-1')
+  const gather = markBusy('reviews:DQN:')
+  const read = markBusy('reader:1312.5602:')
+  await waitFor(() =>
+    expect(spinning()).toEqual([
+      'Knowledge Graph: still working',
+      'Reader: still working',
+      'Criticisms: still working',
+    ]),
+  )
+  expect(screen.getByText('Reading')).toBeTruthy()
+  lesson()
+  gather()
+  read()
+  await waitFor(() => expect(spinning()).toEqual([]))
+  // The graph's build, left running.
+  store.dispatch({ type: 'workspace/loadGraph/pending', meta: { requestId: 'build', arg: {} } })
+  await waitFor(() => expect(spinning()).toEqual(['Citation Graph: still working']))
+})
+
+it("doesn't spin for another thread's or another paper's work", () => {
+  mount(paperThread(true))
+  markBusy('knowledge:dqn-2:concept-1')
+  markBusy('reviews:DQN2:')
+  expect(spinning()).toEqual([])
 })

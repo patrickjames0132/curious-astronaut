@@ -612,6 +612,12 @@ branch, the way the assistant shows figures in its answers.
   panel scrolls with it, but only while the reader is at the bottom, so
   scrolling up to re-read stops the chase (the assistant transcript's rule,
   instant rather than smooth so it keeps up with the stream).
+- **The card home spins while a lesson or breakdown is out** (Patrick,
+  2026-11-06). Both outlive this surface, so they hold a key in
+  `tools/busy.ts` under `knowledge:<thread id>:`: a lesson (and a refit) as
+  its `IN_FLIGHT` key, via `takeOff`/`land` in `useLessons`; a breakdown as
+  `expand:<node id>`, via `trackBusy` in `KnowledgeNetwork`'s `expand`. The
+  Knowledge Graph card spins while any is held.
 - **Quick response**, a link at the line's end behind an outline bolt
   that lights up on hover (`--bolt`: the title's blue in dark mode, the
   gold accent in light; `ui/QuickResponse` since v8.30.0, shared with

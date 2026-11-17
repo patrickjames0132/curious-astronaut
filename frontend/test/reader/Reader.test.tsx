@@ -11,6 +11,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { useEffect, type ReactElement, type ReactNode, type RefObject } from 'react'
 import { Provider, useSelector } from 'react-redux'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { isBusy } from '../../src/tools/busy'
 import { takeFocus } from '../../src/criticisms/focus'
 import { createMap, nameKey, withChildren } from '../../src/knowledge/model'
 import Reader from '../../src/reader/Reader'
@@ -264,6 +265,24 @@ it('reads the paper by its arXiv id and renders it', async () => {
   // The figure's "Refer to caption" placeholder alt gives way to its tag.
   expect(screen.getByRole('img', { name: 'Figure 1' })).toBeTruthy()
   expect(screen.getByText(/Bahdanau et al/)).toBeTruthy()
+})
+
+it('lets a read left mid-way finish, busy for the cards, and joins it on return', async () => {
+  let land: (document: typeof DOCUMENT) => void = () => {}
+  const fetch = vi
+    .spyOn(api, 'fetchDocument')
+    .mockReturnValue(new Promise((resolve) => (land = resolve)))
+  const first = mount(<Reader thread={THREAD} />)
+  expect(isBusy('reader:1706.03762:')).toBe(true)
+  // Back up to the cards: the request carries on.
+  first.unmount()
+  expect(isBusy('reader:1706.03762:')).toBe(true)
+  // Back again: the same request, not a second.
+  mount(<Reader thread={THREAD} />)
+  expect(fetch).toHaveBeenCalledTimes(1)
+  land(DOCUMENT)
+  await screen.findByRole('heading', { name: 'Attention Is All You Need' })
+  expect(isBusy('reader:1706.03762:')).toBe(false)
 })
 
 it('lists sections down to subsubsections in the contents, and jumps', async () => {

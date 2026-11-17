@@ -5667,6 +5667,29 @@ into two relations with distinct meaning, colour, filter, and (later) slider:
 
 ### UI & rendering polish
 
+- [x] **A paper's tool cards show when their tool is busy in the
+      background** *(v9.11.0; Patrick, 2026-11-06–17)* — leave a tool
+      mid-load and go back up to the card home, and nothing there said it was
+      still working. **Now a busy card wears the composer's working ring** in
+      its own accent (border lit, faint white streaks sweeping round it; lit but
+      still under reduced motion) and **a pill in its top-right corner names
+      the work**: Building, Writing, Reading, Gathering, beside a small spinner.
+      A first cut put a bare spinner at the end of the title's row; Patrick
+      asked for the ring, and the pill keeps a word on it. **What counts as
+      working:** the Citation Graph's build (`workspace.loading`); any Knowledge
+      Graph breakdown, lesson or refit for the thread; Criticisms' gather for the
+      paper; and, added at review, the Reader reading the paper in. The last
+      three register in **`tools/busy.ts`**, a counted key map with a
+      `useSyncExternalStore` subscription (`markBusy` / `trackBusy`), because
+      their work already lived at module level to outlive the component but
+      nothing re-rendered the cards when it changed. The Reader used to abort
+      its fetch on leaving; it now shares one read per ref (`readDocument`), so
+      a return joins it rather than starting over. **Two fixes rode along:** a
+      build backgrounded this way no longer lays the full "Building graph…" card
+      over the cards, and **the ↑ back to the cards is live during a build** —
+      it sat under the build's scrim (z-index 5 under 15), so it looked
+      disabled and there was no way out but to wait (`.tool-nav.over-scrim`).
+
 - [x] **The Reader's reference list is clickable, like its inline
       citations** *(v9.10.0; Patrick, 2026-11-06–07)* — a `[13]` in the text
       opened a citation card, but the same entry in the references at the

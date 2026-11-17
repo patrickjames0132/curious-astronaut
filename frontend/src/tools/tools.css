@@ -151,6 +151,68 @@
   font-size: 17px;
   font-weight: 500;
 }
+/* **A tool still working in the background** (Patrick, 2026-11-17): the
+   composer's working ring (`teacher.css`'s `.teacher-ask.is-working`) in
+   the card's own accent, with faint white streaks sweeping round it, and a
+   pill in the top-right corner naming the work beside the shared `.spin`.
+   The ring is the app's "I'm on it", visible across the page; the pill says
+   what. The streaks are an overlay cut to the ring: a conic gradient masked
+   to a 2px band, its angle turned through a registered custom property. */
+@property --card-sweep {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes card-sweep {
+  to {
+    --card-sweep: 360deg;
+  }
+}
+.tool-card.is-working {
+  border-color: var(--card-accent);
+  box-shadow: 0 0 0 1px var(--card-accent);
+}
+.tool-card.is-working::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  padding: 2px;
+  border-radius: 20px;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    from var(--card-sweep),
+    rgb(255 255 255 / 0) 0deg,
+    rgb(255 255 255 / 0.55) 22deg,
+    rgb(255 255 255 / 0) 44deg,
+    rgb(255 255 255 / 0) 120deg
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  animation: card-sweep 2.4s linear infinite;
+}
+.tool-card-status {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--card-accent) 16%, var(--panel));
+  color: color-mix(in srgb, var(--card-accent) 70%, var(--text-strong));
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tool-card-status .spin {
+  width: 10px;
+  height: 10px;
+  border-width: 1.5px;
+  border-color: color-mix(in srgb, var(--card-accent) 25%, transparent);
+  border-top-color: var(--card-accent);
+}
 .tool-card-soon {
   margin-left: auto;
   padding: 2px 8px;
@@ -181,6 +243,11 @@
   display: flex;
   gap: 8px;
   transform: translateX(-50%);
+}
+/* While a build runs, above its scrim (15) and below its card (20), so the
+   way back up stays live; the build carries on and its card shows it. */
+.tool-nav.over-scrim {
+  z-index: 16;
 }
 .tool-back {
   display: grid;
@@ -236,6 +303,10 @@
 @media (prefers-reduced-motion: reduce) {
   .tool-return {
     animation: none;
+  }
+  /* The lit ring and the pill still say it; nothing sweeps. */
+  .tool-card.is-working::after {
+    display: none;
   }
 }
 

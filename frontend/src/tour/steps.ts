@@ -185,7 +185,7 @@ export const CARDS_TOUR: TourStep[] = [
       'know first. The Reader is the paper itself. Criticisms gathers what later papers ' +
       'objected to in it. A paper reopens on the tool you left it on; clicking it in the ' +
       'sidebar while it is open brings you back to these cards, and so does the ↑ at the top ' +
-      'of each tool.',
+      'of each tool. A card’s ring lights up and sweeps while its tool is still working in the background.',
   },
   {
     // Nova from the first paper on (v9.0.0, Patrick): the launcher is
