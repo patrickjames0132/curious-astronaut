@@ -8,7 +8,9 @@ gallery of launchers: an icon tile, a title and a one-line description.
 
 ```
 tools/
-  ToolCards.tsx — the home: paper header + cards; fetches a missing paper once
+  ToolCards.tsx — the home: paper header + cards; fetches a missing paper once;
+                  spins a card whose tool is busy in the background
+  busy.ts       — the tools' work in flight, by key, for those spinners
   ScrollNav.tsx — the button over a scrolling tool's page (the Reader,
                   Criticisms): the ↑ at the top (or the way back, when
                   opened from another tool), Back to top below, and
@@ -79,6 +81,51 @@ until 5b's review: titles run long, and "up" is where the cards are. **Nothing i
 opened.** The page exists so that opening a paper costs one lookup, not a graph
 build.
 
+## A spinner on a card whose tool is still working (Patrick, 2026-11-06)
+
+Leave a tool mid-load and come back up, and its card says it's still at it
+until the work lands, two ways (Patrick's call at review, 2026-11-17):
+
+- **The working ring**: the composer's (`teacher.css`'s
+  `.teacher-ask.is-working`), in the card's own accent: its border lit, with
+  faint white streaks sweeping round it (`.tool-card.is-working`, its own
+  `--card-sweep` angle). It's the app's existing "I'm on it", seen from across
+  the page. Under reduced motion the ring stays lit and nothing sweeps.
+- **A pill in the top-right corner** naming the work (`ToolCard.working`:
+  Building, Writing, Reading, Gathering) beside a small `.spin` in the accent,
+  `role="status"`. The ring alone might be missed, and a word says *what* is
+  happening where a bare spinner can't. A first cut put a bare spinner at
+  the end of the title's row, where it read as part of the title.
+
+What counts as "working", per tool:
+
+- **Citation Graph**: the build, `workspace.loading`. The ↑ back to the
+  cards stays live over a build (`.tool-nav.over-scrim`, z-index 16, between
+  the build's scrim at 15 and its card at 20). Until then the scrim covered
+  it, so it looked disabled, and there was no way out of a build but to wait. The workspace is always
+  the active thread's, and the cards only show for the active thread. The
+  full "Building graph…" card and its scrim stay off the cards (`App.tsx`):
+  `openTool` switches to the graph before it builds, so they're only skipped
+  for a build the reader has walked away from.
+- **Knowledge Graph**: any lesson, refit or breakdown for this thread, held in
+  `busy.ts` under `knowledge:<thread id>:` (see `knowledge/README.md`).
+- **Criticisms**: its gather for this paper, under `reviews:<paper id>:`, the
+  same id it gathers for (`thread.paper`, else the graph's seed).
+- **Reader**: while it reads the paper in (Patrick, at review), under
+  `reader:<ref>:` by `reader/askReader`'s `documentRef`. It used to abort the
+  fetch on leaving, so there was nothing to show; the read is now shared at
+  module level (`Reader.tsx`'s `readDocument`), so it finishes, and coming
+  back joins it. Often too quick to notice, which is fine.
+
+**Why a registry, not Redux.** Two of the three already kept their in-flight
+work at module level (the lessons' `IN_FLIGHT`, Criticisms' `GATHERED`), because
+it has to outlive the component, but nothing re-rendered the cards when it
+changed. `busy.ts` is a counted key map with a `useSyncExternalStore`
+subscription: `markBusy(key)` returns a release, and `trackBusy(key, promise)`
+holds a key while a request is out. Counted, so a "Try again" overlapping the
+first request keeps the key held until both end. Keys end in `:` so one id
+can't be a prefix of another (`W12` vs `W123`).
+
 ## The scroll between the cards and a tool
 
 The cards sit "above" the tools. Going back up, the cards come down from the
@@ -111,8 +158,9 @@ mounted through the move would cost more than the effect is worth.
 
 ## Verified by
 
-`test/tools/ToolCards.test.tsx` covers the header, the four cards and the
-one-time fetch. `test/store/threads.test.ts` ("card home") covers the
+`test/tools/ToolCards.test.tsx` covers the header, the four cards, the
+one-time fetch and the spinners (on for this thread's and paper's work, off
+for another's); `test/tools/busy.test.ts` the registry's counting and prefixes. `test/store/threads.test.ts` ("card home") covers the
 navigation underneath: opening onto cards without a build, building in place
 without a twin thread, resuming on the last tool, opening from the rail onto
 the cards without a rebuild, and saving `tool`/`paper`. `ScrollNav` is

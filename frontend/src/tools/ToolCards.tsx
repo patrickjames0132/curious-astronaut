@@ -14,9 +14,11 @@
 
 import { useEffect, type ReactNode } from 'react'
 import { fetchPaperDetail, type PaperDetails } from '../api'
-import { useAppDispatch } from '../store'
+import { useAppDispatch, useAppSelector } from '../store'
 import { threadPaperSet, type ThreadRecord, type ThreadTool } from '../store/explorations'
+import { documentRef } from '../reader/askReader'
 import AuthorList from '../ui/AuthorList'
+import { useBusy } from './busy'
 import './tools.css'
 
 /** One card on the home: what it opens and how it introduces itself. */
@@ -24,6 +26,8 @@ interface ToolCard {
   tool: Exclude<ThreadTool, 'cards'>
   title: string
   blurb: string
+  /** What its corner says while it works in the background. */
+  working: string
   icon: ReactNode
   /** Shown but not yet openable — its tool hasn't shipped. */
   soon?: boolean
@@ -97,6 +101,7 @@ function QuoteIcon() {
 const CARDS: ToolCard[] = [
   {
     tool: 'graph',
+    working: 'Building',
     title: 'Citation Graph',
     blurb:
       'The papers it built on and the papers it spawned, with a teacher to narrate ' +
@@ -105,6 +110,7 @@ const CARDS: ToolCard[] = [
   },
   {
     tool: 'knowledge',
+    working: 'Writing',
     title: 'Knowledge Graph',
     blurb:
       'A short course on what you need to know first: the ideas this paper rests on, ' +
@@ -113,6 +119,7 @@ const CARDS: ToolCard[] = [
   },
   {
     tool: 'reader',
+    working: 'Reading',
     title: 'Reader',
     blurb:
       'The paper itself, section by section, with its equations typeset and every ' +
@@ -121,6 +128,7 @@ const CARDS: ToolCard[] = [
   },
   {
     tool: 'reviews',
+    working: 'Gathering',
     title: 'Criticisms',
     blurb:
       'What the field objected to: the weaknesses later papers found, each quoted from ' +
@@ -170,6 +178,25 @@ export default function ToolCards({
   const paper: Partial<PaperDetails> = thread.paper ?? {}
   const summary = paper.tldr || paper.abstract
 
+  // A spinner on each card whose tool is still working in the background
+  // (Patrick, 2026-11-06). The graph's build is a thunk on the workspace,
+  // which is this (the active) thread's; the Knowledge Graph's breakdowns
+  // and lessons and Criticisms' gathering register in `./busy`, Criticisms
+  // by the same paper id it gathers for; the Reader's reading-in of the
+  // paper, by the ref it reads by (`documentRef`).
+  const building = useAppSelector((state) => state.workspace.loading)
+  const learning = useBusy(`knowledge:${thread.id}:`)
+  const reviewedId = thread.paper?.id ?? thread.data.graph_ref?.seed.id
+  const gathering = useBusy(reviewedId ? `reviews:${reviewedId}:` : null)
+  const readRef = documentRef(thread)
+  const reading = useBusy(readRef ? `reader:${readRef}:` : null)
+  const busy: Record<ToolCard['tool'], boolean> = {
+    graph: building,
+    knowledge: learning,
+    reader: reading,
+    reviews: gathering,
+  }
+
   return (
     <div className="tool-home" data-tour="tool-home">
       <div className="tool-home-inner">
@@ -194,7 +221,7 @@ export default function ToolCards({
             <button
               key={card.tool}
               type="button"
-              className={`tool-card tool-card-${card.tool}`}
+              className={`tool-card tool-card-${card.tool}${busy[card.tool] ? ' is-working' : ''}`}
               disabled={card.soon}
               onClick={() => onOpen(card.tool)}
               title={
@@ -205,6 +232,17 @@ export default function ToolCards({
                 <span className="tool-card-icon">{card.icon}</span>
                 <span className="tool-card-title">{card.title}</span>
                 {card.soon && <span className="tool-card-soon">Coming soon</span>}
+                {busy[card.tool] && (
+                  <span
+                    className="tool-card-status"
+                    role="status"
+                    aria-label={`${card.title}: still working`}
+                    title="Still working in the background"
+                  >
+                    <span className="spin" aria-hidden="true" />
+                    {card.working}
+                  </span>
+                )}
               </span>
               <span className="tool-card-blurb">{card.blurb}</span>
             </button>

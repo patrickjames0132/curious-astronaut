@@ -238,3 +238,29 @@ it('opens the dock when the full-screen chat takes the reader to a paper (v9.0.0
   })
   expect(screen.getByTestId('teacher').dataset.collapsed).toBe('false')
 })
+
+it('keeps the ↑ live over a build, and leaves the build off the cards', async () => {
+  const store = configureStore({ reducer: { workspace, transcript, explorations } })
+  render(
+    <Provider store={store}>
+      <App />
+    </Provider>,
+  )
+  await act(async () => {
+    await store.dispatch(loadGraph({ seed: 'paper' }))
+    await store.dispatch(openTool('knowledge'))
+  })
+  // A build under way (a rebuild, say): its card and scrim over the tool.
+  act(() => {
+    store.dispatch({ type: 'workspace/loadGraph/pending', meta: { requestId: 'r', arg: {} } })
+  })
+  expect(screen.getByText('Building graph…')).toBeTruthy()
+  const back = screen.getByRole('button', { name: 'Back to this paper’s cards' })
+  // Above the scrim, so it can be clicked (it sat under it, looking disabled).
+  expect(back.closest('.tool-nav')?.classList.contains('over-scrim')).toBe(true)
+  fireEvent.click(back)
+  await screen.findByTestId('cards')
+  // On the cards, the build is its card's ring, not a card over them.
+  expect(screen.queryByText('Building graph…')).toBeNull()
+  expect(document.querySelector('.canvas-scrim')).toBeNull()
+})

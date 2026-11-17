@@ -94,6 +94,7 @@ import {
 } from './links'
 import { readerSelectionText, selectionSource } from './selectionText'
 import './reader.css'
+import { trackBusy } from '../tools/busy'
 
 /** Sections deeper than this (paragraph headings) stay out of the contents. */
 const CONTENTS_DEPTH = 3
@@ -105,6 +106,35 @@ const HEADING_ROOM = 24
 /** What a box with no words in it (a figure) is quoted as: the model sees
  *  its picture. */
 const BOXED_AREA = 'the boxed area, pictured'
+
+/**
+ * Papers being read in, by ref. Module-level so leaving the Reader mid-load
+ * lets the request finish (the card home spins for it, `tools/busy.ts`) and
+ * coming back joins it instead of asking again. Only while in flight: a
+ * settled read is forgotten, so "Try again" asks afresh.
+ */
+const READING = new Map<string, Promise<ReaderDocument>>()
+
+/**
+ * Read a paper's document in, once at a time.
+ *
+ * @param ref The paper's document ref (`documentRef`).
+ * @returns The document, or why there isn't one; never a throw.
+ */
+function readDocument(ref: string): Promise<ReaderDocument> {
+  const known = READING.get(ref)
+  if (known) return known
+  const request = trackBusy(
+    `reader:${ref}:`,
+    fetchDocument(ref).catch((error: unknown): ReaderDocument => {
+      console.warn('[reader] document fetch failed', error)
+      return { available: false, reason: 'error' }
+    }),
+  )
+  READING.set(ref, request)
+  void request.finally(() => READING.delete(ref))
+  return request
+}
 
 /** Where the last jump landed, marked until the reader moves on. */
 let landed: { element: Element; release: () => void } | null = null
@@ -347,17 +377,17 @@ export default function Reader({
       setDoc({ available: false, reason: 'not_arxiv' })
       return
     }
-    const controller = new AbortController()
+    // Not aborted on leaving: the request finishes for the card home's
+    // spinner and the next visit (`readDocument`); this mount just stops
+    // listening.
+    let cancelled = false
     setDoc(null)
-    fetchDocument(ref, controller.signal)
-      .then(setDoc)
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          console.warn('[reader] document fetch failed', error)
-          setDoc({ available: false, reason: 'error' })
-        }
-      })
-    return () => controller.abort()
+    void readDocument(ref).then((document) => {
+      if (!cancelled) setDoc(document)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [ref, attempt])
 
   // Text or PDF: the thread's choice when there's a text to choose; the PDF

@@ -42,6 +42,7 @@ import { openPaper, showCiterInGraph } from '../store/workspace'
 import ScrollNav, { useAtTop } from '../tools/ScrollNav'
 import { takeFocus } from './focus'
 import './criticisms.css'
+import { trackBusy } from '../tools/busy'
 
 /** Quotes a criticism shows before "Show all". */
 const QUOTES_SHOWN = 3
@@ -81,7 +82,8 @@ const GATHERED = new Map<string, Promise<CriticismsCard>>()
 function gather(paper: CriticisedPaper, fresh: boolean) {
   const known = GATHERED.get(paper.id)
   if (known && !fresh) return known
-  const request = fetchCriticisms(paper, fresh)
+  // Held busy for the card home's spinner, since leaving doesn't stop it.
+  const request = trackBusy(`reviews:${paper.id}:`, fetchCriticisms(paper, fresh))
   GATHERED.set(paper.id, request)
   // A failure isn't remembered, so "Try again" asks again.
   request.catch(() => GATHERED.delete(paper.id))

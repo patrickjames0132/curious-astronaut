@@ -298,6 +298,16 @@ stay lit until something else is chosen.
     never could. Places need no page drawn, so going
     to one is a plain scroll.
 
+## Reading the paper in outlives the Reader
+
+The document fetch (`fetchDocument`) goes through `readDocument`, a
+module-level map of reads in flight by ref, and isn't aborted when the
+Reader unmounts: going back up to the cards mid-load lets it finish (the
+card home's Reader card shows it as working, `tools/busy.ts`'s
+`reader:<ref>:`), and coming back joins the same request. A settled read is
+dropped from the map, so **Try again** asks afresh. Until then each mount
+aborted its own fetch, and a return started over.
+
 ## The citation cards (v8.43.0)
 
 - **Hover previews, a click pins** (Patrick, 2026-10-24). The card shows

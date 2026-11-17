@@ -99,6 +99,7 @@ import {
 } from './model'
 import { useLessons } from './useLessons'
 import './knowledge.css'
+import { trackBusy } from '../tools/busy'
 
 /** three.js only loads when someone flips to 3D. */
 const KnowledgeGraph3D = lazy(() => import('./KnowledgeGraph3D'))
@@ -354,16 +355,20 @@ export default function KnowledgeNetwork({
       }
       setExpanding((previous) => (previous.has(nodeId) ? previous : new Set(previous).add(nodeId)))
       setFailed(({ [nodeId]: _dropped, ...rest }) => rest)
-      expandKnowledge({
-        item: {
-          ...stepOf(node),
-          ...(node.paper ? { paper_id: node.paper.id } : {}),
-        },
-        path: tutorPath(current, nodeId),
-        existing: courseNames(current),
-        provider,
-        ...(again && { fresh: true }),
-      })
+      // Held busy for the card home's spinner, which outlives this surface.
+      trackBusy(
+        `knowledge:${threadId}:expand:${nodeId}`,
+        expandKnowledge({
+          item: {
+            ...stepOf(node),
+            ...(node.paper ? { paper_id: node.paper.id } : {}),
+          },
+          path: tutorPath(current, nodeId),
+          existing: courseNames(current),
+          provider,
+          ...(again && { fresh: true }),
+        }),
+      )
         .then((found) => dispatch(knowledgeExpanded({ threadId, nodeId, children: found, again })))
         .catch((error: unknown) =>
           setFailed((previous) => ({

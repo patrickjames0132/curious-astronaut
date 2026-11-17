@@ -80,6 +80,10 @@ recent conversation rather than the field's verdict.
 Gathered cards live in a module-level map for the session, by paper id, so
 leaving the card mid-gather and coming back joins the same request.
 
+**A gather in flight holds the card home's spinner** (`tools/busy.ts`,
+`reviews:<paper id>:`): leaving mid-gather doesn't stop the request, so the
+Criticisms card spins until it lands (Patrick, 2026-11-06).
+
 ## The ways to a citing paper
 
 Under each quote, the citing paper's title, year and citations, and:

@@ -329,7 +329,10 @@ export default function App() {
           top below it (Patrick: a lone ↑ floating over a scrolled page read
           as "back to the top"). */}
       {paperThread && tool !== 'cards' && tool !== 'reader' && tool !== 'reviews' && (
-        <div className="tool-nav">
+        // Over the build's scrim while one runs: going back up mid-build is
+        // the point now that the card shows it working (it sat under the
+        // scrim until then, and looked disabled).
+        <div className={`tool-nav${loading ? ' over-scrim' : ''}`}>
           {/* Where a tool was opened from another for one thing (a concept's
               lesson from the Reader, a citing paper from Criticisms), the
               way back takes the ↑'s place (v8.44.0, Patrick: the two side by
@@ -359,7 +362,11 @@ export default function App() {
           )}
         </div>
       )}
-      {(loading || openRequestId || error) && <div className="canvas-scrim" />}
+      {/* A build left running in the background (the reader went back up to
+          the cards) shows as its card's spinner, not over the cards. */}
+      {((loading && tool !== 'cards') || openRequestId || error) && (
+        <div className="canvas-scrim" />
+      )}
       {openRequestId && !loading && (
         <div className="overlay overlay-card">
           <div className="overlay-loading">
@@ -367,7 +374,7 @@ export default function App() {
           </div>
         </div>
       )}
-      {loading && (
+      {loading && tool !== 'cards' && (
         <div className="overlay overlay-card">
           <div className="overlay-loading">
             <span className="spin" /> {buildProgress?.label ?? 'Building graph…'}
